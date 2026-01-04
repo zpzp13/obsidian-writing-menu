@@ -1,0 +1,10 @@
+{
+	"id": "writing-menu",
+	"name": "Writing Menu",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "Customize editor formatting (font, line spacing, paragraph spacing, indentation, font size) and line width with background color from the toolbar.",
+	"author": "Your Name",
+	"authorUrl": "",
+	"isDesktopOnly": true
+}
