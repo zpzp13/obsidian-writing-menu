@@ -1,0 +1,1579 @@
+﻿/* Writing Menu Plugin Styles */
+
+.writing-menu-dropdown label { line-height: 1; display: flex; align-items: center; }
+
+/* ── Menu Navigation Cards ── */
+.wm-menu-nav-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 8px;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background 0.1s;
+    margin: 1px -2px;
+}
+.wm-menu-nav-card:hover { background: var(--background-modifier-hover); }
+.wm-menu-nav-icon { display: flex; align-items: center; justify-content: center; color: var(--interactive-accent); flex-shrink: 0; width: 18px; height: 18px; }
+.wm-menu-nav-icon svg { width: 15px; height: 15px; }
+.wm-menu-nav-body { flex: 1; min-width: 0; }
+.wm-menu-nav-title { font-size: 13px; font-weight: 600; color: var(--interactive-accent); line-height: 1.3; }
+.wm-menu-nav-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wm-menu-nav-chevron { display: flex; align-items: center; color: var(--text-faint); flex-shrink: 0; }
+.wm-menu-nav-chevron svg { width: 13px; height: 13px; }
+
+/* ── Menu Sub-page Back Button ── */
+.wm-menu-back-btn { display: flex; align-items: center; gap: 5px; cursor: pointer; color: var(--text-muted); font-size: 13px; font-weight: 600; padding: 2px 4px 2px; }
+.wm-menu-back-btn:hover { color: var(--interactive-accent); }
+.wm-menu-back-btn span:first-child { display: flex; align-items: center; }
+.wm-menu-back-btn svg { width: 15px; height: 15px; }
+
+/* ── Settings Group Box (wraps nav cards or setting items) ── */
+.wm-settings-group-box { border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m, 8px); background: var(--background-primary); overflow: hidden; margin-bottom: 16px; }
+
+/* Nav cards inside group box — remove individual borders, use dividers */
+.wm-settings-group-box .wm-settings-nav-card { border: none; border-radius: 0; margin-bottom: 0; border-top: 1px solid var(--background-modifier-border); transition: background 0.1s; }
+.wm-settings-group-box .wm-settings-nav-card:first-child { border-top: none; }
+.wm-settings-group-box .wm-settings-nav-card:hover { border-color: var(--background-modifier-border); background: var(--background-modifier-hover); }
+
+/* Setting items inside group box — uniform height matching nav cards, no radius, dividers only */
+.wm-settings-group-box .setting-item { background: transparent !important; border-radius: 0 !important; border-top: 1px solid var(--background-modifier-border) !important; border-bottom: none !important; padding-top: 14px !important; padding-bottom: 14px !important; margin: 0 !important; }
+.wm-settings-group-box .setting-item:first-child { border-top: none !important; }
+.wm-settings-group-box .setting-item-description { display: none !important; }
+
+/* ── Settings Navigation Cards (standalone, outside group box) ── */
+.wm-settings-nav-card { display: flex; align-items: center; padding: 14px 16px; cursor: pointer; border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m, 8px); background: var(--background-primary); margin-bottom: 8px; gap: 14px; transition: background 0.1s, border-color 0.1s; }
+.wm-settings-nav-card:hover { background: var(--background-modifier-hover); border-color: var(--interactive-accent); }
+.wm-settings-nav-card-icon { display: flex; align-items: center; justify-content: center; color: var(--interactive-accent); flex-shrink: 0; width: 24px; height: 24px; }
+.wm-settings-nav-card-icon svg { width: 18px; height: 18px; }
+.wm-settings-nav-card-body { flex: 1; min-width: 0; }
+.wm-settings-nav-card-title { font-size: 14px; font-weight: 600; color: var(--interactive-accent); line-height: 1.3; }
+.wm-settings-nav-card-desc { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+.wm-settings-nav-card-chevron { display: flex; align-items: center; color: var(--text-faint); flex-shrink: 0; }
+.wm-settings-nav-card-chevron svg { width: 16px; height: 16px; }
+
+/* ── Settings Group Title ── */
+.wm-settings-group-title { font-size: 13px; font-weight: 600; color: var(--text-muted); letter-spacing: 0; margin: 20px 0 8px 4px; }
+.wm-settings-group-title:first-child { margin-top: 4px; }
+
+/* ── Settings Sub-page Back Button ── */
+.wm-settings-back-btn { display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text-muted); font-size: 14px; font-weight: 600; margin-bottom: 16px; padding: 4px 0; }
+.wm-settings-back-btn:hover { color: var(--interactive-accent); }
+.wm-settings-back-btn span:first-child { display: flex; align-items: center; }
+.wm-settings-back-btn svg { width: 18px; height: 18px; }
+
+/* Dropdown Container */
+.writing-menu-dropdown {
+    position: fixed;
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    padding: 8px;
+    z-index: 1000;
+    min-width: 270px !important;
+    width: 270px !important;
+    max-height: 500px;
+    /* Increased to reduce scroll need */
+    overflow-y: auto;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* Controls */
+.writing-menu-control {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: 40px;
+    padding: 0 8px;
+    margin-bottom: 0 !important;
+}
+
+.writing-menu-control label {
+    font-size: 13px;
+    color: var(--text-normal);
+    flex-shrink: 0;
+    line-height: 1;
+    margin: 0;
+    padding: 0;
+}
+
+/* Label Group for Icon + Label */
+.writing-menu-control-label-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-grow: 1;
+}
+
+/* Group of controls (e.g. Buttons, Color Inputs) */
+.writing-menu-control-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Specific Gap variations if needed, or just unify to 6px */
+
+/* Input & Select Styling - Transparent Backgrounds */
+.writing-menu-control input,
+.writing-menu-control select {
+    background-color: transparent !important;
+    border: 1px solid transparent !important;
+    /* Keep minimal */
+    color: var(--text-normal);
+    caret-color: var(--text-accent) !important;
+    /* User request: match text color */
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+
+/* Color Input Swatch Fixes */
+.writing-menu-control input[type="color"] {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+    min-height: 28px !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    cursor: pointer;
+    flex-shrink: 0 !important;
+    box-sizing: border-box !important;
+    border-radius: 0 !important;
+    /* Strictly Square Container */
+}
+
+.writing-menu-control input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0 !important;
+    display: block !important;
+    /* Ensure it fills block */
+    width: 100% !important;
+    height: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.writing-menu-control input[type="color"]::-webkit-color-swatch {
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    border-radius: 50% !important;
+    /* Circular Swatch */
+    transition: transform 0.1s ease;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* Helper for controls needing zero padding container */
+.writing-menu-no-padding {
+    padding: 0 !important;
+}
+
+/* Text Input Default Width */
+.writing-menu-control input[type="text"] {
+    width: 100px;
+    text-align: right;
+    padding: 0 !important;
+}
+
+.writing-menu-control input:focus,
+.writing-menu-control select:focus {
+    background-color: transparent !important;
+    box-shadow: none !important;
+    /* Optional: cleaner look */
+}
+
+.writing-menu-control input[type="number"] {
+    width: 50px !important;
+    text-align: center;
+}
+
+.writing-menu-control select {
+    max-width: 100px;
+    padding: 0 !important;
+    text-align: right;
+}
+
+/* Fix option background in dark mode */
+.writing-menu-control select option {
+    background-color: var(--background-primary);
+    color: var(--text-normal);
+}
+
+/* Clickable Icons */
+.writing-menu-control .clickable-icon {
+    color: var(--text-muted);
+    cursor: pointer;
+    width: 30px !important;
+    height: 30px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.1s;
+}
+
+.writing-menu-control .clickable-icon:hover {
+    color: var(--text-normal);
+}
+
+/* Checkbox / Toggle Switch */
+.writing-menu-control .checkbox-container {
+    position: relative;
+    display: inline-block;
+    width: 34px;
+    height: 20px;
+    background-color: var(--background-modifier-border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.writing-menu-control .checkbox-container::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background-color: var(--background-primary);
+    border-radius: 50%;
+    transition: transform 0.2s;
+}
+
+.writing-menu-control .checkbox-container.is-enabled {
+    background-color: var(--interactive-accent);
+}
+
+.writing-menu-control .checkbox-container.is-enabled::before {
+    transform: translateX(14px);
+}
+
+/* Character Count in Toolbar */
+.writing-menu-char-count {
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 0 8px;
+    display: flex;
+    align-items: center;
+}
+
+/* UI Structure Helpers */
+.writing-menu-separator {
+    height: 1px;
+    background: var(--background-modifier-border);
+    margin: 4px 0;
+    width: 100%;
+}
+
+.writing-menu-nested {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 20px !important;
+    box-sizing: border-box !important;
+}
+
+/* Remove CSS-based symbol, use real icon */
+.writing-menu-nested>label::before {
+    display: none;
+}
+
+.writing-menu-icon {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.writing-menu-icon svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+    vertical-align: middle;
+}
+
+.writing-menu-nested>label,
+.writing-menu-nested>.writing-menu-control-label-group {
+    padding-left: 0;
+}
+
+.writing-menu-hidden {
+    display: none !important;
+}
+
+/* Settings Button in Dropdown */
+.writing-menu-settings-btn {
+    justify-content: center;
+    cursor: pointer;
+    margin-top: 4px;
+    border-top: 1px solid var(--background-modifier-border);
+    color: var(--text-accent);
+}
+
+/* Focus Mode Styles */
+body.writing-menu-focus-enabled .cm-line.writing-menu-dimmed-line {
+    opacity: var(--writing-menu-focus-opacity, 0.25) !important;
+}
+
+body.writing-menu-focus-enabled .cm-line.writing-menu-dimmed-line * {
+    opacity: 1 !important;
+}
+
+/* Apply dimming to horizontal rule - target non-active hr lines */
+body.writing-menu-focus-enabled .hr.cm-line:not(.cm-activeLine) {
+    opacity: var(--writing-menu-focus-opacity, 0.25) !important;
+}
+
+/* Typewriter Scrolling Styles */
+.writing-menu-typewriter-active .cm-scroller {
+    padding-bottom: 80vh !important;
+}
+
+/* Dark Mode: Outline Plugin Heading Selection Visibility */
+body.theme-dark [data-writing-menu-id] .cm-active.cm-header-1,
+body.theme-dark [data-writing-menu-id] .cm-active.cm-header-2,
+body.theme-dark [data-writing-menu-id] .cm-active.cm-header-3,
+body.theme-dark [data-writing-menu-id] .cm-active.cm-header-4,
+body.theme-dark [data-writing-menu-id] .cm-active.cm-header-5,
+body.theme-dark [data-writing-menu-id] .cm-active.cm-header-6,
+body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-1,
+body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-2,
+body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-3,
+body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-4,
+body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-5,
+body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
+    color: inherit !important;
+    background-color: var(--background-modifier-active-hover) !important;
+}
+
+/* Selection Visibility for Writing Menu Scoped Elements */
+[data-writing-menu-id] .cm-selectionBackground,
+[data-writing-menu-id] ::selection {
+    background-color: var(--text-selection) !important;
+}
+
+/* Custom Text Button Styles for Export & Mode Buttons */
+.writing-menu-text-btn {
+    display: flex !important;
+    align-items: center !important;
+    cursor: pointer !important;
+    font-size: 12px !important;
+    color: var(--text-muted) !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border: none !important;
+}
+
+.writing-menu-text-btn.is-active {
+    color: var(--text-accent) !important;
+}
+
+/* ── Mobile Preview Floating Window (300px — original phone frame size) ── */
+.wm-float-preview {
+    position: fixed;
+    z-index: 9999;
+    width: 300px;
+    border-radius: 38px;
+    overflow: hidden;
+    box-shadow:
+        0 8px 28px rgba(0, 0, 0, 0.28),
+        0 0 0 1px rgba(255, 255, 255, 0.06),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    display: flex;
+    flex-direction: column;
+    user-select: none;
+}
+
+/* ── Top / bottom notch (44px) ── */
+.wm-float-top-notch,
+.wm-float-bottom-notch {
+    height: 44px;
+    flex-shrink: 0;
+    position: relative;
+    background: color-mix(in srgb, var(--background-secondary) 85%, var(--background-modifier-border) 15%);
+    cursor: grab;
+}
+
+.wm-float-top-notch { border-bottom: 1.5px solid var(--background-modifier-border); }
+.wm-float-bottom-notch { border-top: 1.5px solid var(--background-modifier-border); }
+
+.wm-float-top-notch:active,
+.wm-float-bottom-notch:active { cursor: grabbing; }
+
+/* Top menu: always visible (title always shown), only buttons fade in */
+.wm-float-top-menu {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: 40px 1fr 40px;
+    align-items: center;
+    padding: 0 6px;
+    pointer-events: auto;
+}
+
+/* Bottom menu: entirely hidden until hover */
+.wm-float-bottom-menu {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    align-items: center;
+    padding: 0 6px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+}
+
+.wm-float-bottom-notch:hover .wm-float-bottom-menu {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.wm-float-notch-col {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-width: 0;
+}
+
+/* Note title — always visible */
+.wm-float-note-title {
+    font-size: 14px;
+    color: var(--text-normal);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+    font-weight: 500;
+    transition: color 0.1s ease;
+}
+
+.wm-float-notch-center:hover .wm-float-note-title {
+    color: var(--interactive-accent);
+}
+
+/* Notch buttons: hidden by default in top notch, revealed on hover */
+.wm-float-top-notch .wm-float-notch-btn {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease, color 0.1s ease;
+}
+
+.wm-float-top-notch:hover .wm-float-notch-btn {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Unified notch button */
+.wm-float-notch-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    background: transparent !important;
+    border-radius: 4px;
+    transition: color 0.1s ease;
+}
+.wm-float-notch-btn:hover { color: var(--interactive-accent) !important; background: transparent !important; }
+.wm-float-notch-btn svg { width: 16px; height: 16px; }
+
+/* Minimized state: collapse to just top notch */
+.wm-float-preview.is-minimized .wm-float-content,
+.wm-float-preview.is-minimized .wm-float-bottom-notch {
+    display: none;
+}
+
+.wm-float-preview.is-minimized {
+    border-radius: 22px;
+}
+
+.wm-float-preview.is-minimized .wm-float-top-notch {
+    border-bottom: none;
+}
+
+/* Always show top buttons when minimized */
+.wm-float-preview.is-minimized .wm-float-top-notch .wm-float-notch-btn {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* ── Content area ── */
+.wm-float-content {
+    height: 560px;
+    overflow-y: auto;
+    padding: 16px 14px 20px;
+    background: var(--background-primary);
+    scrollbar-width: none;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    text-align: justify;
+}
+.wm-float-content::-webkit-scrollbar { display: none; }
+.wm-float-content p { margin-bottom: var(--wm-preview-para, 1em); text-align: justify; }
+.wm-float-content p + p { text-indent: var(--wm-preview-indent, 0); }
+.wm-float-content h1, .wm-float-content h2, .wm-float-content h3,
+.wm-float-content h4, .wm-float-content h5, .wm-float-content h6 { text-align: left; }
+
+/* ── Preview settings dropdown ── */
+.wm-preview-dropdown {
+    z-index: 10000;
+}
+
+.wm-preview-empty {
+    color: var(--text-muted);
+    text-align: center;
+    margin-top: 40px;
+    font-size: 13px;
+}
+
+/* Double-click highlight flash */
+@keyframes wm-highlight-flash {
+    0%   { background-color: var(--text-selection); }
+    60%  { background-color: var(--text-selection); }
+    100% { background-color: transparent; }
+}
+.wm-float-content .wm-preview-highlight {
+    animation: wm-highlight-flash 1.8s ease forwards;
+    border-radius: 2px;
+}
+
+/* Search highlight — fix mix-blend-mode, preserve theme accent color */
+.workspace-leaf [data-writing-menu-id] .obsidian-search-match-highlight {
+    mix-blend-mode: normal !important;
+    background: color-mix(in srgb, var(--text-accent) 45%, transparent) !important;
+    background-color: color-mix(in srgb, var(--text-accent) 45%, transparent) !important;
+    box-shadow: none !important;
+    border-radius: 2px !important;
+}
+.workspace-leaf [data-writing-menu-id] .cm-searchMatch {
+    background: color-mix(in srgb, var(--text-accent) 55%, transparent) !important;
+    background-color: color-mix(in srgb, var(--text-accent) 55%, transparent) !important;
+    border-radius: 2px !important;
+}
+.workspace-leaf [data-writing-menu-id] .cm-searchMatch-selected {
+    background: color-mix(in srgb, var(--text-accent) 80%, transparent) !important;
+    background-color: color-mix(in srgb, var(--text-accent) 80%, transparent) !important;
+}
+
+/* ============================================================
+   Calendar View  (wm-cal-*)
+   ============================================================ */
+
+.wm-cal-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: var(--background-secondary);
+}
+
+.wm-cal-wrapper {
+    width: 100%;
+    max-width: 420px;
+    box-sizing: border-box;
+}
+
+/* ── Top bar ── */
+.wm-cal-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 12px 10px;
+    min-width: 0;
+}
+
+.wm-cal-topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* Date display: uses Obsidian interface font. Click → go to today. */
+.wm-cal-date-display {
+    font-family: var(--font-interface, var(--font-ui-small, system-ui, sans-serif));
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-normal);
+    letter-spacing: 0.01em;
+    user-select: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+    min-width: 0;
+    flex-shrink: 1;
+    opacity: 0.88;
+    cursor: pointer;
+}
+.wm-cal-date-display:hover { opacity: 1; }
+
+.wm-cal-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    margin-top: -1px;   /* nudge icons up 1px */
+}
+
+/* Shared icon button — no background, no border, uniform size */
+.wm-cal-icon-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    user-select: none;
+    opacity: 0.72;
+}
+.wm-cal-icon-btn:hover { color: var(--text-normal); opacity: 1; }
+/* Force all icons to the same rendered size so chevron ≡ search ≡ others */
+.wm-cal-icon-btn svg   { width: 16px; height: 16px; }
+
+/* ── Month scroller ── */
+.wm-cal-month-scroll {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 4px 0 14px;
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(to right, transparent 0, black 52px, black calc(100% - 52px), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, black 52px, black calc(100% - 52px), transparent 100%);
+}
+.wm-cal-month-scroll::-webkit-scrollbar { display: none; }
+
+.wm-cal-ms-month {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-faint);
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding: 4px 13px;
+    border-radius: 6px;
+    user-select: none;
+    transition: color 0.15s;
+}
+.wm-cal-ms-month:hover { color: var(--text-muted); }
+
+/* Callout style: light accent bg + accent text */
+.wm-cal-ms-curr {
+    background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+    color: var(--interactive-accent) !important;
+    font-weight: 600;
+}
+.wm-cal-ms-curr:hover { color: var(--interactive-accent); }
+
+/* ── Date strip (한 줄 mode) ── */
+/* Wrapper: fixed side margins — never scroll away */
+.wm-cal-date-strip-wrap {
+    margin: 0 16px;
+    overflow: hidden;
+}
+
+.wm-cal-date-strip {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding: 0 0 14px;
+    scrollbar-width: none;
+}
+.wm-cal-date-strip::-webkit-scrollbar { display: none; }
+
+/* Date card — diagonal layout: dow top-left, num bottom-right */
+.wm-cal-date-card {
+    flex-shrink: 0;
+    position: relative;
+    box-sizing: border-box;
+    width: 36px;
+    height: 40px;
+    border-radius: 9px;
+    border: 2px solid transparent;
+    background: color-mix(in srgb, var(--background-modifier-form-field) 60%, var(--background-secondary) 40%);
+    cursor: pointer;
+    user-select: none;
+    transition: opacity 0.15s;
+}
+.wm-cal-date-card:hover {
+    background: var(--background-modifier-hover);
+}
+/* Non-active-month cards are dimmed */
+.wm-cal-date-card.wm-cal-dc-dim {
+    opacity: 0.3;
+}
+
+.wm-cal-dc-dow {
+    position: absolute;
+    top: 4px;
+    left: 5px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-faint);
+    letter-spacing: 0.03em;
+    line-height: 1;
+    pointer-events: none;
+}
+
+.wm-cal-dc-num {
+    position: absolute;
+    bottom: 4px;
+    right: 5px;
+    font-size: 14px;
+    font-weight: 700;
+    color: color-mix(in srgb, var(--text-normal) 80%, transparent);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+}
+
+.wm-cal-date-card.wm-cal-dc-today {
+    border-color: transparent;
+    opacity: 1;
+}
+.theme-light .wm-cal-date-card.wm-cal-dc-today {
+    background: color-mix(in srgb, var(--interactive-accent) 82%, var(--background-primary));
+}
+.theme-dark .wm-cal-date-card.wm-cal-dc-today {
+    background: color-mix(in srgb, var(--interactive-accent) 72%, var(--background-secondary));
+}
+.wm-cal-dc-today .wm-cal-dc-dow { color: color-mix(in srgb, var(--text-on-accent) 45%, transparent); }
+.wm-cal-dc-today .wm-cal-dc-num { color: color-mix(in srgb, var(--text-on-accent) 78%, transparent); }
+
+/* Border replaces inset box-shadow — background stays within border-radius */
+.wm-cal-date-card.wm-cal-dc-selected {
+    border-color: var(--interactive-accent);
+    background: color-mix(in srgb, var(--interactive-accent) 10%, var(--background-modifier-form-field));
+    opacity: 1;
+}
+.wm-cal-dc-selected .wm-cal-dc-num { color: var(--interactive-accent); }
+
+/* Weekend */
+.theme-light { --wm-weekend: #c04848; }
+.theme-dark  { --wm-weekend: #e06060; }
+.wm-cal-dc-weekend .wm-cal-dc-dow { color: color-mix(in srgb, var(--wm-weekend) 55%, transparent); }
+.wm-cal-dc-weekend .wm-cal-dc-num { color: var(--wm-weekend); }
+.theme-dark .wm-cal-dc-weekend .wm-cal-dc-dow { color: color-mix(in srgb, var(--wm-weekend) 72%, transparent); }
+/* Today-weekend: inherit today's text-on-accent palette */
+.wm-cal-dc-today.wm-cal-dc-weekend .wm-cal-dc-dow { color: color-mix(in srgb, var(--text-on-accent) 60%, transparent); }
+.wm-cal-dc-today.wm-cal-dc-weekend .wm-cal-dc-num { color: var(--text-on-accent); }
+/* Selected-weekend: restore original dow color, keep accent num */
+.wm-cal-dc-selected.wm-cal-dc-weekend .wm-cal-dc-dow { color: var(--text-faint); }
+.wm-cal-dc-selected.wm-cal-dc-weekend .wm-cal-dc-num { color: var(--interactive-accent); }
+
+/* ── Weekday row (FULL mode) ── */
+.wm-cal-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    margin: 0 12px 4px;
+}
+.wm-cal-weekday {
+    text-align: center;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 2px 0 5px;
+    user-select: none;
+}
+/* Sunday (1st col) and Saturday (7th col) */
+.wm-cal-weekday:nth-child(1),
+.wm-cal-weekday:nth-child(7) { opacity: 0.6; }
+
+/* ── Full grid (FULL mode) ── */
+.wm-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+    padding: 0 12px;
+}
+
+.wm-cal-cell {
+    aspect-ratio: 1 / 1;
+    position: relative;
+    background: var(--background-modifier-form-field);
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+.wm-cal-cell:hover { background: var(--background-modifier-hover); }
+.wm-cal-cell.wm-cal-other { background: transparent; }
+.wm-cal-cell.wm-cal-other .wm-cal-num { opacity: 0.3; }
+.wm-cal-cell.wm-cal-weekend:not(.wm-cal-other) {
+    background: color-mix(in srgb, var(--background-secondary) 55%, var(--background-modifier-form-field));
+}
+.wm-cal-cell.wm-cal-today { background: var(--interactive-accent) !important; }
+.wm-cal-cell.wm-cal-today .wm-cal-num { color: var(--text-on-accent, #fff); font-weight: 700; opacity: 1; }
+.wm-cal-cell.wm-cal-selected:not(.wm-cal-today)::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 4px;
+    box-shadow: inset 0 0 0 2px var(--interactive-accent);
+    pointer-events: none;
+    z-index: 1;
+}
+.wm-cal-cell.wm-cal-selected:not(.wm-cal-today) .wm-cal-num {
+    color: var(--interactive-accent);
+    font-weight: 700;
+    opacity: 1;
+}
+
+.wm-cal-num {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-normal);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+    user-select: none;
+    position: relative;
+    z-index: 1;
+}
+.wm-cal-cell.wm-cal-other .wm-cal-num { color: var(--text-muted); }
+
+/* ── Collapse handle ── */
+.wm-cal-collapse-handle {
+    display: flex;
+    justify-content: center;
+    padding: 5px 0 6px;
+    cursor: pointer;
+}
+.wm-cal-collapse-bar {
+    width: 36px;
+    height: 5px;
+    background: color-mix(in srgb, var(--text-faint) 55%, transparent);
+    border-radius: 3px;
+}
+.wm-cal-collapse-handle:hover .wm-cal-collapse-bar {
+    background: color-mix(in srgb, var(--text-muted) 70%, transparent);
+}
+
+/* ── Date picker popup ── */
+.wm-cal-picker {
+    position: fixed;
+    z-index: var(--layer-popover, 300);
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 10px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.2);
+    padding: 6px 8px 8px;
+    font-size: 12px;
+}
+
+.wm-cal-picker-hdr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 2px 2px 8px;
+}
+
+.wm-cal-picker-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-normal);
+    user-select: none;
+}
+
+.wm-cal-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+}
+
+.wm-cal-picker-wd {
+    text-align: center;
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--text-faint);
+    padding: 2px 0 4px;
+    user-select: none;
+}
+
+.wm-cal-picker-day {
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    border-radius: 50%;
+    cursor: pointer;
+    color: var(--text-muted);
+    user-select: none;
+}
+.wm-cal-picker-day:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.wm-cal-picker-other     { opacity: 0.3; }
+.wm-cal-picker-today     { background: var(--interactive-accent); color: var(--text-on-accent, #fff); font-weight: 700; }
+.wm-cal-picker-today:hover { background: var(--interactive-accent); }
+.wm-cal-picker-sel:not(.wm-cal-picker-today) {
+    box-shadow: inset 0 0 0 2px var(--interactive-accent);
+    color: var(--interactive-accent);
+    font-weight: 700;
+}
+
+/* Mobile */
+.is-mobile .wm-cal-content {
+    height: calc(100% - var(--mobile-toolbar-height));
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Dashboard  (wm-dash-*)
+   ══════════════════════════════════════════════════════════════ */
+
+.wm-dash {
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 32px;
+    margin-top: 10px;
+}
+
+/* ── Section (version-history group pattern) ── */
+.wm-dash-group { margin-bottom: 16px; }
+.wm-dash-group:last-child { margin-bottom: 0; }
+.wm-dash-group-hdr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px 6px;
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+.wm-dash-group-hdr:hover .wm-dash-group-label { color: var(--text-normal); }
+.wm-dash-group-label {
+    font-size: 13px;
+    font-weight: var(--font-semibold, 600);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.wm-dash-group-chevron { display: flex; align-items: center; color: var(--text-faint); }
+.wm-dash-group-chevron svg { width: 16px; height: 16px; }
+/* Group body: no extra wrapper padding — items carry their own horizontal padding */
+.wm-dash-group-body { }
+.wm-dash-group-body.is-collapsed { display: none; }
+
+/* Items: identical to version-history wm-vhv-item (padding 9px 10px, divider left 20px) */
+.wm-dash-group-item { position: relative; padding: 9px 10px; }
+.wm-dash-group-item::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 20px;
+    right: 0;
+    height: 1px;
+    background: var(--background-modifier-border);
+}
+.wm-dash-group-item:last-child::after { display: none; }
+/* 글자수 section: no dividers between cards */
+.no-item-dividers .wm-dash-group-item::after { display: none; }
+.no-item-dividers .wm-dash-group-item { padding: 20px 10px; }
+
+/* ── Stats card grid (오늘 좌열 2행 span | 목표/일평균 우열 스택) ── */
+.wm-dash-stats-grid {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 4px;
+}
+.wm-dash-stat-card {
+    background: var(--background-primary);
+    border: none;
+    border-radius: 9px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    position: relative;
+}
+
+/* ── 오늘 카드: top(목표열 높이) + bot(일평균열 높이) 2영역 분리 ── */
+.wm-dash-stat-card.is-today {
+    grid-row: 1 / 3;
+    padding: 0;
+    gap: 4px;   /* 외부 grid gap과 동일 → top/bot이 목표/일평균 카드 높이와 매핑 */
+}
+/* 상단 영역: TODAY 좌측 상단 + 숫자 좌측 센터 */
+.wm-dash-today-top {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 10px 12px 0;
+    gap: 6px;
+}
+.wm-dash-today-label {
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-align: left;
+}
+.wm-dash-today-num {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+}
+/* 하단 영역: '목표까지~' 일평균 카드와 동일 높이 · 좌측 센터 정렬 */
+.wm-dash-today-bot {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 8px 12px 10px;
+}
+.wm-dash-today-remain {
+    font-size: 11px;
+    color: var(--text-faint);
+    text-align: left;
+    line-height: 1.4;
+}
+/* N자 — 테마 강조색 하이라이트 */
+.wm-dash-today-remain-num {
+    color: var(--interactive-accent);
+    background: color-mix(in srgb, var(--interactive-accent) 16%, transparent);
+    border-radius: 3px;
+    padding: 0 3px;
+}
+
+/* ── 목표/일평균 카드: 숫자 위, 레이블 아래, 우측 정렬 ── */
+.wm-dash-stat-row {
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: flex-end;
+    gap: 2px;
+    width: 100%;
+}
+.wm-dash-stat-lbl {
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+}
+
+/* ── 그라데이션 숫자 ── */
+.wm-dash-stat-num {
+    font-weight: 700;
+    font-size: 18px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    text-align: right;
+    background: linear-gradient(
+        135deg,
+        var(--interactive-accent) 0%,
+        color-mix(in srgb, var(--interactive-accent) 60%, var(--text-normal)) 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+.wm-dash-today-num.wm-dash-stat-num { font-size: 20px; line-height: 1; }
+
+/* 설정 아이콘: 목표 카드 좌측 하단, 호버 시 표시 */
+.wm-dash-stat-cog {
+    position: absolute;
+    bottom: 4px;
+    left: 4px;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-faint);
+    cursor: pointer;
+    border-radius: var(--radius-s, 4px);
+    opacity: 0;
+    transition: opacity 0.12s;
+}
+.wm-dash-stat-card:hover .wm-dash-stat-cog { opacity: 1; }
+.wm-dash-stat-cog:hover { color: var(--text-muted); background: var(--background-modifier-hover); }
+.wm-dash-stat-cog svg { width: 12px; height: 12px; }
+
+/* Stats grid and heatmap: additional 10px inset inside the item's own 10px padding
+   → total 20px from group edge, matching version-history's item-top indent */
+.wm-dash-stats-grid { margin: 0 10px; }
+.wm-dash-hm-pad { margin: 0 10px; }
+
+/* ── Heatmap layout (drag-scrollable) ── */
+.wm-hm-wrapper {
+    position: relative;
+    background: transparent;  /* 사이드바 배경색과 동일 */
+    width: 100%;
+    overflow: hidden;
+    border-radius: var(--radius-m);
+}
+
+/* DOW labels: 절대 배치로 고정, solid 배경으로 스크롤 내용 마스킹 */
+.wm-hm-dow-labels {
+    position: absolute;
+    left: 0;
+    /* top: 6px padding + 14px month row + 4px gap = 24px */
+    top: 24px;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    background: var(--background-secondary);
+    width: 32px;
+    box-sizing: border-box;
+    padding: 0 6px 0 8px;
+}
+.wm-hm-dow-label {
+    height: 13px;    /* matches cell height */
+    line-height: 13px;
+    font-size: 10px;
+    color: var(--text-muted);
+    width: 18px;
+    text-align: left;
+}
+
+/* Scrollable content area */
+.wm-hm-content {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    /* left: 8px margin + 18px dow labels + 6px gap = 32px */
+    padding: 6px 8px 8px 32px;
+    cursor: grab;
+    user-select: none;
+    box-sizing: border-box;
+    width: 100%;
+}
+.wm-hm-content::-webkit-scrollbar { display: none; }
+.wm-hm-content.is-dragging { cursor: grabbing; }
+
+/* Month label row (scrolls with grid) */
+.wm-hm-month-row {
+    display: flex;
+    gap: 2px;
+    height: 14px;
+}
+.wm-hm-month-col {
+    width: 13px;      /* same as cell size */
+    flex-shrink: 0;
+    height: 14px;
+    position: relative;
+    overflow: visible;
+}
+.wm-hm-month-label {
+    position: absolute;
+    left: 0;
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    line-height: 14px;
+}
+
+/* Cell grid */
+.wm-hm-grid {
+    display: flex;
+    flex-direction: row;
+    gap: 2px;
+}
+.wm-hm-col {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.wm-hm-cell {
+    width: 13px;
+    height: 13px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background-color 0.3s ease-out;
+}
+.wm-hm-cell-today { box-shadow: inset 0 0 0 2px var(--interactive-accent); }
+.wm-hm-cell-future { opacity: 0.15; pointer-events: none; }
+.wm-hm-col .wm-hm-cell:hover { background-color: var(--interactive-accent) !important; transition-duration: 25ms; }
+
+/* Level colors: level-0 uses explicit rgba so it's always visible against any sidebar */
+.theme-light .wm-hm-cell.level-0 { background: rgba(0, 0, 0, 0.10); }
+.theme-dark  .wm-hm-cell.level-0 { background: rgba(255, 255, 255, 0.10); }
+.wm-hm-cell.level-1 { background: color-mix(in srgb, var(--hm-color, var(--interactive-accent)) 18%, transparent); }
+.wm-hm-cell.level-2 { background: color-mix(in srgb, var(--hm-color, var(--interactive-accent)) 45%, transparent); }
+.wm-hm-cell.level-3 { background: color-mix(in srgb, var(--hm-color, var(--interactive-accent)) 75%, transparent); }
+.wm-hm-cell.level-4 { background: var(--hm-color, var(--interactive-accent)); }
+
+/* Tooltip (appended to body, keep-the-rhythm dark style) */
+.wm-hm-popup {
+    position: fixed;
+    z-index: 9999;
+    background: #000;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: var(--radius-m);
+    padding: 6px 10px;
+    box-shadow: 0 2px 8px -1px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+    transform: translate(-50%, -100%);
+    white-space: nowrap;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: #fff;
+    font-size: var(--font-smaller);
+}
+.wm-hm-popup-date { font-weight: 600; margin-bottom: 2px; }
+.wm-hm-popup-count { color: var(--interactive-accent); font-variant-numeric: tabular-nums; }
+.wm-hm-popup-empty { opacity: 0.55; }
+
+/* (old stats row removed — replaced by .wm-dash-stats-card) */
+
+/* ── Tasks section ── */
+/* ── 할 일 섹션 ── */
+.wm-tasks-wrap { display: flex; flex-direction: column; width: 100%; }
+
+/* 헤더 */
+.wm-tasks-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 30px;
+}
+.wm-tasks-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    align-items: flex-start;
+}
+.wm-tasks-title { font-size: 16px; font-weight: 700; color: #5C5C5C; }
+.wm-tasks-date  { font-size: 12px; color: var(--text-muted); font-weight: 400; }
+/* "할 일 추가하기" 라운드 버튼 */
+.wm-tasks-add-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    cursor: pointer;
+    background: color-mix(in srgb, var(--interactive-accent) 12%, var(--background-primary));
+    color: var(--interactive-accent);
+    transition: background 0.15s;
+    user-select: none;
+}
+.wm-tasks-add-btn:hover {
+    background: color-mix(in srgb, var(--interactive-accent) 22%, var(--background-primary));
+}
+.wm-tasks-add-icon { display: flex; align-items: center; }
+.wm-tasks-add-icon svg { width: 12px; height: 12px; }
+
+/* ── 섹션 헤더 ── */
+.wm-tasks-section + .wm-tasks-section { margin-top: 4px; }
+.wm-tasks-section-header {
+    display: flex;
+    align-items: center;
+    padding: 10px 32px;
+}
+.wm-tasks-section-header-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+    flex: 1;
+    min-width: 0;
+}
+.wm-tasks-section-toggle { display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform 0.2s; }
+.wm-tasks-section-toggle svg { width: 14px; height: 14px; color: var(--text-muted); }
+.wm-tasks-section.is-collapsed .wm-tasks-section-toggle { transform: rotate(-90deg); }
+.wm-tasks-section-icon { display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.wm-tasks-section-icon svg { width: 14px; height: 14px; color: var(--text-muted); }
+.wm-tasks-section-label { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.wm-tasks-section[data-cat="today"]    { --section-color: var(--color-blue); }
+.wm-tasks-section[data-cat="upcoming"] { --section-color: var(--color-green); }
+.wm-tasks-section[data-cat="overdue"]  { --section-color: var(--color-red); }
+.wm-tasks-section-count {
+    font-size: 10px;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 5px;
+    padding: 0 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--section-color, var(--interactive-accent)) 15%, transparent);
+    color: var(--section-color, var(--interactive-accent));
+    font-weight: 600;
+}
+.wm-tasks-section.is-collapsed .wm-tasks-section-body { display: none; }
+.wm-tasks-section-empty {
+    padding: 4px 32px 10px calc(32px + 14px + 6px + 14px + 6px);
+    font-size: 12px;
+    color: var(--text-faint);
+}
+
+/* ── 태스크 아이템 ── */
+.wm-task-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 32px 0;
+    transition: opacity 0.28s ease;
+}
+.wm-task-item.is-fading { opacity: 0; }
+.wm-task-item-check {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    margin-top: 3px;
+    border-radius: 5px;
+    border: 1.5px solid var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: transparent;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.wm-task-item-check svg { width: 9px; height: 9px; }
+.wm-task-item-check:hover:not(.is-done) { border-color: var(--interactive-accent); color: var(--interactive-accent); }
+.wm-task-item-check.is-done { background: var(--interactive-accent); border-color: var(--interactive-accent); color: var(--text-on-accent); }
+.wm-task-item-content {
+    flex: 1;
+    min-width: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+.wm-task-item-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    margin-bottom: 5px;
+}
+.wm-task-item-title:hover { color: var(--text-accent); }
+.wm-task-item-title.is-done { text-decoration: line-through; color: var(--text-faint); }
+.wm-task-item-date {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--section-color, var(--text-muted)) 12%, transparent);
+    color: var(--section-color, var(--text-muted));
+}
+.wm-task-item-date-icon { display: flex; align-items: center; }
+.wm-task-item-date-icon svg { width: 10px; height: 10px; }
+.wm-tasks-section[data-cat="today"] .wm-task-item-date { display: none; }
+
+/* ── 태그 + 메타 ── */
+.wm-task-item-meta { display: flex; align-items: center; justify-content: space-between; }
+.wm-task-item-meta-left { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; flex: 1; min-width: 0; }
+.wm-task-item-tag {
+    font-size: 11px; padding: 2px 6px; border-radius: 10px;
+    background: color-mix(in srgb, var(--interactive-accent) 10%, transparent);
+    color: var(--interactive-accent);
+    flex-shrink: 0; white-space: nowrap;
+}
+
+/* ── 섹션 필터 버튼 ── */
+.wm-tasks-section-filter-btn {
+    margin-left: auto; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: var(--text-faint); transition: color 0.15s;
+    flex-shrink: 0; padding: 1px;
+}
+.wm-tasks-section-filter-btn:hover,
+.wm-tasks-section-filter-btn.is-active { color: var(--interactive-accent); }
+.wm-tasks-section-filter-btn svg { width: 13px; height: 13px; }
+
+/* ── 우선순위 flag 버튼 ── */
+.wm-task-item-flag-btn {
+    display: flex; align-items: center; cursor: pointer;
+    opacity: 0.45; transition: opacity 0.15s; flex-shrink: 0;
+}
+.wm-task-item-flag-btn:hover { opacity: 1; }
+.wm-task-item-flag-icon svg { width: 11px; height: 11px; }
+.wm-task-priority-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+/* 할 일 추가 팝업 */
+.wm-task-add-popup { min-width: 280px; }
+.wm-task-add-field { padding: 2px 6px 4px; }
+.wm-task-add-date-row { display: flex; align-items: center; gap: 4px; }
+.wm-task-add-date-input { flex: 1; }
+.wm-task-add-cal-btn {
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; cursor: pointer; color: var(--text-muted); padding: 4px;
+    border-radius: 4px; transition: color 0.15s;
+}
+.wm-task-add-cal-btn:hover { color: var(--text-normal); background: var(--background-modifier-hover); }
+.wm-task-add-cal-btn svg { width: 14px; height: 14px; }
+.wm-task-add-input {
+    width: 100%;
+    background: var(--background-modifier-form-field);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 13px;
+    color: var(--text-normal);
+    outline: none;
+    box-sizing: border-box;
+}
+.wm-task-add-textarea {
+    width: 100%; resize: none; font-size: 13px; color: var(--text-normal);
+    background: var(--background-modifier-form-field);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px; padding: 6px 10px; box-sizing: border-box;
+    font-family: inherit; outline: none; display: block;
+}
+
+/* ── 미니 날짜 피커 ── */
+.wm-mini-date-picker { min-width: 200px; padding: 4px; }
+.wm-mini-picker-hdr { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 6px; }
+.wm-mini-picker-title { font-size: 11px; font-weight: 600; color: var(--text-muted); }
+.wm-mini-picker-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px;
+}
+.wm-mini-picker-dow {
+    font-size: 9px; color: var(--text-faint); text-align: center; padding: 2px 0;
+}
+.wm-mini-picker-cell {
+    font-size: 10px; text-align: center; padding: 3px 1px; border-radius: 3px;
+    cursor: pointer; color: var(--text-muted);
+}
+.wm-mini-picker-cell:hover { background: var(--background-modifier-hover); }
+.wm-mini-picker-cell.is-other { color: var(--text-faint); opacity: 0.4; }
+.wm-mini-picker-cell.is-today { color: var(--interactive-accent); font-weight: 700; }
+.wm-mini-picker-cell.is-sel { background: var(--interactive-accent); color: var(--text-on-accent); }
+
+/* ── 캘린더 태스크 배지 (date strip) ── */
+.wm-cal-date-card { position: relative; }
+.wm-cal-task-badge {
+    position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%);
+    font-size: 8px; min-width: 14px; height: 13px; border-radius: 6px;
+    background: color-mix(in srgb, var(--color-orange) 20%, transparent);
+    color: var(--color-orange); display: flex; align-items: center;
+    justify-content: center; padding: 0 3px; font-weight: 700;
+    cursor: pointer; z-index: 1;
+}
+.wm-cal-task-badge:hover { background: color-mix(in srgb, var(--color-orange) 35%, transparent); }
+
+/* ── 캘린더 풀 그리드 태스크 히트맵 ── */
+.wm-cal-cell.wm-cal-task-level-1:not(.wm-cal-today) { background: color-mix(in srgb, var(--color-orange) 10%, transparent); }
+.wm-cal-cell.wm-cal-task-level-2:not(.wm-cal-today) { background: color-mix(in srgb, var(--color-orange) 22%, transparent); }
+.wm-cal-cell.wm-cal-task-level-3:not(.wm-cal-today) { background: color-mix(in srgb, var(--color-orange) 38%, transparent); }
+
+/* ── 캘린더 태스크 미리보기 팝업 ── */
+.wm-cal-task-preview { min-width: 180px; max-width: 260px; }
+
+
+/* ── 집필 시간 섹션 ── */
+.wm-wt-card {
+    margin: 0 10px;
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.wm-wt-pct {
+    font-size: 11px; color: var(--text-muted);
+    margin-left: 4px; flex-shrink: 0; white-space: nowrap;
+}
+.wm-wt-pct.is-above { color: var(--color-red); }
+.wm-wt-pct.is-below { color: var(--color-green); }
+.wm-wt-empty {
+    font-size: 11px;
+    color: var(--text-faint);
+    text-align: center;
+}
+
+.wm-wt-mode {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    cursor: pointer;
+}
+/* 모드별 색상: --interactive-accent 기준 삼색 보색 (파스텔 고명도) */
+.wm-wt-mode[data-mode="draft"]   { --mode-color: oklch(from var(--interactive-accent) 0.88 0.09 h); }
+.wm-wt-mode[data-mode="writing"] { --mode-color: oklch(from var(--interactive-accent) 0.88 0.09 calc(h + 120)); }
+.wm-wt-mode[data-mode="editing"] { --mode-color: oklch(from var(--interactive-accent) 0.88 0.09 calc(h + 240)); }
+
+/* 헤더: label(좌) | val(우), 히트맵 위 */
+.wm-wt-mode-header {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+.wm-wt-lbl {
+    width: 28px;
+    flex-shrink: 0;
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+}
+.wm-wt-val {
+    flex: 1;
+    text-align: right;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    color: var(--text-muted);
+}
+
+/* 히트맵 + 진행 2×2 가로 배열 */
+.wm-wt-hm-area {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* 작업시간 히트맵: 모드 색상 연동 */
+.wm-wt-heatmap { --hm-color: var(--mode-color); }
+
+/* 2행 × 15열, column-first */
+.wm-wt-heatmap {
+    display: grid;
+    grid-template-rows: repeat(2, 13px);
+    grid-auto-flow: column;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+/* 평균/목표 마커 */
+.wm-wt-heatmap .wm-wt-cell-avg  { background: oklch(0.78 0.11 28)  !important; }
+.wm-wt-heatmap .wm-wt-cell-goal { background: oklch(0.82 0.10 138) !important; }
+
+/* ── 모드 선택 버튼: 2×2 정적 버튼 (좌측 배치) ── */
+.wm-wt-jinhaeng-grid {
+    display: grid;
+    grid-template-rows: repeat(2, 13px);
+    grid-auto-flow: column;
+    gap: 2px;
+    flex-shrink: 0;
+}
+.wm-wt-jinhaeng-cell {
+    width: 13px;
+    height: 13px;
+    border-radius: 3px;
+    background: var(--mode-color, oklch(0.90 0.12 85));
+    opacity: 0.15;
+    transition: opacity 0.15s ease;
+}
+
