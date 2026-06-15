@@ -34,7 +34,8 @@ export class HeatmapRenderer {
 				const dateStr  = this.dateStr(cellDate);
 				const isToday  = cellDate.getTime() === today.getTime();
 				const isFuture = cellDate > today;
-				const count    = isToday  ? store.getTodayTotal()
+				const folder   = plugin.settings.heatmapFolder ?? '';
+				const count    = isToday  ? (folder ? store.getTodayTotalForFolder(folder) : store.getTodayTotal())
 				               : isFuture ? 0
 				               : store.getHistoricalTotal(dateStr);
 				col.push({ date: cellDate, dateStr, count, isToday, isFuture });

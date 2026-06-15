@@ -1,3 +1,5 @@
+import type { WikiSavedView, WikiGroupRule, SortRule } from './wiki/WikiTypes';
+
 export interface SymbolOption {
 	open: string;
 	close: string;
@@ -48,6 +50,7 @@ export interface WritingMenuSettings {
 	enableTextSubstitution: boolean;
 	textSubstitutions: TextSubstitution[];
 	charCountMode: 'munpia' | 'novelpia';
+	statCardDisplay: 'munpia' | 'novelpia' | 'both';
 	enableTimeTracking: boolean;
 	hideTimeTracking: boolean;
 	currentTimeMode: 'draft' | 'writing' | 'editing';
@@ -94,6 +97,39 @@ export interface WritingMenuSettings {
 		writing: number;
 		editing: number;
 	};
+	timeAvgFolderLevel: number;
+	dashboardSections?: DashSectionConfig[];
+	// ── Wiki ──────────────────────────────────────────────────────────────
+	wikiColor: string;
+	wikiPaletteMode: string;
+	wikiImageFieldName: string;
+	wikiNameFieldName: string;
+	wikiCardAdditionalProps: string[];
+	wikiHiddenProperties: string[];
+	wikiColoredProperties: string;
+	/** 관계 strip 목록화에 사용할 프론트매터 키들 (쉼표 구분, 예: "조력자, 적대자") */
+	wikiRelationFields: string;
+	wikiSavedViews: WikiSavedView[];
+	wikiDefaultGroupField: string;
+	wikiCustomGroups: WikiGroupRule[];
+	wikiSortRules: SortRule[];
+	wikiOpenLinksInWiki: boolean;
+	wikiIncludeSubfolders: boolean;
+	wikiGroupImageTitleSize: number;
+	wikiGroupImagePropSize: number;
+	wikiProfileHeaderSize: number;
+	wikiProfileKeySize: number;
+	wikiProfileValueSize: number;
+	wikiProfileImage: string;
+	wikiUseTableLayout: boolean;
+	wikiLastFilePath: string;
+	wikiLastFolderPath: string;
+}
+
+export interface DashSectionConfig {
+	id: 'chars' | 'time' | 'tasks';
+	label: string;
+	visible: boolean;
 }
 
 export const DEFAULT_SETTINGS: WritingMenuSettings = {
@@ -140,6 +176,7 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 		{ from: '>=', to: '≥', enabled: true },
 	],
 	charCountMode: 'munpia',
+	statCardDisplay: 'both',
 	enableTimeTracking: false,
 	hideTimeTracking: false,
 	currentTimeMode: 'draft',
@@ -189,6 +226,36 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	writingGoalChars: 0,
 	timeKeys: { draft: '초고_시간', writing: '집필_시간', editing: '퇴고_시간', total: '총_시간' },
 	timeGoals: { draft: 7200, writing: 7200, editing: 7200 },
+	timeAvgFolderLevel: 0,
+	dashboardSections: [
+		{ id: 'chars',  label: '글자수',   visible: true },
+		{ id: 'time',   label: '작업시간', visible: true },
+		{ id: 'tasks',  label: '할 일',    visible: true },
+	],
+	// ── Wiki defaults ──────────────────────────────────────────────────────
+	wikiColor: '#7025db',
+	wikiPaletteMode: 'background',
+	wikiImageFieldName: 'image',
+	wikiNameFieldName: 'name',
+	wikiCardAdditionalProps: ['role', 'rank'],
+	wikiHiddenProperties: [],
+	wikiColoredProperties: '',
+	wikiRelationFields: '',
+	wikiSavedViews: [],
+	wikiDefaultGroupField: 'None',
+	wikiCustomGroups: [],
+	wikiSortRules: [],
+	wikiOpenLinksInWiki: false,
+	wikiIncludeSubfolders: false,
+	wikiGroupImageTitleSize: 18,
+	wikiGroupImagePropSize: 12,
+	wikiProfileHeaderSize: 18,
+	wikiProfileKeySize: 13,
+	wikiProfileValueSize: 13,
+	wikiProfileImage: '',
+	wikiUseTableLayout: false,
+	wikiLastFilePath: '',
+	wikiLastFolderPath: '',
 };
 import type { Component } from 'obsidian';
 

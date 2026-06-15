@@ -282,93 +282,59 @@ export const GLOBAL_STYLES_CSS = `
 			.wm-save-ver-btn-save:hover:not(:disabled) { opacity: 0.88; }
 			.wm-save-ver-btn-save:disabled { opacity: 0.5; cursor: default; }
 
-			/* ── 버전 기록 사이드바 (notebook-navigator 스타일) ─────────── */
+			/* ── 버전 패널 (대시보드 탭) ─────────────────────────────────── */
 
-			/* root */
-			.version-control-view .wm-vhv-root { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+			.wm-vhv-root { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+			.wm-vhv-header { flex-shrink: 0; position: relative; overflow: visible; }
+			.wm-vhv-normal-row { display: flex; align-items: center; padding: 20px 10px; gap: 4px; }
+			.wm-vhv-title-group { display: flex; align-items: center; flex: 1; min-width: 0; overflow: hidden; }
+			.wm-vhv-search-wrap { display: flex; align-items: center; flex-shrink: 0; border-radius: var(--radius-s); border: 2.5px solid transparent; }
+			.wm-vhv-header.is-searching .wm-vhv-title-group { display: none; }
+			.wm-vhv-header.is-searching .wm-vhv-search-wrap { flex: 1; border-color: var(--interactive-accent); padding: 0 2px; }
+			.wm-vhv-search-input { width: 0; overflow: hidden; opacity: 0; font-size: 13px; color: var(--text-normal); height: 22px; padding: 0; transition: opacity .15s ease; background: transparent !important; border: none !important; outline: none !important; box-shadow: none !important; }
+			.wm-vhv-header.is-searching .wm-vhv-search-input { flex: 1; width: auto; overflow: visible; opacity: 1; padding: 0 4px; }
+			.wm-vhv-actions { display: flex; align-items: center; gap: 0; flex-shrink: 0; }
+			.wm-vhv-actions .wm-cal-icon-btn.is-active { color: var(--text-normal); opacity: 1; }
 
-			/* 헤더 — 여백 최소화, border 없음, overflow visible (검색 포커스 링 노출) */
-			.version-control-view .wm-vhv-header { flex-shrink: 0; position: relative; overflow: visible; }
-			.version-control-view .wm-vhv-normal-row { display: flex; align-items: center; padding: 3px 2px 3px 4px; gap: 0; }
-			.version-control-view .wm-vhv-title-group { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; overflow: hidden; padding: 0 2px; }
-			.version-control-view .wm-vhv-title-icon { display: flex; align-items: center; color: var(--text-muted); flex-shrink: 0; }
-			.version-control-view .wm-vhv-title-icon svg { width: 16px; height: 16px; }
-			.version-control-view .wm-vhv-title-text { font-size: var(--font-ui-small); font-weight: var(--font-normal); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-normal); }
-			.version-control-view .wm-vhv-actions { display: flex; align-items: center; gap: 0; flex-shrink: 0; }
-			.version-control-view .wm-vhv-actions .clickable-icon svg { width: 16px; height: 16px; }
-			.version-control-view .wm-vhv-actions .clickable-icon,
-			.version-control-view .wm-vhv-actions .clickable-icon:hover,
-			.version-control-view .wm-vhv-actions .clickable-icon.is-active { background: transparent !important; }
-			.version-control-view .wm-vhv-actions .clickable-icon.is-active { color: var(--text-normal); }
-			.version-control-view .wm-vhv-search-wrap .clickable-icon,
-			.version-control-view .wm-vhv-search-wrap .clickable-icon:hover { background: transparent !important; }
+			.wm-vhv-list { flex: 1; overflow-y: auto; padding-bottom: 16px; }
+			.wm-vhv-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 16px; gap: 8px; color: var(--text-muted); }
+			.wm-vhv-empty p { font-size: var(--font-ui-small); text-align: center; margin: 0; white-space: pre-line; line-height: 1.6; }
 
-			/* 검색 행 */
-			/* 검색 wrap: 돋보기 버튼을 우측 앵커로, 입력창이 감싸며 나타남 */
-			.version-control-view .wm-vhv-search-wrap { display: flex; align-items: center; flex-shrink: 0; border-radius: var(--radius-s); border: 2.5px solid transparent; padding: 0 2px; }
-			.version-control-view .wm-vhv-header.is-searching .wm-vhv-title-group { display: none; }
-			.version-control-view .wm-vhv-header.is-searching .wm-vhv-search-wrap { flex: 1; border-color: var(--interactive-accent); }
-			.version-control-view .wm-vhv-search-input { width: 0; overflow: hidden; opacity: 0; font-size: 13px; color: var(--text-normal); height: 22px; padding: 0; transition: opacity .15s ease; }
-			.version-control-view .wm-vhv-header.is-searching .wm-vhv-search-input { flex: 1; width: auto; overflow: visible; opacity: 1; padding: 0 4px; }
-			.version-control-view .wm-vhv-search-input,
-			.version-control-view .wm-vhv-search-input:focus,
-			.version-control-view .wm-vhv-search-input:hover,
-			.version-control-view .wm-vhv-search-input:active { background: transparent !important; border: none !important; outline: none !important; box-shadow: none !important; }
+			.wm-vhv-group { margin-bottom: 16px; }
+			.wm-vhv-group:last-child { margin-bottom: 0; }
+			.wm-vhv-group-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px 6px; cursor: pointer; user-select: none; border-bottom: 1px solid var(--background-modifier-border); }
+			.wm-vhv-group-header:hover .wm-vhv-group-label { color: var(--text-normal); }
+			.wm-vhv-group-label { font-size: 13px; font-weight: var(--font-semibold); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+			.wm-vhv-group-chevron { display: flex; align-items: center; color: var(--text-faint); }
+			.wm-vhv-group-chevron svg { width: 16px; height: 16px; }
+			.wm-vhv-group-items.is-collapsed { display: none; }
 
-			/* 목록 영역 */
-			.version-control-view .wm-vhv-list { flex: 1; overflow-y: auto; padding-bottom: 16px; }
+			.wm-vhv-item { padding: 9px 10px; cursor: pointer; position: relative; }
+			.wm-vhv-item::after { content: ''; position: absolute; bottom: 0; left: 20px; right: 0; height: 1px; background: var(--background-modifier-border); }
+			.wm-vhv-group-items .wm-vhv-item:last-child::after { display: none; }
+			.wm-vhv-item-top { position: relative; margin-bottom: 4px; padding-left: 10px; overflow: visible; }
+			.wm-vhv-item-name { font-size: calc(var(--font-ui-small) + 1px); font-weight: var(--font-semibold); color: var(--text-normal); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+			.wm-vhv-item-actions { position: absolute; top: 50%; transform: translateY(-50%); right: -10px; height: 26px; display: flex; align-items: center; gap: 2px; padding: 0 10px 0 4px; opacity: 0; pointer-events: none; transition: opacity .15s; background: var(--background-primary); z-index: 2; }
+			.wm-vhv-item:hover .wm-vhv-item-actions { opacity: 1; pointer-events: auto; }
+			.wm-vhv-action-btn { width: 22px; height: 22px; padding: 0; background: none !important; border: none !important; box-shadow: none !important; color: var(--text-muted); cursor: pointer; border-radius: var(--radius-s); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+			.wm-vhv-action-btn svg { width: 14px; height: 14px; }
+			.wm-vhv-action-btn:hover { color: var(--interactive-accent); background: transparent !important; }
+			.wm-vhv-action-danger { width: 18px !important; justify-content: flex-end !important; padding-right: 0 !important; }
+			.wm-vhv-action-danger:hover { color: var(--text-error) !important; }
 
-			/* 빈 상태 */
-			.version-control-view .wm-vhv-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 16px; gap: 8px; color: var(--text-muted); }
-			.version-control-view .wm-vhv-empty-icon { font-size: 24px; }
-			.version-control-view .wm-vhv-empty p { font-size: var(--font-ui-small); text-align: center; margin: 0; white-space: pre-line; line-height: 1.6; }
-
-			/* 날짜 그룹 */
-			.version-control-view .wm-vhv-group { margin-bottom: 16px; }
-			.version-control-view .wm-vhv-group:last-child { margin-bottom: 0; }
-			.version-control-view .wm-vhv-group-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px 6px; cursor: pointer; user-select: none; border-bottom: 1px solid var(--background-modifier-border); }
-			.version-control-view .wm-vhv-group-header:hover .wm-vhv-group-label { color: var(--text-normal); }
-			.version-control-view .wm-vhv-group-label { font-size: 13px; font-weight: var(--font-semibold); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
-			.version-control-view .wm-vhv-group-chevron { display: flex; align-items: center; color: var(--text-faint); }
-			.version-control-view .wm-vhv-group-chevron svg { width: 16px; height: 16px; }
-			.version-control-view .wm-vhv-group-items { }
-			.version-control-view .wm-vhv-group-items.is-collapsed { display: none; }
-
-			/* 항목 */
-			.version-control-view .wm-vhv-item { padding: 9px 10px 9px; cursor: pointer; position: relative; }
-			.version-control-view .wm-vhv-item::after { content: ''; position: absolute; bottom: 0; left: 20px; right: 0; height: 1px; background: var(--background-modifier-border); }
-			.version-control-view .wm-vhv-group-items .wm-vhv-item:last-child::after { display: none; }
-			/* topRow: position:relative 필수 — actionsEl 기준점 */
-			.version-control-view .wm-vhv-item-top { position: relative; margin-bottom: 4px; padding-left: 10px; overflow: visible; }
-			.version-control-view .wm-vhv-item-name { font-size: calc(var(--font-ui-small) + 1px); font-weight: var(--font-semibold); color: var(--text-normal); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-			/* 호버 액션 바 — 아이콘 영역만 덮음, 우측 정렬 */
-			.version-control-view .wm-vhv-item-actions { position: absolute; top: 50%; transform: translateY(-50%); right: -10px; height: 26px; display: flex; align-items: center; gap: 2px; padding: 0 10px 0 4px; opacity: 0; pointer-events: none; transition: opacity .15s; background: var(--background-primary); z-index: 2; }
-			.version-control-view .wm-vhv-item:hover .wm-vhv-item-actions { opacity: 1; pointer-events: auto; }
-			/* 공통 버튼 */
-			.version-control-view .wm-vhv-action-btn { width: 22px; height: 22px; padding: 0; background: none !important; border: none !important; box-shadow: none !important; color: var(--text-muted); cursor: pointer; border-radius: var(--radius-s); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-			.version-control-view .wm-vhv-action-btn svg { width: 14px; height: 14px; }
-			.version-control-view .wm-vhv-action-btn:hover { color: var(--interactive-accent); background: transparent !important; }
-			/* 삭제 버튼: 좌측 여백 절반(18px), SVG는 우측 정렬로 오른쪽만 0 여백 */
-			.version-control-view .wm-vhv-action-danger { width: 18px !important; justify-content: flex-end !important; padding-right: 0 !important; }
-			.version-control-view .wm-vhv-action-danger:hover { color: var(--text-error) !important; }
-			.version-control-view .wm-vhv-item-desc { font-size: calc(var(--font-ui-smaller) + 1px); color: var(--text-muted); line-height: 1.5; margin-bottom: 6px; padding-left: 10px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
-			.version-control-view .wm-vhv-item-bottom { display: flex; align-items: center; gap: 8px; padding-left: 10px; }
-			.version-control-view .wm-vhv-item-date { font-size: calc(var(--font-ui-smaller) + 1px); color: var(--text-faint); white-space: nowrap; flex-shrink: 0; }
-			.version-control-view .wm-vhv-item-right { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-shrink: 0; }
-			.version-control-view .wm-vhv-item-chars { font-size: calc(var(--font-ui-smaller) + 1px); color: var(--text-faint); white-space: nowrap; }
-			.theme-dark .version-control-view .wm-vhv-item-date,
-			.theme-dark .version-control-view .wm-vhv-item-chars { color: var(--text-muted); }
-
-			/* 버전 순번 (tag 아이콘 + V{n}) — 날짜와 동일 크기 */
-			.version-control-view .wm-vhv-item-ver { display: inline-flex; align-items: center; gap: 2px; color: var(--interactive-accent) !important; flex-shrink: 0; pointer-events: none; }
-			.version-control-view .wm-vhv-item-ver-icon { display: flex; align-items: center; width: 10px; height: 10px; flex-shrink: 0; }
-			.version-control-view .wm-vhv-item-ver-icon svg { width: 10px !important; height: 10px !important; flex-shrink: 0; display: block; color: var(--interactive-accent) !important; stroke: currentColor; transition: none !important; }
-			.version-control-view .wm-vhv-item-ver-num { font-size: calc(var(--font-ui-smaller) + 1px); font-weight: 700; }
-
-			/* 단계 텍스트 (우측, 표시만) */
-			.version-control-view .wm-vhv-item-stage { font-size: calc(var(--font-ui-smaller) + 1px); color: var(--text-faint); }
-			.theme-dark .version-control-view .wm-vhv-item-stage { color: var(--text-muted); }
+			.wm-vhv-item-desc { font-size: calc(var(--font-ui-smaller) + 1px); color: var(--text-muted); line-height: 1.5; margin-bottom: 6px; padding-left: 10px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+			.wm-vhv-item-bottom { display: flex; align-items: center; gap: 8px; padding-left: 10px; }
+			.wm-vhv-item-date { font-size: calc(var(--font-ui-smaller) + 1px); color: var(--text-faint); white-space: nowrap; flex-shrink: 0; }
+			.wm-vhv-item-right { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-shrink: 0; }
+			.wm-vhv-item-chars { font-size: calc(var(--font-ui-smaller) + 1px); color: var(--text-faint); white-space: nowrap; }
+			.theme-dark .wm-vhv-item-date,
+			.theme-dark .wm-vhv-item-chars { color: var(--text-muted); }
+			.wm-vhv-item-ver { display: inline-flex; align-items: center; gap: 2px; color: var(--interactive-accent) !important; flex-shrink: 0; pointer-events: none; }
+			.wm-vhv-item-ver-icon { display: flex; align-items: center; width: 10px; height: 10px; flex-shrink: 0; }
+			.wm-vhv-item-ver-icon svg { width: 10px !important; height: 10px !important; flex-shrink: 0; display: block; color: var(--interactive-accent) !important; stroke: currentColor; transition: none !important; }
+			.wm-vhv-item-ver-num { font-size: calc(var(--font-ui-smaller) + 1px); font-weight: 700; }
+			.wm-vhv-item-stage { font-size: calc(var(--font-ui-smaller) + 1px); color: var(--text-faint); }
+			.theme-dark .wm-vhv-item-stage { color: var(--text-muted); }
 
 			/* 버전 편집 모달 */
 			.wm-edit-ver-modal { width: 560px !important; max-width: 92vw !important; }

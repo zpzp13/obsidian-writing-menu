@@ -22,6 +22,8 @@ export interface ParsedTask {
 	tasksMeta?: TasksMeta;
 	tags?: string[];
 	completed?: boolean;
+	completedDate?: string;
+	subItems?: { text: string; completed: boolean }[];
 }
 
 export class TaskParser {
@@ -33,6 +35,7 @@ export class TaskParser {
 
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
+		const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
 
 		const results: ParsedTask[] = [];
 
@@ -49,9 +52,9 @@ export class TaskParser {
 				const tasks   = this.parseTasks(content);
 				const diff    = i;
 
-				for (const { text, rawText, tasksMeta, tags, completed } of tasks) {
-					// 완료 항목은 오늘 노트만 포함
-					if (completed && diff !== 0) continue;
+				for (const { text, rawText, tasksMeta, tags, completed, completedDate, subItems } of tasks) {
+					// 완료 항목은 오늘 완료한 것만 포함 (다음날 자동 소멸)
+					if (completed && completedDate !== todayStr) continue;
 
 					let category: ParsedTask['category'];
 					let displayDate = date;
@@ -68,12 +71,11 @@ export class TaskParser {
 						category = diff === 0 ? 'today' : diff > 0 ? 'upcoming' : 'overdue';
 					}
 
-					// 완료 항목은 항상 오늘 섹션에 표시
-					if (completed) category = 'today';
-
 					results.push({
 						text, rawText, sourcePath: path, sourceDate: displayDate,
 						category, tasksMeta, tags, completed: completed || undefined,
+						completedDate,
+						subItems,
 					});
 				}
 			} catch {}
@@ -82,35 +84,47 @@ export class TaskParser {
 		return results;
 	}
 
-	private static parseTasks(content: string): { text: string; rawText: string; tasksMeta?: TasksMeta; tags?: string[]; completed?: boolean }[] {
-		const results: { text: string; rawText: string; tasksMeta?: TasksMeta; tags?: string[]; completed?: boolean }[] = [];
+	private static parseTasks(content: string): { text: string; rawText: string; tasksMeta?: TasksMeta; tags?: string[]; completed?: boolean; completedDate?: string; subItems?: { text: string; completed: boolean }[] }[] {
+		const results: { text: string; rawText: string; tasksMeta?: TasksMeta; tags?: string[]; completed?: boolean; completedDate?: string; subItems?: { text: string; completed: boolean }[] }[] = [];
 		const lines = content.split('\n');
 		for (let i = 0; i < lines.length; i++) {
-			const m = lines[i].match(/^[\s\t]*-\s+\[([x ])\]\s+(.+)$/);
+			const line = lines[i];
+			const isIndented = /^[\t ]+/.test(line);
+			const m = line.match(/^[\s\t]*-\s+\[([x ])\]\s+(.+)$/);
 			if (!m) continue;
+			if (isIndented && results.length > 0) {
+				const raw = m[2].trim();
+				const { cleanText } = this.parseTasksMeta(raw);
+				const last = results[results.length - 1];
+				if (!last.subItems) last.subItems = [];
+				last.subItems.push({ text: cleanText, completed: m[1] === 'x' });
+				continue;
+			}
 			const isComplete = m[1] === 'x';
 			const raw = m[2].trim();
-			const { cleanText, meta, tags } = this.parseTasksMeta(raw);
+			const { cleanText, meta, tags, completedDate } = this.parseTasksMeta(raw);
 
 			results.push({
-				text:      cleanText,
-				rawText:   raw,
-				tasksMeta: Object.keys(meta).length ? meta : undefined,
-				tags:      tags.length ? tags : undefined,
-				completed: isComplete || undefined,
+				text:          cleanText,
+				rawText:       raw,
+				tasksMeta:     Object.keys(meta).length ? meta : undefined,
+				tags:          tags.length ? tags : undefined,
+				completed:     isComplete || undefined,
+				completedDate: isComplete ? completedDate : undefined,
 			});
 		}
 		return results;
 	}
 
-	private static parseTasksMeta(raw: string): { cleanText: string; meta: TasksMeta; tags: string[] } {
+	private static parseTasksMeta(raw: string): { cleanText: string; meta: TasksMeta; tags: string[]; completedDate?: string } {
 		let text = raw;
 		const meta: TasksMeta = {};
+		let completedDate: string | undefined;
 
 		text = text.replace(/📅\s*(\d{4}-\d{2}-\d{2})/, (_, d) => { meta.due = d; return ''; });
 		text = text.replace(/⏳\s*(\d{4}-\d{2}-\d{2})/, (_, d) => { meta.scheduled = d; return ''; });
 		text = text.replace(/🛫\s*(\d{4}-\d{2}-\d{2})/, (_, d) => { meta.start = d; return ''; });
-		text = text.replace(/✅\s*\d{4}-\d{2}-\d{2}/, '');
+		text = text.replace(/✅\s*(\d{4}-\d{2}-\d{2})/, (_, d) => { completedDate = d; return ''; });
 
 		if (text.includes('⏫'))      { meta.priority = '최고'; text = text.replace('⏫', ''); }
 		else if (text.includes('🔺')) { meta.priority = '높음'; text = text.replace('🔺', ''); }
@@ -129,19 +143,63 @@ export class TaskParser {
 		while ((tm = tagRe.exec(text)) !== null) tags.push(tm[0]);
 		text = text.replace(/#[a-zA-Z0-9가-힣一-龥_\-\/]+/g, '').replace(/\s{2,}/g, ' ');
 
-		return { cleanText: text.trim(), meta, tags };
+		return { cleanText: text.trim(), meta, tags, completedDate };
 	}
 
 	static async completeTask(task: ParsedTask, plugin: WritingMenuPlugin): Promise<void> {
+		await this.toggleTask(task, true, plugin);
+	}
+
+	static async toggleTask(task: ParsedTask, nowCompleted: boolean, plugin: WritingMenuPlugin): Promise<void> {
 		const file = plugin.app.vault.getAbstractFileByPath(task.sourcePath);
 		if (!(file instanceof TFile)) return;
 		const content = await plugin.app.vault.read(file);
-		const target = task.rawText || task.text;
-		const updated = content.replace(
-			new RegExp(`(^[\\s\\t]*-\\s+\\[) \\]\\s+${escapeRegex(target)}`, 'm'),
-			`$1x] ${target}`,
-		);
+		// Strip ✅ date from rawText to get base text for matching
+		const baseRaw = (task.rawText || task.text).replace(/\s*✅\s*\d{4}-\d{2}-\d{2}\s*$/, '').trimEnd();
+		let updated: string;
+		if (nowCompleted) {
+			const d = new Date();
+			const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+			updated = content.replace(
+				new RegExp(`(^[\\s\\t]*-\\s+\\[) (\\]\\s+${escapeRegex(baseRaw)})(\\s*✅\\s*\\d{4}-\\d{2}-\\d{2})?`, 'm'),
+				`$1x$2 ✅ ${dateStr}`,
+			);
+		} else {
+			updated = content.replace(
+				new RegExp(`(^[\\s\\t]*-\\s+\\[)x(\\]\\s+${escapeRegex(baseRaw)})(\\s*✅\\s*\\d{4}-\\d{2}-\\d{2})?`, 'm'),
+				`$1 $2`,
+			);
+		}
 		if (updated !== content) await plugin.app.vault.modify(file, updated);
+	}
+
+	static async toggleSubTask(
+		task: ParsedTask, subIdx: number, nowCompleted: boolean, plugin: WritingMenuPlugin,
+	): Promise<void> {
+		const file = plugin.app.vault.getAbstractFileByPath(task.sourcePath);
+		if (!(file instanceof TFile)) return;
+		const content = await plugin.app.vault.read(file);
+		const lines   = content.split('\n');
+		const taskRe  = /^[\s\t]*-\s+\[[ x]\]\s+/;
+		const target  = task.rawText || task.text;
+		const parentIdx = lines.findIndex(l => {
+			if (!taskRe.test(l)) return false;
+			const rest = l.replace(taskRe, '');
+			return rest === target || rest.startsWith(target + ' ') || rest.startsWith(target + '\t');
+		});
+		if (parentIdx < 0) return;
+		let subCount = 0;
+		for (let i = parentIdx + 1; i < lines.length; i++) {
+			if (!/^[\t ]/.test(lines[i])) break;
+			const sm = lines[i].match(/^([\t ]*-\s+\[)[ x](\].*)$/);
+			if (!sm) continue;
+			if (subCount === subIdx) {
+				lines[i] = `${sm[1]}${nowCompleted ? 'x' : ' '}${sm[2]}`;
+				break;
+			}
+			subCount++;
+		}
+		await plugin.app.vault.modify(file, lines.join('\n'));
 	}
 
 	static async setTaskPriority(task: ParsedTask, emoji: string, plugin: WritingMenuPlugin): Promise<void> {

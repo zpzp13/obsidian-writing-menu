@@ -2,6 +2,8 @@ import type WritingMenuPlugin from '../../main';
 import { WritingTimeStore } from './data/WritingTimeStore';
 import type { TFile } from 'obsidian';
 import type { WritingMenuSettings } from '../types';
+import { renderModeStatBlock, updateModeStatBlock } from './WritingTimeStatBlock';
+import type { ModeStatEls } from './WritingTimeStatBlock';
 
 const MODES = ['draft', 'writing', 'editing'] as const;
 type Mode   = typeof MODES[number];
@@ -34,9 +36,25 @@ export class WritingTimeSection {
 		const { app, settings } = plugin;
 		const keys:  TimeKeys = settings.timeKeys  ?? { draft: '초고_시간', writing: '집필_시간', editing: '퇴고_시간', total: '총_시간' };
 		const goals = settings.timeGoals ?? { draft: 7200, writing: 7200, editing: 7200 };
-		const folder = settings.heatmapFolder ?? '';
+		const fallbackFolder = settings.heatmapFolder ?? '';
 
-		const stat = await WritingTimeStore.averageFolder(app, folder, keys);
+		const avgFolderFor = (file: import('obsidian').TFile): string => {
+			const level = settings.timeAvgFolderLevel ?? 0;
+			let path = file.parent?.path ?? '';
+			for (let i = 0; i < level; i++) {
+				const up = path.lastIndexOf('/');
+				if (up < 0) break;
+				path = path.slice(0, up);
+			}
+			return path;
+		};
+
+		const initialFile = app.workspace.getActiveFile();
+		let stat = await WritingTimeStore.averageFolder(
+			app,
+			initialFile ? avgFolderFor(initialFile) : fallbackFolder,
+			keys,
+		);
 
 		const card = container.createDiv({ cls: 'wm-wt-card' });
 
@@ -48,20 +66,19 @@ export class WritingTimeSection {
 		let isSaving = false;
 
 		// UI refs
-		const valEls     = new Map<Mode, HTMLElement>();
-		const hmEls      = new Map<Mode, HTMLElement>();
-		const fillState  = new Map<Mode, number>();
-		const btnGridEls = new Map<Mode, HTMLElement>();
-		const pctEls     = new Map<Mode, HTMLElement>();
+		const valEls      = new Map<Mode, HTMLElement>();
+		const hmEls       = new Map<Mode, HTMLElement>();
+		const fillState   = new Map<Mode, number>();
+		const btnGridEls  = new Map<Mode, HTMLElement>();
+		const statEls     = new Map<Mode, ModeStatEls>();
 
-		const setPct = (mode: Mode, cur: number) => {
-			const el = pctEls.get(mode);
-			if (!el) return;
-			const avg = stat.avg[mode];
-			if (avg <= 0 || cur <= 0) { el.textContent = ''; el.className = 'wm-wt-pct'; return; }
-			const pct = Math.round((cur - avg) / avg * 100);
-			el.textContent = `${Math.abs(pct)}% ${pct > 0 ? '↑' : '↓'}`;
-			el.className = `wm-wt-pct ${pct > 0 ? 'is-above' : 'is-below'}`;
+		const setCmpRows = (mode: Mode, cur: number) => {
+			const els = statEls.get(mode);
+			if (!els) return;
+			const goal     = goals[mode] ?? 0;
+			const avg      = stat.avg[mode];
+			const workCells = Math.min(Math.floor(cur / SEC_PER_CELL), N_CELLS);
+			updateModeStatBlock(els, cur, goal, avg, workCells);
 		};
 
 		let popup: HTMLElement | null = null;
@@ -76,7 +93,7 @@ export class WritingTimeSection {
 			popup.style.top  = `${rect.top - 6}px`;
 		};
 
-		// ── pendingTimeUpdates 로드 (delta 방식: seconds = 0으로 초기화) ──
+		// ── pendingTimeUpdates 로드 ──
 		const loadPending = (file: TFile) => {
 			for (const m of [...MODES, 'total' as const]) {
 				const key = `${file.path}:${m}`;
@@ -86,7 +103,6 @@ export class WritingTimeSection {
 			}
 		};
 
-		// ── frontmatter(base) + pending(delta) 저장 후 delta 리셋 ──
 		const savePending = async (file: TFile) => {
 			if (isSaving) return;
 			const fm = app.metadataCache.getFileCache(file)?.frontmatter ?? {};
@@ -104,7 +120,6 @@ export class WritingTimeSection {
 			} finally {
 				setTimeout(() => { isSaving = false; }, 200);
 			}
-			// 저장 후 delta 리셋 (이중 합산 방지)
 			for (const m of [...MODES, 'total' as const]) {
 				const entry = plugin.pendingTimeUpdates.get(`${file.path}:${m}`);
 				if (entry) entry.seconds = 0;
@@ -139,14 +154,15 @@ export class WritingTimeSection {
 			}
 		};
 
+		const clearRefs = () => {
+			valEls.clear(); hmEls.clear(); fillState.clear(); btnGridEls.clear();
+			statEls.clear();
+		};
+
 		// buildCard: 파일 변경 시만 전체 재빌드
 		const buildCard = (file: TFile) => {
 			card.empty();
-			valEls.clear();
-			hmEls.clear();
-			fillState.clear();
-			btnGridEls.clear();
-			pctEls.clear();
+			clearRefs();
 
 			const time = WritingTimeStore.getFileTime(app, file, keys, plugin.pendingTimeUpdates);
 
@@ -156,21 +172,21 @@ export class WritingTimeSection {
 				const goal  = goals[mode] ?? 0;
 				const isSel = mode === selectedMode;
 
-				const modeDiv = card.createDiv({ cls: 'wm-wt-mode' });
+				const modeRow = card.createDiv({ cls: 'wm-wt-mode-row' });
+				modeRow.dataset.mode = mode;
+
+				const modeDiv = modeRow.createDiv({ cls: 'wm-wt-mode' });
 				modeDiv.dataset.mode = mode;
 
-				// 헤더: label(좌) | val(우)
 				const header = modeDiv.createDiv({ cls: 'wm-wt-mode-header' });
 				header.createDiv({ cls: 'wm-wt-lbl', text: MODE_LABELS[mode] });
 				const val = header.createDiv({ cls: 'wm-wt-val' });
-				val.textContent = cur > 0 ? WritingTimeStore.formatTime(cur) : '—';
+				val.textContent = cur > 0 ? WritingTimeStore.formatTime(cur) : '';
 				if (cur > 0) val.setAttribute('aria-label', WritingTimeStore.formatTimeFull(cur));
 				valEls.set(mode, val);
 
-				// hmArea: [2×2 버튼 좌측] [heatmap 우측]
 				const hmArea = modeDiv.createDiv({ cls: 'wm-wt-hm-area' });
 
-				// 2×2 모드 버튼 (항상 표시, 선택 시 lit)
 				const grid = hmArea.createDiv({ cls: 'wm-wt-jinhaeng-grid' });
 				for (let i = 0; i < 4; i++) {
 					const jcell = grid.createDiv({ cls: 'wm-wt-jinhaeng-cell' });
@@ -187,11 +203,6 @@ export class WritingTimeSection {
 				fillState.set(mode, workCells);
 				buildHmCells(hm, workCells, avgIdx, goalIdx, cur, avg, goal);
 
-				const pctEl = hmArea.createDiv({ cls: 'wm-wt-pct' });
-				pctEls.set(mode, pctEl);
-				setPct(mode, cur);
-
-				// 모드 클릭: 2×2 버튼에만 한정, opacity 토글 (DOM 재빌드 없음)
 				grid.style.cursor = 'pointer';
 				grid.addEventListener('click', (e) => {
 					e.stopPropagation();
@@ -202,12 +213,15 @@ export class WritingTimeSection {
 					plugin.settings.currentTimeMode = mode;
 					plugin.saveSettings().catch(() => {});
 				});
+
+				const els = renderModeStatBlock(hmArea);
+				statEls.set(mode, els);
+				setCmpRows(mode, cur);
 			}
 		};
 
 		// updateDisplay: val + heatmap 셀 갱신 (1초마다)
 		const updateDisplay = (file: TFile) => {
-			// 외부에서 currentTimeMode가 바뀌면 버튼 opacity 동기화
 			const extMode = plugin.settings.currentTimeMode as Mode;
 			if (extMode !== selectedMode) {
 				setGridOpacity(btnGridEls.get(selectedMode), '0.15');
@@ -222,7 +236,7 @@ export class WritingTimeSection {
 
 				const val = valEls.get(mode);
 				if (val) {
-					const txt = cur > 0 ? WritingTimeStore.formatTime(cur) : '—';
+					const txt = cur > 0 ? WritingTimeStore.formatTime(cur) : '';
 					if (val.textContent !== txt) val.textContent = txt;
 					if (cur > 0) val.setAttribute('aria-label', WritingTimeStore.formatTimeFull(cur));
 				}
@@ -232,14 +246,14 @@ export class WritingTimeSection {
 					fillState.set(mode, newFill);
 					const hm = hmEls.get(mode);
 					if (hm) {
-						const avg   = stat.avg[mode];
-						const goal  = goals[mode] ?? 0;
+						const avg    = stat.avg[mode];
+						const goal   = goals[mode] ?? 0;
 						const avgIdx  = avg  > 0 ? Math.min(Math.floor(avg  / SEC_PER_CELL), N_CELLS - 1) : null;
 						const goalIdx = goal > 0 ? Math.min(Math.floor(goal / SEC_PER_CELL), N_CELLS - 1) : null;
 						buildHmCells(hm, newFill, avgIdx, goalIdx, cur, avg, goal);
 					}
 				}
-				setPct(mode, cur);
+				setCmpRows(mode, cur);
 			}
 		};
 
@@ -247,21 +261,22 @@ export class WritingTimeSection {
 		const onFileChange = async (file: TFile | null) => {
 			if (trackingFile && trackingFile !== file) await savePending(trackingFile);
 			trackingFile = file;
-			if (file) loadPending(file);
+			if (file) {
+				loadPending(file);
+				const folder = avgFolderFor(file);
+				stat = await WritingTimeStore.averageFolder(app, folder, keys);
+				for (const m of MODES) fillState.set(m, -1);
+			}
 			removePopup();
 			if (file) buildCard(file);
 			else {
 				card.empty();
-				valEls.clear();
-				hmEls.clear();
-				fillState.clear();
-				btnGridEls.clear();
+				clearRefs();
 				card.createDiv({ cls: 'wm-wt-empty', text: '열린 문서 없음' });
 			}
 		};
 
 		// ── 초기화 ──
-		const initialFile = app.workspace.getActiveFile();
 		trackingFile = initialFile;
 		if (initialFile) {
 			loadPending(initialFile);
@@ -296,7 +311,7 @@ export class WritingTimeSection {
 			if (f && valEls.size > 0) updateDisplay(f);
 		}, 1000);
 
-		// ── 에디터 변경 → 타이핑 감지 (자체 저장 중 무시) ──
+		// ── 에디터 변경 → 타이핑 감지 ──
 		const editorHandler = app.workspace.on('editor-change', () => {
 			if (isSaving) return;
 			isTyping = true;
@@ -310,11 +325,26 @@ export class WritingTimeSection {
 			onFileChange(f).catch(() => {});
 		});
 
+		// ── vault.modify → 폴더 평균 재계산 ──
+		let avgDebounceTimer = 0;
+		const avgModifyHandler = app.vault.on('modify', () => {
+			clearTimeout(avgDebounceTimer);
+			avgDebounceTimer = window.setTimeout(async () => {
+				const folder = trackingFile ? avgFolderFor(trackingFile) : fallbackFolder;
+				const newStat = await WritingTimeStore.averageFolder(app, folder, keys);
+				stat = newStat;
+				// force heatmap rebuild on next updateDisplay tick
+				for (const m of MODES) fillState.set(m, -1);
+			}, 2000);
+		});
+
 		// ── 컨테이너 해제 시 정리 ──
 		const observer = new MutationObserver(() => {
 			if (!container.isConnected) {
 				app.workspace.offref(leafHandler);
 				app.workspace.offref(editorHandler);
+				app.vault.offref(avgModifyHandler);
+				clearTimeout(avgDebounceTimer);
 				window.clearInterval(uiInterval);
 				window.clearInterval(accumInterval);
 				if (trackingFile) savePending(trackingFile).catch(() => {});
