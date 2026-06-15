@@ -1,5 +1,6 @@
 import { App, PluginSettingTab, Setting, setIcon, Platform } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
+import { renderWikiSettingsPage } from '../wiki/WikiSettings';
 
 /** CSS --interactive-accent 값을 hex로 변환 (canvas 픽셀 읽기) */
 function accentColorToHex(): string {
@@ -44,8 +45,10 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			case 'time':             this.renderTimePage(containerEl); break;
 			case 'dictionary':       this.renderDictionaryPage(containerEl); break;
 			case 'version-control':  this.renderVersionPage(containerEl); break;
+			case 'stopwatch':         this.renderStopwatchPage(containerEl); break;
 			case 'calendar':         this.renderCalendarPage(containerEl); break;
 			case 'calendar-chars':   this.renderCalendarCharsPage(containerEl); break;
+			case 'wiki':             this.renderWikiPage(containerEl); break;
 		}
 	}
 
@@ -88,15 +91,18 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		this.addNavCard(editorBox, '입력 보조', '자동완성 기호, 텍스트 치환', 'keyboard', 'input');
 		this.addNavCard(editorBox, '복사 및 내보내기', '복사 옵션, TXT · HWP 내보내기', 'file-output', 'copy-export');
 
-		this.addGroupTitle(containerEl, '캘린더');
+		this.addGroupTitle(containerEl, '대시보드');
 		const calBox = this.createGroupBox(containerEl);
-		this.addNavCard(calBox, '캘린더 설정', '캘린더 표시, 탭, 위젯, 대시보드 설정', 'calendar', 'calendar');
+		this.addNavCard(calBox, '캘린더 & 일정 관리', '히트맵 기준, 할 일 헤더 설정', 'calendar', 'calendar');
+		this.addNavCard(calBox, '글자수', '추적 폴더, 목표 글자수, 히트맵 색상', 'square-chart-gantt', 'calendar-chars');
+		this.addNavCard(calBox, '작업 시간', '시간 추적 키, 목표, 메뉴 표시 설정', 'clock', 'time');
+		this.addNavCard(calBox, '버전 관리', '스냅샷 저장 위치 및 최대 보관 개수', 'history', 'version-control');
+		this.addNavCard(calBox, '위키 뷰', '나무위키 스타일 캐릭터 카드 뷰 설정', 'git-graph', 'wiki');
 
 		this.addGroupTitle(containerEl, '기타');
 		const etcBox = this.createGroupBox(containerEl);
-		this.addNavCard(etcBox, '작업 시간', '스톱워치 · 알람, 메뉴 표시 설정', 'timer', 'time');
+		this.addNavCard(etcBox, '스톱워치', '카운트다운 시간 · 알람 설정', 'timer', 'stopwatch');
 		this.addNavCard(etcBox, '사전', '표준국어대사전 API 키', 'book-open', 'dictionary');
-		this.addNavCard(etcBox, '버전 관리', '스냅샷 저장 위치 및 최대 보관 개수', 'history', 'version-control');
 	}
 
 	// ── 타이포그래피 ────────────────────────────────────────────────────
@@ -320,14 +326,8 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 
 	// ── 작업 시간 ───────────────────────────────────────────────────────
 
-	private renderTimePage(containerEl: HTMLElement) {
-		this.addBackButton(containerEl, '작업 시간');
-
-		this.addGroupTitle(containerEl, '표시');
-		const displayBox = this.createGroupBox(containerEl);
-		new Setting(displayBox).setName('작업 시간 숨기기').setDesc('드롭다운 메뉴에서 작업 시간 항목을 숨깁니다.')
-			.addToggle(toggle => toggle.setValue(this.plugin.settings.hideTimeTracking)
-				.onChange(async value => { this.plugin.settings.hideTimeTracking = value; await this.plugin.saveSettings(); }));
+	private renderStopwatchPage(containerEl: HTMLElement) {
+		this.addBackButton(containerEl, '스톱워치');
 
 		this.addGroupTitle(containerEl, '스톱워치');
 		const swBox = this.createGroupBox(containerEl);
@@ -353,6 +353,16 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 					this.plugin.playAlarm();
 				}));
+	}
+
+	private renderTimePage(containerEl: HTMLElement) {
+		this.addBackButton(containerEl, '작업 시간');
+
+		this.addGroupTitle(containerEl, '표시');
+		const displayBox = this.createGroupBox(containerEl);
+		new Setting(displayBox).setName('작업 시간 숨기기').setDesc('드롭다운 메뉴에서 작업 시간 항목을 숨깁니다.')
+			.addToggle(toggle => toggle.setValue(this.plugin.settings.hideTimeTracking)
+				.onChange(async value => { this.plugin.settings.hideTimeTracking = value; await this.plugin.saveSettings(); }));
 
 		this.addGroupTitle(containerEl, '집필 시간 목표');
 		const tgBox = this.createGroupBox(containerEl);
@@ -381,6 +391,16 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					t.inputEl.min  = '0';
 				});
 		}
+
+		this.addGroupTitle(containerEl, '평균 기준 폴더');
+		const avgBox = this.createGroupBox(containerEl);
+		new Setting(avgBox)
+			.setName('평균 기준 상위 폴더 단계')
+			.setDesc('0 = 추적 노트의 직속 폴더, 1 = 한 단계 위 폴더, … (추적 노트 기준, 노트 없으면 히트맵 폴더 사용)')
+			.addSlider(s => s.setLimits(0, 5, 1)
+				.setValue(this.plugin.settings.timeAvgFolderLevel ?? 0)
+				.setDynamicTooltip()
+				.onChange(async v => { this.plugin.settings.timeAvgFolderLevel = v; await this.plugin.saveSettings(); }));
 
 		this.addGroupTitle(containerEl, '집필 시간 프론트매터 키');
 		const tkBox = this.createGroupBox(containerEl);
@@ -507,7 +527,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 	// ── 캘린더 설정 ─────────────────────────────────────────────────────
 
 	private renderCalendarPage(containerEl: HTMLElement) {
-		this.addBackButton(containerEl, '캘린더 설정');
+		this.addBackButton(containerEl, '캘린더 & 일정 관리');
 
 		this.addGroupTitle(containerEl, '히트맵');
 		const heatBox = this.createGroupBox(containerEl);
@@ -539,9 +559,6 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-		this.addGroupTitle(containerEl, '대시보드');
-		const dashBox = this.createGroupBox(containerEl);
-		this.addNavCard(dashBox, '글자수', '추적 폴더, 목표 글자수, 히트맵 색상', 'type', 'calendar-chars');
 	}
 
 	private renderCalendarCharsPage(containerEl: HTMLElement) {
@@ -551,8 +568,33 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		const todayBox = this.createGroupBox(containerEl);
 
 		new Setting(todayBox)
+			.setName('글자수 플랫폼')
+			.setDesc('히트맵·일평균·목표 비교에 사용할 글자수 기준을 선택합니다.')
+			.addDropdown(dd => dd
+				.addOption('munpia', '문피아 기준')
+				.addOption('novelpia', '노벨피아 기준')
+				.setValue(this.plugin.settings.charCountMode ?? 'munpia')
+				.onChange(async v => {
+					this.plugin.settings.charCountMode = v as 'munpia' | 'novelpia';
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(todayBox)
+			.setName('스탯카드 표시')
+			.setDesc('stat 카드에 표시할 플랫폼을 선택합니다.')
+			.addDropdown(dd => dd
+				.addOption('both', '문피아 + 노벨피아')
+				.addOption('munpia', '문피아만')
+				.addOption('novelpia', '노벨피아만')
+				.setValue(this.plugin.settings.statCardDisplay ?? 'both')
+				.onChange(async v => {
+					this.plugin.settings.statCardDisplay = v as 'munpia' | 'novelpia' | 'both';
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(todayBox)
 			.setName('추적 폴더')
-			.setDesc('이 폴더 안의 파일만 오늘 글자수에 집계합니다. 비워 두면 전체 노트를 집계합니다.')
+			.setDesc('이 폴더 안의 파일만 히트맵에 집계합니다. 비워 두면 전체 노트를 집계합니다.')
 			.addText(t => t
 				.setPlaceholder('예: 소설/집필')
 				.setValue(this.plugin.settings.heatmapFolder ?? '')
@@ -629,6 +671,13 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					t.inputEl.min = '0';
 				});
 		});
+	}
+
+	// ── 위키 ────────────────────────────────────────────────────────────
+
+	private renderWikiPage(containerEl: HTMLElement) {
+		this.addBackButton(containerEl, '위키 뷰');
+		renderWikiSettingsPage(containerEl, this.plugin, () => this.renderPage('wiki'));
 	}
 
 	// ── 자동완성 심볼 ────────────────────────────────────────────────────

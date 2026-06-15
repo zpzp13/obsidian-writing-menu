@@ -686,14 +686,15 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 /* Wrapper: fixed side margins — never scroll away */
 .wm-cal-date-strip-wrap {
     margin: 0 16px;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: visible;
 }
 
 .wm-cal-date-strip {
     display: flex;
     gap: 10px;
     overflow-x: auto;
-    padding: 0 0 14px;
+    padding: 6px 0 14px;
     scrollbar-width: none;
 }
 .wm-cal-date-strip::-webkit-scrollbar { display: none; }
@@ -868,6 +869,148 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     background: color-mix(in srgb, var(--text-muted) 70%, transparent);
 }
 
+/* ── Dashboard Tab Bar ── */
+.wm-dash-tab-bar {
+    display: flex;
+    justify-content: space-evenly;
+    padding: 6px 4px 4px;
+}
+.wm-dash-tab-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+.wm-dash-tab-btn svg { width: 16px; height: 16px; }
+.wm-dash-tab-btn:hover {
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
+}
+.wm-dash-tab-btn.is-active {
+    background: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
+    color: var(--interactive-accent);
+}
+
+/* ── Dashboard Panel ── */
+.wm-dash-panel {
+    width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
+}
+.wm-dash-panel-single {
+    padding: 20px 10px;
+}
+.wm-dash-panel-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 120px;
+}
+.wm-dash-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-muted);
+}
+.wm-dash-placeholder-icon svg { width: 28px; height: 28px; }
+.wm-dash-placeholder-text { font-size: 13px; font-weight: 600; }
+.wm-dash-placeholder-sub  { font-size: 11px; }
+
+/* ── Sort Board ── */
+.wm-dash-sort-board { padding: 0; }
+.wm-dash-sort-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px 4px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    margin-bottom: 4px;
+}
+.wm-dash-sort-back {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+.wm-dash-sort-back:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.wm-dash-sort-back svg { width: 14px; height: 14px; }
+.wm-dash-sort-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    flex: 1;
+}
+.wm-dash-sort-list { padding: 4px 8px; }
+.wm-dash-sort-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 4px;
+    border-radius: 6px;
+    user-select: none;
+}
+.wm-dash-sort-row.is-dragging { opacity: 0.5; }
+.wm-dash-sort-row.is-drag-over { background: var(--background-modifier-hover); }
+.wm-dash-sort-handle {
+    display: flex;
+    align-items: center;
+    cursor: grab;
+    color: var(--text-faint);
+    flex-shrink: 0;
+}
+.wm-dash-sort-handle svg { width: 14px; height: 14px; }
+.wm-dash-sort-handle:active { cursor: grabbing; }
+.wm-dash-sort-label { flex: 1; font-size: 13px; color: var(--text-normal); }
+.wm-dash-sort-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+.wm-dash-sort-arrow svg { width: 13px; height: 13px; }
+.wm-dash-sort-arrow:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.wm-dash-sort-arrow.is-disabled { opacity: 0.3; cursor: default; }
+.wm-dash-sort-arrow.is-disabled:hover { background: none; }
+.wm-dash-sort-eye {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--text-normal);
+    flex-shrink: 0;
+}
+.wm-dash-sort-eye svg { width: 13px; height: 13px; }
+.wm-dash-sort-eye:hover { background: var(--background-modifier-hover); }
+.wm-dash-sort-eye.is-hidden { color: var(--text-faint); }
+
+/* ── Version panel (dashboard tab context overrides) ── */
+.wm-dash-panel.version-control-view { padding: 0; }
+.wm-dash-panel.version-control-view .wm-vhv-root { height: auto; overflow: visible; }
+.wm-dash-panel.version-control-view .wm-vhv-list { flex: none; overflow-y: visible; }
+.wm-dash-panel.version-control-view .wm-vhv-preview-body {
+    padding: 8px 12px 20px;
+    overflow-y: visible;
+}
+
 /* ── Date picker popup ── */
 .wm-cal-picker {
     position: fixed;
@@ -970,22 +1113,22 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 }
 .wm-dash-group-chevron { display: flex; align-items: center; color: var(--text-faint); }
 .wm-dash-group-chevron svg { width: 16px; height: 16px; }
+.wm-dash-group-cog {
+    display: flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px; border-radius: var(--radius-s);
+    flex-shrink: 0; opacity: 0; cursor: pointer;
+    color: var(--text-muted); margin-left: auto; margin-right: 4px;
+    transition: opacity 0.15s, background 0.15s;
+}
+.wm-dash-group-hdr:hover .wm-dash-group-cog { opacity: 0.55; }
+.wm-dash-group-cog:hover { opacity: 1 !important; background: var(--background-modifier-hover); }
+.wm-dash-group-cog svg { width: 13px; height: 13px; }
 /* Group body: no extra wrapper padding — items carry their own horizontal padding */
 .wm-dash-group-body { }
 .wm-dash-group-body.is-collapsed { display: none; }
 
 /* Items: identical to version-history wm-vhv-item (padding 9px 10px, divider left 20px) */
 .wm-dash-group-item { position: relative; padding: 9px 10px; }
-.wm-dash-group-item::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 20px;
-    right: 0;
-    height: 1px;
-    background: var(--background-modifier-border);
-}
-.wm-dash-group-item:last-child::after { display: none; }
 /* 글자수 section: no dividers between cards */
 .no-item-dividers .wm-dash-group-item::after { display: none; }
 .no-item-dividers .wm-dash-group-item { padding: 20px 10px; }
@@ -1028,6 +1171,31 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     font-weight: 600;
     color: var(--text-muted);
     text-align: left;
+}
+.wm-dash-today-num-stack {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+}
+.wm-dash-today-num-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 auto;
+}
+.wm-dash-today-num-stack .wm-dash-stat-num { font-size: 16px; }
+.wm-dash-platform-logo {
+    display: inline-flex;
+    align-items: center;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+.wm-dash-platform-logo svg {
+    width: 100%;
+    height: 100%;
 }
 .wm-dash-today-num {
     flex: 1;
@@ -1329,28 +1497,52 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 .wm-task-item {
     display: flex;
     align-items: flex-start;
-    gap: 10px;
-    padding: 10px 32px 0;
+    padding: 10px 33px 0 52px;
     transition: opacity 0.28s ease;
 }
 .wm-task-item.is-fading { opacity: 0; }
+.wm-task-item-title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 5px;
+}
 .wm-task-item-check {
-    width: 14px;
-    height: 14px;
+    width: 20px;
+    height: 20px;
     flex-shrink: 0;
-    margin-top: 3px;
-    border-radius: 5px;
-    border: 1.5px solid var(--text-muted);
+    margin-top: 0;
+    border: none;
+    background: transparent;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    color: color-mix(in srgb, oklch(0.85 0.14 85) 38%, transparent);
+    transition: color 0.2s;
+}
+.wm-task-item-check svg { width: 20px; height: 20px; stroke-width: 2.5; }
+.wm-task-item-check:hover:not(.is-done) { color: color-mix(in srgb, oklch(0.85 0.14 85) 68%, transparent); }
+.wm-task-item-check.is-done { color: oklch(0.82 0.14 85); background: transparent; }
+
+.wm-task-sub-list { padding-left: 8px; margin-bottom: 4px; }
+.wm-task-sub-item {
+    display: flex; align-items: flex-start; gap: 6px;
+    padding: 2px 0;
+}
+.wm-task-sub-check {
+    width: 11px; height: 11px; flex-shrink: 0; margin-top: 1.8px;
+    border-radius: 4px; border: 1.5px solid var(--text-muted);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
     color: transparent;
     transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
-.wm-task-item-check svg { width: 9px; height: 9px; }
-.wm-task-item-check:hover:not(.is-done) { border-color: var(--interactive-accent); color: var(--interactive-accent); }
-.wm-task-item-check.is-done { background: var(--interactive-accent); border-color: var(--interactive-accent); color: var(--text-on-accent); }
+.wm-task-sub-check svg { width: 7px; height: 7px; }
+.wm-task-sub-check:hover:not(.is-done) { border-color: var(--interactive-accent); color: var(--interactive-accent); }
+.wm-task-sub-check.is-done { background: var(--interactive-accent); border-color: var(--interactive-accent); color: var(--text-on-accent); }
+.wm-task-sub-text { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+.wm-task-sub-item.is-done .wm-task-sub-text { text-decoration: line-through; color: var(--text-faint); }
 .wm-task-item-content {
     flex: 1;
     min-width: 0;
@@ -1365,7 +1557,6 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     overflow: hidden;
     text-overflow: ellipsis;
     cursor: pointer;
-    margin-bottom: 5px;
 }
 .wm-task-item-title:hover { color: var(--text-accent); }
 .wm-task-item-title.is-done { text-decoration: line-through; color: var(--text-faint); }
@@ -1413,35 +1604,51 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 .wm-task-priority-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
 
 /* 할 일 추가 팝업 */
-.wm-task-add-popup { min-width: 280px; }
-.wm-task-add-field { padding: 2px 6px 4px; }
-.wm-task-add-date-row { display: flex; align-items: center; gap: 4px; }
+.wm-task-add-popup { min-width: 300px; padding: 8px 0 4px; }
+.wm-task-add-field { padding: 3px 8px; }
+.wm-task-add-date-row { display: flex; align-items: center; gap: 6px; }
 .wm-task-add-date-input { flex: 1; }
 .wm-task-add-cal-btn {
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0; cursor: pointer; color: var(--text-muted); padding: 4px;
-    border-radius: 4px; transition: color 0.15s;
+    border-radius: var(--radius-s); transition: color 0.15s;
 }
 .wm-task-add-cal-btn:hover { color: var(--text-normal); background: var(--background-modifier-hover); }
-.wm-task-add-cal-btn svg { width: 14px; height: 14px; }
-.wm-task-add-input {
-    width: 100%;
-    background: var(--background-modifier-form-field);
-    border: 1px solid var(--background-modifier-border);
-    border-radius: 4px;
-    padding: 6px 10px;
-    font-size: 13px;
-    color: var(--text-normal);
-    outline: none;
-    box-sizing: border-box;
-}
+.wm-task-add-cal-btn svg { width: 15px; height: 15px; }
+.wm-task-add-input,
 .wm-task-add-textarea {
-    width: 100%; resize: none; font-size: 13px; color: var(--text-normal);
+    width: 100%; box-sizing: border-box;
     background: var(--background-modifier-form-field);
     border: 1px solid var(--background-modifier-border);
-    border-radius: 4px; padding: 6px 10px; box-sizing: border-box;
-    font-family: inherit; outline: none; display: block;
+    border-radius: var(--radius-s);
+    padding: 6px 10px; font-size: 13px; color: var(--text-normal);
+    outline: none; font-family: inherit;
 }
+.wm-task-add-textarea { resize: none; display: block; }
+.wm-task-add-input:focus,
+.wm-task-add-textarea:focus {
+    outline: none !important;
+    border-color: var(--interactive-accent) !important;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 20%, transparent) !important;
+    animation: none !important;
+}
+.wm-task-add-footer {
+    display: flex; justify-content: flex-end; gap: 6px;
+    padding: 6px 8px 2px;
+}
+.wm-task-add-footer button { box-shadow: none !important; }
+.wm-task-add-submit-btn {
+    padding: 5px 14px; border-radius: var(--radius-s); font-size: 13px;
+    background: transparent !important; color: var(--interactive-accent);
+    cursor: pointer; border: none !important; box-shadow: none !important;
+}
+.wm-task-add-submit-btn:hover { background: transparent !important; color: var(--interactive-accent-hover); }
+.wm-task-add-cancel-btn {
+    padding: 5px 14px; border-radius: var(--radius-s); font-size: 13px;
+    background: transparent !important; color: var(--text-muted);
+    cursor: pointer; border: none !important; box-shadow: none !important;
+}
+.wm-task-add-cancel-btn:hover { background: transparent !important; color: var(--text-normal); }
 
 /* ── 미니 날짜 피커 ── */
 .wm-mini-date-picker { min-width: 200px; padding: 4px; }
@@ -1465,19 +1672,50 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 /* ── 캘린더 태스크 배지 (date strip) ── */
 .wm-cal-date-card { position: relative; }
 .wm-cal-task-badge {
-    position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%);
-    font-size: 8px; min-width: 14px; height: 13px; border-radius: 6px;
-    background: color-mix(in srgb, var(--color-orange) 20%, transparent);
-    color: var(--color-orange); display: flex; align-items: center;
-    justify-content: center; padding: 0 3px; font-weight: 700;
-    cursor: pointer; z-index: 1;
+    position: absolute; top: -5px; right: -5px;
+    font-size: 9px; min-width: 14px; height: 14px;
+    border-radius: 4px; padding: 0 3px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: color-mix(in srgb, var(--interactive-accent) 22%, var(--background-primary));
+    color: color-mix(in srgb, var(--interactive-accent) 55%, var(--background-primary));
+    border: none;
+    font-weight: 700; z-index: 2; pointer-events: none;
 }
-.wm-cal-task-badge:hover { background: color-mix(in srgb, var(--color-orange) 35%, transparent); }
+.wm-cal-task-badge.is-today {
+    background: color-mix(in srgb, var(--color-blue) 22%, var(--background-primary));
+    color: color-mix(in srgb, var(--color-blue) 55%, var(--background-primary));
+}
+.wm-cal-task-badge.is-upcoming {
+    background: color-mix(in srgb, var(--color-green) 22%, var(--background-primary));
+    color: color-mix(in srgb, var(--color-green) 55%, var(--background-primary));
+}
+.wm-cal-task-badge.is-overdue {
+    background: color-mix(in srgb, var(--color-red) 22%, var(--background-primary));
+    color: color-mix(in srgb, var(--color-red) 55%, var(--background-primary));
+}
+
+/* 다크모드: 흰색과 섞어 파스텔 톤 */
+.theme-dark .wm-cal-task-badge {
+    background: color-mix(in srgb, var(--interactive-accent) 45%, #fff);
+    color: color-mix(in srgb, var(--interactive-accent) 80%, #000);
+}
+.theme-dark .wm-cal-task-badge.is-today {
+    background: color-mix(in srgb, var(--color-blue) 45%, #fff);
+    color: color-mix(in srgb, var(--color-blue) 80%, #000);
+}
+.theme-dark .wm-cal-task-badge.is-upcoming {
+    background: color-mix(in srgb, var(--color-green) 45%, #fff);
+    color: color-mix(in srgb, var(--color-green) 80%, #000);
+}
+.theme-dark .wm-cal-task-badge.is-overdue {
+    background: color-mix(in srgb, var(--color-red) 45%, #fff);
+    color: color-mix(in srgb, var(--color-red) 80%, #000);
+}
 
 /* ── 캘린더 풀 그리드 태스크 히트맵 ── */
-.wm-cal-cell.wm-cal-task-level-1:not(.wm-cal-today) { background: color-mix(in srgb, var(--color-orange) 10%, transparent); }
-.wm-cal-cell.wm-cal-task-level-2:not(.wm-cal-today) { background: color-mix(in srgb, var(--color-orange) 22%, transparent); }
-.wm-cal-cell.wm-cal-task-level-3:not(.wm-cal-today) { background: color-mix(in srgb, var(--color-orange) 38%, transparent); }
+.wm-cal-cell.wm-cal-task-level-1:not(.wm-cal-today) { background: color-mix(in srgb, var(--interactive-accent) 12%, transparent); }
+.wm-cal-cell.wm-cal-task-level-2:not(.wm-cal-today) { background: color-mix(in srgb, var(--interactive-accent) 28%, transparent); }
+.wm-cal-cell.wm-cal-task-level-3:not(.wm-cal-today) { background: color-mix(in srgb, var(--interactive-accent) 50%, transparent); }
 
 /* ── 캘린더 태스크 미리보기 팝업 ── */
 .wm-cal-task-preview { min-width: 180px; max-width: 260px; }
@@ -1491,34 +1729,92 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     flex-direction: column;
     gap: 10px;
 }
-.wm-wt-pct {
-    font-size: 11px; color: var(--text-muted);
-    margin-left: 4px; flex-shrink: 0; white-space: nowrap;
-}
-.wm-wt-pct.is-above { color: var(--color-red); }
-.wm-wt-pct.is-below { color: var(--color-green); }
 .wm-wt-empty {
     font-size: 11px;
     color: var(--text-faint);
     text-align: center;
 }
 
+/* ── task 하이라이트 (캘린더 날짜 클릭 시) ── */
+@keyframes wm-task-hl {
+    0%   { background: color-mix(in srgb, var(--interactive-accent) 22%, transparent); }
+    100% { background: transparent; }
+}
+.wm-task-item.is-highlighted {
+    animation: wm-task-hl 1.5s ease-out forwards;
+    border-radius: 4px;
+}
+
+/* 모드 행: 히트맵 고정 블록 */
+.wm-wt-mode-row {
+    display: block;
+}
+.wm-wt-mode-row[data-mode="draft"]   { --mode-color: oklch(from var(--interactive-accent) 0.88 0.09 h); }
+.wm-wt-mode-row[data-mode="writing"] { --mode-color: oklch(from var(--interactive-accent) 0.88 0.09 calc(h + 120)); }
+.wm-wt-mode-row[data-mode="editing"] { --mode-color: oklch(from var(--interactive-accent) 0.88 0.09 calc(h + 240)); }
+
 .wm-wt-mode {
     display: flex;
     flex-direction: column;
     gap: 3px;
     cursor: pointer;
+    width: max-content;
 }
-/* 모드별 색상: --interactive-accent 기준 삼색 보색 (파스텔 고명도) */
-.wm-wt-mode[data-mode="draft"]   { --mode-color: oklch(from var(--interactive-accent) 0.88 0.09 h); }
-.wm-wt-mode[data-mode="writing"] { --mode-color: oklch(from var(--interactive-accent) 0.88 0.09 calc(h + 120)); }
-.wm-wt-mode[data-mode="editing"] { --mode-color: oklch(from var(--interactive-accent) 0.88 0.09 calc(h + 240)); }
+
+/* 비교 타일 블록 (hmArea 내부, 히트맵 우측) */
+.wm-wt-stat-block {
+    --hm-color: var(--mode-color);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    padding: 0 10px;
+}
+.wm-wt-cmp-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.wm-wt-cmp-op {
+    color: var(--text-faint);
+    flex-shrink: 0;
+    width: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.wm-wt-cmp-op svg { width: 11px; height: 11px; }
+.wm-wt-cmp-diff {
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    flex: 1;
+    text-align: right;
+    color: var(--text-faint);
+}
+.wm-wt-cmp-diff.is-above { color: var(--color-red); }
+.wm-wt-cmp-diff.is-below { color: var(--color-green); }
+
+/* 비교 타일 */
+.wm-wt-tile {
+    width: 11px; height: 11px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    background: rgba(128, 128, 128, 0.15);
+}
+.wm-wt-tile.level-1 { background: color-mix(in srgb, var(--hm-color, var(--interactive-accent)) 18%, transparent); }
+.wm-wt-tile.level-2 { background: color-mix(in srgb, var(--hm-color, var(--interactive-accent)) 45%, transparent); }
+.wm-wt-tile.level-3 { background: color-mix(in srgb, var(--hm-color, var(--interactive-accent)) 75%, transparent); }
+.wm-wt-tile.level-4 { background: var(--hm-color, var(--interactive-accent)); }
+.wm-wt-tile-goal { background: oklch(0.82 0.10 138) !important; }
+.wm-wt-tile-avg  { background: oklch(0.78 0.11 28)  !important; }
 
 /* 헤더: label(좌) | val(우), 히트맵 위 */
 .wm-wt-mode-header {
     display: flex;
     align-items: baseline;
-    gap: 6px;
+    gap: 177px;
 }
 .wm-wt-lbl {
     width: 28px;
@@ -1529,8 +1825,7 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     letter-spacing: 0.02em;
 }
 .wm-wt-val {
-    flex: 1;
-    text-align: right;
+    flex: none;
     font-size: 11px;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
@@ -1577,3 +1872,1472 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     transition: opacity 0.15s ease;
 }
 
+/* ObsiWiki Sidebar Styles - v6.11 (Refined Borders, Center Alignment) */
+
+:root {
+    --wiki-accent-color: var(--interactive-accent);
+    --wiki-accent-text: var(--text-on-accent);
+    --wiki-bg-color: var(--background-primary);
+    /* Fixed default border distinct from theme */
+    --wiki-border-color: rgba(136, 136, 136, 0.3);
+    --font-text-size: 13px !important;
+}
+
+/* --- REFACTORED SECTIONS --- */
+
+/* PROPS BELOW NAME (Revised) */
+.wiki-group-character-props {
+    display: block !important;
+    color: var(--text-muted) !important;
+    font-size: var(--wiki-group-prop-size) !important;
+    /* Slightly smaller */
+    text-align: center;
+    /* Center Align */
+    padding: 0 4px;
+    /* Reduced side padding */
+    margin-top: 2px !important;
+    /* Tighter vertical spacing */
+    line-height: 1.2;
+    opacity: 0.9;
+    width: 100%;
+}
+
+/* Ensure p tags inside properties don't ruin spacing */
+.wiki-group-character-props p {
+    margin: 0 !important;
+    padding: 0 !important;
+    text-align: center;
+}
+
+/* --- GLOBAL RESETS --- */
+.obsiwiki-view-container,
+.obsiwiki-view-container * {
+    border-radius: 0px !important;
+    box-sizing: border-box !important;
+    box-shadow: none !important;
+}
+
+/* --- MAIN CONTAINER --- */
+.obsiwiki-view-container {
+    padding: 15px;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    height: 100%;
+    display: block !important;
+    position: relative;
+}
+
+/* Ensure Toolbar spans full width */
+.wiki-toolbar {
+    display: flex;
+    width: 100%;
+}
+
+/* Main Content */
+.obsiwiki-main-content {
+    display: block !important;
+    width: 100%;
+}
+
+/* --- Floating Vertical Sidebar (Floating Overlay) --- */
+.wiki-floating-sidebar {
+    position: absolute !important;
+    top: 100%;
+    margin-top: 10px;
+    right: -12px;
+    /* Pull right to ignore parent padding (12px) */
+
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+
+    /* Transparency */
+    /* Transparency */
+    background-color: rgba(0, 0, 0, 0.35) !important;
+    /* Force transparent black (35%) */
+    backdrop-filter: blur(3px) !important;
+
+    border: 1px solid var(--wiki-border-color);
+    border-right: none;
+    border-radius: 12px !important;
+
+    box-shadow: var(--shadow-s);
+    z-index: 500;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+}
+
+.wiki-floating-sidebar:hover,
+.wiki-floating-sidebar.is-active {
+    opacity: 1;
+    /* Stay visible on hover OR when active */
+}
+
+
+
+
+
+/* --- 1. GROUP INFOBOX (Cleaned) --- */
+
+
+.wiki-group-toggle {
+    position: static;
+    font-size: 11px;
+    cursor: pointer;
+    opacity: 0.8;
+}
+
+.wiki-group-title {
+    font-size: 16px;
+    text-align: center;
+    flex: 0 1 auto;
+}
+
+.wiki-group-content {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.wiki-group-collapsed {
+    display: none;
+}
+
+/* NOTE: .wiki-group-row, .wiki-group-label, .wiki-group-data are defined at the bottom for Vertical Layout */
+
+/* LIST: Grid Layout */
+.wiki-group-character-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 120px);
+    gap: 0px;
+    justify-content: start;
+    width: 100%;
+}
+
+.wiki-group-character-item {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-height: 120px;
+    height: auto;
+    position: relative;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+/* IMAGE */
+.wiki-group-character-image {
+    width: 120px !important;
+    height: 120px !important;
+    min-width: 120px !important;
+    min-height: 120px !important;
+    object-fit: cover !important;
+    border-radius: 0 !important;
+    border: none !important;
+    margin: 0 !important;
+    display: block;
+    opacity: 0.95;
+    transition: opacity 0.2s;
+}
+
+.wiki-group-character-item:hover .wiki-group-character-image {
+    opacity: 0.8;
+}
+
+/* TEXT BELOW IMAGE */
+.wiki-group-character-name {
+    display: block !important;
+    background-color: transparent !important;
+    color: var(--text-normal) !important;
+    font-size: var(--wiki-group-title-size) !important;
+    font-weight: bold;
+    padding: 6px 2px 2px 2px;
+    text-align: center;
+    white-space: normal;
+    line-height: 1.2;
+}
+
+
+
+.wiki-color-picker-icon-container input[type="color"] {
+    opacity: 0;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+}
+
+.wiki-profile-image-container {
+    display: flex;
+    width: 100%;
+}
+
+.wiki-profile-image {
+    display: block;
+    width: 100% !important;
+    cursor: pointer;
+}
+
+
+/* --- Floating Vertical Sidebar --- */
+.wiki-floating-sidebar {
+    position: sticky;
+    top: 10px;
+    float: right;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+    background-color: var(--background-primary);
+    border: 1px solid var(--wiki-border-color);
+    border-radius: var(--radius-m);
+    z-index: 500;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+    margin-right: 15px;
+    /* Spacing from scrollbar */
+    margin-left: 10px;
+    box-shadow: var(--shadow-s);
+}
+
+.wiki-floating-sidebar:hover {
+    opacity: 1;
+}
+
+/* --- Popovers & Menus --- */
+/* Refactored to use Native .menu classes. Custom .wiki-popover styles removed. */
+
+/* Optional: Tweaks for specific inputs inside menus if needed */
+.menu-item input[type="text"],
+.menu-item input[type="search"] {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+
+/* Group Infobox */
+.wiki-group-infobox {
+    width: 100%;
+    margin-bottom: 20px;
+    background-color: var(--wiki-bg-color);
+    border: 1px solid var(--wiki-border-color);
+    border-top-color: transparent;
+    /* Transparent Top Border */
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+/* Group Header */
+/* Group Header */
+.wiki-group-header {
+    background-color: color-mix(in srgb, var(--wiki-accent-color) 40%, transparent);
+    /* Transparency Restored */
+    color: var(--wiki-accent-text);
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: none !important;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 0px;
+    position: relative;
+    font-weight: 700;
+}
+
+
+
+/* Color Picker Icon - Absolute Position */
+.wiki-color-picker-icon-container {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+}
+
+/* Profile Key Tweaks */
+.wiki-profile-key {
+    background-color: var(--wiki-accent-color);
+    color: var(--wiki-accent-text);
+    /* Tone-on-tone */
+    font-weight: 700;
+}
+
+.wiki-group-row {
+    display: block;
+    border-bottom: none !important;
+}
+
+.wiki-group-label {
+    width: 100%;
+    padding: 3px 12px;
+    /* Reduced by 5px (was 8px) */
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-right: none !important;
+    border-bottom: none !important;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    /* Palette Mode Styles override this inline, but ensure defaults are clean */
+}
+
+.wiki-group-label .wiki-group-pin-icon {
+    margin-left: 8px;
+    color: var(--interactive-accent);
+    /* Default Accent Color */
+    opacity: 1;
+    /* Full visibility */
+    display: flex;
+    align-items: center;
+}
+
+.wiki-group-label .wiki-group-pin-icon svg {
+    width: 14px;
+    height: 14px;
+}
+
+.wiki-group-data {
+    width: 100%;
+    padding: 8px 12px;
+    border: none !important;
+}
+
+/* Group Infobox (Horizontal Wrapping) */
+.wiki-group-character-list {
+    display: flex;
+    flex-flow: row wrap !important;
+    /* Force wrap */
+    gap: 8px;
+    justify-content: flex-start !important;
+    /* Force left align */
+    align-items: flex-start !important;
+}
+
+/* Character Item */
+.wiki-group-character-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    width: auto;
+    /* Let content dictate width */
+    max-width: 120px;
+    /* Optional cap */
+}
+
+.wiki-group-character-image {
+    object-fit: cover;
+    display: block;
+    margin: 0 auto 4px auto;
+    /* Center image in item, margin bottom */
+}
+
+/* Rule Popover (Advanced Grid Layout) */
+.wiki-rule-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 4px 0;
+    border-bottom: none !important;
+    /* Force No Border */
+    width: 100%;
+    cursor: default;
+    background-color: var(--background-secondary);
+}
+
+.wiki-rule-row.dragging {
+    opacity: 0.5;
+    background: var(--background-modifier-hover);
+}
+
+/* Scrollable Container for Rules */
+.wiki-group-rules-scroll {
+    max-height: 300px;
+    /* Ensure limiting height */
+    overflow-y: auto;
+    overflow-x: hidden;
+    margin-bottom: 8px;
+    /* border-bottom removed */
+}
+
+
+
+
+/* Separator - Only used between major blocks now */
+.wiki-separator {
+    width: 1px;
+    height: 20px;
+    background-color: var(--wiki-border-color);
+    margin: 0 8px;
+}
+
+/* Rule Sections */
+.wiki-rule-drag-handle {
+    cursor: grab;
+    color: var(--text-muted);
+    padding: 0 8px;
+    display: flex;
+    align-items: center;
+}
+
+.wiki-rule-section {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    /* Equal Width modification handled inline or via class */
+}
+
+.wiki-rule-section-flex {
+    flex: 1;
+    /* Equal Width */
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    justify-content: center;
+}
+
+.wiki-rule-input {
+    min-width: 0;
+    width: 100%;
+    /* Responds to parent */
+    background: transparent !important;
+    border: none !important;
+    color: var(--text-normal) !important;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wiki-rule-input:focus {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    /* Hard reset */
+}
+
+/* Condition Selector - Transparent & Centered */
+.wiki-condition-select {
+    background: transparent !important;
+    border: none !important;
+    /* No Border */
+    padding: 0 4px;
+    /* Tight padding */
+    font-size: var(--font-ui-smaller);
+    color: var(--text-muted);
+    cursor: pointer;
+    appearance: none;
+    text-align: center;
+    box-shadow: none !important;
+}
+
+.wiki-condition-select option {
+    background-color: var(--background-secondary);
+    /* Dropdown items need background */
+    color: var(--text-normal);
+}
+
+.wiki-condition-select:focus {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Ensure Parent Wrapper has no Border */
+.wiki-rule-section select {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+/* Specific Fix for Rule Popover - Remove Bottom Padding */
+.rule-popover {
+    padding-bottom: 0 !important;
+}
+
+.wiki-filter-add-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 12px;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: var(--font-ui-small);
+    border-radius: var(--radius-s);
+}
+
+.wiki-filter-add-btn:hover {
+    background-color: var(--background-modifier-hover);
+    color: var(--text-normal);
+}
+
+
+.wiki-condition-select:hover {
+    color: var(--text-normal);
+}
+
+/* Actions */
+.wiki-tool-btn {
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+}
+
+.wiki-tool-btn:hover {
+    color: var(--text-normal);
+}
+
+.wiki-tool-btn.active-pin {
+    color: var(--interactive-accent);
+    transform: rotate(45deg);
+}
+
+.wiki-tool-btn.delete:hover {
+    color: var(--text-error);
+}
+
+/* Add Button Centering */
+.wiki-filter-add-btn {
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    /* Center Vertically */
+    justify-content: center;
+    /* Center Horizontally as requested? Or just aligned? User said 'center is off' */
+    gap: 6px;
+    cursor: pointer;
+    color: var(--text-muted);
+    min-height: 28px;
+    /* Match others */
+}
+
+.wiki-filter-add-btn:hover {
+    color: var(--text-normal);
+}
+
+/* Saved Views / Menu Items */
+.wiki-saved-view-item,
+.wiki-suggestion-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: var(--font-ui-small);
+    border-radius: var(--radius-s);
+    min-height: 28px;
+    gap: 8px;
+}
+
+.wiki-saved-view-item:hover,
+.wiki-suggestion-item:hover {
+    background-color: var(--background-modifier-hover);
+}
+
+/* Saved View Actions (Always Visible) */
+.wiki-saved-view-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 4px;
+    opacity: 1;
+    /* Always Visible */
+}
+
+.wiki-action-icon {
+    color: var(--text-muted);
+    padding: 4px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.wiki-action-icon:hover {
+    background-color: var(--background-modifier-hover);
+    color: var(--text-normal);
+}
+
+.wiki-action-icon.delete:hover {
+    color: var(--text-error);
+    background-color: var(--background-modifier-error-hover);
+}
+
+/* Suggestions Container */
+.wiki-suggestion-container {
+    background-color: var(--background-secondary) !important;
+    border: 1px solid var(--wiki-border-color) !important;
+    box-shadow: var(--shadow-s);
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    max-height: 200px;
+    overflow-y: auto;
+    width: auto;
+    min-width: 150px;
+    z-index: 2000;
+}
+
+.wiki-suggestion-item.is-selected {
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+}
+
+.wiki-suggestion-item.wiki-group-header {
+    background-color: transparent;
+    /* Transparent */
+    padding: 2px 8px;
+    /* Further reduced padding */
+    cursor: pointer;
+    border-bottom: 1px solid var(--wiki-border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+/* --- TOOLBAR (Horizontal Layout) --- */
+.wiki-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 0 !important;
+    padding: 0 4px;
+    background-color: transparent !important;
+    border: none !important;
+}
+
+.wiki-toolbar-left-nav {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.wiki-toolbar-right-tools {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.wiki-nav-btn {
+    cursor: pointer;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    transition: color 0.2s ease;
+}
+
+.wiki-nav-btn:hover {
+    color: var(--text-normal);
+}
+
+.wiki-view-icon {
+    display: flex;
+    align-items: center;
+    color: var(--text-normal);
+}
+
+.wiki-view-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-normal);
+    line-height: 1;
+}
+
+.wiki-toolbar-item {
+    cursor: pointer;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    transition: color 0.2s ease;
+}
+
+.wiki-toolbar-item:hover {
+    color: var(--text-normal);
+}
+
+
+/* Body Headings Border */
+.obsiwiki-rendered-body h1,
+.obsiwiki-rendered-body h2,
+.obsiwiki-rendered-body h3,
+.obsiwiki-rendered-body h4,
+.obsiwiki-rendered-body h5,
+.obsiwiki-rendered-body h6 {
+    border-bottom: 1px solid var(--background-modifier-border);
+    width: 100%;
+    padding-bottom: 4px;
+    margin-bottom: 16px;
+}
+
+/* Force Restore Transparency for Group Header and Ensure Text Opacity */
+.wiki-group-header {
+    background-color: color-mix(in srgb, var(--wiki-accent-color) 40%, transparent) !important;
+    /* Lighter Transparency (40%) */
+    color: var(--wiki-accent-text) !important;
+    opacity: 1 !important;
+}
+
+
+/* Group Menu Specific Styles (User Requested) */
+.wiki-group-popover input,
+.wiki-group-popover select {
+    background: var(--background-modifier-form-field) !important;
+    border: var(--input-border-width) solid var(--background-modifier-border) !important;
+    color: var(--text-normal);
+    padding: var(--input-padding);
+    font-size: var(--font-ui-small);
+    border-radius: var(--input-radius);
+    outline: none;
+    height: var(--input-height);
+    transition: box-shadow 0.15s ease-in-out, border 0.15s ease-in-out;
+}
+
+.wiki-group-popover input:active,
+.wiki-group-popover input:focus,
+.wiki-group-popover input:focus-visible,
+.wiki-group-popover select:active,
+.wiki-group-popover select:focus {
+    box-shadow: 0 0 0 var(--input-border-width-focus) var(--background-modifier-border-focus) !important;
+    border-color: var(--background-modifier-border-focus) !important;
+}
+
+/* Adjust layout for inputs in group menu */
+.wiki-group-popover .menu-item {
+    align-items: center;
+    gap: 8px;
+}
+
+.wiki-group-popover .menu-item-icon {
+    color: var(--text-muted);
+}
+
+.wiki-logic-select {
+    text-align: center;
+    text-align-last: center;
+    padding-left: 4px;
+    padding-right: 4px;
+}
+
+/* Config Popover (Filter Menu) Styles */
+.wiki-config-popover .wiki-config-row {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    gap: 12px;
+    width: 100% !important;
+    /* User Request */
+}
+
+
+.wiki-config-popover .wiki-config-label {
+    width: 120px;
+    /* Fixed width for labels */
+    font-size: var(--font-ui-small);
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.wiki-config-popover .wiki-config-control {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.wiki-config-popover .wiki-config-icon-btn {
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: var(--radius-s);
+}
+
+.wiki-config-popover .wiki-config-icon-btn:hover {
+    color: var(--text-normal);
+    background-color: var(--background-modifier-hover);
+}
+
+/* Share Input Styles with Config Popover */
+.wiki-config-popover input {
+    background: var(--background-modifier-form-field) !important;
+    border: var(--input-border-width) solid var(--background-modifier-border) !important;
+    color: var(--text-normal);
+    padding: var(--input-padding);
+    font-size: var(--font-ui-small);
+    border-radius: var(--input-radius);
+    outline: none;
+    height: var(--input-height);
+    transition: box-shadow 0.15s ease-in-out, border 0.15s ease-in-out;
+    width: 100%;
+    /* Fill container */
+}
+
+.wiki-config-popover input:active,
+.wiki-config-popover input:focus,
+.wiki-config-popover input:focus-visible {
+    box-shadow: 0 0 0 var(--input-border-width-focus) var(--background-modifier-border-focus) !important;
+    border-color: var(--background-modifier-border-focus) !important;
+}
+
+/* --- Settings Page Styles --- */
+
+/* Unified Width for Inputs & Textareas */
+.wiki-settings-image-field input[type="text"],
+.wiki-settings-textarea textarea {
+    width: 150px !important;
+    /* Reduced to 150px */
+    box-sizing: border-box !important;
+}
+
+/* Sort List Item Container */
+.wiki-sort-item-container {
+    padding: 11px !important;
+    gap: 11px !important;
+    align-items: center !important;
+}
+
+/* Vertical Separator for Sort Item */
+.wiki-sort-separator {
+    width: 1px;
+    height: 130px;
+    /* Increased height */
+    background-color: var(--background-modifier-border);
+    margin: 0 2px;
+    /* Requested padding/margin */
+    flex-shrink: 0;
+}
+
+/* Add Rule Button Padding */
+button[aria-label="규칙 추가"] {
+    padding: 2px 6px !important;
+}
+
+
+
+/* ═══════════════════════════════════════════════════════
+   나무위키 대시보드 스타일 — WikiPanel (dashboard 내장형)
+   ═══════════════════════════════════════════════════════ */
+
+.wm-dash-panel-single .wiki-floating-sidebar { display: none !important; }
+
+/* wiki 모드: wm-cal-content에 .wm-wiki-mode가 붙으면 fixed-height flex 체인으로 전환 */
+.wm-wiki-mode {
+    overflow-y: hidden !important;
+}
+.wm-wiki-mode .wm-cal-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    max-width: none;
+}
+.wm-wiki-mode .wm-dash-panel {
+    flex: 1;
+    min-height: 0;
+}
+
+/* wiki 패널: flex:1 + min-height:0 로 scrollArea가 실제로 스크롤되도록 함 */
+.wm-wiki-panel {
+    display: flex;
+    flex-direction: column;
+    overflow-x: clip;
+    overflow-y: visible;
+    position: relative;
+    flex: 1;
+    min-height: 0;
+}
+/* ── 플로팅 네비게이션 버튼 (outerContainer 기준 absolute) ── */
+.wiki-nav-buttons {
+    position: absolute;
+    bottom: 24px;
+    right: 6px;
+    width: fit-content;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    z-index: 20;
+    opacity: 0.3;
+    transition: opacity 0.2s;
+    pointer-events: auto;
+}
+.wiki-nav-buttons:hover { opacity: 0.85; }
+.wiki-nav-btn {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 3px;
+    cursor: pointer;
+    color: var(--text-muted);
+}
+.wiki-nav-btn:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.wiki-nav-btn .svg-icon { width: 13px; height: 13px; }
+/* 옵시위키 내 모든 링크 밑줄 제거 */
+.wm-wiki-panel a,
+.wm-wiki-panel .internal-link,
+.wm-wiki-panel .external-link {
+    text-decoration: none !important;
+}
+
+/* 카드 스트립 / 관계 리스트 접힘 */
+.wiki-card-strip-wrap.is-collapsed,
+.wiki-rel-list-wrap.is-collapsed { display: none; }
+
+/* 폴더 아이콘 (wm-cal-icon-btn 규격: 28×28, 아이콘 16px) */
+.wiki-bc-folder-icon {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--text-muted);
+    opacity: 0.72;
+}
+.wiki-bc-folder-icon .svg-icon { width: 16px; height: 16px; }
+.wiki-toolbar-left:hover .wiki-bc-folder-icon { opacity: 1; color: var(--text-normal); }
+
+.wiki-strip-collapse-btn { flex-shrink: 0; }
+
+/* ── 툴바 ── */
+.wiki-toolbar {
+    display: flex;
+    align-items: center;
+    padding: 0 0 20px 0;
+    min-width: 0;
+    flex-shrink: 0;
+    gap: 4px;
+}
+
+/* 폴더명 + picker 아이콘 묶음 — 여유 공간 전부 차지 */
+.wiki-toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    overflow: hidden;
+    min-width: 0;
+    cursor: pointer;
+    flex: 1;
+}
+.wiki-toolbar-left:hover .wiki-bc-seg,
+.wiki-toolbar-left:hover .wiki-bc-placeholder { opacity: 1; }
+.wiki-bc-seg {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--text-normal);
+    opacity: 0.88;
+    white-space: nowrap;
+}
+.wiki-bc-sep { color: var(--text-faint); margin: 0 2px; font-size: 14px; line-height: 1; }
+.wiki-bc-placeholder { font-style: italic; color: var(--text-muted); font-size: 13px; opacity: 0.88; line-height: 1; }
+
+/* spacer — left가 flex:1을 가지므로 불필요 */
+.wiki-toolbar-spacer { flex: 0; }
+
+.wiki-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex-shrink: 0;
+}
+
+/* disabled 버튼 */
+.wm-cal-icon-btn.wiki-btn-disabled {
+    opacity: 0.28;
+    pointer-events: none;
+}
+
+/* ── 카드 스트립 ── */
+.wiki-card-strip-wrap {
+    flex-shrink: 0;
+}
+.wiki-card-strip {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    overflow-y: visible;
+    padding: 60px 10px;
+    scrollbar-width: none;
+    align-items: center;
+    cursor: default;
+}
+.wiki-card-strip::-webkit-scrollbar { display: none; }
+
+.wiki-card {
+    flex-shrink: 0;
+    position: relative;
+    cursor: pointer;
+    width: 56px;
+    transition: transform 0.15s ease;
+    user-select: none;
+}
+.wiki-card-img {
+    width: 56px;
+    height: 68px;
+    object-fit: cover;
+    border-radius: 7px;
+    display: block;
+    border: none;
+    background: color-mix(in srgb, var(--background-modifier-form-field) 60%, var(--background-secondary) 40%);
+    transition: filter 0.15s;
+}
+
+/* placeholder: 이니셜 글자 */
+.wiki-card-img-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0;
+    color: color-mix(in srgb, var(--wiki-accent-color, var(--interactive-accent)), var(--text-faint) 60%);
+}
+
+/* hover: subtle opacity */
+.wiki-card:hover .wiki-card-img,
+.wiki-card:hover .wiki-card-img-placeholder {
+    opacity: 0.85;
+}
+
+/* 이름 레이블 */
+.wiki-card-name {
+    font-size: 12px;
+    text-align: center;
+    margin-top: 3px;
+    height: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-muted);
+    opacity: 0.35;
+    transition: opacity 0.15s;
+}
+
+/* 선택된 카드: 확대 + glow (수직 이동 없음, margin으로 양옆 시각 간격 유지) */
+.wiki-card.is-selected {
+    transform: scale(1.6);
+    z-index: 2;
+    margin: 0 17px;
+}
+.wiki-card.is-selected .wiki-card-img,
+.wiki-card.is-selected .wiki-card-img-placeholder {
+    filter: drop-shadow(0 8px 20px color-mix(in srgb, var(--wiki-accent-color, var(--interactive-accent)), transparent 20%));
+}
+.wiki-card.is-selected .wiki-card-name {
+    opacity: 1;
+    color: var(--text-normal);
+    font-weight: 600;
+    font-size: 10px; /* scale(1.6) × 10px = 16px visual */
+}
+
+/* ── 스크롤 영역 ── */
+.wiki-scroll-area {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: clip;
+    padding: 20px 11px 12px;
+    container-type: inline-size;
+    position: relative;
+}
+
+/* ── 빈 상태 ── */
+.wiki-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 16px;
+    gap: 8px;
+    cursor: pointer;
+    opacity: 0.6;
+}
+.wiki-empty-state:hover { opacity: 0.9; }
+.wiki-empty-icon .svg-icon { width: 28px; height: 28px; color: var(--text-muted); }
+.wiki-empty-text { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.wiki-empty-sub { font-size: 11px; color: var(--text-faint); text-align: center; }
+
+/* ── 인포 행 (TOC 좌측 + 프로필 우측) ── */
+.wiki-info-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+/* ── TOC ── */
+.wiki-toc-container {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 80px !important;
+    max-width: 260px !important;
+    /* 컨텐츠 너비에 맞게 컬럼 flex: 항목이 자기 내용 너비만큼만 차지 */
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    background: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 0;
+    padding: 4px 6px 15px !important;
+    margin-bottom: 0;
+    font-size: 12px !important;
+    overflow: hidden;
+}
+/* 타이틀 행: 목차 라벨 + 접기 아이콘 */
+.wiki-toc-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    align-self: stretch;
+    cursor: pointer;
+    padding: 10px 10px;
+    margin-bottom: 0;
+    gap: 6px;
+}
+.wiki-toc-title {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--wiki-accent-color, var(--interactive-accent));
+    margin: 0;
+    padding: 0;
+}
+.wiki-toc-chevron { display: flex; align-items: center; color: var(--text-faint); flex-shrink: 0; }
+.wiki-toc-chevron .svg-icon { width: 14px; height: 14px; }
+.wiki-toc-list {
+    padding: 0 50px 0 8px;
+}
+.wiki-toc-list.is-collapsed { display: none; }
+.wiki-toc-item {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    padding: 2px 3px;
+    margin: 0 !important;
+    line-height: 1.3 !important;
+    border-radius: 2px;
+    cursor: default;
+    white-space: nowrap;
+    overflow: hidden;
+}
+.wiki-toc-item:hover { background: transparent; }
+/* 번호만 클릭 가능, wiki-color 적용 */
+.wiki-toc-number {
+    color: var(--wiki-accent-color, var(--interactive-accent));
+    font-size: 13px;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    text-decoration: none;
+}
+.wiki-toc-number:hover { text-decoration: underline; }
+.wiki-toc-text { font-size: 13px; }
+.wiki-toc-text a.internal-link { color: var(--wiki-accent-color, var(--interactive-accent)) !important; text-decoration: none; }
+.wiki-toc-text a.internal-link:hover { text-decoration: underline; }
+.wiki-toc-text p { margin: 0 !important; display: inline; }
+
+/* ── 프로필 패널 (나무위키 스타일) ── */
+.wiki-profile-container {
+    display: block !important;
+    float: none !important;
+    clear: none !important;
+    flex: 0 0 220px !important;
+    width: 220px !important;
+    margin: 0 0 0 auto !important;
+    background: transparent !important;
+    border: 1px solid var(--wiki-accent-color, var(--interactive-accent)) !important;
+    border-top: none !important;
+    border-radius: 0 !important;
+    overflow: hidden !important;
+    box-shadow: none !important;
+    height: fit-content !important;
+}
+.wiki-profile-name-header {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px;
+    padding: 4px 8px !important;
+    background: var(--wiki-accent-color, var(--interactive-accent)) !important;
+    color: var(--wiki-accent-text, #fff) !important;
+    font-size: unset !important;
+}
+.wiki-profile-name-text {
+    flex: 1;
+    font-size: var(--wiki-profile-header-size, 18px);
+    font-weight: 700;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
+}
+.wiki-color-picker-icon-container {
+    position: relative;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.7;
+    flex-shrink: 0;
+}
+.wiki-color-picker-icon-container:hover { opacity: 1; }
+.wiki-color-picker-icon-container .svg-icon { width: 14px; height: 14px; }
+
+/* TOC와 Profile은 flex-wrap으로 공간이 되면 같은 줄(TOC 좌측, Profile 우측), 안 되면 줄 바꿈 */
+
+/* 이미지 — 가로폭 기준 비율 유지 */
+.wiki-profile-image-container { display: block; }
+.wiki-profile-image {
+    display: block;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    cursor: pointer;
+    border-radius: 0 !important;
+}
+.wiki-profile-image:hover { opacity: 0.88; }
+.wiki-profile-img-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 60px;
+    font-size: 28px;
+    font-weight: 700;
+    cursor: pointer;
+    border-radius: 0 !important;
+    background: color-mix(in srgb, var(--wiki-accent-color, var(--interactive-accent)), var(--background-secondary) 80%);
+    color: var(--wiki-accent-color, var(--interactive-accent));
+}
+.wiki-profile-img-placeholder:hover { opacity: 0.8; }
+
+/* 속성 (div 기반) */
+.wiki-props { display: flex; flex-direction: column; }
+.wiki-prop-row {
+    display: flex;
+    align-items: stretch;
+    border-top: 1px solid color-mix(in srgb, var(--wiki-accent-color, var(--interactive-accent)), transparent 50%);
+    background: transparent;
+}
+.wiki-prop-key {
+    flex: 0 0 36%;
+    padding: 0.3em 0.4em;
+    font-size: var(--wiki-profile-key-size, 13px);
+    font-weight: 600;
+    background-color: var(--wiki-accent-color, var(--interactive-accent));
+    color: var(--wiki-accent-text, #fff);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    overflow: hidden;
+}
+.wiki-prop-val {
+    flex: 1;
+    padding: 0.3em 0.4em;
+    word-break: break-word;
+    min-width: 0;
+    background: transparent;
+    font-size: var(--wiki-profile-key-size, 13px);
+}
+.wiki-prop-val p { margin: 0; }
+.wiki-prop-val * { font-size: var(--wiki-profile-key-size, 13px) !important; }
+
+/* ── 본문 ── */
+.obsiwiki-rendered-body { font-size: 13px; line-height: 1.65; }
+.obsiwiki-rendered-body p { text-align: justify; }
+.obsiwiki-rendered-body h1 { font-size: 1.3em; color: var(--text-normal) !important; }
+.obsiwiki-rendered-body h2 { font-size: 1.15em; color: var(--text-normal) !important; }
+.obsiwiki-rendered-body h3 { font-size: 1.05em; color: var(--text-normal) !important; }
+.obsiwiki-rendered-body h4,
+.obsiwiki-rendered-body h5,
+.obsiwiki-rendered-body h6 { color: var(--text-normal) !important; }
+.obsiwiki-rendered-body a.internal-link { color: var(--wiki-accent-color, var(--interactive-accent)) !important; text-decoration: none; }
+.obsiwiki-rendered-body a.internal-link:hover { text-decoration: underline; }
+.obsiwiki-rendered-body .heading-collapse-indicator,
+.obsiwiki-rendered-body a.heading-link { display: none !important; }
+.obsiwiki-rendered-body blockquote {
+    border-left: 4px solid var(--wiki-accent-color, var(--interactive-accent)) !important;
+    background-color: color-mix(in srgb, var(--wiki-accent-color, var(--interactive-accent)), transparent 90%) !important;
+    padding: 8px 12px;
+    margin: 8px 0;
+    border-radius: 4px;
+}
+
+.wiki-header-number {
+    font-size: 1em;
+    color: var(--wiki-accent-color, var(--interactive-accent));
+    margin-right: 6px;
+    font-variant-numeric: tabular-nums;
+    user-select: none;
+    cursor: pointer;
+}
+.wiki-header-number:hover { color: var(--wiki-accent-color, var(--interactive-accent)); }
+
+.wiki-highlight-flash { animation: wiki-flash 0.8s ease-out; }
+@keyframes wiki-flash {
+    0%   { background: color-mix(in srgb, var(--wiki-accent-color, var(--interactive-accent)), transparent 60%); }
+    100% { background: transparent; }
+}
+
+/* ── 각주 툴팁 ── */
+.wiki-footnote-tooltip {
+    position: fixed;
+    z-index: 9999;
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 12px;
+    max-width: 280px;
+    box-shadow: var(--shadow-l2);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+}
+.wiki-footnote-tooltip.visible { opacity: 1; }
+.wiki-footnote-tooltip p { margin: 0; }
+
+/* ── 관계 리스트 뷰 ── */
+.wiki-rel-list-wrap { overflow-x: hidden; }
+.wiki-rel-list { display: flex; flex-direction: column; padding: 4px 0 8px; gap: 0; }
+.wiki-rel-section { display: flex; flex-direction: column; margin-bottom: 2px; }
+
+/* 섹션 헤더: wm-vhv-group-header 스타일 */
+.wiki-rel-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px 6px;
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+.wiki-rel-section-header:hover .wiki-rel-section-label { color: var(--text-normal); }
+.wiki-rel-section-label {
+    font-size: 13px;
+    font-weight: var(--font-semibold, 600);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.wiki-rel-section-chevron { display: flex; align-items: center; color: var(--text-faint); }
+.wiki-rel-section-chevron svg { width: 16px; height: 16px; }
+
+/* 아이템 컨테이너: 카드 그리드 (가로 wrap) */
+.wiki-rel-section-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 10px 8px;
+}
+.wiki-rel-section-items.is-collapsed { display: none; }
+
+/* 카드 아이템: 이미지 + 이름 아래, 중앙 정렬 */
+.wiki-rel-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 4px 4px;
+    border-radius: 6px;
+    cursor: pointer;
+    width: 64px;
+    min-width: 64px;
+    transition: background 0.1s;
+}
+.wiki-rel-item:hover { background: var(--background-modifier-hover); }
+.wiki-rel-item.is-selected {
+    background: color-mix(in srgb, var(--wiki-accent-color, var(--interactive-accent)), transparent 82%);
+}
+.wiki-rel-item-img {
+    width: 56px;
+    height: 68px;
+    border-radius: 5px;
+    object-fit: cover;
+    display: block;
+    background: var(--background-modifier-form-field);
+    flex-shrink: 0;
+}
+.wiki-rel-item-img-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 68px;
+    border-radius: 5px;
+    flex-shrink: 0;
+    font-size: 20px;
+    font-weight: 700;
+    background: color-mix(in srgb, var(--wiki-accent-color, var(--interactive-accent)), var(--background-secondary) 80%);
+    color: var(--wiki-accent-color, var(--interactive-accent));
+}
+.wiki-rel-item-name {
+    font-size: 12px;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
+    color: var(--text-muted);
+    line-height: 1.3;
+}
+.wiki-rel-item.is-selected .wiki-rel-item-name {
+    color: var(--text-normal);
+    font-weight: 600;
+}
+
+/* ── 툴바 팔레트 버튼 ── */
+.wiki-toolbar-palette {
+    position: relative;
+    overflow: hidden;
+}
+.wiki-toolbar-palette-input {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    border: none;
+    padding: 0;
+}
+
+/* ── 툴바 브레드크럼 경로 ── */
+.wiki-bc-path {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── 폴더/노트 선택 팝업 lucide 아이콘 ── */
+.wiki-suggest-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+}
+.wiki-suggest-icon { flex-shrink: 0; color: var(--text-muted); display: flex; align-items: center; }
+.wiki-suggest-icon .svg-icon { width: 14px; height: 14px; }
+.wiki-suggest-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }

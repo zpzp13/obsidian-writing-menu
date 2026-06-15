@@ -17,7 +17,6 @@ import { GLOBAL_STYLES_CSS } from './src/ui/globalStyles';
 import { ensureConverterScript, openFolderPicker, openTemplatePicker, runPicker, convertToHwp, getDefaultExportPath, cleanMarkdownFrontmatter, removeHeadings, copyWithOptions, applySpaceIndent, convertToTxt, convertFolderToTxt, convertFilesToTxt, convertFolderToHwp, convertFilesToHwp, convertFolderToTxtMerged, convertFilesToTxtMerged, convertFolderToHwpMerged, convertFilesToHwpMerged } from './src/export/converterMethods';
 import { addCompactControl, addCompactToggle, addCompactStepper, addCompactSlider, addDualColorControl } from './src/ui/controls';
 import { openDictionary } from './src/dictionary';
-import { VersionHistoryView, VERSION_HISTORY_VIEW_TYPE } from './src/version/VersionHistoryView';
 import { SaveVersionModal } from './src/version/SaveVersionModal';
 import { CalendarView, VIEW_TYPE_CALENDAR } from './src/calendar/views/CalendarView';
 import { HeatmapStore } from './src/dashboard/data/HeatmapStore';
@@ -27,6 +26,7 @@ export default class WritingMenuPlugin extends Plugin {
 	mobilePreviewFloating: MobilePreviewFloating;
 	heatmapStore: HeatmapStore;
 	settingTab: WritingMenuSettingTab | null = null;
+	wikiPanelRerender: (() => void) | null = null;
 	toolbarElements: Map<WorkspaceLeaf, HTMLElement> = new Map();
 	leafStyleElements: Map<WorkspaceLeaf, HTMLStyleElement> = new Map();
 	private leafIdCounter: number = 0;
@@ -209,11 +209,6 @@ export default class WritingMenuPlugin extends Plugin {
 			(leaf) => new TimeTrackingView(leaf, this)
 		);
 
-		this.registerView(
-			VERSION_HISTORY_VIEW_TYPE,
-			(leaf) => new VersionHistoryView(leaf, this)
-		);
-
 		// 캘린더 뷰 등록
 		this.registerView(
 			VIEW_TYPE_CALENDAR,
@@ -221,12 +216,12 @@ export default class WritingMenuPlugin extends Plugin {
 		);
 
 		this.addCommand({
-			id: 'toggle-calendar-view',
-			name: '캘린더 열기/닫기',
+			id: 'toggle-dashboard-view',
+			name: '대시보드 열기/닫기',
 			callback: () => this.toggleCalendarView(),
 		});
 
-		this.addRibbonIcon('calendar', '캘린더', () => this.toggleCalendarView());
+		this.addRibbonIcon('layout-dashboard', '대시보드', () => this.toggleCalendarView());
 
 		this.addCommand({
 			id: 'toggle-time-tracking-sidebar',
@@ -247,16 +242,7 @@ export default class WritingMenuPlugin extends Plugin {
 				const now = new Date();
 				const name = `${now.getMonth() + 1}/${now.getDate()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 				await manager.saveVersion(file, name, editor.getValue());
-				this.refreshVersionHistorySidebar();
 				new Notice(`버전 "${name}"이 저장되었습니다.`);
-			}
-		});
-
-		this.addCommand({
-			id: 'version-history',
-			name: '버전 기록 보기',
-			callback: () => {
-				this.toggleVersionHistorySidebar();
 			}
 		});
 
@@ -386,6 +372,7 @@ export default class WritingMenuPlugin extends Plugin {
 		if (typeof unregFolder === 'function') this.nnMenuUnregisterFns.push(unregFolder);
 	}
 
+
 	async toggleCalendarView() {
 		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CALENDAR);
 		if (leaves.length > 0) {
@@ -413,27 +400,6 @@ export default class WritingMenuPlugin extends Plugin {
 				this.app.workspace.revealLeaf(leaf);
 			}
 		}
-	}
-
-	async toggleVersionHistorySidebar() {
-		const leaves = this.app.workspace.getLeavesOfType(VERSION_HISTORY_VIEW_TYPE);
-		if (leaves.length > 0) {
-			leaves.forEach(leaf => leaf.detach());
-		} else {
-			const leaf = this.app.workspace.getRightLeaf(false);
-			if (leaf) {
-				await leaf.setViewState({ type: VERSION_HISTORY_VIEW_TYPE, active: true });
-				this.app.workspace.revealLeaf(leaf);
-			}
-		}
-	}
-
-	refreshVersionHistorySidebar() {
-		const leaves = this.app.workspace.getLeavesOfType(VERSION_HISTORY_VIEW_TYPE);
-		leaves.forEach(leaf => {
-			const view = leaf.view as VersionHistoryView;
-			if (view && typeof view.refresh === 'function') view.refresh();
-		});
 	}
 
 	async onunload() {
@@ -1558,7 +1524,6 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 		this.addMenuNavCard(container, '색상', '글자색, 배경색, 링크 색상', 'palette', () => this.renderMenuPage(container, 'color', leaf));
 		this.addMenuNavCard(container, '보기', '타자기 스크롤, 포커스 모드', 'eye', () => this.renderMenuPage(container, 'view', leaf));
 		this.addMenuNavCard(container, '입력 보조', '스마트 따옴표, 엔터, 자동완성, 텍스트 치환', 'keyboard', () => this.renderMenuPage(container, 'input', leaf));
-		this.addMenuNavCard(container, '버전 관리', '초고 저장 및 비교', 'history', () => this.renderMenuPage(container, 'version', leaf));
 
 		this.addSeparator(container);
 
@@ -1662,24 +1627,7 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 			const now = new Date();
 			const name = `${now.getMonth() + 1}/${now.getDate()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 			await manager.saveVersion(file, name, activeView.editor.getValue());
-			this.refreshVersionHistorySidebar();
 			new Notice(`버전 "${name}"이 저장되었습니다.`);
-		});
-
-		// 버전 기록
-		const histRow = container.createDiv('writing-menu-control');
-		const histLabelGroup = histRow.createDiv('writing-menu-control-label-group');
-		setIcon(histLabelGroup.createSpan('writing-menu-icon'), 'history');
-		histLabelGroup.createEl('label', { text: '버전 기록' });
-		const histHk = histRow.createDiv();
-		histHk.style.cssText = 'display:flex; align-items:center; cursor:pointer; color:var(--text-muted); font-size:12px;';
-		const histHkStr = getHotkey('version-history');
-		histHk.setText(histHkStr || '단축키 없음');
-		histRow.style.cursor = 'pointer';
-		histRow.addEventListener('click', (e) => {
-			e.stopPropagation();
-			(document.querySelector('.writing-menu-dropdown') as HTMLElement)?.remove();
-			this.toggleVersionHistorySidebar();
 		});
 	}
 
@@ -1715,6 +1663,15 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 		this.updateAllLeafStyles();
 		this.updateDynamicStyles();
 		this.updateStatusBarDisplay();
+		await this.refreshDashboardView();
+	}
+
+	async refreshDashboardView() {
+		await this.heatmapStore.reinitSnapshot().catch(() => {});
+		const { VIEW_TYPE_CALENDAR } = require('./src/calendar/views/CalendarView');
+		this.app.workspace.getLeavesOfType(VIEW_TYPE_CALENDAR).forEach((leaf: any) => {
+			(leaf.view as any).render?.();
+		});
 	}
 
 	// HWP Converter Script Management
