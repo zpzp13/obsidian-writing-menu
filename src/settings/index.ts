@@ -46,6 +46,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			case 'dictionary':       this.renderDictionaryPage(containerEl); break;
 			case 'version-control':  this.renderVersionPage(containerEl); break;
 			case 'stopwatch':         this.renderStopwatchPage(containerEl); break;
+			case 'music':             this.renderMusicPage(containerEl); break;
 			case 'calendar':         this.renderCalendarPage(containerEl); break;
 			case 'calendar-chars':   this.renderCalendarCharsPage(containerEl); break;
 			case 'wiki':             this.renderWikiPage(containerEl); break;
@@ -103,6 +104,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		const etcBox = this.createGroupBox(containerEl);
 		this.addNavCard(etcBox, '스톱워치', '카운트다운 시간 · 알람 설정', 'timer', 'stopwatch');
 		this.addNavCard(etcBox, '사전', '표준국어대사전 API 키', 'book-open', 'dictionary');
+		this.addNavCard(etcBox, '음악 플레이어', '음악 폴더 · 볼륨 · 재생 모드', 'music', 'music');
 	}
 
 	// ── 타이포그래피 ────────────────────────────────────────────────────
@@ -336,7 +338,14 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			.addText(text => text.setValue(String(this.plugin.settings.stopwatchMinutes))
 				.onChange(async value => {
 					const num = parseInt(value);
-					if (!isNaN(num) && num > 0) { this.plugin.settings.stopwatchMinutes = num; await this.plugin.saveSettings(); }
+					if (!isNaN(num) && num > 0) {
+						this.plugin.settings.stopwatchMinutes = num;
+						await this.plugin.saveSettings();
+						if (!this.plugin.stopwatchInterval) {
+							this.plugin.initStopwatch();
+							this.plugin.updateStopwatchDisplay();
+						}
+					}
 				}));
 
 		new Setting(swBox).setName('알람 활성화').setDesc('카운트다운이 끝나면 알람 소리를 재생합니다.')
@@ -358,39 +367,79 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 	private renderTimePage(containerEl: HTMLElement) {
 		this.addBackButton(containerEl, '작업 시간');
 
-		this.addGroupTitle(containerEl, '표시');
-		const displayBox = this.createGroupBox(containerEl);
-		new Setting(displayBox).setName('작업 시간 숨기기').setDesc('드롭다운 메뉴에서 작업 시간 항목을 숨깁니다.')
-			.addToggle(toggle => toggle.setValue(this.plugin.settings.hideTimeTracking)
-				.onChange(async value => { this.plugin.settings.hideTimeTracking = value; await this.plugin.saveSettings(); }));
+		this.addGroupTitle(containerEl, '작업 모드');
+		const modeBox = this.createGroupBox(containerEl);
 
-		this.addGroupTitle(containerEl, '집필 시간 목표');
-		const tgBox = this.createGroupBox(containerEl);
-		const goalDefs: Array<{ key: 'draft' | 'writing' | 'editing'; label: string }> = [
-			{ key: 'draft',   label: '초고 목표 시간 (분)' },
-			{ key: 'writing', label: '집필 목표 시간 (분)' },
-			{ key: 'editing', label: '퇴고 목표 시간 (분)' },
-		];
-		const ensureGoals = () => {
-			if (!this.plugin.settings.timeGoals) {
-				this.plugin.settings.timeGoals = { draft: 0, writing: 0, editing: 0 };
+		const ensureModes = () => {
+			if (!this.plugin.settings.timeModes?.length) {
+				this.plugin.settings.timeModes = [
+					{ id: 'draft',   label: '초고', frontmatterKey: '초고_시간', goalSeconds: 7200 },
+					{ id: 'writing', label: '집필', frontmatterKey: '집필_시간', goalSeconds: 7200 },
+					{ id: 'editing', label: '퇴고', frontmatterKey: '퇴고_시간', goalSeconds: 7200 },
+				];
 			}
-			return this.plugin.settings.timeGoals;
+			return this.plugin.settings.timeModes;
 		};
-		for (const { key, label } of goalDefs) {
-			new Setting(tgBox).setName(label).setDesc('0 = 미설정 (폴더 평균 기준으로 표시)')
-				.addText(t => {
-					t.setPlaceholder('0')
-					 .setValue(String(Math.round((ensureGoals()[key] ?? 0) / 60)))
-					 .onChange(async v => {
-						const min = parseInt(v) || 0;
-						ensureGoals()[key] = min * 60;
-						await this.plugin.saveSettings();
-					 });
-					t.inputEl.type = 'number';
-					t.inputEl.min  = '0';
-				});
-		}
+
+		const renderModeList = () => {
+			modeBox.empty();
+			const modes = ensureModes();
+			for (const [i, m] of modes.entries()) {
+				const setting = new Setting(modeBox)
+					.setName(`모드 ${i + 1}`)
+					.addText(t => {
+						t.setPlaceholder('표시명').setValue(m.label);
+						t.inputEl.style.width = '70px';
+						t.onChange(async v => { m.label = v; await this.plugin.saveSettings(); });
+					})
+					.addText(t => {
+						t.setPlaceholder('프론트매터 키').setValue(m.frontmatterKey);
+						t.inputEl.style.width = '120px';
+						t.onChange(async v => { m.frontmatterKey = v.trim(); await this.plugin.saveSettings(); });
+					})
+					.addText(t => {
+						t.setPlaceholder('목표(분)').setValue(String(Math.round(m.goalSeconds / 60)));
+						t.inputEl.type = 'number';
+						t.inputEl.min  = '0';
+						t.inputEl.style.width = '70px';
+						t.onChange(async v => {
+							m.goalSeconds = (parseInt(v) || 0) * 60;
+							await this.plugin.saveSettings();
+						});
+					})
+					.addExtraButton(btn => btn.setIcon('trash').setTooltip('삭제')
+						.onClick(async () => {
+							if (modes.length <= 1) return;
+							modes.splice(i, 1);
+							if (this.plugin.settings.currentTimeMode === m.id)
+								this.plugin.settings.currentTimeMode = modes[0].id;
+							await this.plugin.saveSettings();
+							renderModeList();
+						}));
+				setting.settingEl.style.flexWrap = 'wrap';
+			}
+		};
+		renderModeList();
+
+		new Setting(containerEl)
+			.addButton(btn => btn.setButtonText('+ 모드 추가')
+				.onClick(async () => {
+					const newId = `mode_${Date.now()}`;
+					ensureModes().push({ id: newId, label: '', frontmatterKey: '', goalSeconds: 0 });
+					await this.plugin.saveSettings();
+					renderModeList();
+				}));
+
+		this.addGroupTitle(containerEl, '총 시간 키');
+		const totalBox = this.createGroupBox(containerEl);
+		new Setting(totalBox).setName('총 시간 프론트매터 키')
+			.addText(t => t
+				.setPlaceholder('총_시간')
+				.setValue(this.plugin.settings.timeTotalKey ?? '총_시간')
+				.onChange(async v => {
+					this.plugin.settings.timeTotalKey = v.trim() || '총_시간';
+					await this.plugin.saveSettings();
+				}));
 
 		this.addGroupTitle(containerEl, '평균 기준 폴더');
 		const avgBox = this.createGroupBox(containerEl);
@@ -401,30 +450,76 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.timeAvgFolderLevel ?? 0)
 				.setDynamicTooltip()
 				.onChange(async v => { this.plugin.settings.timeAvgFolderLevel = v; await this.plugin.saveSettings(); }));
+	}
 
-		this.addGroupTitle(containerEl, '집필 시간 프론트매터 키');
-		const tkBox = this.createGroupBox(containerEl);
-		const timeKeyDefs: Array<{ key: 'draft' | 'writing' | 'editing' | 'total'; label: string }> = [
-			{ key: 'draft',   label: '초고 모드 키' },
-			{ key: 'writing', label: '집필 모드 키' },
-			{ key: 'editing', label: '퇴고 모드 키' },
-			{ key: 'total',   label: '총 시간 키' },
-		];
-		const ensureTimeKeys = () => {
-			if (!this.plugin.settings.timeKeys) {
-				this.plugin.settings.timeKeys = { draft: '초고_시간', writing: '집필_시간', editing: '퇴고_시간', total: '총_시간' };
-			}
-			return this.plugin.settings.timeKeys;
+	// ── 음악 플레이어 ────────────────────────────────────────────────────
+
+	private renderMusicPage(containerEl: HTMLElement) {
+		this.addBackButton(containerEl, '음악 플레이어');
+
+		this.addGroupTitle(containerEl, '음악 폴더');
+		const folderBox = this.createGroupBox(containerEl);
+		const paths = this.plugin.settings.musicFolderPaths ?? [];
+
+		const renderFolderList = () => {
+			folderBox.empty();
+			paths.forEach((p, idx) => {
+				new Setting(folderBox)
+					.setName(`폴더 ${idx + 1}`)
+					.addText(text => text
+						.setPlaceholder('Music/BGM')
+						.setValue(p)
+						.onChange(async (v) => {
+							paths[idx] = v.trim();
+							this.plugin.settings.musicFolderPaths = paths;
+							await this.plugin.saveSettings();
+							this.plugin.musicPlayer?.loadPlaylist().catch(() => {});
+						}))
+					.addExtraButton(btn => btn
+						.setIcon('x').setTooltip('삭제')
+						.onClick(async () => {
+							paths.splice(idx, 1);
+							this.plugin.settings.musicFolderPaths = paths;
+							await this.plugin.saveSettings();
+							this.plugin.musicPlayer?.loadPlaylist().catch(() => {});
+							renderFolderList();
+						}));
+			});
+			new Setting(folderBox)
+				.addButton(btn => btn
+					.setButtonText('+ 폴더 추가')
+					.onClick(() => { paths.push(''); renderFolderList(); }));
 		};
-		for (const { key, label } of timeKeyDefs) {
-			new Setting(tkBox).setName(label)
-				.addText(t => t
-					.setValue(ensureTimeKeys()[key])
-					.onChange(async v => {
-						ensureTimeKeys()[key] = v.trim();
-						await this.plugin.saveSettings();
-					}));
-		}
+		renderFolderList();
+
+		this.addGroupTitle(containerEl, '재생 설정');
+		const playBox = this.createGroupBox(containerEl);
+
+		new Setting(playBox)
+			.setName('재생 모드')
+			.addDropdown(dd => dd
+				.addOption('loop', '반복')
+				.addOption('single', '한 곡 반복')
+				.addOption('shuffle', '랜덤')
+				.setValue(this.plugin.settings.musicPlaybackMode ?? 'loop')
+				.onChange(async (v) => {
+					const m = v as 'loop' | 'single' | 'shuffle';
+					this.plugin.settings.musicPlaybackMode = m;
+					await this.plugin.saveSettings();
+					this.plugin.musicPlayer?.setMode(m);
+				}));
+
+		new Setting(playBox)
+			.setName('즐겨찾기 최대 표시 수')
+			.setDesc('재생목록 팝업에서 즐겨찾기를 최대 몇 개까지 표시할지 설정합니다')
+			.addSlider(sl => sl
+				.setLimits(1, 50, 1)
+				.setValue(this.plugin.settings.musicFavoritesMax ?? 10)
+				.setDynamicTooltip()
+				.onChange(async (v) => {
+					this.plugin.settings.musicFavoritesMax = v;
+					await this.plugin.saveSettings();
+				}));
 	}
 
 	// ── 사전 ────────────────────────────────────────────────────────────

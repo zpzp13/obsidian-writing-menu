@@ -4,10 +4,12 @@ import { HeatmapRenderer } from './HeatmapRenderer';
 import { TaskParser } from './data/TaskParser';
 import { TasksRenderer } from './TasksRenderer';
 import { WritingTimeSection } from './WritingTimeSection';
+import { MusicPlayerSection } from './MusicPlayerSection';
 import type { HeatmapStore } from './data/HeatmapStore';
 import type { DashSectionConfig } from '../types';
 import { calcVersionCharCount } from '../version/charCount';
 import { MUNPIA_SVG, NOVELPIA_SVG } from '../assets/platformLogos';
+import { watchDisconnect } from '../utils/domUtils';
 
 export class DashboardSection {
 	private static collapsed = new Set<string>();
@@ -27,32 +29,7 @@ export class DashboardSection {
 			if (sec.id === 'chars') {
 				this.renderSection(wrap, '글자수', (body) => {
 					body.addClass('no-item-dividers');
-					const statsItem   = body.createDiv({ cls: 'wm-dash-group-item' });
-					const heatmapItem = body.createDiv({ cls: 'wm-dash-group-item' });
-					const getCurrentCounts = () => {
-						const view = plugin.app.workspace.getActiveViewOfType(MarkdownView);
-						if (!view?.file) return null;
-						const content = view.editor.getValue();
-						return {
-							munpia:   calcVersionCharCount(content, 'munpia'),
-							novelpia: calcVersionCharCount(content, 'novelpia'),
-						};
-					};
-					this.renderStatsCard(statsItem, store, plugin, getCurrentCounts());
-					HeatmapRenderer.render(heatmapItem, store, plugin);
-					const refreshStats = () => { statsItem.empty(); this.renderStatsCard(statsItem, store, plugin, getCurrentCounts()); };
-					const modifyHandler = plugin.app.vault.on('modify', refreshStats);
-					const editorHandler = plugin.app.workspace.on('editor-change', refreshStats);
-					const leafHandler   = plugin.app.workspace.on('active-leaf-change', refreshStats);
-					const observer = new MutationObserver(() => {
-						if (!body.isConnected) {
-							plugin.app.vault.offref(modifyHandler);
-							plugin.app.workspace.offref(editorHandler);
-							plugin.app.workspace.offref(leafHandler);
-							observer.disconnect();
-						}
-					});
-					observer.observe(document.body, { childList: true, subtree: true });
+					this.renderCharsContent(body, plugin);
 				}, 'calendar-chars', plugin);
 			} else if (sec.id === 'time') {
 				this.renderSection(wrap, '작업 시간', (body) => {
@@ -70,14 +47,24 @@ export class DashboardSection {
 						})
 						.catch(() => {});
 				}, 'calendar', plugin);
+			} else if (sec.id === 'music') {
+				this.renderSection(wrap, '음악', (body) => {
+					body.addClass('no-item-dividers');
+					const slot = body.createDiv({ cls: 'wm-dash-group-item' });
+					MusicPlayerSection.render(slot, plugin);
+				}, 'music', plugin);
 			}
 		}
 	}
 
 	static renderCharsOnly(container: HTMLElement, plugin: WritingMenuPlugin) {
+		this.renderCharsContent(container, plugin);
+	}
+
+	private static renderCharsContent(root: HTMLElement, plugin: WritingMenuPlugin) {
 		const store = plugin.heatmapStore;
-		const statsItem   = container.createDiv({ cls: 'wm-dash-group-item' });
-		const heatmapItem = container.createDiv({ cls: 'wm-dash-group-item' });
+		const statsItem   = root.createDiv({ cls: 'wm-dash-group-item' });
+		const heatmapItem = root.createDiv({ cls: 'wm-dash-group-item' });
 		const getCurrentCounts = () => {
 			const view = plugin.app.workspace.getActiveViewOfType(MarkdownView);
 			if (!view?.file) return null;
@@ -93,15 +80,11 @@ export class DashboardSection {
 		const modifyHandler = plugin.app.vault.on('modify', refreshStats);
 		const editorHandler = plugin.app.workspace.on('editor-change', refreshStats);
 		const leafHandler   = plugin.app.workspace.on('active-leaf-change', refreshStats);
-		const observer = new MutationObserver(() => {
-			if (!container.isConnected) {
-				plugin.app.vault.offref(modifyHandler);
-				plugin.app.workspace.offref(editorHandler);
-				plugin.app.workspace.offref(leafHandler);
-				observer.disconnect();
-			}
+		watchDisconnect(root, () => {
+			plugin.app.vault.offref(modifyHandler);
+			plugin.app.workspace.offref(editorHandler);
+			plugin.app.workspace.offref(leafHandler);
 		});
-		observer.observe(document.body, { childList: true, subtree: true });
 	}
 
 	private static renderSection(
@@ -181,7 +164,7 @@ export class DashboardSection {
 		const todayBot = todayCard.createDiv({ cls: 'wm-dash-today-bot' });
 		const remain   = todayBot.createDiv({ cls: 'wm-dash-today-remain' });
 		if (currentCounts !== null && goal > 0 && count >= goal) {
-			remain.textContent = '목표 달성!';
+			remain.textContent = '목표 달성! 🎉';
 		} else if (currentCounts !== null && goal > 0) {
 			remain.appendText('목표까지 ');
 			remain.createSpan({ cls: 'wm-dash-today-remain-num', text: `${(goal - count).toLocaleString()}자` });

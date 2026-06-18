@@ -115,11 +115,13 @@ export class TasksRenderer {
 			// ── filter 드롭다운 ──
 			filterBtn.addEventListener('click', (e) => {
 				e.stopPropagation();
-				const existingPop = document.querySelector('.wm-tasks-sort-popup');
+				const btnDoc = filterBtn.ownerDocument;
+				const btnWin = btnDoc.defaultView ?? window;
+				const existingPop = btnDoc.querySelector('.wm-tasks-sort-popup');
 				if (existingPop) { existingPop.remove(); return; }
 
 				const sort = sectionSorts.get(cat)!;
-				const fpop = document.body.createDiv({ cls: 'wm-tasks-sort-popup wm-ver-popup' });
+				const fpop = btnDoc.body.createDiv({ cls: 'wm-tasks-sort-popup wm-ver-popup' });
 				const r    = filterBtn.getBoundingClientRect();
 				fpop.style.top  = `${r.bottom + 4}px`;
 				fpop.style.left = `${r.left}px`;
@@ -167,8 +169,8 @@ export class TasksRenderer {
 
 				requestAnimationFrame(() => {
 					const pr = fpop.getBoundingClientRect();
-					if (pr.right  > window.innerWidth  - 10) fpop.style.left = `${window.innerWidth  - pr.width  - 10}px`;
-					if (pr.bottom > window.innerHeight - 10) fpop.style.top  = `${r.top - pr.height - 4}px`;
+					if (pr.right  > btnWin.innerWidth  - 10) fpop.style.left = `${btnWin.innerWidth  - pr.width  - 10}px`;
+					if (pr.bottom > btnWin.innerHeight - 10) fpop.style.top  = `${r.top - pr.height - 4}px`;
 				});
 				openPopupAutoClose(fpop);
 			});

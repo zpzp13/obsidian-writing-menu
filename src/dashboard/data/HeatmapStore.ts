@@ -1,6 +1,7 @@
 import { TFile, normalizePath } from 'obsidian';
 import type WritingMenuPlugin from '../../../main';
 import { calcVersionCharCount } from '../../version/charCount';
+import { formatDateKey } from '../../utils/dateUtils';
 
 const STORE_PATH = '.writing-menu-heatmap.json';
 const ALL_KEY = '__all__';
@@ -222,8 +223,7 @@ export class HeatmapStore {
 	}
 
 	private todayStr(): string {
-		const d = new Date();
-		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+		return formatDateKey(new Date());
 	}
 
 	private scheduleSave() {

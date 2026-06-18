@@ -69,6 +69,7 @@ export class MonthScroller {
 			}
 		}, { passive: true });
 
+		const scrollerDoc = scroller.ownerDocument;
 		scroller.addEventListener('mousedown', e => {
 			e.preventDefault();
 			const startX = e.pageX, startL = scroller.scrollLeft;
@@ -81,10 +82,10 @@ export class MonthScroller {
 			};
 			const onUp = (ue: MouseEvent) => {
 				scroller.style.cursor = '';
-				document.removeEventListener('mousemove', onMove);
-				document.removeEventListener('mouseup', onUp);
+				scrollerDoc.removeEventListener('mousemove', onMove);
+				scrollerDoc.removeEventListener('mouseup', onUp);
 				if (!hasMoved) {
-					const t    = document.elementFromPoint(ue.clientX, ue.clientY) as HTMLElement | null;
+					const t    = scrollerDoc.elementFromPoint(ue.clientX, ue.clientY) as HTMLElement | null;
 					const pill = t?.closest('.wm-cal-ms-month') as HTMLElement | null;
 					if (pill && this.pills.includes(pill)) { selectPill(pill); snapToPill(pill); }
 				} else {
@@ -92,8 +93,8 @@ export class MonthScroller {
 					if (p) { selectPill(p); snapToPill(p); }
 				}
 			};
-			document.addEventListener('mousemove', onMove);
-			document.addEventListener('mouseup', onUp);
+			scrollerDoc.addEventListener('mousemove', onMove);
+			scrollerDoc.addEventListener('mouseup', onUp);
 		});
 	}
 

@@ -1,23 +1,13 @@
 import type WritingMenuPlugin from '../../main';
 import { WritingTimeStore } from './data/WritingTimeStore';
 import type { TFile } from 'obsidian';
-import type { WritingMenuSettings } from '../types';
+import type { TimeModeConfig } from '../types';
 import { renderModeStatBlock, updateModeStatBlock } from './WritingTimeStatBlock';
+import { watchDisconnect } from '../utils/domUtils';
 import type { ModeStatEls } from './WritingTimeStatBlock';
-
-const MODES = ['draft', 'writing', 'editing'] as const;
-type Mode   = typeof MODES[number];
 
 const N_CELLS      = 30;
 const SEC_PER_CELL = 15 * 60;
-
-const MODE_LABELS: Record<Mode, string> = {
-	draft:   '초고',
-	writing: '집필',
-	editing: '퇴고',
-};
-
-type TimeKeys = WritingMenuSettings['timeKeys'];
 
 const toHMS = (sec: number): string => {
 	const h = Math.floor(sec / 3600);
@@ -34,8 +24,14 @@ const setGridOpacity = (grid: HTMLElement | undefined, opacity: string) => {
 export class WritingTimeSection {
 	static async render(container: HTMLElement, plugin: WritingMenuPlugin): Promise<void> {
 		const { app, settings } = plugin;
-		const keys:  TimeKeys = settings.timeKeys  ?? { draft: '초고_시간', writing: '집필_시간', editing: '퇴고_시간', total: '총_시간' };
-		const goals = settings.timeGoals ?? { draft: 7200, writing: 7200, editing: 7200 };
+		const modes: TimeModeConfig[] = settings.timeModes?.length
+			? settings.timeModes
+			: [
+				{ id: 'draft',   label: '초고', frontmatterKey: '초고_시간', goalSeconds: 7200 },
+				{ id: 'writing', label: '집필', frontmatterKey: '집필_시간', goalSeconds: 7200 },
+				{ id: 'editing', label: '퇴고', frontmatterKey: '퇴고_시간', goalSeconds: 7200 },
+			];
+		const totalKey = settings.timeTotalKey ?? '총_시간';
 		const fallbackFolder = settings.heatmapFolder ?? '';
 
 		const avgFolderFor = (file: import('obsidian').TFile): string => {
@@ -53,49 +49,61 @@ export class WritingTimeSection {
 		let stat = await WritingTimeStore.averageFolder(
 			app,
 			initialFile ? avgFolderFor(initialFile) : fallbackFolder,
-			keys,
+			modes,
 		);
 
 		const card = container.createDiv({ cls: 'wm-wt-card' });
 
 		// ── 추적 상태 ──
-		let selectedMode: Mode = (plugin.settings.currentTimeMode as Mode) ?? 'draft';
+		let selectedMode: string = plugin.settings.currentTimeMode ?? modes[0]?.id ?? '';
+		// 존재하지 않는 모드가 선택돼 있으면 첫 번째로 리셋
+		if (!modes.find(m => m.id === selectedMode)) selectedMode = modes[0]?.id ?? '';
+
 		let trackingFile: TFile | null = null;
 		let isTyping = false;
 		let lastTyped = Date.now();
 		let isSaving = false;
 
 		// UI refs
-		const valEls      = new Map<Mode, HTMLElement>();
-		const hmEls       = new Map<Mode, HTMLElement>();
-		const fillState   = new Map<Mode, number>();
-		const btnGridEls  = new Map<Mode, HTMLElement>();
-		const statEls     = new Map<Mode, ModeStatEls>();
+		const valEls      = new Map<string, HTMLElement>();
+		const hmEls       = new Map<string, HTMLElement>();
+		const fillState   = new Map<string, number>();
+		const btnGridEls  = new Map<string, HTMLElement>();
+		const statEls     = new Map<string, ModeStatEls>();
 
-		const setCmpRows = (mode: Mode, cur: number) => {
-			const els = statEls.get(mode);
+		const setCmpRows = (mode: TimeModeConfig, cur: number) => {
+			const els = statEls.get(mode.id);
 			if (!els) return;
-			const goal     = goals[mode] ?? 0;
-			const avg      = stat.avg[mode];
+			const goal    = mode.goalSeconds ?? 0;
+			const avg     = stat.avg[mode.id] ?? 0;
 			const workCells = Math.min(Math.floor(cur / SEC_PER_CELL), N_CELLS);
 			updateModeStatBlock(els, cur, goal, avg, workCells);
 		};
 
 		let popup: HTMLElement | null = null;
 		const removePopup = () => { popup?.remove(); popup = null; };
-		const showPopup = (target: HTMLElement, label: string, detail: string) => {
+		const showPopup = (e: MouseEvent, label: string, detail: string) => {
 			removePopup();
-			popup = document.body.createDiv({ cls: 'wm-hm-popup' });
-			popup.createSpan({ cls: 'wm-hm-popup-date',  text: label });
-			popup.createSpan({ cls: 'wm-hm-popup-count', text: detail });
-			const rect = target.getBoundingClientRect();
+			const doc = ((e.view as Window | null) ?? window).document;
+			popup = doc.createElement('div');
+			popup.className = 'wm-hm-popup';
+			doc.body.appendChild(popup);
+			const dateSpan = doc.createElement('span');
+			dateSpan.className = 'wm-hm-popup-date';
+			dateSpan.textContent = label;
+			popup.appendChild(dateSpan);
+			const countSpan = doc.createElement('span');
+			countSpan.className = 'wm-hm-popup-count';
+			countSpan.textContent = detail;
+			popup.appendChild(countSpan);
+			const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
 			popup.style.left = `${rect.left + rect.width / 2}px`;
 			popup.style.top  = `${rect.top - 6}px`;
 		};
 
 		// ── pendingTimeUpdates 로드 ──
 		const loadPending = (file: TFile) => {
-			for (const m of [...MODES, 'total' as const]) {
+			for (const m of [...modes.map(m => m.id), 'total']) {
 				const key = `${file.path}:${m}`;
 				if (!plugin.pendingTimeUpdates.has(key)) {
 					plugin.pendingTimeUpdates.set(key, { file, mode: m, seconds: 0 });
@@ -107,11 +115,16 @@ export class WritingTimeSection {
 			if (isSaving) return;
 			const fm = app.metadataCache.getFileCache(file)?.frontmatter ?? {};
 			const updates: Record<string, string> = {};
-			for (const m of [...MODES, 'total' as const]) {
-				const entry = plugin.pendingTimeUpdates.get(`${file.path}:${m}`);
+			for (const m of modes) {
+				const entry = plugin.pendingTimeUpdates.get(`${file.path}:${m.id}`);
 				if (!entry || entry.seconds === 0) continue;
-				const base = WritingTimeStore.parseTime(fm[keys[m]]);
-				updates[keys[m]] = toHMS(base + entry.seconds);
+				const base = WritingTimeStore.parseTime(fm[m.frontmatterKey]);
+				updates[m.frontmatterKey] = toHMS(base + entry.seconds);
+			}
+			const totalEntry = plugin.pendingTimeUpdates.get(`${file.path}:total`);
+			if (totalEntry && totalEntry.seconds > 0) {
+				const base = WritingTimeStore.parseTime(fm[totalKey]);
+				updates[totalKey] = toHMS(base + totalEntry.seconds);
 			}
 			if (!Object.keys(updates).length) return;
 			isSaving = true;
@@ -120,7 +133,7 @@ export class WritingTimeSection {
 			} finally {
 				setTimeout(() => { isSaving = false; }, 200);
 			}
-			for (const m of [...MODES, 'total' as const]) {
+			for (const m of [...modes.map(m => m.id), 'total']) {
 				const entry = plugin.pendingTimeUpdates.get(`${file.path}:${m}`);
 				if (entry) entry.seconds = 0;
 			}
@@ -138,15 +151,15 @@ export class WritingTimeSection {
 				const cell = hm.createDiv({ cls: 'wm-hm-cell' });
 				if (goalIdx !== null && i === goalIdx) {
 					cell.addClass('wm-wt-cell-goal');
-					cell.addEventListener('mouseenter', () => showPopup(cell, '목표', WritingTimeStore.formatTimeFull(goal)));
+					cell.addEventListener('mouseenter', (e) => showPopup(e, '목표', WritingTimeStore.formatTimeFull(goal)));
 				} else if (avgIdx !== null && i === avgIdx) {
 					cell.addClass('wm-wt-cell-avg');
-					cell.addEventListener('mouseenter', () => showPopup(cell, '평균', WritingTimeStore.formatTimeFull(avg)));
+					cell.addEventListener('mouseenter', (e) => showPopup(e, '평균', WritingTimeStore.formatTimeFull(avg)));
 				} else if (i < workCells) {
 					const pct      = workCells > 1 ? i / (workCells - 1) : 1;
 					const levelIdx = Math.min(Math.floor(pct * 3) + 1, 4);
 					cell.addClass(`level-${levelIdx}`);
-					cell.addEventListener('mouseenter', () => showPopup(cell, '작업 시간', WritingTimeStore.formatTimeFull(cur)));
+					cell.addEventListener('mouseenter', (e) => showPopup(e, '작업 시간', WritingTimeStore.formatTimeFull(cur)));
 				} else {
 					cell.addClass('level-0');
 				}
@@ -164,26 +177,26 @@ export class WritingTimeSection {
 			card.empty();
 			clearRefs();
 
-			const time = WritingTimeStore.getFileTime(app, file, keys, plugin.pendingTimeUpdates);
+			const time = WritingTimeStore.getFileTime(app, file, modes, totalKey, plugin.pendingTimeUpdates);
 
-			for (const mode of MODES) {
-				const cur   = time[mode];
-				const avg   = stat.avg[mode];
-				const goal  = goals[mode] ?? 0;
-				const isSel = mode === selectedMode;
+			for (const mode of modes) {
+				const cur   = time[mode.id] ?? 0;
+				const avg   = stat.avg[mode.id] ?? 0;
+				const goal  = mode.goalSeconds ?? 0;
+				const isSel = mode.id === selectedMode;
 
 				const modeRow = card.createDiv({ cls: 'wm-wt-mode-row' });
-				modeRow.dataset.mode = mode;
+				modeRow.dataset.mode = mode.id;
 
 				const modeDiv = modeRow.createDiv({ cls: 'wm-wt-mode' });
-				modeDiv.dataset.mode = mode;
+				modeDiv.dataset.mode = mode.id;
 
 				const header = modeDiv.createDiv({ cls: 'wm-wt-mode-header' });
-				header.createDiv({ cls: 'wm-wt-lbl', text: MODE_LABELS[mode] });
+				header.createDiv({ cls: 'wm-wt-lbl', text: mode.label });
 				const val = header.createDiv({ cls: 'wm-wt-val' });
 				val.textContent = cur > 0 ? WritingTimeStore.formatTime(cur) : '';
 				if (cur > 0) val.setAttribute('aria-label', WritingTimeStore.formatTimeFull(cur));
-				valEls.set(mode, val);
+				valEls.set(mode.id, val);
 
 				const hmArea = modeDiv.createDiv({ cls: 'wm-wt-hm-area' });
 
@@ -192,49 +205,49 @@ export class WritingTimeSection {
 					const jcell = grid.createDiv({ cls: 'wm-wt-jinhaeng-cell' });
 					jcell.style.opacity = isSel ? '0.88' : '0.15';
 				}
-				btnGridEls.set(mode, grid);
+				btnGridEls.set(mode.id, grid);
 
 				const workCells = Math.min(Math.floor(cur / SEC_PER_CELL), N_CELLS);
 				const avgIdx    = avg  > 0 ? Math.min(Math.floor(avg  / SEC_PER_CELL), N_CELLS - 1) : null;
 				const goalIdx   = goal > 0 ? Math.min(Math.floor(goal / SEC_PER_CELL), N_CELLS - 1) : null;
 
 				const hm = hmArea.createDiv({ cls: 'wm-wt-heatmap' });
-				hmEls.set(mode, hm);
-				fillState.set(mode, workCells);
+				hmEls.set(mode.id, hm);
+				fillState.set(mode.id, workCells);
 				buildHmCells(hm, workCells, avgIdx, goalIdx, cur, avg, goal);
 
 				grid.style.cursor = 'pointer';
 				grid.addEventListener('click', (e) => {
 					e.stopPropagation();
-					if (selectedMode === mode) return;
+					if (selectedMode === mode.id) return;
 					setGridOpacity(btnGridEls.get(selectedMode), '0.15');
-					setGridOpacity(btnGridEls.get(mode), '0.88');
-					selectedMode = mode;
-					plugin.settings.currentTimeMode = mode;
+					setGridOpacity(btnGridEls.get(mode.id), '0.88');
+					selectedMode = mode.id;
+					plugin.settings.currentTimeMode = mode.id;
 					plugin.saveSettings().catch(() => {});
 				});
 
 				const els = renderModeStatBlock(hmArea);
-				statEls.set(mode, els);
+				statEls.set(mode.id, els);
 				setCmpRows(mode, cur);
 			}
 		};
 
 		// updateDisplay: val + heatmap 셀 갱신 (1초마다)
 		const updateDisplay = (file: TFile) => {
-			const extMode = plugin.settings.currentTimeMode as Mode;
-			if (extMode !== selectedMode) {
+			const extMode = plugin.settings.currentTimeMode;
+			if (extMode !== selectedMode && modes.find(m => m.id === extMode)) {
 				setGridOpacity(btnGridEls.get(selectedMode), '0.15');
 				setGridOpacity(btnGridEls.get(extMode), '0.88');
 				selectedMode = extMode;
 			}
 
-			const time = WritingTimeStore.getFileTime(app, file, keys, plugin.pendingTimeUpdates);
+			const time = WritingTimeStore.getFileTime(app, file, modes, totalKey, plugin.pendingTimeUpdates);
 
-			for (const mode of MODES) {
-				const cur = time[mode];
+			for (const mode of modes) {
+				const cur = time[mode.id] ?? 0;
 
-				const val = valEls.get(mode);
+				const val = valEls.get(mode.id);
 				if (val) {
 					const txt = cur > 0 ? WritingTimeStore.formatTime(cur) : '';
 					if (val.textContent !== txt) val.textContent = txt;
@@ -242,12 +255,12 @@ export class WritingTimeSection {
 				}
 
 				const newFill = Math.min(Math.floor(cur / SEC_PER_CELL), N_CELLS);
-				if (newFill !== (fillState.get(mode) ?? -1)) {
-					fillState.set(mode, newFill);
-					const hm = hmEls.get(mode);
+				if (newFill !== (fillState.get(mode.id) ?? -1)) {
+					fillState.set(mode.id, newFill);
+					const hm = hmEls.get(mode.id);
 					if (hm) {
-						const avg    = stat.avg[mode];
-						const goal   = goals[mode] ?? 0;
+						const avg    = stat.avg[mode.id] ?? 0;
+						const goal   = mode.goalSeconds ?? 0;
 						const avgIdx  = avg  > 0 ? Math.min(Math.floor(avg  / SEC_PER_CELL), N_CELLS - 1) : null;
 						const goalIdx = goal > 0 ? Math.min(Math.floor(goal / SEC_PER_CELL), N_CELLS - 1) : null;
 						buildHmCells(hm, newFill, avgIdx, goalIdx, cur, avg, goal);
@@ -264,8 +277,8 @@ export class WritingTimeSection {
 			if (file) {
 				loadPending(file);
 				const folder = avgFolderFor(file);
-				stat = await WritingTimeStore.averageFolder(app, folder, keys);
-				for (const m of MODES) fillState.set(m, -1);
+				stat = await WritingTimeStore.averageFolder(app, folder, modes);
+				for (const m of modes) fillState.set(m.id, -1);
 			}
 			removePopup();
 			if (file) buildCard(file);
@@ -291,17 +304,17 @@ export class WritingTimeSection {
 			if (!plugin.settings.enableTimeTracking || !trackingFile) return;
 			if (Date.now() - lastTyped > 1000) { isTyping = false; return; }
 			if (!isTyping) return;
-			const mode = selectedMode;
-			const modeKey  = `${trackingFile.path}:${mode}`;
-			const totalKey = `${trackingFile.path}:total`;
+			const modeId = selectedMode;
+			const modeKey  = `${trackingFile.path}:${modeId}`;
+			const totalKey2 = `${trackingFile.path}:total`;
 			const me = plugin.pendingTimeUpdates.get(modeKey)
-				?? { file: trackingFile, mode, seconds: 0 };
+				?? { file: trackingFile, mode: modeId, seconds: 0 };
 			me.seconds++;
 			plugin.pendingTimeUpdates.set(modeKey, me);
-			const te = plugin.pendingTimeUpdates.get(totalKey)
-				?? { file: trackingFile, mode: 'total' as const, seconds: 0 };
+			const te = plugin.pendingTimeUpdates.get(totalKey2)
+				?? { file: trackingFile, mode: 'total', seconds: 0 };
 			te.seconds++;
-			plugin.pendingTimeUpdates.set(totalKey, te);
+			plugin.pendingTimeUpdates.set(totalKey2, te);
 		}, 1000);
 
 		// ── UI 갱신 인터벌 (1초) ──
@@ -331,28 +344,23 @@ export class WritingTimeSection {
 			clearTimeout(avgDebounceTimer);
 			avgDebounceTimer = window.setTimeout(async () => {
 				const folder = trackingFile ? avgFolderFor(trackingFile) : fallbackFolder;
-				const newStat = await WritingTimeStore.averageFolder(app, folder, keys);
+				const newStat = await WritingTimeStore.averageFolder(app, folder, modes);
 				stat = newStat;
-				// force heatmap rebuild on next updateDisplay tick
-				for (const m of MODES) fillState.set(m, -1);
+				for (const m of modes) fillState.set(m.id, -1);
 			}, 2000);
 		});
 
 		// ── 컨테이너 해제 시 정리 ──
-		const observer = new MutationObserver(() => {
-			if (!container.isConnected) {
-				app.workspace.offref(leafHandler);
-				app.workspace.offref(editorHandler);
-				app.vault.offref(avgModifyHandler);
-				clearTimeout(avgDebounceTimer);
-				window.clearInterval(uiInterval);
-				window.clearInterval(accumInterval);
-				if (trackingFile) savePending(trackingFile).catch(() => {});
-				observer.disconnect();
-				removePopup();
-			}
+		watchDisconnect(container, () => {
+			app.workspace.offref(leafHandler);
+			app.workspace.offref(editorHandler);
+			app.vault.offref(avgModifyHandler);
+			clearTimeout(avgDebounceTimer);
+			window.clearInterval(uiInterval);
+			window.clearInterval(accumInterval);
+			if (trackingFile) savePending(trackingFile).catch(() => {});
+			removePopup();
 		});
-		observer.observe(document.body, { childList: true, subtree: true });
 	}
 
 }

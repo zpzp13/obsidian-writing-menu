@@ -2,6 +2,7 @@ import { setIcon, TFile } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { ParsedTask } from './data/TaskParser';
 import { TaskParser } from './data/TaskParser';
+import { formatDateKey } from '../utils/dateUtils';
 
 export const PRIORITY_MAP = [
 	{ label: '없음', emoji: '',   color: 'var(--text-faint)' },
@@ -16,14 +17,15 @@ export const EMOJI_TO_PRIORITY: Record<string, string> = {
 };
 
 export function openPopupAutoClose(popup: HTMLElement) {
+	const doc = popup.ownerDocument;
 	setTimeout(() => {
 		const close = (ev: MouseEvent) => {
 			if (!popup.contains(ev.target as Node)) {
 				popup.remove();
-				document.removeEventListener('click', close);
+				doc.removeEventListener('click', close);
 			}
 		};
-		document.addEventListener('click', close);
+		doc.addEventListener('click', close);
 	}, 10);
 }
 
@@ -36,7 +38,7 @@ export function renderTaskItem(
 	const item = container.createDiv({ cls: 'wm-task-item' });
 	const dkDate = task.tasksMeta?.due
 		? task.tasksMeta.due
-		: `${task.sourceDate.getFullYear()}-${String(task.sourceDate.getMonth()+1).padStart(2,'0')}-${String(task.sourceDate.getDate()).padStart(2,'0')}`;
+		: formatDateKey(task.sourceDate);
 	item.dataset.datekey = dkDate;
 
 	const content  = item.createDiv({ cls: 'wm-task-item-content' });
@@ -123,9 +125,11 @@ export function renderTaskItem(
 
 	flagBtn.addEventListener('click', (e) => {
 		e.stopPropagation();
-		document.querySelector('.wm-task-priority-popup')?.remove();
+		const btnDoc = flagBtn.ownerDocument;
+		const btnWin = btnDoc.defaultView ?? window;
+		btnDoc.querySelector('.wm-task-priority-popup')?.remove();
 
-		const ppop = document.body.createDiv({ cls: 'wm-task-priority-popup wm-ver-popup' });
+		const ppop = btnDoc.body.createDiv({ cls: 'wm-task-priority-popup wm-ver-popup' });
 		const r    = flagBtn.getBoundingClientRect();
 		ppop.style.top  = `${r.bottom + 4}px`;
 		ppop.style.left = `${r.left}px`;
@@ -144,8 +148,8 @@ export function renderTaskItem(
 
 		requestAnimationFrame(() => {
 			const pr = ppop.getBoundingClientRect();
-			if (pr.right  > window.innerWidth  - 10) ppop.style.left = `${window.innerWidth  - pr.width  - 10}px`;
-			if (pr.bottom > window.innerHeight - 10) ppop.style.top  = `${r.top - pr.height - 4}px`;
+			if (pr.right  > btnWin.innerWidth  - 10) ppop.style.left = `${btnWin.innerWidth  - pr.width  - 10}px`;
+			if (pr.bottom > btnWin.innerHeight - 10) ppop.style.top  = `${r.top - pr.height - 4}px`;
 		});
 		openPopupAutoClose(ppop);
 	});

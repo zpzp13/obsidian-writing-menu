@@ -1,3 +1,5 @@
+import { formatDateKey } from '../../utils/dateUtils';
+
 const DOW_KO = ['일','월','화','수','목','금','토'];
 
 const CARD_W = 36;
@@ -45,7 +47,7 @@ export class DateStrip {
 			card.createDiv({ cls: 'wm-cal-dc-num', text: String(d.getDate()) });
 			card.dataset.month   = String(d.getMonth());
 			card.dataset.ds      = ds;
-			card.dataset.datekey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+			card.dataset.datekey = formatDateKey(d);
 			this.allCards.push(card);
 		}
 
@@ -98,6 +100,7 @@ export class DateStrip {
 			setActiveMon(parseInt(c.dataset.month ?? '0'));
 		}, { passive: true });
 
+		const stripDoc = strip.ownerDocument;
 		strip.addEventListener('mousedown', e => {
 			e.preventDefault();
 			const startX = e.pageX, startScrollLeft = strip.scrollLeft;
@@ -110,10 +113,10 @@ export class DateStrip {
 			};
 			const onUp = (ue: MouseEvent) => {
 				strip.style.cursor = '';
-				document.removeEventListener('mousemove', onMove);
-				document.removeEventListener('mouseup',  onUp);
+				stripDoc.removeEventListener('mousemove', onMove);
+				stripDoc.removeEventListener('mouseup',  onUp);
 				if (!hasMoved) {
-					const t    = document.elementFromPoint(ue.clientX, ue.clientY) as HTMLElement | null;
+					const t    = stripDoc.elementFromPoint(ue.clientX, ue.clientY) as HTMLElement | null;
 					const card = t?.closest('.wm-cal-date-card') as HTMLElement | null;
 					if (card && this.allCards.includes(card)) {
 						if (ue.ctrlKey || ue.metaKey) {
@@ -130,8 +133,8 @@ export class DateStrip {
 					if (c) snapToCard(c);
 				}
 			};
-			document.addEventListener('mousemove', onMove);
-			document.addEventListener('mouseup',  onUp);
+			stripDoc.addEventListener('mousemove', onMove);
+			stripDoc.addEventListener('mouseup',  onUp);
 		});
 	}
 

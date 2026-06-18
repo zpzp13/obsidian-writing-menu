@@ -1,5 +1,6 @@
 import type { HeatmapStore } from './data/HeatmapStore';
 import type WritingMenuPlugin from '../../main';
+import { formatDateKey } from '../utils/dateUtils';
 
 const WEEKS = 52;
 const CELL  = 13; // cell size px
@@ -31,7 +32,7 @@ export class HeatmapRenderer {
 			for (let d = 0; d < 7; d++) {
 				const cellDate = new Date(startDate);
 				cellDate.setDate(startDate.getDate() + w * 7 + d);
-				const dateStr  = this.dateStr(cellDate);
+				const dateStr  = formatDateKey(cellDate);
 				const isToday  = cellDate.getTime() === today.getTime();
 				const isFuture = cellDate > today;
 				const folder   = plugin.settings.heatmapFolder ?? '';
@@ -94,15 +95,25 @@ export class HeatmapRenderer {
 				const cellEl = col.createDiv({ cls });
 
 				if (!cell.isFuture) {
-					cellEl.addEventListener('mouseenter', () => {
+					cellEl.addEventListener('mouseenter', (e: MouseEvent) => {
 						removePopup();
-						popup = document.body.createDiv({ cls: 'wm-hm-popup' });
-						popup.createSpan({ cls: 'wm-hm-popup-date', text: this.formatDate(cell.date) });
+						// e.view = 이벤트가 발생한 Window (floating 창이면 floating window)
+						const doc = ((e.view as Window | null) ?? window).document;
+						popup = doc.createElement('div');
+						popup.className = 'wm-hm-popup';
+						doc.body.appendChild(popup);
+
+						const dateSpan = doc.createElement('span');
+						dateSpan.className = 'wm-hm-popup-date';
+						dateSpan.textContent = this.formatDate(cell.date);
+						popup.appendChild(dateSpan);
+
 						const charText = cell.count > 0 ? `${cell.count.toLocaleString()}자` : '기록 없음';
-						popup.createSpan({
-							cls: cell.count > 0 ? 'wm-hm-popup-count' : 'wm-hm-popup-empty',
-							text: charText,
-						});
+						const countSpan = doc.createElement('span');
+						countSpan.className = cell.count > 0 ? 'wm-hm-popup-count' : 'wm-hm-popup-empty';
+						countSpan.textContent = charText;
+						popup.appendChild(countSpan);
+
 						const rect = cellEl.getBoundingClientRect();
 						popup.style.left = `${rect.left + rect.width / 2}px`;
 						popup.style.top  = `${rect.top - 6}px`;
@@ -115,17 +126,18 @@ export class HeatmapRenderer {
 		pad.addEventListener('mouseleave', removePopup);
 
 		// ── Horizontal drag-to-scroll ──
+		const dragDoc = container.ownerDocument;
 		let drag: { x: number; sl: number } | null = null;
 		content.addEventListener('mousedown', (e) => {
 			drag = { x: e.clientX, sl: content.scrollLeft };
 			content.classList.add('is-dragging');
 			e.preventDefault();
 		});
-		document.addEventListener('mousemove', (e) => {
+		dragDoc.addEventListener('mousemove', (e) => {
 			if (!drag) return;
 			content.scrollLeft = drag.sl - (e.clientX - drag.x);
 		});
-		document.addEventListener('mouseup', () => {
+		dragDoc.addEventListener('mouseup', () => {
 			if (drag) { drag = null; content.classList.remove('is-dragging'); }
 		});
 
@@ -138,10 +150,6 @@ export class HeatmapRenderer {
 		if (count >= levels[2]) return 3;
 		if (count >= levels[1]) return 2;
 		return 1;
-	}
-
-	private static dateStr(date: Date): string {
-		return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 	}
 
 	private static formatDate(date: Date): string {

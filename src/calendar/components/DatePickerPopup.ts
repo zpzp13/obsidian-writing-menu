@@ -7,10 +7,13 @@ export function showDatePickerPopup(
 	selectedDate: Date,
 	onPick: (date: Date) => void,
 ): HTMLElement {
+	const anchorDoc = anchor.ownerDocument;
+	const anchorWin = anchorDoc.defaultView ?? window;
+
 	let py = selectedDate.getFullYear();
 	let pm = selectedDate.getMonth();
 
-	const popup  = document.body.createDiv({ cls: 'wm-cal-picker' });
+	const popup  = anchorDoc.body.createDiv({ cls: 'wm-cal-picker' });
 	const hdr    = popup.createDiv({ cls: 'wm-cal-picker-hdr' });
 	const prevBtn = hdr.createDiv({ cls: 'wm-cal-icon-btn' });
 	setIcon(prevBtn, 'chevron-left');
@@ -50,13 +53,15 @@ export function showDatePickerPopup(
 	const rect = anchor.getBoundingClientRect();
 	const pw   = 224;
 	let left   = rect.left;
-	if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+	if (left + pw > anchorWin.innerWidth - 8) left = anchorWin.innerWidth - pw - 8;
 	popup.style.cssText = `left:${left}px;top:${rect.bottom + 6}px;width:${pw}px;`;
 
 	const close = (e: MouseEvent) => {
-		if (!popup.contains(e.target as Node)) { popup.remove(); document.removeEventListener('click', close, true); }
+		if (anchor.contains(e.target as Node) || popup.contains(e.target as Node)) return;
+		popup.remove();
+		anchorDoc.removeEventListener('click', close, true);
 	};
-	setTimeout(() => document.addEventListener('click', close, true), 0);
+	setTimeout(() => anchorDoc.addEventListener('click', close, true), 0);
 
 	return popup;
 }

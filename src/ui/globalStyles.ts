@@ -28,14 +28,21 @@ export const GLOBAL_STYLES_CSS = `
 				left: 20px;
 			}
 
-			/* Fullscreen Mode */
-			body.wm-fullscreen-mode .workspace-split.mod-left-split,
-			body.wm-fullscreen-mode .workspace-split.mod-right-split,
-			body.wm-fullscreen-mode .workspace-ribbon.mod-left,
-			body.wm-fullscreen-mode .status-bar,
-			body.wm-fullscreen-mode .workspace-tab-header-container { display: none !important; }
-			body.wm-fullscreen-mode .view-header { display: none !important; }
-			body.wm-fullscreen-mode .workspace-split.mod-root { width: 100vw !important; }
+			/* 집중 모드 (OS fullscreen + hide everything) */
+			body.wm-focus-mode .workspace-split.mod-left-split,
+			body.wm-focus-mode .workspace-split.mod-right-split,
+			body.wm-focus-mode .workspace-ribbon.mod-left,
+			body.wm-focus-mode .status-bar,
+			body.wm-focus-mode .workspace-tab-header-container { display: none !important; }
+			body.wm-focus-mode .view-header { display: none !important; }
+			body.wm-focus-mode .workspace-split.mod-root { width: 100vw !important; }
+
+			/* 길게 보기 (hide vertical chrome, keep sidebars) */
+			body.wm-wide-mode { --titlebar-height: 0px !important; }
+			body.wm-wide-mode .titlebar,
+			body.wm-wide-mode .view-header,
+			body.wm-wide-mode .workspace-tab-header-container,
+			body.wm-wide-mode .status-bar { display: none !important; }
 
 			/* Status bar stopwatch tag */
 			.wm-status-bar-item {
@@ -380,6 +387,7 @@ export const GLOBAL_STYLES_CSS = `
 			.wm-ver-popup-stage-btn:hover { background: var(--background-modifier-hover) !important; }
 			.wm-ver-popup-stage-btn.is-active { color: var(--text-normal); font-weight: 600; }
 			.wm-ver-popup-stage-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid; flex-shrink: 0; background: none !important; }
+			.wm-ver-popup-stage-dot-none { border-color: var(--text-faint) !important; }
 
 			/* 팝업 메뉴 */
 			.wm-ver-popup { position: fixed; z-index: 10000; background-color: var(--background-primary); border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m); padding: 3px; box-shadow: var(--shadow-l); min-width: 185px; animation: wm-popup-in .1s ease-out; }
@@ -491,15 +499,12 @@ export const GLOBAL_STYLES_CSS = `
 			.writing-menu-text-btn { font-size: 12px; padding: 2px 9px; background: transparent; border: 1px solid var(--background-modifier-border); border-radius: 4px; cursor: pointer; color: var(--text-muted); }
 			.writing-menu-text-btn:hover { color: var(--interactive-accent); border-color: var(--interactive-accent); }
 
-			/* Zen mode — show only the active leaf (guard: only when wm-has-zen-leaf is set) */
-			body.wm-fullscreen-mode.wm-has-zen-leaf .workspace-tabs:not(:has(.wm-zen-leaf)),
-			body.wm-fullscreen-mode.wm-has-zen-leaf .workspace-split:not(.mod-root):not(:has(.wm-zen-leaf)) {
+			/* Zen mode — show only the active leaf */
+			body.wm-focus-mode.wm-has-zen-leaf .workspace-tabs:not(:has(.wm-zen-leaf)),
+			body.wm-focus-mode.wm-has-zen-leaf .workspace-split:not(.mod-root):not(:has(.wm-zen-leaf)) {
 				display: none !important;
 			}
-			body.wm-fullscreen-mode.wm-has-zen-leaf .workspace-tabs:has(.wm-zen-leaf) {
-				flex: 1 1 auto !important;
-			}
-			body.wm-fullscreen-mode.wm-has-zen-leaf .workspace-leaf.wm-zen-leaf {
-				flex: 1 1 auto !important;
-			}
+			body.wm-focus-mode.wm-has-zen-leaf .workspace-tabs:has(.wm-zen-leaf) { flex: 1 1 auto !important; }
+			body.wm-focus-mode.wm-has-zen-leaf .workspace-leaf.wm-zen-leaf { flex: 1 1 auto !important; }
+
 `;
