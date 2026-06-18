@@ -12,10 +12,13 @@ export class WikiPanel {
 	private stripMode: 'folder' | 'relation' = 'folder';
 	private relationSource: TFile | null = null;
 	private renderSeq = 0;
+	private stripGen = 0; // render()마다 증가 — commit()은 건드리지 않음
 	private container: HTMLElement | null = null;
 	private eventsRegistered = false;
 	private rerenderTimer = 0;
 	private stripScrollLeft = -1;
+	private relListScrollTop = 0;
+	private transitionActive = false;
 	private collapsedRelGroups = new Set<string>();
 	private stripCollapsed = false;
 	private tocCollapsed = false;
@@ -46,6 +49,25 @@ export class WikiPanel {
 		if (this.container) this.render(this.container);
 	}
 
+	openFolderPicker() {
+		new FolderOrNoteSuggestModal(this.app, (item) => {
+			if (item instanceof TFolder) {
+				this.targetFolder = item;
+				this.currentFile = null;
+				this.stripMode = 'folder';
+				this.stripCollapsed = false;
+			} else {
+				this.currentFile = item;
+				this.targetFolder = item.parent ?? this.targetFolder;
+				this.relationSource = item;
+				this.stripMode = 'relation';
+				this.stripCollapsed = this.plugin.settings.wikiStripCollapsedDefault ?? false;
+			}
+			this.saveState();
+			this.rerender();
+		}).open();
+	}
+
 	private scheduleRerender() {
 		clearTimeout(this.rerenderTimer);
 		this.rerenderTimer = window.setTimeout(() => this.rerender(), 350);
@@ -55,7 +77,18 @@ export class WikiPanel {
 		if (this.eventsRegistered) return;
 		this.eventsRegistered = true;
 		this.hostComponent.registerEvent(
-			this.app.metadataCache.on('changed', () => this.scheduleRerender())
+			this.app.metadataCache.on('changed', (changedFile) => {
+				// 현재 폴더 또는 현재 파일에 관련된 변경만 rerender
+				const fp = this.targetFolder?.path;
+				if (!fp && changedFile.path !== this.currentFile?.path) return;
+				if (fp) {
+					const inFolder = this.plugin.settings.wikiIncludeSubfolders
+						? changedFile.path.startsWith(fp + '/') || changedFile.parent?.path === fp
+						: changedFile.parent?.path === fp;
+					if (!inFolder && changedFile.path !== this.currentFile?.path) return;
+				}
+				this.scheduleRerender();
+			})
 		);
 		this.hostComponent.registerEvent(
 			this.app.vault.on('create', () => this.scheduleRerender())
@@ -101,6 +134,7 @@ export class WikiPanel {
 
 	async render(outerContainer: HTMLElement) {
 		this.registerEvents();
+		this.transitionActive = false;
 		this.renderSeq++;
 		const mySeq = this.renderSeq;
 		this.container = outerContainer;
@@ -115,84 +149,122 @@ export class WikiPanel {
 		outerContainer.style.setProperty('--wiki-accent-text', getToneColor(wikiColor));
 		outerContainer.style.setProperty('--wiki-profile-header-size', `${this.plugin.settings.wikiProfileHeaderSize ?? 18}px`);
 		outerContainer.style.setProperty('--wiki-profile-key-size', `${this.plugin.settings.wikiProfileKeySize ?? 13}px`);
+		this.stripGen++; // strip 세대 증가 — 이전 strip의 stale 콜백 차단용
 		this.renderToolbar(outerContainer);
 		this.renderCardStrip(outerContainer);
 
 		if (!this.targetFolder || this.renderSeq !== mySeq) return;
 
 		if (this.currentFile) {
-			const scrollArea = outerContainer.createDiv({ cls: 'wiki-scroll-area' });
-
-			const infoRow = scrollArea.createDiv({ cls: 'wiki-info-row' });
-			await this.createTOC(infoRow, scrollArea, this.currentFile);
-			if (this.renderSeq !== mySeq) return;
-
-			await this.createProfilePanel(infoRow, this.currentFile);
-			if (this.renderSeq !== mySeq) return;
-
-			const body = scrollArea.createDiv({ cls: 'obsiwiki-rendered-body' });
-			await MarkdownRenderer.render(
-				this.app,
-				await this.app.vault.read(this.currentFile),
-				body,
-				this.currentFile.path,
-				this.hostComponent,
-			);
-
-			body.addEventListener('click', (e) => {
-				const link = (e.target as HTMLElement).closest('a.internal-link, a[data-href]') as HTMLElement | null;
-				if (!link || !this.currentFile) return;
-				e.preventDefault();
-				e.stopPropagation();
-				const href = link.getAttribute('data-href') || link.getAttribute('href');
-				if (href) this.app.workspace.openLinkText(href, this.currentFile.path, true);
-			}, true);
-
-			const headers = body.querySelectorAll('h1, h2, h3, h4, h5, h6');
-			let counters = [0, 0, 0, 0, 0, 0];
-			headers.forEach((header) => {
-				const level = parseInt(header.tagName.charAt(1));
-				counters[level - 1]++;
-				for (let i = level; i < 6; i++) counters[i] = 0;
-				const numStr = counters.slice(0, level).join('.') + '.';
-				const numSpan = createSpan({ cls: 'wiki-header-number', text: numStr });
-				numSpan.addEventListener('click', (e) => {
-					e.stopPropagation();
-					const tocNums = scrollArea.querySelectorAll('.wiki-toc-number');
-					for (const tocNum of Array.from(tocNums)) {
-						if (tocNum.textContent === numStr) {
-							const tocItem = tocNum.closest('.wiki-toc-item') as HTMLElement;
-							if (tocItem) {
-								this.scrollToElement(tocItem, scrollArea, 40);
-							}
-							break;
-						}
-					}
-				});
-				header.prepend(numSpan);
-			});
-
-			this.setupFootnotes(body, scrollArea);
-
-			// ── 플로팅 네비게이션 버튼 (outerContainer 기준 absolute) ──
-			const navBtns = outerContainer.createDiv({ cls: 'wiki-nav-buttons' });
-
-			const topBtn = navBtns.createDiv({ cls: 'wiki-nav-btn', attr: { 'aria-label': '최상단으로' } });
-			setIcon(topBtn, 'chevrons-up');
-			topBtn.onclick = () => scrollArea.scrollTo({ top: 0, behavior: 'smooth' });
-
-			const tocBtn = navBtns.createDiv({ cls: 'wiki-nav-btn', attr: { 'aria-label': '목차로' } });
-			setIcon(tocBtn, 'list');
-			tocBtn.onclick = () => {
-				const toc = scrollArea.querySelector('.wiki-toc-container') as HTMLElement | null;
-				if (toc) toc.scrollIntoView({ behavior: 'smooth', block: 'start' });
-				else scrollArea.scrollTo({ top: 0, behavior: 'smooth' });
-			};
-
-			const bottomBtn = navBtns.createDiv({ cls: 'wiki-nav-btn', attr: { 'aria-label': '최하단으로' } });
-			setIcon(bottomBtn, 'chevrons-down');
-			bottomBtn.onclick = () => scrollArea.scrollTo({ top: scrollArea.scrollHeight, behavior: 'smooth' });
+			await this.buildScrollArea(outerContainer, mySeq);
 		}
+	}
+
+	// ── 스크롤 영역(TOC·프로필·본문·네비버튼) 빌드 ─────────────────────────
+	// render() 와 commit (카드 선택) 양쪽에서 호출 — 툴바·카드스트립은 건드리지 않음
+
+	private async buildScrollArea(outerContainer: HTMLElement, mySeq: number) {
+		if (!this.currentFile) return;
+		const file = this.currentFile;
+
+		// 즉시 색상 업데이트
+		const fm0 = this.app.metadataCache.getFileCache(file)?.frontmatter;
+		const wc0 = String(fm0?.['wikiColor'] || this.plugin.settings.wikiColor || '#7025db');
+		outerContainer.style.setProperty('--wiki-accent-color', wc0);
+		outerContainer.style.setProperty('--wiki-accent-text', getToneColor(wc0));
+
+		// 기존 scrollArea 즉시 페이드아웃 (콘텐츠 빌드와 병렬 진행 → replaceWith 시 이미 투명)
+		const existingScrollAreaOld = outerContainer.querySelector<HTMLElement>('.wiki-scroll-area');
+		if (existingScrollAreaOld) {
+			existingScrollAreaOld.style.transition = 'opacity 0.12s ease';
+			existingScrollAreaOld.style.opacity = '0';
+		}
+
+		// navBtns 재사용 (fixed 요소, 위치 안정)
+		const existingNavBtns = outerContainer.querySelector<HTMLElement>('.wiki-nav-buttons');
+		if (existingNavBtns) { existingNavBtns.empty(); }
+		const navBtns: HTMLElement = existingNavBtns ?? outerContainer.createDiv({ cls: 'wiki-nav-buttons' });
+
+		// scrollArea를 detached 상태로 빌드 → 완성 후 replaceWith로 단번 교체
+		// 빈 상태(깜빡임) 없이 old content → new content 원자적 전환
+		const doc = outerContainer.ownerDocument;
+		const scrollArea = doc.createElement('div') as HTMLElement;
+		scrollArea.className = 'wiki-scroll-area';
+
+		const infoRow = scrollArea.createDiv({ cls: 'wiki-info-row' });
+		const body = scrollArea.createDiv({ cls: 'obsiwiki-rendered-body' });
+
+		navBtns.createDiv({ cls: 'wiki-nav-btn', attr: { 'aria-label': '최상단으로' } });
+		setIcon(navBtns.lastElementChild as HTMLElement, 'chevrons-up');
+		(navBtns.lastElementChild as HTMLElement).onclick = () => scrollArea.scrollTo({ top: 0, behavior: 'smooth' });
+		navBtns.createDiv({ cls: 'wiki-nav-btn', attr: { 'aria-label': '목차로' } });
+		setIcon(navBtns.lastElementChild as HTMLElement, 'list');
+		(navBtns.lastElementChild as HTMLElement).onclick = () => {
+			const toc = scrollArea.querySelector('.wiki-toc-container') as HTMLElement | null;
+			if (toc) toc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+			else scrollArea.scrollTo({ top: 0, behavior: 'smooth' });
+		};
+		navBtns.createDiv({ cls: 'wiki-nav-btn', attr: { 'aria-label': '최하단으로' } });
+		setIcon(navBtns.lastElementChild as HTMLElement, 'chevrons-down');
+		(navBtns.lastElementChild as HTMLElement).onclick = () => scrollArea.scrollTo({ top: scrollArea.scrollHeight, behavior: 'smooth' });
+
+		// transitionActive 해제: DOM 변화 없으므로 즉시 해제해도 spurious scroll 없음
+		setTimeout(() => { if (this.renderSeq === mySeq) this.transitionActive = false; }, 50);
+
+		// TOC + 프로필 병렬 빌드 (detached 상태에서)
+		await Promise.all([
+			this.createTOC(infoRow, scrollArea, file),
+			this.createProfilePanel(infoRow, file),
+		]);
+		if (this.renderSeq !== mySeq) return;
+
+		// 본문 빌드 (detached 상태에서)
+		const fileContent = await this.app.vault.read(file);
+		if (this.renderSeq !== mySeq) return;
+
+		await MarkdownRenderer.render(this.app, fileContent, body, file.path, this.hostComponent);
+		if (this.renderSeq !== mySeq) return;
+
+		// 완성된 콘텐츠를 단번에 DOM에 반영 — 잔상/깜빡임 방지
+		const existingScrollArea = outerContainer.querySelector<HTMLElement>('.wiki-scroll-area');
+		if (existingScrollArea) {
+			existingScrollArea.replaceWith(scrollArea);
+		} else {
+			outerContainer.insertBefore(scrollArea, navBtns);
+		}
+
+		body.addEventListener('click', (e) => {
+			const link = (e.target as HTMLElement).closest('a.internal-link, a[data-href]') as HTMLElement | null;
+			if (!link || !this.currentFile) return;
+			e.preventDefault();
+			e.stopPropagation();
+			const href = link.getAttribute('data-href') || link.getAttribute('href');
+			if (href) this.app.workspace.openLinkText(href, this.currentFile.path, true);
+		}, true);
+
+		const headers = body.querySelectorAll('h1, h2, h3, h4, h5, h6');
+		let counters = [0, 0, 0, 0, 0, 0];
+		headers.forEach((header) => {
+			const level = parseInt(header.tagName.charAt(1));
+			counters[level - 1]++;
+			for (let i = level; i < 6; i++) counters[i] = 0;
+			const numStr = counters.slice(0, level).join('.') + '.';
+			const numSpan = createSpan({ cls: 'wiki-header-number', text: numStr });
+			numSpan.addEventListener('click', (e) => {
+				e.stopPropagation();
+				const tocNums = scrollArea.querySelectorAll('.wiki-toc-number');
+				for (const tocNum of Array.from(tocNums)) {
+					if (tocNum.textContent === numStr) {
+						const tocItem = tocNum.closest('.wiki-toc-item') as HTMLElement;
+						if (tocItem) this.scrollToElement(tocItem, scrollArea, 40);
+						break;
+					}
+				}
+			});
+			header.prepend(numSpan);
+		});
+
+		this.setupFootnotes(body, scrollArea);
 	}
 
 	// ── A. 툴바 ────────────────────────────────────────────────────────────
@@ -338,14 +410,9 @@ export class WikiPanel {
 			allCards.push(card);
 		});
 
-		// 현재 선택 카드 인덱스 (preview 상태 추적)
-		let previewedIdx = files.findIndex(f => f.path === this.currentFile?.path);
-		if (previewedIdx < 0) previewedIdx = 0;
-
-		// 시각 선택 갱신 + wiki color 즉시 반영 (rerender 없음)
+		// 시각 선택 갱신 + 패널 색상 업데이트
 		const previewSelect = (idx: number) => {
 			allCards.forEach((c, i) => c.classList.toggle('is-selected', i === idx));
-			previewedIdx = idx;
 			if (idx >= 0 && idx < files.length) {
 				const fm = this.app.metadataCache.getFileCache(files[idx])?.frontmatter;
 				const wc = String(fm?.['wikiColor'] || this.plugin.settings.wikiColor || '#7025db');
@@ -353,58 +420,123 @@ export class WikiPanel {
 				outerContainer.style.setProperty('--wiki-accent-text', getToneColor(wc));
 			}
 		};
-		// 선택 확정 (rerender) — stripScrollLeft는 caller가 설정
+		// 선택 확정 — scroll area만 교체, 툴바·카드스트립 유지 (깜빡임 방지)
 		const commit = (idx: number) => {
 			if (idx < 0 || idx >= files.length) return;
 			if (files[idx].path === this.currentFile?.path) return;
+			this.stripScrollLeft = strip.scrollLeft;
 			this.currentFile = files[idx];
 			this.targetFolder = files[idx].parent ?? this.targetFolder;
 			this.saveState();
-			this.rerender();
+			previewSelect(idx);
+			this.renderSeq++;
+			const seq = this.renderSeq;
+			this.transitionActive = true;
+			this.buildScrollArea(outerContainer, seq).catch(() => {
+				if (this.renderSeq === seq) this.transitionActive = false;
+			});
 		};
-		// 스크롤 기준 중앙 카드 탐지
-		const centerIdx = (): number => {
-			const centerPos = strip.scrollLeft + strip.clientWidth / 2;
-			const sr = strip.getBoundingClientRect();
-			let bestIdx = 0, bestDist = Infinity;
+		// 현재 중앙에 가장 가까운 카드 인덱스 감지
+		const snapIdx = (): number => {
+			const snapCenter = strip.scrollLeft + strip.clientWidth / 2;
+			let bestIdx = selectedIdx, bestDist = Infinity;
 			allCards.forEach((c, i) => {
-				const cr = c.getBoundingClientRect();
-				const cardCenter = strip.scrollLeft + (cr.left - sr.left) + cr.width / 2;
-				const dist = Math.abs(cardCenter - centerPos);
+				const dist = Math.abs(c.offsetLeft + c.offsetWidth / 2 - snapCenter);
 				if (dist < bestDist) { bestDist = dist; bestIdx = i; }
 			});
 			return bestIdx;
 		};
 
-		// rAF: 스크롤 위치 복원 (renderSeq 게이트, stripScrollLeft 리셋 없음)
-		const mySeq = this.renderSeq;
-		let syncEnabled = false;
+		let selectedIdx = files.findIndex(f => f.path === this.currentFile?.path);
+		if (selectedIdx < 0) selectedIdx = 0;
+
+		const myStripGen = this.stripGen;
 		let debounceTimer = 0;
-		requestAnimationFrame(() => {
-			if (this.renderSeq !== mySeq) return; // stale, skip
+		let suppressScrollHighlight = false;
+
+		// 카드 선택: instant 위치 이동 + 즉시 commit
+		const goCard = (newIdx: number) => {
+			newIdx = Math.max(0, Math.min(files.length - 1, newIdx));
+			selectedIdx = newIdx;
+			previewSelect(newIdx);
+			strip.focus({ preventScroll: true });
+			clearTimeout(debounceTimer);
+			const card = allCards[newIdx];
+			const target = Math.max(0, card.offsetLeft + card.offsetWidth / 2 - strip.clientWidth / 2);
+			// scrollTo 직후 scroll 이벤트에서 snapIdx()가 wrong index 반환하는 레이스 방지
+			suppressScrollHighlight = true;
+			strip.scrollTo({ left: target, behavior: 'instant' as ScrollBehavior });
+			requestAnimationFrame(() => { suppressScrollHighlight = false; });
+			commit(newIdx);
+		};
+
+		// 초기 scroll 위치 확정 전까지 숨김 → 플로팅 창에서 레이아웃이 늦게 잡힐 때 "scanning" 잔상 방지
+		strip.style.visibility = 'hidden';
+		let initRetry = 0;
+		const initStripPosition = () => {
+			if (this.stripGen !== myStripGen) return;
+			if (strip.clientWidth === 0 && initRetry < 10) { initRetry++; requestAnimationFrame(initStripPosition); return; }
+			const nonSel = allCards.find((_, i) => i !== selectedIdx) ?? allCards[0];
+			const cardW = nonSel?.offsetWidth ?? 56;
+			const halfPad = Math.max(10, Math.floor((strip.clientWidth - cardW) / 2));
+			strip.style.paddingLeft  = `${halfPad}px`;
+			strip.style.paddingRight = `${halfPad}px`;
 			if (this.stripScrollLeft >= 0) {
 				strip.scrollLeft = this.stripScrollLeft;
-				// -1 리셋 생략: 후속 rerender에서도 같은 위치 복원 가능
+			} else {
+				const card = allCards[selectedIdx];
+				if (card) strip.scrollLeft = Math.max(0, card.offsetLeft + card.offsetWidth / 2 - strip.clientWidth / 2);
 			}
-			requestAnimationFrame(() => { syncEnabled = true; });
-		});
+			strip.style.visibility = '';
+		};
+		requestAnimationFrame(initStripPosition);
 
-		// 스크롤 → 위치 추적 + 시각 선택 + debounce commit (profile/body 업데이트)
+		// scroll: 직접 라이브 하이라이트 + 200ms 후 commit
+		// goCard() 직후 scroll 이벤트는 suppressScrollHighlight로 차단 → 잔상 방지
 		strip.addEventListener('scroll', () => {
-			if (!syncEnabled) return;
-			this.stripScrollLeft = strip.scrollLeft; // 항상 최신 위치 추적
-			const idx = centerIdx();
-			previewSelect(idx);
+			this.stripScrollLeft = strip.scrollLeft;
+			if (!suppressScrollHighlight) {
+				const liveIdx = snapIdx();
+				if (liveIdx !== selectedIdx) { selectedIdx = liveIdx; previewSelect(liveIdx); }
+			}
 			clearTimeout(debounceTimer);
-			debounceTimer = window.setTimeout(() => commit(idx), 300);
+			debounceTimer = window.setTimeout(() => {
+				if (this.stripGen !== myStripGen) return;
+				commit(selectedIdx);
+			}, 200);
 		}, { passive: true });
+
+		// 방향키 (플로팅 창에서는 비활성화)
+		const isFloating = strip.ownerDocument !== document;
+		if (!isFloating) {
+			strip.tabIndex = 0;
+			strip.addEventListener('keydown', (e) => {
+				if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); goCard(selectedIdx + 1); }
+				else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); goCard(selectedIdx - 1); }
+			});
+		}
+
+		// 카드 수가 적거나 플로팅 창에서 가로 스크롤이 없을 때 휠로 카드 이동
+		let wheelAcc = 0;
+		strip.addEventListener('wheel', (e) => {
+			if (strip.scrollWidth <= strip.clientWidth + 1) {
+				e.preventDefault();
+				const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+				wheelAcc += e.deltaMode === 0 ? delta / 80 : delta;
+				while (wheelAcc >= 1)  { wheelAcc -= 1; goCard(selectedIdx + 1); }
+				while (wheelAcc <= -1) { wheelAcc += 1; goCard(selectedIdx - 1); }
+			}
+		}, { passive: false });
 
 		// native image drag 차단
 		strip.addEventListener('dragstart', e => e.preventDefault());
 
 		// 드래그 스크롤 + 클릭 선택
+		const stripDoc = strip.ownerDocument;
 		strip.addEventListener('mousedown', e => {
 			e.preventDefault();
+			const cardOnDown = (e.target as HTMLElement).closest('.wiki-card') as HTMLElement | null;
+			const idxOnDown = cardOnDown ? allCards.indexOf(cardOnDown) : -1;
 			const startX = e.pageX, startScrollLeft = strip.scrollLeft;
 			let hasMoved = false;
 
@@ -414,26 +546,20 @@ export class WikiPanel {
 				if (hasMoved) strip.scrollLeft = startScrollLeft - dx;
 			};
 
-			const onUp = (ue: MouseEvent) => {
+			const onUp = () => {
 				strip.style.cursor = '';
-				document.removeEventListener('mousemove', onMove);
-				document.removeEventListener('mouseup', onUp);
-				clearTimeout(debounceTimer);
-				if (hasMoved) {
-					// 드래그 종료: scroll listener가 이미 stripScrollLeft 최신화
-					commit(previewedIdx);
-				} else {
-					// 클릭: 현재 스크롤 위치 저장 후 commit
-					this.stripScrollLeft = startScrollLeft;
-					const t = document.elementFromPoint(ue.clientX, ue.clientY) as HTMLElement | null;
-					const clicked = t?.closest('.wiki-card') as HTMLElement | null;
-					const idx = clicked ? allCards.indexOf(clicked) : -1;
-					if (idx >= 0) { previewSelect(idx); commit(idx); }
+				stripDoc.removeEventListener('mousemove', onMove);
+				stripDoc.removeEventListener('mouseup', onUp);
+				if (this.stripGen !== myStripGen) return;
+				if (hasMoved && Math.abs(strip.scrollLeft - startScrollLeft) > 4) {
+					// 드래그 후: scroll 이벤트·debounce가 스냅 완료 감지해서 처리
+				} else if (idxOnDown >= 0) {
+					goCard(idxOnDown); // 클릭
 				}
 			};
 
-			document.addEventListener('mousemove', onMove);
-			document.addEventListener('mouseup', onUp);
+			stripDoc.addEventListener('mousemove', onMove);
+			stripDoc.addEventListener('mouseup', onUp);
 		});
 	}
 
@@ -503,15 +629,14 @@ export class WikiPanel {
 			return;
 		}
 
-		// 리스트 뷰 (프론트매터 키별 접힘/펼침 섹션, 중복 노트는 첫 그룹에만)
+		// 리스트 뷰 (프론트매터 키별 접힘/펼침 섹션)
 		const wrap = outerContainer.createDiv({ cls: 'wiki-rel-list-wrap' + (this.stripCollapsed ? ' is-collapsed' : '') });
 		const list = wrap.createDiv({ cls: 'wiki-rel-list' });
-		const seen = new Set<string>();
+
+		requestAnimationFrame(() => { wrap.scrollTop = this.relListScrollTop; });
 
 		groups.forEach(g => {
-			const uniqueFiles = g.files.filter(f => !seen.has(f.path));
-			uniqueFiles.forEach(f => seen.add(f.path));
-			if (uniqueFiles.length === 0) return;
+			if (g.files.length === 0) return;
 
 			const isCollapsed = this.collapsedRelGroups.has(g.key);
 			const section = list.createDiv({ cls: 'wiki-rel-section' });
@@ -537,7 +662,7 @@ export class WikiPanel {
 			});
 
 			// ── 카드 아이템 (이미지 + 이름 아래) ──
-			uniqueFiles.forEach(f => {
+			g.files.forEach(f => {
 				const isSelected = this.currentFile?.path === f.path;
 				const item = itemsEl.createDiv({ cls: 'wiki-rel-item' + (isSelected ? ' is-selected' : '') });
 
@@ -557,6 +682,7 @@ export class WikiPanel {
 
 				item.createDiv({ cls: 'wiki-rel-item-name', text: this.getDisplayName(f) });
 				item.onclick = () => {
+					this.relListScrollTop = wrap.scrollTop;
 					this.currentFile = f;
 					this.targetFolder = f.parent ?? this.targetFolder;
 					this.saveState();
@@ -661,13 +787,31 @@ export class WikiPanel {
 		];
 		const coloredProps = (this.plugin.settings.wikiColoredProperties || '').split(',').map(s => s.trim()).filter(Boolean);
 
+		const hidden = this.plugin.settings.wikiHiddenProperties || [];
+		const valEls: HTMLElement[] = [];
+		const renderTasks: Promise<void>[] = [];
 		for (const [k, v] of Object.entries(fm)) {
-			if (excluded.includes(k) || (this.plugin.settings.wikiHiddenProperties || []).includes(k)) continue;
+			if (excluded.includes(k) || hidden.includes(k)) continue;
 			const row = props.createDiv({ cls: 'wiki-prop-row' });
 			row.createSpan({ cls: 'wiki-prop-key', text: k });
 			const valEl = row.createDiv({ cls: 'wiki-prop-val' });
 			if (coloredProps.includes(k)) { valEl.style.color = 'var(--wiki-accent-color)'; valEl.style.fontWeight = 'bold'; }
-			await MarkdownRenderer.render(this.app, String(v), valEl, file.path, this.hostComponent);
+
+			if (k === 'tags') {
+				const tagList: string[] = Array.isArray(v) ? v : String(v).split(',').map(s => s.trim()).filter(Boolean);
+				const tagWrap = valEl.createDiv({ cls: 'wiki-prop-tags' });
+				for (const tag of tagList) {
+					const t = tag.startsWith('#') ? tag : `#${tag}`;
+					tagWrap.createEl('a', { cls: 'tag', text: t, href: t });
+				}
+				continue;
+			}
+
+			valEls.push(valEl);
+			renderTasks.push(MarkdownRenderer.render(this.app, String(v), valEl, file.path, this.hostComponent));
+		}
+		await Promise.all(renderTasks);
+		for (const valEl of valEls) {
 			valEl.querySelectorAll('a.internal-link').forEach((link: HTMLElement) => {
 				link.addEventListener('click', (e) => {
 					e.preventDefault();

@@ -1,4 +1,4 @@
-import { App, Plugin, Setting, MarkdownView, WorkspaceLeaf, setIcon, TFile, TFolder, TAbstractFile, Vault, PluginSettingTab, ItemView, Modal, Notice, Platform, MarkdownRenderer, FuzzySuggestModal, EventRef } from 'obsidian';
+﻿import { App, Plugin, Setting, MarkdownView, WorkspaceLeaf, setIcon, TFile, TFolder, TAbstractFile, Vault, PluginSettingTab, ItemView, Modal, Notice, Platform, MarkdownRenderer, FuzzySuggestModal, EventRef } from 'obsidian';
 import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
@@ -19,7 +19,9 @@ import { addCompactControl, addCompactToggle, addCompactStepper, addCompactSlide
 import { openDictionary } from './src/dictionary';
 import { SaveVersionModal } from './src/version/SaveVersionModal';
 import { CalendarView, VIEW_TYPE_CALENDAR } from './src/calendar/views/CalendarView';
+import { MUNPIA_SVG, NOVELPIA_SVG } from './src/assets/platformLogos';
 import { HeatmapStore } from './src/dashboard/data/HeatmapStore';
+import { MusicPlayer } from './src/dashboard/MusicPlayer';
 
 export default class WritingMenuPlugin extends Plugin {
 	settings: WritingMenuSettings;
@@ -36,21 +38,24 @@ export default class WritingMenuPlugin extends Plugin {
 	private cachedCSSTemplate: string = '';
 	private cssSettingsVersion: number = 0;
 	private leafStyleVersions: Map<WorkspaceLeaf, number> = new Map();
-	pendingTimeUpdates: Map<string, { file: TFile; mode: 'draft' | 'writing' | 'editing' | 'total'; seconds: number }> = new Map();
+	pendingTimeUpdates: Map<string, { file: TFile; mode: string; seconds: number }> = new Map();
 	private nnMenuUnregisterFns: Array<() => void> = [];
 	stopwatchSeconds: number = 0;
 	stopwatchInterval: number | null = null;
 	private stopwatchDisplayEl: HTMLElement | null = null;
+	stopwatchDashboardEl: HTMLElement | null = null;
+	stopwatchDashboardSegs: HTMLElement[] = [];
 	smartEnterCompartment = new Compartment();
 	smartQuoteCompartment = new Compartment();
 	typewriterCompartment = new Compartment();
 	textSubstitutionCompartment = new Compartment();
 	private lastSubstitution: { from: string; to: string; endPos: number } | null = null;
-	private isFullscreenMode: boolean = false;
+	private zenState: 'off' | 'wide' | 'focus' = 'off';
 	private zenLeaf: WorkspaceLeaf | null = null;
 	private zenLeafEventRef: EventRef | null = null;
 	private statusBarItemEl: HTMLElement | null = null;
 	private statusBarTimeEl: HTMLElement | null = null;
+	musicPlayer: MusicPlayer | null = null;
 
 	async onload() {
 		await this.loadSettings();
@@ -59,6 +64,13 @@ export default class WritingMenuPlugin extends Plugin {
 
 		this.heatmapStore = new HeatmapStore(this);
 		this.heatmapStore.init().catch(() => {});
+
+		this.musicPlayer = new MusicPlayer(this);
+		this.app.workspace.onLayoutReady(() => {
+			this.musicPlayer?.loadPlaylist()
+				.then(() => this.refreshDashboardView())
+				.catch(() => {});
+		});
 		this.registerEvent(this.app.vault.on('modify', file => {
 			if (file instanceof TFile) this.heatmapStore.onFileModify(file);
 		}));
@@ -258,8 +270,9 @@ export default class WritingMenuPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'zen-mode',
-			name: 'Zen Mode',
-			callback: () => this.toggleFullscreenMode()
+			name: '집중/길게 보기',
+			hotkeys: [{ modifiers: [], key: 'F4' }],
+			callback: () => { this.cycleZenMode(); },
 		});
 
 		this.addCommand({
@@ -267,6 +280,26 @@ export default class WritingMenuPlugin extends Plugin {
 			name: '사전 / 한자 변환',
 			hotkeys: [{ modifiers: [], key: 'F3' }],
 			callback: () => openDictionary(this),
+		});
+
+		this.addCommand({
+			id: 'wiki-folder-picker',
+			name: '옵시위키: 폴더·노트 선택',
+			hotkeys: [{ modifiers: [], key: 'F6' }],
+			callback: async () => {
+				let leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CALENDAR);
+				if (leaves.length === 0) {
+					const leaf = this.app.workspace.getRightLeaf(false);
+					if (!leaf) return;
+					await leaf.setViewState({ type: VIEW_TYPE_CALENDAR, active: true });
+					this.app.workspace.revealLeaf(leaf);
+					leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CALENDAR);
+				}
+				if (leaves.length === 0) return;
+				const leaf = leaves[0];
+				this.app.workspace.revealLeaf(leaf);
+				(leaf.view as CalendarView).activateWikiPicker();
+			},
 		});
 
 		this.addCommand({
@@ -298,9 +331,16 @@ export default class WritingMenuPlugin extends Plugin {
 		this.updateStatusBarDisplay();
 
 		document.addEventListener('fullscreenchange', () => {
-			if (!document.fullscreenElement && this.isFullscreenMode) {
-				this.isFullscreenMode = false;
-				document.body.classList.remove('wm-fullscreen-mode');
+			if (document.fullscreenElement) {
+				// Fullscreen entered — apply focus CSS now (prevents pre-fullscreen flash)
+				if (this.zenState === 'focus') this.activateFocusMode();
+			} else {
+				// Fullscreen exited (F4 exit or Escape key)
+				// Check for wm-focus-mode class even if zenState is already 'off' (covers the F4 exit path)
+				if (document.body.classList.contains('wm-focus-mode') || this.zenState === 'focus') {
+					this.zenState = 'off';
+					this.exitZenFocus();
+				}
 			}
 		});
 
@@ -403,6 +443,9 @@ export default class WritingMenuPlugin extends Plugin {
 	}
 
 	async onunload() {
+		this.musicPlayer?.destroy();
+		this.musicPlayer = null;
+
 		for (const unregister of this.nnMenuUnregisterFns) {
 			try { unregister(); } catch {}
 		}
@@ -429,7 +472,8 @@ export default class WritingMenuPlugin extends Plugin {
 
 		document.body.classList.remove('writing-menu-focus-enabled');
 		document.body.classList.remove('writing-menu-typewriter-active');
-		document.body.classList.remove('wm-fullscreen-mode');
+		document.body.classList.remove('wm-focus-mode');
+		document.body.classList.remove('wm-wide-mode');
 		document.body.style.removeProperty('--writing-menu-focus-opacity');
 		this.clearZenLeaf();
 		if (this.zenLeafEventRef) {
@@ -518,10 +562,22 @@ export default class WritingMenuPlugin extends Plugin {
 		this.updateStopwatchDisplay();
 	}
 
+	updateStopwatchSegments() {
+		if (!this.stopwatchDashboardSegs.length) return;
+		const total = this.settings.stopwatchMinutes * 60;
+		const elapsed = total - this.stopwatchSeconds;
+		const pct = total > 0 ? elapsed / total : 0;
+		const filled = Math.round(pct * this.stopwatchDashboardSegs.length);
+		this.stopwatchDashboardSegs.forEach((seg, i) => {
+			seg.toggleClass('is-filled', i < filled);
+		});
+	}
+
 	updateStopwatchDisplay() {
-		if (this.stopwatchDisplayEl) {
-			this.stopwatchDisplayEl.textContent = this.formatTime(this.stopwatchSeconds);
-		}
+		const formatted = this.formatTime(this.stopwatchSeconds);
+		if (this.stopwatchDisplayEl) this.stopwatchDisplayEl.textContent = formatted;
+		if (this.stopwatchDashboardEl) this.stopwatchDashboardEl.textContent = formatted;
+		this.updateStopwatchSegments();
 		this.updateStatusBarDisplay();
 	}
 
@@ -1059,7 +1115,8 @@ export default class WritingMenuPlugin extends Plugin {
 
 	// Regenerate CSS template only when settings change
 	private regenerateCSSTemplate(): void {
-		const { fontFamily, fontSize, fontColor, lineHeight, paragraphSpacing, indentation, lineWidth, backgroundColor, h1FontFamily, h1FontSize, h1LineHeight, h1Color, footnoteFontFamily, footnoteFontSize, footnoteLineHeight, footnoteColor, disableLinkColor } = this.settings;
+		const { fontFamily, fontSize, fontColor, lineHeight, paragraphSpacing, indentation, lineWidth, inlinePadding, backgroundColor, h1FontFamily, h1FontSize, h1LineHeight, h1Color, footnoteFontFamily, footnoteFontSize, footnoteLineHeight, footnoteColor, disableLinkColor } = this.settings;
+		const inlinePad = inlinePadding ?? 40;
 		const fontFamilyValue = fontFamily === 'inherit' ? 'inherit' : fontFamily.includes(' ') ? `"${fontFamily}", serif` : `${fontFamily}, serif`;
 		const resolvedFontColor = this.resolveThemeColor(fontColor);
 		const fontColorValue = resolvedFontColor === 'inherit' ? 'var(--text-normal)' : resolvedFontColor;
@@ -1099,7 +1156,7 @@ ${sel} .cm-scroller, ${sel} .cm-content, ${sel} .markdown-reading-view {
 ${sel} .cm-content { text-indent: ${indentation}px !important; caret-color: ${fontColorValue} !important; }
 ${sel} .markdown-reading-view p { margin-bottom: ${paragraphSpacing}em !important; text-indent: ${indentation}px !important; }
 ${sel} .cm-line { padding-bottom: ${paragraphSpacing}em !important; }
-${sel} .cm-sizer { max-width: ${lineWidth}px !important; margin: 0 auto !important; background-color: ${bgColorValue} !important; padding: 20px 40px !important; transition: max-width 0.3s ease !important; }
+${sel} .cm-sizer { max-width: ${lineWidth}px !important; margin: 0 auto !important; background-color: ${bgColorValue} !important; padding: 20px ${inlinePad}px !important; transition: max-width 0.3s ease !important; }
 ${sel} .cm-cursor, ${sel} .cm-cursor-primary { border-left-color: ${fontColorValue} !important; }
 ${linkColorCSS}
 ${sel} .cm-highlight { color: ${fontColorValue} !important; }
@@ -1179,33 +1236,84 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 		});
 	}
 
-	toggleFullscreenMode() {
-		this.isFullscreenMode = !this.isFullscreenMode;
-		document.body.classList.toggle('wm-fullscreen-mode', this.isFullscreenMode);
-		if (this.isFullscreenMode) {
-			if (!document.fullscreenElement) {
-				document.documentElement.requestFullscreen().catch(() => {});
+	applyZenState(state: 'off' | 'wide' | 'focus') {
+		const prevState = this.zenState;
+		this.zenState = state;
+
+		if (state === 'off') {
+			if (prevState === 'focus' && document.fullscreenElement) {
+				// Defer CSS cleanup to fullscreenchange — avoids flash while still in fullscreen
+				document.exitFullscreen().catch(() => this.exitZenFocus());
+			} else {
+				this.exitZenFocus();
 			}
-			const activeLeaf =
-				this.app.workspace.getMostRecentLeaf() ??
-				(this.app.workspace as any).activeLeaf ??
-				this.app.workspace.getActiveViewOfType(MarkdownView)?.leaf ??
-				null;
-			if (activeLeaf) {
-				this.applyZenLeaf(activeLeaf);
+			return;
+		}
+
+		if (state === 'wide') {
+			// Clean up focus state if transitioning from focus
+			if (prevState === 'focus') {
+				document.body.classList.remove('wm-focus-mode');
+				this.clearZenLeaf();
+				if (this.zenLeafEventRef) { this.app.workspace.offref(this.zenLeafEventRef); this.zenLeafEventRef = null; }
+				if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
 			}
-			this.zenLeafEventRef = this.app.workspace.on('active-leaf-change', (leaf) => {
-				if (leaf && this.isFullscreenMode) this.applyZenLeaf(leaf);
-			});
+			document.body.classList.add('wm-wide-mode');
+			return;
+		}
+
+		// state === 'focus':
+		// Keep wm-wide-mode active during fullscreen animation — prevents flash to unstyled view
+		if (document.fullscreenElement) {
+			document.body.classList.remove('wm-wide-mode');
+			this.activateFocusMode();
 		} else {
-			if (document.fullscreenElement) {
-				document.exitFullscreen().catch(() => {});
-			}
-			this.clearZenLeaf();
-			if (this.zenLeafEventRef) {
-				this.app.workspace.offref(this.zenLeafEventRef);
-				this.zenLeafEventRef = null;
-			}
+			// wm-wide-mode (if active) stays until fullscreenchange fires → activateFocusMode removes it
+			document.documentElement.requestFullscreen().catch(() => {
+				this.zenState = 'off';
+				document.body.classList.remove('wm-wide-mode');
+			});
+		}
+	}
+
+	private exitZenFocus() {
+		document.body.classList.remove('wm-focus-mode', 'wm-wide-mode');
+		this.clearZenLeaf();
+		if (this.zenLeafEventRef) {
+			this.app.workspace.offref(this.zenLeafEventRef);
+			this.zenLeafEventRef = null;
+		}
+	}
+
+	private activateFocusMode() {
+		document.body.classList.remove('wm-wide-mode');
+		document.body.classList.add('wm-focus-mode');
+		const activeLeaf =
+			this.app.workspace.getMostRecentLeaf() ??
+			(this.app.workspace as any).activeLeaf ??
+			this.app.workspace.getActiveViewOfType(MarkdownView)?.leaf ??
+			null;
+		if (activeLeaf) this.applyZenLeaf(activeLeaf);
+		if (!this.zenLeafEventRef) {
+			this.zenLeafEventRef = this.app.workspace.on('active-leaf-change', (leaf) => {
+				if (leaf && this.zenState === 'focus') this.applyZenLeaf(leaf);
+			});
+		}
+	}
+
+	cycleZenMode() {
+		const wideOn = this.settings.zenWideEnabled;
+		const focusOn = this.settings.zenFocusEnabled;
+		if (!wideOn && !focusOn) return;
+
+		if (wideOn && focusOn) {
+			if (this.zenState === 'off') this.applyZenState('wide');
+			else if (this.zenState === 'wide') this.applyZenState('focus');
+			else this.applyZenState('off');
+		} else if (wideOn) {
+			this.applyZenState(this.zenState === 'off' ? 'wide' : 'off');
+		} else {
+			this.applyZenState(this.zenState === 'off' ? 'focus' : 'off');
 		}
 	}
 
@@ -1225,9 +1333,42 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 		this.zenLeaf = null;
 	}
 
+	toggleDashboardStopwatchPopup(anchor: HTMLElement) {
+		const ownerDoc = anchor.ownerDocument;
+		const ownerWin = ownerDoc.defaultView ?? window;
+		const existing = ownerDoc.querySelector('.wm-status-popup');
+		if (existing) { existing.remove(); return; }
+
+		const popup = ownerDoc.createElement('div');
+		popup.className = 'wm-status-popup';
+		ownerDoc.body.appendChild(popup);
+
+		this.buildStatusPopup(popup);
+
+		requestAnimationFrame(() => {
+			const r  = anchor.getBoundingClientRect();
+			const pr = popup.getBoundingClientRect();
+			let top  = r.bottom + 6;
+			let left = r.left;
+			if (top + pr.height > ownerWin.innerHeight - 8) top = r.top - pr.height - 6;
+			if (left + pr.width  > ownerWin.innerWidth  - 8) left = r.right - pr.width;
+			popup.style.top  = `${top}px`;
+			popup.style.left = `${left}px`;
+		});
+
+		const closePopup = (e: MouseEvent) => {
+			if (!ownerDoc.contains(e.target as Node)) return;
+			if (!popup.contains(e.target as Node) && !anchor.contains(e.target as Node)) {
+				popup.remove();
+				ownerDoc.removeEventListener('click', closePopup);
+			}
+		};
+		setTimeout(() => ownerDoc.addEventListener('click', closePopup), 10);
+	}
+
 	updateStatusBarDisplay() {
 		if (!this.statusBarTimeEl || !this.statusBarItemEl) return;
-		if (!this.settings.enableTimeTracking) {
+		if (!this.settings.showTimeInStatusBar) {
 			this.statusBarItemEl.style.display = 'none';
 			return;
 		}
@@ -1437,6 +1578,7 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 		else if (page === 'view') this.renderViewPage(container, leaf);
 		else if (page === 'input') this.renderInputPage(container, leaf);
 		else if (page === 'version') this.renderVersionMenuPage(container, leaf);
+		else if (page === 'time-tracking') this.renderTimeTrackingPage(container, leaf);
 	}
 
 	addMenuNavCard(container: HTMLElement, title: string, desc: string, icon: string, onClick: () => void) {
@@ -1445,7 +1587,6 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 		setIcon(iconEl, icon);
 		const body = card.createDiv({ cls: 'wm-menu-nav-body' });
 		body.createEl('div', { cls: 'wm-menu-nav-title', text: title });
-		body.createEl('div', { cls: 'wm-menu-nav-desc', text: desc });
 		const chevron = card.createDiv({ cls: 'wm-menu-nav-chevron' });
 		setIcon(chevron, 'chevron-right');
 		card.addEventListener('click', (e: MouseEvent) => { e.stopPropagation(); onClick(); });
@@ -1514,16 +1655,13 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 			}
 		} catch (e) {}
 
-		if (!this.settings.hideTimeTracking) {
-			this.addTimeTrackingSection(container, leaf);
-		}
-
 		this.addSeparator(container);
 
-		this.addMenuNavCard(container, '타이포그래피', '글꼴, 크기, 줄간격, 문단간격, 너비, 들여쓰기', 'type', () => this.renderMenuPage(container, 'typography', leaf));
-		this.addMenuNavCard(container, '색상', '글자색, 배경색, 링크 색상', 'palette', () => this.renderMenuPage(container, 'color', leaf));
-		this.addMenuNavCard(container, '보기', '타자기 스크롤, 포커스 모드', 'eye', () => this.renderMenuPage(container, 'view', leaf));
-		this.addMenuNavCard(container, '입력 보조', '스마트 따옴표, 엔터, 자동완성, 텍스트 치환', 'keyboard', () => this.renderMenuPage(container, 'input', leaf));
+		this.addMenuNavCard(container, '타이포그래피', '', 'type', () => this.renderMenuPage(container, 'typography', leaf));
+		this.addMenuNavCard(container, '색상', '', 'palette', () => this.renderMenuPage(container, 'color', leaf));
+		this.addMenuNavCard(container, '입력 보조', '', 'keyboard', () => this.renderMenuPage(container, 'input', leaf));
+		this.addMenuNavCard(container, '스톱워치', '', 'clock', () => this.renderMenuPage(container, 'time-tracking', leaf));
+		this.addMenuNavCard(container, '보기', '', 'eye', () => this.renderMenuPage(container, 'view', leaf));
 
 		this.addSeparator(container);
 
@@ -1559,6 +1697,7 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 		this.addCompactStepper(container, '줄간격', this.settings.lineHeight, 0.1, 0, async (v) => { this.settings.lineHeight = v; await this.saveSettings(); }, 'align-justify');
 		this.addCompactStepper(container, '문단간격', this.settings.paragraphSpacing, 0.5, 0, async (v) => { this.settings.paragraphSpacing = v; await this.saveSettings(); }, 'pilcrow');
 		this.addCompactStepper(container, '너비', this.settings.lineWidth, 100, 0, async (v) => { this.settings.lineWidth = v; await this.saveSettings(); }, 'move-horizontal');
+		this.addCompactStepper(container, '좌우 여백', this.settings.inlinePadding ?? 40, 10, 0, async (v) => { this.settings.inlinePadding = v; await this.saveSettings(); }, 'arrow-left-right');
 		this.addCompactStepper(container, '들여쓰기', this.settings.indentation, 5, 0, async (v) => { this.settings.indentation = v; await this.saveSettings(); }, 'indent');
 	}
 
@@ -1580,6 +1719,29 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 		if (this.settings.enableFocusMode) {
 			this.addCompactSlider(container, '투명도', this.settings.focusOpacity, 0, 1, 0.05, async (v) => { this.settings.focusOpacity = v; await this.saveSettings(); }, 'sun');
 		}
+
+		this.addSeparator(container);
+
+		// 단축키 모드 행
+		const shortcutRow = container.createDiv('writing-menu-control');
+		const shortcutLabel = shortcutRow.createDiv('writing-menu-control-label-group');
+		setIcon(shortcutLabel.createSpan('writing-menu-icon'), 'keyboard');
+		shortcutLabel.createEl('label', { text: '단축키' });
+		const f4Badge = shortcutRow.createDiv();
+		f4Badge.style.cssText = 'display:flex; align-items:center; cursor:default; color:var(--text-muted); font-size:12px;';
+		f4Badge.setText('F4');
+
+		// 길게 보기 토글 (zenWideEnabled)
+		this.addCompactToggle(container, '길게 보기', this.settings.zenWideEnabled, async (v) => {
+			this.settings.zenWideEnabled = v;
+			await this.saveSettings();
+		}, 'move-vertical');
+
+		// 집중 모드 토글 (zenFocusEnabled)
+		this.addCompactToggle(container, '집중 모드', this.settings.zenFocusEnabled, async (v) => {
+			this.settings.zenFocusEnabled = v;
+			await this.saveSettings();
+		}, 'expand');
 	}
 
 	renderInputPage(container: HTMLElement, leaf: WorkspaceLeaf) {
@@ -1654,6 +1816,28 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 			this.saveSettings();
 		}
 		if (!this.settings.customFonts) this.settings.customFonts = [];
+
+		// timeModes 마이그레이션: 구버전 timeKeys/timeGoals → timeModes
+		if (!this.settings.timeModes?.length && this.settings.timeKeys) {
+			const tk = this.settings.timeKeys;
+			const tg = this.settings.timeGoals ?? {} as { draft?: number; writing?: number; editing?: number };
+			this.settings.timeModes = [
+				{ id: 'draft',   label: '초고', frontmatterKey: tk.draft   ?? '초고_시간', goalSeconds: tg.draft   ?? 7200 },
+				{ id: 'writing', label: '집필', frontmatterKey: tk.writing ?? '집필_시간', goalSeconds: tg.writing ?? 7200 },
+				{ id: 'editing', label: '퇴고', frontmatterKey: tk.editing ?? '퇴고_시간', goalSeconds: tg.editing ?? 7200 },
+			];
+			this.settings.timeTotalKey = tk.total ?? '총_시간';
+			this.saveSettings();
+		}
+
+		// dashboardSections에 새 섹션 누락 시 추가 (마이그레이션)
+		if (this.settings.dashboardSections) {
+			const knownIds = ['chars', 'time', 'tasks', 'music'];
+			const existingIds = new Set(this.settings.dashboardSections.map((s: any) => s.id));
+			if (!existingIds.has('music')) {
+				this.settings.dashboardSections.push({ id: 'music', label: '음악', visible: true });
+			}
+		}
 	}
 
 	async saveSettings() {
@@ -1669,8 +1853,10 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 	async refreshDashboardView() {
 		await this.heatmapStore.reinitSnapshot().catch(() => {});
 		const { VIEW_TYPE_CALENDAR } = require('./src/calendar/views/CalendarView');
-		this.app.workspace.getLeavesOfType(VIEW_TYPE_CALENDAR).forEach((leaf: any) => {
-			(leaf.view as any).render?.();
+		this.app.workspace.iterateAllLeaves((leaf: any) => {
+			if ((leaf.view as any)?.getViewType?.() === VIEW_TYPE_CALENDAR) {
+				(leaf.view as any).render?.();
+			}
 		});
 	}
 
@@ -1729,7 +1915,7 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 		setIcon(iconSpan, 'binary');
 		labelGroup.createEl('label', { text: '글자수' });
 
-		// Right side: count + M/N buttons
+		// Right side: count + logo buttons
 		const rightGroup = div.createDiv();
 		rightGroup.style.cssText = 'display:flex; align-items:center; gap:8px;';
 
@@ -1737,19 +1923,15 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 		const valueSpan = rightGroup.createEl('span', { text: this.formatCharCount(count) });
 		valueSpan.style.cssText = 'color:var(--text-muted); font-size:12px;';
 
-		// Separator
-		const separator = rightGroup.createEl('span', { text: '/' });
-		separator.style.cssText = 'color:var(--text-muted); font-size:12px;';
-
-		// M/N button container
+		// Logo button container
 		const modeGroup = rightGroup.createDiv();
-		modeGroup.style.cssText = 'display:flex; gap:8px;';
+		modeGroup.style.cssText = 'display:flex; gap:6px; align-items:center;';
 
 		const isMunpia = this.settings.charCountMode === 'munpia';
 
-		// M button (문피아)
-		const mBtn = modeGroup.createDiv('writing-menu-text-btn');
-		mBtn.setText('M');
+		// 문피아 로고 버튼
+		const mBtn = modeGroup.createDiv('writing-menu-logo-btn');
+		mBtn.innerHTML = MUNPIA_SVG;
 		if (isMunpia) mBtn.addClass('is-active');
 		mBtn.onclick = async () => {
 			this.settings.charCountMode = 'munpia';
@@ -1764,9 +1946,9 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 			}
 		};
 
-		// N button (노벨피아)
-		const nBtn = modeGroup.createDiv('writing-menu-text-btn');
-		nBtn.setText('N');
+		// 노벨피아 로고 버튼
+		const nBtn = modeGroup.createDiv('writing-menu-logo-btn');
+		nBtn.innerHTML = NOVELPIA_SVG;
 		if (!isMunpia) nBtn.addClass('is-active');
 		nBtn.onclick = async () => {
 			this.settings.charCountMode = 'novelpia';
@@ -1810,79 +1992,19 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 		}
 	}
 
-	addTimeTrackingSection(container: HTMLElement, leaf: WorkspaceLeaf) {
-		// Initialize stopwatch if needed
-		if (this.stopwatchSeconds <= 0) {
-			this.initStopwatch();
-		}
-
-		// === Main row: 작업 시간 [토글] ===
-		const mainDiv = container.createDiv('writing-menu-control');
-		mainDiv.style.cssText = 'padding: 0px 8px;';
-		const mainLabelGroup = mainDiv.createDiv('writing-menu-control-label-group');
-		const mainIcon = mainLabelGroup.createSpan('writing-menu-icon');
-		setIcon(mainIcon, 'clock');
-		mainLabelGroup.createEl('label', { text: '작업 시간' });
-
-		const mainToggle = mainDiv.createDiv(`writing-menu-toggle ${this.settings.enableTimeTracking ? 'is-enabled' : ''}`);
-		mainToggle.createDiv('writing-menu-toggle-thumb');
-		mainToggle.onclick = async () => {
-			const newVal = !mainToggle.classList.contains('is-enabled');
-			mainToggle.classList.toggle('is-enabled', newVal);
-			this.settings.enableTimeTracking = newVal;
+	renderTimeTrackingPage(container: HTMLElement, leaf: WorkspaceLeaf) {
+		this.addMenuBackButton(container, '스톱워치', () => this.renderMenuPage(container, 'main', leaf));
+		this.addCompactToggle(container, '상태바 표시', this.settings.showTimeInStatusBar, async (v) => {
+			this.settings.showTimeInStatusBar = v;
+			this.settings.enableTimeTracking = v || this.settings.showTimeInDashboard;
 			await this.saveSettings();
-
-			// 하위 항목 표시/숨김
-			stopwatchDiv.style.display = newVal ? 'flex' : 'none';
-		};
-
-		// === Sub row: └ 스톱워치 [countdown] [play/pause] [reset] ===
-		const stopwatchDiv = container.createDiv('writing-menu-control');
-		stopwatchDiv.style.cssText = `padding: 0px 4px 0px 8px; padding-left: 24px; display: ${this.settings.enableTimeTracking ? 'flex' : 'none'};`;
-
-		const stopwatchLabelGroup = stopwatchDiv.createDiv('writing-menu-control-label-group');
-		stopwatchLabelGroup.style.cssText = 'gap: 0;';
-		const cornerIcon1 = stopwatchLabelGroup.createSpan('writing-menu-icon');
-		setIcon(cornerIcon1, 'corner-down-right');
-		cornerIcon1.style.opacity = '0.5';
-		stopwatchLabelGroup.createEl('label', { text: '스톱워치' });
-
-		// Right side: countdown + play/pause + reset
-		const stopwatchRightGroup = stopwatchDiv.createDiv();
-		stopwatchRightGroup.style.cssText = 'display:flex; align-items:center; gap:8px;';
-
-		const stopwatchSpan = stopwatchRightGroup.createEl('span');
-		stopwatchSpan.style.cssText = 'font-size:14px; color:var(--text-muted); line-height:16px; height:16px;';
-		stopwatchSpan.textContent = this.formatTime(this.stopwatchSeconds);
-		this.stopwatchDisplayEl = stopwatchSpan;
-
-		const btnGroup = stopwatchRightGroup.createDiv();
-		btnGroup.style.cssText = 'display:flex; align-items:center; gap:0;';
-
-		const playPauseBtn = btnGroup.createDiv('clickable-icon');
-		setIcon(playPauseBtn, this.stopwatchInterval ? 'pause' : 'play');
-		this.styleIconButton(playPauseBtn);
-
-		const resetBtn = btnGroup.createDiv('clickable-icon');
-		setIcon(resetBtn, 'rotate-ccw');
-		this.styleIconButton(resetBtn, 0.6);
-
-		resetBtn.onclick = (e) => {
-			e.stopPropagation();
-			this.resetStopwatch();
-		};
-
-		playPauseBtn.onclick = (e) => {
-			e.stopPropagation();
-			if (this.stopwatchInterval) {
-				this.stopStopwatch();
-			} else {
-				this.startStopwatch();
-			}
-			playPauseBtn.empty();
-			setIcon(playPauseBtn, this.stopwatchInterval ? 'pause' : 'play');
-			this.styleIconButton(playPauseBtn);
-		};
+			this.updateStatusBarDisplay();
+		}, 'activity');
+		this.addCompactToggle(container, '대시보드 표시', this.settings.showTimeInDashboard, async (v) => {
+			this.settings.showTimeInDashboard = v;
+			this.settings.enableTimeTracking = this.settings.showTimeInStatusBar || v;
+			await this.saveSettings();
+		}, 'layout-dashboard');
 	}
 
 	async addCompactToggle(container: HTMLElement, label: string, value: boolean, callback: (v: boolean) => void, icon?: string){ return await addCompactToggle(this, container, label, value, callback, icon); }

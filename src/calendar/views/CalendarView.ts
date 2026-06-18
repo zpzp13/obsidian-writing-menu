@@ -11,6 +11,7 @@ import { DateStrip } from '../components/DateStrip';
 import { showDatePickerPopup } from '../components/DatePickerPopup';
 import type { DashSectionConfig } from '../../types';
 import { WikiPanel } from '../../wiki/WikiPanel';
+import { formatDateKey } from '../../utils/dateUtils';
 
 export const VIEW_TYPE_CALENDAR = 'writing-menu-calendar';
 
@@ -47,11 +48,7 @@ export class CalendarView extends ItemView {
 	private badgeDebounceTimer = 0;
 	private taskCounts = new Map<string, number>();
 
-	private static dateKey(d: Date): string {
-		return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-	}
-
-	constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
+constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 		super(leaf);
 		this.plugin = plugin;
 		const now = new Date();
@@ -73,6 +70,13 @@ export class CalendarView extends ItemView {
 	}
 
 	async onClose() { this.removePopup(); }
+
+	activateWikiPicker() {
+		this.dashTab = 'wiki';
+		this.dashSubView = 'content';
+		this.render();
+		setTimeout(() => this.wikiPanel?.openFolderPicker(), 50);
+	}
 
 	// ── Root render ─────────────────────────────────────────────────
 
@@ -118,15 +122,15 @@ export class CalendarView extends ItemView {
 		const bar  = container.createDiv({ cls: 'wm-cal-topbar' });
 		const left = bar.createDiv({ cls: 'wm-cal-topbar-left' });
 
-		this.dateDisplayEl = left.createSpan({ cls: 'wm-cal-date-display' });
-		this.updateDateDisplay();
-		this.dateDisplayEl.addEventListener('click', () => this.goToToday());
-
 		const pickerBtn = left.createDiv({ cls: 'wm-cal-icon-btn' });
-		setIcon(pickerBtn, 'chevron-right');
+		setIcon(pickerBtn, 'calendar');
 		pickerBtn.addEventListener('click', e => {
 			e.stopPropagation();
-			this.removePopup();
+			if (this.popup?.isConnected) {
+				this.removePopup();
+				return;
+			}
+			this.popup = null;
 			this.popup = showDatePickerPopup(pickerBtn, this.selectedDate, (d) => {
 				this.selectedDate = d;
 				this.popup = null;
@@ -134,15 +138,42 @@ export class CalendarView extends ItemView {
 			});
 		});
 
-		const right = bar.createDiv({ cls: 'wm-cal-topbar-right' });
+		this.dateDisplayEl = left.createSpan({ cls: 'wm-cal-date-display' });
+		this.updateDateDisplay();
+		this.dateDisplayEl.addEventListener('click', () => this.goToToday());
 
-		const viewBtn = right.createDiv({ cls: 'wm-cal-icon-btn' });
-		setIcon(viewBtn, this.viewMode === 'full' ? 'minimize-2' : 'maximize-2');
-		viewBtn.addEventListener('click', e => {
+		const toggleBtn = left.createDiv({ cls: 'wm-cal-icon-btn wm-cal-toggle-btn' });
+		setIcon(toggleBtn, this.viewMode === 'full' ? 'chevron-up' : 'chevron-down');
+		toggleBtn.addEventListener('click', e => {
 			e.stopPropagation();
 			this.viewMode = this.viewMode === 'strip' ? 'full' : 'strip';
 			this.render();
 		});
+
+		const right = bar.createDiv({ cls: 'wm-cal-topbar-right' });
+
+		if (this.plugin.settings.showTimeInDashboard) {
+			if (this.plugin.stopwatchSeconds <= 0) this.plugin.initStopwatch();
+			const swBadge = right.createDiv({ cls: 'wm-cal-stopwatch-badge' });
+
+			const battery = swBadge.createDiv({ cls: 'wm-cal-sw-battery' });
+			const segs: HTMLElement[] = [];
+			for (let i = 0; i < 4; i++) {
+				segs.push(battery.createDiv({ cls: 'wm-cal-sw-seg' }));
+			}
+			this.plugin.stopwatchDashboardSegs = segs;
+
+			const swText = swBadge.createSpan({ cls: 'wm-cal-sw-time' });
+			swText.textContent = this.plugin.formatTime(this.plugin.stopwatchSeconds);
+			this.plugin.stopwatchDashboardEl = swText;
+
+			this.plugin.updateStopwatchSegments();
+
+			swBadge.addEventListener('click', e => {
+				e.stopPropagation();
+				this.plugin.toggleDashboardStopwatchPopup(swBadge);
+			});
+		}
 	}
 
 	private updateDateDisplay() {
@@ -209,7 +240,7 @@ export class CalendarView extends ItemView {
 			if (!isCurr)   cell.addClass('wm-cal-other');
 			if (isToday)   cell.addClass('wm-cal-today');
 			if (isSel)     cell.addClass('wm-cal-selected');
-			if (isCurr)    cell.dataset.datekey = CalendarView.dateKey(d);
+			if (isCurr)    cell.dataset.datekey = formatDateKey(d);
 
 			cell.createDiv({ cls: 'wm-cal-num', text: String(d.getDate()) });
 
@@ -219,7 +250,7 @@ export class CalendarView extends ItemView {
 					return;
 				}
 				this.selectedDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-				const dk = CalendarView.dateKey(this.selectedDate);
+				const dk = formatDateKey(this.selectedDate);
 				const hasTask = (this.taskCounts.get(dk) ?? 0) > 0;
 				this.render();
 				if (hasTask) requestAnimationFrame(() => this.scrollToTasksSection(dk));
@@ -394,12 +425,12 @@ export class CalendarView extends ItemView {
 		this.taskCounts.clear();
 		for (const t of tasks) {
 			if (t.completed) continue;
-			const dk = CalendarView.dateKey(t.sourceDate);
+			const dk = formatDateKey(t.sourceDate);
 			this.taskCounts.set(dk, (this.taskCounts.get(dk) ?? 0) + 1);
 		}
 
 		const content = this.containerEl.children[1] as HTMLElement;
-		const todayKey = CalendarView.dateKey(new Date());
+		const todayKey = formatDateKey(new Date());
 
 		content.querySelectorAll<HTMLElement>('.wm-cal-date-card[data-datekey]').forEach(card => {
 			const dk = card.dataset.datekey;

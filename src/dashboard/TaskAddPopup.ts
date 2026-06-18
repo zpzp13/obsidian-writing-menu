@@ -2,6 +2,7 @@ import { setIcon } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { TaskParser } from './data/TaskParser';
 import { openPopupAutoClose } from './TaskItem';
+import { formatDateKey } from '../utils/dateUtils';
 
 const DOW_S = ['일','월','화','수','목','금','토'];
 
@@ -58,7 +59,7 @@ export function showTaskAddPopup(
 			const dow = new Date(py, pm, 1).getDay();
 			for (let i = 0; i < 42; i++) {
 				const d = new Date(py, pm, 1 - dow + i);
-				const dk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+				const dk = formatDateKey(d);
 				const cls = ['wm-mini-picker-cell',
 					d.getMonth() !== pm ? 'is-other' : '',
 					dk === selectedDate ? 'is-sel' : '',

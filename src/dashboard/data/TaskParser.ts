@@ -1,5 +1,6 @@
 import { TFile } from 'obsidian';
 import type WritingMenuPlugin from '../../../main';
+import { formatDateKey } from '../../utils/dateUtils';
 
 function escapeRegex(s: string): string {
 	return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -35,7 +36,7 @@ export class TaskParser {
 
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
-		const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+		const todayStr = formatDateKey(today);
 
 		const results: ParsedTask[] = [];
 
@@ -159,7 +160,7 @@ export class TaskParser {
 		let updated: string;
 		if (nowCompleted) {
 			const d = new Date();
-			const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+			const dateStr = formatDateKey(d);
 			updated = content.replace(
 				new RegExp(`(^[\\s\\t]*-\\s+\\[) (\\]\\s+${escapeRegex(baseRaw)})(\\s*✅\\s*\\d{4}-\\d{2}-\\d{2})?`, 'm'),
 				`$1x$2 ✅ ${dateStr}`,

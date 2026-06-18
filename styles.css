@@ -20,7 +20,7 @@
 .wm-menu-nav-title { font-size: 13px; font-weight: 600; color: var(--interactive-accent); line-height: 1.3; }
 .wm-menu-nav-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wm-menu-nav-chevron { display: flex; align-items: center; color: var(--text-faint); flex-shrink: 0; }
-.wm-menu-nav-chevron svg { width: 13px; height: 13px; }
+.wm-menu-nav-chevron svg { width: 15px; height: 15px; }
 
 /* ── Menu Sub-page Back Button ── */
 .wm-menu-back-btn { display: flex; align-items: center; gap: 5px; cursor: pointer; color: var(--text-muted); font-size: 13px; font-weight: 600; padding: 2px 4px 2px; }
@@ -374,6 +374,30 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     color: var(--text-accent) !important;
 }
 
+/* Platform logo buttons (문피아/노벨피아) in charcount mode selector */
+.writing-menu-logo-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 4px;
+    padding: 1px;
+    transition: opacity 0.15s ease;
+}
+.writing-menu-logo-btn svg {
+    width: 18px;
+    height: 18px;
+    display: block;
+    filter: grayscale(1) opacity(0.35);
+    transition: filter 0.15s ease;
+}
+.writing-menu-logo-btn.is-active svg {
+    filter: none;
+}
+.writing-menu-logo-btn:hover svg {
+    filter: grayscale(0.3) opacity(0.8);
+}
+
 /* ── Mobile Preview Floating Window (300px — original phone frame size) ── */
 .wm-float-preview {
     position: fixed;
@@ -598,10 +622,63 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 .wm-cal-topbar-left {
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: 0;
     min-width: 0;
     flex: 1;
     overflow: hidden;
+    cursor: pointer;
+}
+
+/* Toggle btn: hidden by default, visible on topbar-left hover */
+.wm-cal-topbar-left .wm-cal-toggle-btn {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+}
+.wm-cal-topbar-left:hover .wm-cal-toggle-btn {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Stopwatch badge in dashboard topbar-right */
+.wm-cal-stopwatch-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 1px 6px 1px 4px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+.wm-cal-stopwatch-badge:hover { opacity: 0.85; }
+.wm-cal-sw-battery {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+.wm-cal-sw-seg {
+    width: 8px;
+    height: 12px;
+    border-radius: 2px;
+    opacity: 0.2;
+    transition: opacity 0.25s ease;
+}
+.wm-cal-sw-seg:nth-child(1) { background: var(--interactive-accent); opacity: 0.2; }
+.wm-cal-sw-seg:nth-child(2) { background: var(--interactive-accent); opacity: 0.2; }
+.wm-cal-sw-seg:nth-child(3) { background: var(--interactive-accent); opacity: 0.2; }
+.wm-cal-sw-seg:nth-child(4) { background: var(--interactive-accent); opacity: 0.2; }
+.wm-cal-sw-seg:nth-child(1).is-filled { background: color-mix(in srgb, var(--interactive-accent) 45%, var(--background-primary)); opacity: 1; }
+.wm-cal-sw-seg:nth-child(2).is-filled { background: color-mix(in srgb, var(--interactive-accent) 62%, var(--background-primary)); opacity: 1; }
+.wm-cal-sw-seg:nth-child(3).is-filled { background: color-mix(in srgb, var(--interactive-accent) 80%, var(--background-primary)); opacity: 1; }
+.wm-cal-sw-seg:nth-child(4).is-filled { background: var(--interactive-accent); opacity: 1; }
+.wm-cal-sw-seg.is-filled { opacity: 1; }
+.wm-cal-sw-time {
+    color: var(--interactive-accent);
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
 }
 
 /* Date display: uses Obsidian interface font. Click → go to today. */
@@ -1131,7 +1208,7 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 .wm-dash-group-item { position: relative; padding: 9px 10px; }
 /* 글자수 section: no dividers between cards */
 .no-item-dividers .wm-dash-group-item::after { display: none; }
-.no-item-dividers .wm-dash-group-item { padding: 20px 10px; }
+.no-item-dividers .wm-dash-group-item { padding: 20px 10px 0px; }
 
 /* ── Stats card grid (오늘 좌열 2행 span | 목표/일평균 우열 스택) ── */
 .wm-dash-stats-grid {
@@ -1212,7 +1289,7 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     padding: 8px 12px 10px;
 }
 .wm-dash-today-remain {
-    font-size: 11px;
+    font-size: 13px;
     color: var(--text-faint);
     text-align: left;
     line-height: 1.4;
@@ -1720,6 +1797,168 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 /* ── 캘린더 태스크 미리보기 팝업 ── */
 .wm-cal-task-preview { min-width: 180px; max-width: 260px; }
 
+
+/* ── 음악 플레이어 섹션 ── */
+
+/* 공용 아이콘 버튼 (cal 접두어 없는 버전) */
+.wm-music-btn { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: var(--radius-s); cursor: pointer; color: var(--text-muted); flex-shrink: 0; }
+.wm-music-btn:hover { color: var(--text-normal); background: var(--background-modifier-hover); }
+.wm-music-btn .svg-icon { width: 15px; height: 15px; }
+
+.wm-dash-music-player { display: flex; flex-direction: column; gap: 10px; padding: 0px 10px; }
+.wm-dash-music-empty  { display: flex; align-items: center; gap: 8px; padding: 12px 4px; color: var(--text-muted); font-size: 12px; }
+.wm-dash-music-empty-icon.svg-icon { width: 16px; height: 16px; flex-shrink: 0; }
+
+/* 헤더 */
+.wm-dash-music-header { display: flex; align-items: center; gap: 4px; }
+.wm-dash-music-list-btn { color: var(--interactive-accent); }
+.wm-dash-music-folder { flex: 1; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-faint); padding: 0 4px; }
+.wm-dash-music-mode-btn { flex-shrink: 0; }
+
+/* 앨범아트 스트립 */
+.wm-dash-music-strip { display: flex; flex-direction: column; gap: 0; padding: 8px 0 2px; }
+
+/* 아트 행 */
+.wm-dash-music-art-row { display: flex; align-items: flex-end; gap: 8px; }
+
+/* art-wrap */
+.wm-music-art-wrap { display: flex; flex-direction: column; align-items: center; gap: 0; cursor: pointer; transition: opacity 0.2s; min-width: 0; }
+.wm-music-art-wrap.is-far-prev,
+.wm-music-art-wrap.is-far-next { opacity: 0.25; flex: 1; }
+.wm-music-art-wrap.is-far-prev:hover,
+.wm-music-art-wrap.is-far-next:hover { opacity: 0.5; }
+.wm-music-art-wrap.is-prev,
+.wm-music-art-wrap.is-next { opacity: 0.5; flex: 1.5; }
+.wm-music-art-wrap.is-prev:hover,
+.wm-music-art-wrap.is-next:hover { opacity: 0.75; }
+.wm-music-art-wrap.is-current { opacity: 1; flex: 2; }
+
+/* 병합된 타이틀/hover 컨테이너: 기본=현재곡(액센트+볼드), hover=이전/다음곡(faint+normal) */
+.wm-dash-music-track-title {
+    margin-top: 10px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--interactive-accent);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 4px;
+    transition: color 0.15s, font-weight 0s;
+    pointer-events: none;
+}
+.wm-dash-music-track-title.is-hover {
+    font-weight: 400;
+    color: var(--text-faint);
+}
+
+/* img-slot: 정사각형, 부모 flex 너비에 맞춤 */
+.wm-music-art-img-slot { width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; }
+.wm-music-art-wrap.is-far-prev .wm-music-art-img-slot,
+.wm-music-art-wrap.is-far-next .wm-music-art-img-slot { border-radius: var(--radius-s); overflow: hidden; background: var(--background-secondary); }
+.wm-music-art-wrap.is-prev .wm-music-art-img-slot,
+.wm-music-art-wrap.is-next .wm-music-art-img-slot { border-radius: var(--radius-s); overflow: hidden; background: var(--background-secondary); }
+.wm-music-art-wrap.is-current .wm-music-art-img-slot { border-radius: var(--radius-m); overflow: hidden; background: var(--background-secondary); box-shadow: 0 4px 16px rgba(0,0,0,0.22); }
+
+/* 플레이스홀더 */
+.wm-music-strip-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.wm-music-strip-placeholder .svg-icon { width: 35%; height: 35%; color: var(--text-faint); }
+
+/* 이미지 */
+.wm-music-strip-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* 진행바 */
+.wm-dash-music-progress-row { display: flex; align-items: center; gap: 6px; }
+.wm-dash-music-time { font-size: 10px; color: var(--text-faint); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.wm-dash-music-bar  { flex: 1; height: 4px; background: var(--background-modifier-border); border-radius: 2px; cursor: pointer; position: relative; transition: height 0.1s; }
+.wm-dash-music-bar:hover { height: 6px; }
+.wm-dash-music-fill { height: 100%; background: var(--interactive-accent); border-radius: 2px; pointer-events: none; }
+
+/* 하트(즐겨찾기) 버튼 */
+.wm-dash-music-fav-btn { color: var(--text-faint); }
+.wm-dash-music-fav-btn.is-fav { color: #e0507a; }
+.wm-dash-music-fav-btn.is-fav .svg-icon { fill: currentColor; }
+
+/* 컨트롤: prev/play/next 중앙 정렬, vol-wrap 절대위치 우측 */
+.wm-dash-music-controls { display: flex; align-items: center; justify-content: center; gap: 4px; position: relative; }
+.wm-dash-music-play-btn { width: 32px !important; height: 32px !important; color: var(--interactive-accent); }
+.wm-dash-music-play-btn .svg-icon { width: 23px !important; height: 23px !important; }
+
+/* vol-wrap: absolute 배치. 본체는 pointer-events:none으로 뒤 버튼 클릭 통과시킴 */
+.wm-music-vol-wrap {
+    position: absolute;
+    right: 0;
+    display: flex;
+    align-items: center;
+    border-radius: var(--radius-s);
+    border: 2px solid transparent;
+    transition: border-color 0.15s ease;
+    pointer-events: none; /* vol-wrap 영역이 뒤 버튼을 가리지 않도록 */
+}
+.wm-dash-music-controls.is-vol-open .wm-music-vol-wrap {
+    border-color: var(--interactive-accent);
+    background: var(--background-primary);
+}
+/* sliderOuter: 고정 너비, opacity 토글 */
+.wm-music-vol-slider-outer {
+    display: flex;
+    align-items: center;
+    width: 106px;
+    flex-shrink: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+}
+.wm-dash-music-controls.is-vol-open .wm-music-vol-slider-outer {
+    opacity: 1;
+    pointer-events: auto;
+}
+/* 네이티브 range 슬라이더: fill은 JS gradient, thumb은 도넛 디자인 */
+/* 볼륨 슬라이더 전용 변수 오버라이드 — 다른 슬라이더에 영향 없음 */
+.wm-music-vol-slider {
+    --slider-track-height: 5px;
+    --slider-thumb-height: 12px;
+    --slider-thumb-width: 12px;
+    --slider-thumb-y: -3px;
+    width: 86px;
+    margin: 0 6px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+/* 도넛 thumb: 내부 채워진 원 + gap + 바깥 링 */
+.wm-music-vol-slider::-webkit-slider-thumb {
+    background: var(--interactive-accent) !important;
+    border: 2px solid var(--background-primary) !important;
+    box-shadow: 0 0 0 2px var(--interactive-accent) !important;
+}
+/* vol 아이콘 버튼: pointer-events 복원 */
+.wm-dash-music-vol-btn { color: var(--text-faint); flex-shrink: 0; pointer-events: auto; }
+
+/* 즐겨찾기 구분선 */
+.wm-music-list-sep { height: 1px; background: var(--background-modifier-border); margin: 4px 0; }
+
+/* 즐겨찾기 해제 하트 버튼 */
+.wm-music-list-item-unfav { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; flex-shrink: 0; cursor: pointer; color: #e0507a; border-radius: var(--radius-s); }
+.wm-music-list-item-unfav:hover { background: var(--background-modifier-hover); }
+.wm-music-list-item-unfav .svg-icon { width: 12px; height: 12px; fill: currentColor; }
+
+/* 드릴다운 팝업 */
+.wm-music-list-popup { position: fixed; z-index: 10000; background: var(--background-primary); border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m); padding: 4px; box-shadow: var(--shadow-l); min-width: 200px; max-width: 280px; max-height: 320px; overflow-y: auto; animation: wm-popup-in .1s ease-out; }
+.wm-music-list-hdr { display: flex; align-items: center; gap: 6px; padding: 4px 6px 6px; border-bottom: 1px solid var(--background-modifier-border); margin-bottom: 4px; }
+.wm-music-list-back { flex-shrink: 0; }
+.wm-music-list-hdr-title { font-size: 12px; font-weight: 600; color: var(--text-normal); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wm-music-list-section-label { font-size: 11px; color: var(--text-faint); padding: 4px 8px 2px; text-transform: uppercase; letter-spacing: 0.04em; }
+.wm-music-list-empty { font-size: 12px; color: var(--text-muted); padding: 12px 10px; text-align: center; }
+.wm-music-list-tracks { display: flex; flex-direction: column; }
+.wm-music-list-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: calc(var(--radius-s) - 1px); cursor: pointer; font-size: 12px; color: var(--text-normal); }
+.wm-music-list-item:hover { background: var(--background-modifier-hover); }
+.wm-music-list-item.is-playing { color: var(--interactive-accent); }
+.wm-music-list-item-icon { display: flex; align-items: center; color: var(--text-faint); flex-shrink: 0; }
+.wm-music-list-item-icon .svg-icon { width: 13px; height: 13px; }
+.wm-music-list-item.is-playing .wm-music-list-item-icon { color: var(--interactive-accent); }
+.wm-music-list-item-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wm-music-list-item-chevron { color: var(--text-faint); display: flex; align-items: center; }
+.wm-music-list-item-chevron .svg-icon { width: 12px; height: 12px; }
 
 /* ── 집필 시간 섹션 ── */
 .wm-wt-card {
@@ -2871,13 +3110,14 @@ button[aria-label="규칙 추가"] {
 }
 .wiki-card-strip {
     display: flex;
-    gap: 12px;
+    gap: 6px;
     overflow-x: auto;
     overflow-y: visible;
-    padding: 60px 10px;
+    padding: 40px 10px;
     scrollbar-width: none;
     align-items: center;
     cursor: default;
+    scroll-snap-type: x mandatory;
 }
 .wiki-card-strip::-webkit-scrollbar { display: none; }
 
@@ -2885,8 +3125,11 @@ button[aria-label="규칙 추가"] {
     flex-shrink: 0;
     position: relative;
     cursor: pointer;
+    scroll-snap-align: center;
+    scroll-snap-stop: always;
     width: 56px;
-    transition: transform 0.15s ease;
+    opacity: 0.45;
+    transition: transform 0.1s ease, opacity 0.1s ease;
     user-select: none;
 }
 .wiki-card-img {
@@ -2931,11 +3174,11 @@ button[aria-label="규칙 추가"] {
     transition: opacity 0.15s;
 }
 
-/* 선택된 카드: 확대 + glow (수직 이동 없음, margin으로 양옆 시각 간격 유지) */
+/* 선택된 카드: 확대 + glow (transform만 사용 — margin 없이 레이아웃 불변) */
 .wiki-card.is-selected {
     transform: scale(1.6);
     z-index: 2;
-    margin: 0 17px;
+    opacity: 1;
 }
 .wiki-card.is-selected .wiki-card-img,
 .wiki-card.is-selected .wiki-card-img-placeholder {
@@ -2948,6 +3191,11 @@ button[aria-label="규칙 추가"] {
     font-size: 10px; /* scale(1.6) × 10px = 16px visual */
 }
 
+@keyframes wiki-fadein {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
 /* ── 스크롤 영역 ── */
 .wiki-scroll-area {
     flex: 1;
@@ -2955,6 +3203,7 @@ button[aria-label="규칙 추가"] {
     overflow-x: clip;
     padding: 20px 11px 12px;
     container-type: inline-size;
+    animation: wiki-fadein 0.18s ease;
     position: relative;
 }
 
@@ -3160,6 +3409,19 @@ button[aria-label="규칙 추가"] {
 }
 .wiki-prop-val p { margin: 0; }
 .wiki-prop-val * { font-size: var(--wiki-profile-key-size, 13px) !important; }
+.wiki-prop-val a.internal-link { color: var(--wiki-accent-color, var(--interactive-accent)) !important; text-decoration: none; }
+.wiki-prop-val a.internal-link:hover { text-decoration: underline; }
+.wiki-prop-tags { display: flex; flex-wrap: wrap; gap: 4px; padding: 0.2em 0; }
+.wiki-prop-tags .tag {
+    font-size: var(--wiki-profile-key-size, 13px) !important;
+    color: var(--wiki-accent-color, var(--interactive-accent)) !important;
+    background: color-mix(in srgb, var(--wiki-accent-color, var(--interactive-accent)) 12%, transparent) !important;
+    border-radius: 4px;
+    padding: 1px 6px;
+    text-decoration: none !important;
+    cursor: pointer;
+}
+.wiki-prop-tags .tag:hover { opacity: 0.8; }
 
 /* ── 본문 ── */
 .obsiwiki-rendered-body { font-size: 13px; line-height: 1.65; }
@@ -3174,6 +3436,11 @@ button[aria-label="규칙 추가"] {
 .obsiwiki-rendered-body a.internal-link:hover { text-decoration: underline; }
 .obsiwiki-rendered-body .heading-collapse-indicator,
 .obsiwiki-rendered-body a.heading-link { display: none !important; }
+.obsiwiki-rendered-body table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 12.5px; }
+.obsiwiki-rendered-body th,
+.obsiwiki-rendered-body td { border: 1px solid var(--background-modifier-border); padding: 5px 10px; text-align: left; }
+.obsiwiki-rendered-body th { background: var(--background-secondary); font-weight: 600; color: var(--text-normal); }
+.obsiwiki-rendered-body tr:nth-child(even) td { background: color-mix(in srgb, var(--background-secondary) 40%, transparent); }
 .obsiwiki-rendered-body blockquote {
     border-left: 4px solid var(--wiki-accent-color, var(--interactive-accent)) !important;
     background-color: color-mix(in srgb, var(--wiki-accent-color, var(--interactive-accent)), transparent 90%) !important;
@@ -3190,7 +3457,7 @@ button[aria-label="규칙 추가"] {
     user-select: none;
     cursor: pointer;
 }
-.wiki-header-number:hover { color: var(--wiki-accent-color, var(--interactive-accent)); }
+.wiki-header-number:hover { color: var(--wiki-accent-color, var(--interactive-accent)); text-decoration: underline; }
 
 .wiki-highlight-flash { animation: wiki-flash 0.8s ease-out; }
 @keyframes wiki-flash {

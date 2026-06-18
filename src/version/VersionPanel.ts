@@ -466,6 +466,54 @@ export class VersionPanel {
 				new EditVersionModal(plugin.app, plugin, currentFile, entry, manager, () => refresh().catch(() => {})).open();
 			});
 
+			makeBtn('상태', 'circle-dashed', (e) => {
+				document.querySelector('.wm-ver-popup')?.remove();
+				const popup = document.body.createDiv({ cls: 'wm-ver-popup' });
+				const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+				popup.style.top = `${rect.bottom + 4}px`;
+				popup.style.left = `${rect.left}px`;
+				const configuredStages: Array<{ name: string; color: string }> =
+					(plugin.settings as any).versionStages ?? [
+						{ name: '초고', color: '#94a3b8' },
+						{ name: '집필', color: '#60a5fa' },
+						{ name: '퇴고', color: '#34d399' },
+					];
+				const noneItem = popup.createDiv({ cls: `wm-ver-popup-item${!entry.stage ? ' is-active' : ''}` });
+				const noneDot = noneItem.createDiv({ cls: 'wm-ver-popup-stage-dot wm-ver-popup-stage-dot-none' });
+				noneItem.createDiv({ cls: 'wm-ver-popup-label', text: '없음' });
+				if (!entry.stage) setIcon(noneItem.createDiv({ cls: 'wm-ver-popup-check' }), 'check');
+				noneItem.addEventListener('click', async (ev) => {
+					ev.stopPropagation(); popup.remove();
+					if (!currentFile) return;
+					entry.stage = undefined;
+					await manager.updateVersion(currentFile, entry.id, { stage: undefined });
+					refresh().catch(() => {});
+				});
+				popup.createDiv({ cls: 'wm-ver-popup-separator' });
+				for (const s of configuredStages) {
+					const isActive = entry.stage === s.name;
+					const stageItem = popup.createDiv({ cls: `wm-ver-popup-item${isActive ? ' is-active' : ''}` });
+					const dot = stageItem.createDiv({ cls: 'wm-ver-popup-stage-dot' });
+					dot.style.borderColor = s.color;
+					if (isActive) dot.style.backgroundColor = s.color;
+					stageItem.createDiv({ cls: 'wm-ver-popup-label', text: s.name });
+					if (isActive) setIcon(stageItem.createDiv({ cls: 'wm-ver-popup-check' }), 'check');
+					stageItem.addEventListener('click', async (ev) => {
+						ev.stopPropagation(); popup.remove();
+						if (!currentFile) return;
+						entry.stage = s.name;
+						await manager.updateVersion(currentFile, entry.id, { stage: s.name });
+						refresh().catch(() => {});
+					});
+				}
+				requestAnimationFrame(() => {
+					const pr = popup.getBoundingClientRect();
+					if (pr.right > window.innerWidth - 10) popup.style.left = `${window.innerWidth - pr.width - 10}px`;
+					if (pr.bottom > window.innerHeight - 10) popup.style.top = `${rect.top - pr.height - 4}px`;
+				});
+				setupPopupAutoClose(popup);
+			});
+
 			makeBtn('이 버전으로 복원', 'rotate-ccw', async () => {
 				if (!currentFile || !lastEditor) { new Notice('편집 중인 노트가 없습니다.'); return; }
 				await manager.restoreVersion(currentFile, entry, lastEditor);

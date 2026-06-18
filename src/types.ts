@@ -27,6 +27,13 @@ export interface PreviewTypography {
 	textColor: string;
 }
 
+export interface TimeModeConfig {
+	id: string;
+	label: string;
+	frontmatterKey: string;
+	goalSeconds: number;
+}
+
 export interface WritingMenuSettings {
 	fontFamily: string;
 	customFonts: string[];
@@ -36,12 +43,15 @@ export interface WritingMenuSettings {
 	paragraphSpacing: number;
 	indentation: number;
 	lineWidth: number;
+	inlinePadding: number;
 	backgroundColor: string | { light: string; dark: string };
 	applyToFolder: string;
 	disableLinkColor: boolean;
 	enableFocusMode: boolean;
 	focusOpacity: number;
 	enableTypewriterScrolling: boolean;
+	zenWideEnabled: boolean;
+	zenFocusEnabled: boolean;
 	enableSmartQuotes: boolean;
 	symbolTriggers: SymbolTrigger[];
 	enableSmartEnter: boolean;
@@ -52,8 +62,9 @@ export interface WritingMenuSettings {
 	charCountMode: 'munpia' | 'novelpia';
 	statCardDisplay: 'munpia' | 'novelpia' | 'both';
 	enableTimeTracking: boolean;
-	hideTimeTracking: boolean;
-	currentTimeMode: 'draft' | 'writing' | 'editing';
+	showTimeInStatusBar: boolean;
+	showTimeInDashboard: boolean;
+	currentTimeMode: string;
 	stopwatchMinutes: number;
 	enableStopwatchAlarm: boolean;
 	stopwatchAlarmSound: 'bell' | 'chime' | 'beep' | 'ding' | 'gong';
@@ -86,19 +97,19 @@ export interface WritingMenuSettings {
 	dailyNotesFormat: string;
 	taskAddHeader: string;
 	writingGoalChars: number;
-	timeKeys: {
-		draft:   string;
-		writing: string;
-		editing: string;
-		total:   string;
-	};
-	timeGoals: {
-		draft:   number;
-		writing: number;
-		editing: number;
-	};
+	timeModes: TimeModeConfig[];
+	timeTotalKey: string;
 	timeAvgFolderLevel: number;
+	// 마이그레이션용 (deprecated)
+	timeKeys?: { draft: string; writing: string; editing: string; total: string };
+	timeGoals?: { draft: number; writing: number; editing: number };
 	dashboardSections?: DashSectionConfig[];
+	// ── Music Player ──────────────────────────────────────────────────────
+	musicFolderPaths: string[];
+	musicVolume: number;
+	musicPlaybackMode: 'loop' | 'single' | 'shuffle';
+	musicFavorites: string[];
+	musicFavoritesMax: number;
 	// ── Wiki ──────────────────────────────────────────────────────────────
 	wikiColor: string;
 	wikiPaletteMode: string;
@@ -122,12 +133,13 @@ export interface WritingMenuSettings {
 	wikiProfileValueSize: number;
 	wikiProfileImage: string;
 	wikiUseTableLayout: boolean;
+	wikiStripCollapsedDefault: boolean;
 	wikiLastFilePath: string;
 	wikiLastFolderPath: string;
 }
 
 export interface DashSectionConfig {
-	id: 'chars' | 'time' | 'tasks';
+	id: 'chars' | 'time' | 'tasks' | 'music';
 	label: string;
 	visible: boolean;
 }
@@ -141,12 +153,15 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	paragraphSpacing: 1,
 	indentation: 0,
 	lineWidth: 700,
+	inlinePadding: 40,
 	backgroundColor: 'transparent',
 	applyToFolder: '',
 	disableLinkColor: false,
 	enableFocusMode: false,
 	focusOpacity: 0.25,
 	enableTypewriterScrolling: false,
+	zenWideEnabled: true,
+	zenFocusEnabled: true,
 	enableSmartQuotes: false,
 	symbolTriggers: [
 		{
@@ -177,8 +192,9 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	],
 	charCountMode: 'munpia',
 	statCardDisplay: 'both',
-	enableTimeTracking: false,
-	hideTimeTracking: false,
+	enableTimeTracking: true,
+	showTimeInStatusBar: false,
+	showTimeInDashboard: true,
 	currentTimeMode: 'draft',
 	stopwatchMinutes: 25,
 	enableStopwatchAlarm: true,
@@ -224,14 +240,24 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	dailyNotesFormat: 'YYYY-MM-DD',
 	taskAddHeader: '할 일',
 	writingGoalChars: 0,
-	timeKeys: { draft: '초고_시간', writing: '집필_시간', editing: '퇴고_시간', total: '총_시간' },
-	timeGoals: { draft: 7200, writing: 7200, editing: 7200 },
+	timeModes: [
+		{ id: 'draft',   label: '초고', frontmatterKey: '초고_시간', goalSeconds: 7200 },
+		{ id: 'writing', label: '집필', frontmatterKey: '집필_시간', goalSeconds: 7200 },
+		{ id: 'editing', label: '퇴고', frontmatterKey: '퇴고_시간', goalSeconds: 7200 },
+	],
+	timeTotalKey: '총_시간',
 	timeAvgFolderLevel: 0,
 	dashboardSections: [
 		{ id: 'chars',  label: '글자수',   visible: true },
 		{ id: 'time',   label: '작업시간', visible: true },
 		{ id: 'tasks',  label: '할 일',    visible: true },
+		{ id: 'music',  label: '음악',     visible: true },
 	],
+	musicFolderPaths: [],
+	musicVolume: 1.0,
+	musicPlaybackMode: 'loop',
+	musicFavorites: [],
+	musicFavoritesMax: 10,
 	// ── Wiki defaults ──────────────────────────────────────────────────────
 	wikiColor: '#7025db',
 	wikiPaletteMode: 'background',
@@ -254,6 +280,7 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	wikiProfileValueSize: 13,
 	wikiProfileImage: '',
 	wikiUseTableLayout: false,
+	wikiStripCollapsedDefault: false,
 	wikiLastFilePath: '',
 	wikiLastFolderPath: '',
 };

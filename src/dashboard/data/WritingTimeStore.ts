@@ -1,18 +1,13 @@
 import { normalizePath, TFile } from 'obsidian';
 import type { App } from 'obsidian';
-import type { WritingMenuSettings } from '../../types';
+import type { TimeModeConfig } from '../../types';
 import type WritingMenuPlugin from '../../../main';
 
-export interface ModeTime {
-	draft:   number;
-	writing: number;
-	editing: number;
-	total:   number;
-}
+export type ModeTime = Record<string, number>;
 
 export interface ModeStat {
-	avg:   { draft: number; writing: number; editing: number };
-	count: { draft: number; writing: number; editing: number };
+	avg:   Record<string, number>;
+	count: Record<string, number>;
 }
 
 export class WritingTimeStore {
@@ -57,19 +52,19 @@ export class WritingTimeStore {
 	static async aggregateFolder(
 		app: App,
 		folder: string,
-		keys: WritingMenuSettings['timeKeys'],
+		modes: TimeModeConfig[],
+		totalKey: string,
 	): Promise<ModeTime> {
-		const result: ModeTime = { draft: 0, writing: 0, editing: 0, total: 0 };
+		const result: ModeTime = { total: 0 };
+		for (const m of modes) result[m.id] = 0;
 		const prefix = folder ? normalizePath(folder) + '/' : '';
 
 		for (const file of app.vault.getMarkdownFiles()) {
 			if (prefix && !file.path.startsWith(prefix)) continue;
 			const fm = app.metadataCache.getFileCache(file)?.frontmatter;
 			if (!fm) continue;
-			result.draft   += this.parseTime(fm[keys.draft]);
-			result.writing += this.parseTime(fm[keys.writing]);
-			result.editing += this.parseTime(fm[keys.editing]);
-			result.total   += this.parseTime(fm[keys.total]);
+			for (const m of modes) result[m.id] += this.parseTime(fm[m.frontmatterKey]);
+			result.total += this.parseTime(fm[totalKey]);
 		}
 		return result;
 	}
@@ -81,32 +76,28 @@ export class WritingTimeStore {
 	static async averageFolder(
 		app: App,
 		folder: string,
-		keys: WritingMenuSettings['timeKeys'],
+		modes: TimeModeConfig[],
 	): Promise<ModeStat> {
-		const totals = { draft: 0, writing: 0, editing: 0 };
-		const counts = { draft: 0, writing: 0, editing: 0 };
+		const totals: Record<string, number> = {};
+		const counts: Record<string, number> = {};
+		for (const m of modes) { totals[m.id] = 0; counts[m.id] = 0; }
 		const prefix = folder ? normalizePath(folder) + '/' : '';
 
 		for (const file of app.vault.getMarkdownFiles()) {
 			if (prefix && !file.path.startsWith(prefix)) continue;
 			const fm = app.metadataCache.getFileCache(file)?.frontmatter;
 			if (!fm) continue;
-			const d = this.parseTime(fm[keys.draft]);
-			const w = this.parseTime(fm[keys.writing]);
-			const e = this.parseTime(fm[keys.editing]);
-			if (d > 0) { totals.draft   += d; counts.draft++;   }
-			if (w > 0) { totals.writing += w; counts.writing++; }
-			if (e > 0) { totals.editing += e; counts.editing++; }
+			for (const m of modes) {
+				const v = this.parseTime(fm[m.frontmatterKey]);
+				if (v > 0) { totals[m.id] += v; counts[m.id]++; }
+			}
 		}
 
-		return {
-			avg: {
-				draft:   counts.draft   > 0 ? Math.round(totals.draft   / counts.draft)   : 0,
-				writing: counts.writing > 0 ? Math.round(totals.writing / counts.writing) : 0,
-				editing: counts.editing > 0 ? Math.round(totals.editing / counts.editing) : 0,
-			},
-			count: counts,
-		};
+		const avg: Record<string, number> = {};
+		for (const m of modes) {
+			avg[m.id] = counts[m.id] > 0 ? Math.round(totals[m.id] / counts[m.id]) : 0;
+		}
+		return { avg, count: counts };
 	}
 
 	/** 최근 N일의 데일리노트에서 모드별 작업시간 추출 */
@@ -114,10 +105,10 @@ export class WritingTimeStore {
 		app: App,
 		folder: string,
 		format: string,
-		keys: WritingMenuSettings['timeKeys'],
+		modes: TimeModeConfig[],
 		days = 30,
-	): Promise<Array<{ date: string; draft: number; writing: number; editing: number }>> {
-		const result: Array<{ date: string; draft: number; writing: number; editing: number }> = [];
+	): Promise<Array<Record<string, number | string>>> {
+		const result: Array<Record<string, number | string>> = [];
 		const today = new Date();
 		for (let i = days - 1; i >= 0; i--) {
 			const d = new Date(today);
@@ -128,12 +119,9 @@ export class WritingTimeStore {
 			const fm = (file instanceof TFile)
 				? app.metadataCache.getFileCache(file)?.frontmatter ?? {}
 				: {};
-			result.push({
-				date:    name,
-				draft:   this.parseTime(fm[keys.draft]),
-				writing: this.parseTime(fm[keys.writing]),
-				editing: this.parseTime(fm[keys.editing]),
-			});
+			const entry: Record<string, number | string> = { date: name };
+			for (const m of modes) entry[m.id] = this.parseTime(fm[m.frontmatterKey]);
+			result.push(entry);
 		}
 		return result;
 	}
@@ -145,24 +133,17 @@ export class WritingTimeStore {
 	static getFileTime(
 		app: App,
 		file: TFile,
-		keys: WritingMenuSettings['timeKeys'],
+		modes: TimeModeConfig[],
+		totalKey: string,
 		pending: WritingMenuPlugin['pendingTimeUpdates'],
 	): ModeTime {
 		const fm = app.metadataCache.getFileCache(file)?.frontmatter ?? {};
-		const result: ModeTime = {
-			draft:   this.parseTime(fm[keys.draft]),
-			writing: this.parseTime(fm[keys.writing]),
-			editing: this.parseTime(fm[keys.editing]),
-			total:   this.parseTime(fm[keys.total]),
-		};
+		const result: ModeTime = { total: this.parseTime(fm[totalKey]) };
+		for (const m of modes) result[m.id] = this.parseTime(fm[m.frontmatterKey]);
 
-		// 아직 저장되지 않은 현재 세션 누적분 추가
 		for (const [, entry] of pending) {
 			if (entry.file.path !== file.path) continue;
-			if (entry.mode === 'draft')   result.draft   += entry.seconds;
-			if (entry.mode === 'writing') result.writing += entry.seconds;
-			if (entry.mode === 'editing') result.editing += entry.seconds;
-			if (entry.mode === 'total')   result.total   += entry.seconds;
+			if (entry.mode in result) result[entry.mode] += entry.seconds;
 		}
 		return result;
 	}
