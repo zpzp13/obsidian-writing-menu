@@ -1,4 +1,4 @@
-﻿import { Plugin, MarkdownView, WorkspaceLeaf, setIcon, TFile, TFolder, TAbstractFile, Notice, Platform, EventRef, sanitizeHTMLToDom } from 'obsidian';
+﻿import { App, Plugin, MarkdownView, WorkspaceLeaf, setIcon, TFile, TFolder, TAbstractFile, Notice, Platform, EventRef, sanitizeHTMLToDom } from 'obsidian';
 import { EditorView, ViewPlugin, Decoration, DecorationSet } from '@codemirror/view';
 import { Extension, EditorState, ChangeSpec, RangeSetBuilder, Prec, Compartment } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
@@ -1317,13 +1317,13 @@ export default class WritingMenuPlugin extends Plugin {
 		const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 		const timerWrap = container.createDiv('wm-popup-timer-wrap');
 		const svgNS = 'http://www.w3.org/2000/svg';
-		const svg = activeDocument.createElementNS(svgNS, 'svg') as SVGSVGElement;
+		const svg = activeDocument.createElementNS(svgNS, 'svg');
 		svg.setAttribute('viewBox', '0 0 156 156');
 		svg.setAttribute('class', 'wm-popup-circle');
-		const track = activeDocument.createElementNS(svgNS, 'circle') as SVGCircleElement;
+		const track = activeDocument.createElementNS(svgNS, 'circle');
 		track.setAttribute('cx', '78'); track.setAttribute('cy', '78'); track.setAttribute('r', String(RADIUS));
 		track.setAttribute('class', 'wm-popup-circle-track');
-		const circleFill = activeDocument.createElementNS(svgNS, 'circle') as SVGCircleElement;
+		const circleFill = activeDocument.createElementNS(svgNS, 'circle');
 		circleFill.setAttribute('cx', '78'); circleFill.setAttribute('cy', '78'); circleFill.setAttribute('r', String(RADIUS));
 		circleFill.setAttribute('class', 'wm-popup-circle-fill');
 		circleFill.setCssStyles({ strokeDasharray: String(CIRCUMFERENCE), strokeDashoffset: String(CIRCUMFERENCE) });
@@ -1502,7 +1502,7 @@ export default class WritingMenuPlugin extends Plugin {
 	}
 
 	renderMainMenuPage(container: HTMLElement, leaf: WorkspaceLeaf) {
-		this.addCompactControl(container, '폴더', this.settings.applyToFolder, async (v) => { this.settings.applyToFolder = v; await this.saveSettings(); }, 'folder');
+		void this.addCompactControl(container, '폴더', this.settings.applyToFolder, async (v) => { this.settings.applyToFolder = v; await this.saveSettings(); }, 'folder');
 
 		{
 			const copyDiv = container.createDiv('writing-menu-control');
@@ -1591,33 +1591,33 @@ export default class WritingMenuPlugin extends Plugin {
 		fontLabelGroup.createEl('label', { text: '글꼴' });
 		const fontInput = fontDiv.createEl('input', { type: 'text', value: this.settings.fontFamily });
 		fontInput.setCssStyles({ width: '100px', textAlign: 'right' });
-		fontInput.onchange = async (e) => { this.settings.fontFamily = (e.target as HTMLInputElement).value; await this.saveSettings(); };
+		fontInput.onchange = (e) => { this.settings.fontFamily = (e.target as HTMLInputElement).value; void this.saveSettings(); };
 
-		this.addCompactStepper(container, '글자 크기', this.settings.fontSize, 1, 1, async (v) => { this.settings.fontSize = v; await this.saveSettings(); }, 'type');
-		this.addCompactStepper(container, '줄간격', this.settings.lineHeight, 0.1, 0, async (v) => { this.settings.lineHeight = v; await this.saveSettings(); }, 'align-justify');
-		this.addCompactStepper(container, '문단간격', this.settings.paragraphSpacing, 0.5, 0, async (v) => { this.settings.paragraphSpacing = v; await this.saveSettings(); }, 'pilcrow');
-		this.addCompactStepper(container, '너비', this.settings.lineWidth, 100, 0, async (v) => { this.settings.lineWidth = v; await this.saveSettings(); }, 'move-horizontal');
-		this.addCompactStepper(container, '좌우 여백', this.settings.inlinePadding ?? 40, 10, 0, async (v) => { this.settings.inlinePadding = v; await this.saveSettings(); }, 'arrow-left-right');
-		this.addCompactStepper(container, '들여쓰기', this.settings.indentation, 5, 0, async (v) => { this.settings.indentation = v; await this.saveSettings(); }, 'indent');
+		void this.addCompactStepper(container, '글자 크기', this.settings.fontSize, 1, 1, async (v) => { this.settings.fontSize = v; await this.saveSettings(); }, 'type');
+		void this.addCompactStepper(container, '줄간격', this.settings.lineHeight, 0.1, 0, async (v) => { this.settings.lineHeight = v; await this.saveSettings(); }, 'align-justify');
+		void this.addCompactStepper(container, '문단간격', this.settings.paragraphSpacing, 0.5, 0, async (v) => { this.settings.paragraphSpacing = v; await this.saveSettings(); }, 'pilcrow');
+		void this.addCompactStepper(container, '너비', this.settings.lineWidth, 100, 0, async (v) => { this.settings.lineWidth = v; await this.saveSettings(); }, 'move-horizontal');
+		void this.addCompactStepper(container, '좌우 여백', this.settings.inlinePadding ?? 40, 10, 0, async (v) => { this.settings.inlinePadding = v; await this.saveSettings(); }, 'arrow-left-right');
+		void this.addCompactStepper(container, '들여쓰기', this.settings.indentation, 5, 0, async (v) => { this.settings.indentation = v; await this.saveSettings(); }, 'indent');
 	}
 
 	renderColorPage(container: HTMLElement, leaf: WorkspaceLeaf) {
 		this.addMenuBackButton(container, '색상', () => this.renderMenuPage(container, 'main', leaf));
-		this.addDualColorControl(container, '글자색', this.settings.fontColor, async (v) => { this.settings.fontColor = v; await this.saveSettings(); }, 'palette');
-		this.addDualColorControl(container, '배경색', this.settings.backgroundColor, async (v) => { this.settings.backgroundColor = v; await this.saveSettings(); }, 'droplet');
-		this.addCompactToggle(container, '링크 색상', !this.settings.disableLinkColor, async (v) => { this.settings.disableLinkColor = !v; await this.saveSettings(); }, 'link');
+		void this.addDualColorControl(container, '글자색', this.settings.fontColor, async (v) => { this.settings.fontColor = v; await this.saveSettings(); }, 'palette');
+		void this.addDualColorControl(container, '배경색', this.settings.backgroundColor, async (v) => { this.settings.backgroundColor = v; await this.saveSettings(); }, 'droplet');
+		void this.addCompactToggle(container, '링크 색상', !this.settings.disableLinkColor, async (v) => { this.settings.disableLinkColor = !v; await this.saveSettings(); }, 'link');
 	}
 
 	renderViewPage(container: HTMLElement, leaf: WorkspaceLeaf) {
 		this.addMenuBackButton(container, '보기', () => this.renderMenuPage(container, 'main', leaf));
-		this.addCompactToggle(container, '타자기 스크롤', this.settings.enableTypewriterScrolling, async (v) => { this.settings.enableTypewriterScrolling = v; await this.saveSettings(); }, 'align-vertical-justify-center');
-		this.addCompactToggle(container, '포커스 모드', this.settings.enableFocusMode, async (v) => {
+		void this.addCompactToggle(container, '타자기 스크롤', this.settings.enableTypewriterScrolling, async (v) => { this.settings.enableTypewriterScrolling = v; await this.saveSettings(); }, 'align-vertical-justify-center');
+		void this.addCompactToggle(container, '포커스 모드', this.settings.enableFocusMode, async (v) => {
 			this.settings.enableFocusMode = v;
 			await this.saveSettings();
 			this.renderMenuPage(container, 'view', leaf);
 		}, 'eye');
 		if (this.settings.enableFocusMode) {
-			this.addCompactSlider(container, '투명도', this.settings.focusOpacity, 0, 1, 0.05, async (v) => { this.settings.focusOpacity = v; await this.saveSettings(); }, 'sun');
+			void this.addCompactSlider(container, '투명도', this.settings.focusOpacity, 0, 1, 0.05, async (v) => { this.settings.focusOpacity = v; await this.saveSettings(); }, 'sun');
 		}
 
 		this.addSeparator(container);
@@ -1632,13 +1632,13 @@ export default class WritingMenuPlugin extends Plugin {
 		f4Badge.setText('F4');
 
 		// 길게 보기 토글 (zenWideEnabled)
-		this.addCompactToggle(container, '길게 보기', this.settings.zenWideEnabled, async (v) => {
+		void this.addCompactToggle(container, '길게 보기', this.settings.zenWideEnabled, async (v) => {
 			this.settings.zenWideEnabled = v;
 			await this.saveSettings();
 		}, 'move-vertical');
 
 		// 집중 모드 토글 (zenFocusEnabled)
-		this.addCompactToggle(container, '집중 모드', this.settings.zenFocusEnabled, async (v) => {
+		void this.addCompactToggle(container, '집중 모드', this.settings.zenFocusEnabled, async (v) => {
 			this.settings.zenFocusEnabled = v;
 			await this.saveSettings();
 		}, 'expand');
@@ -1646,10 +1646,10 @@ export default class WritingMenuPlugin extends Plugin {
 
 	renderInputPage(container: HTMLElement, leaf: WorkspaceLeaf) {
 		this.addMenuBackButton(container, '입력 보조', () => this.renderMenuPage(container, 'main', leaf));
-		this.addCompactToggle(container, '스마트 따옴표', this.settings.enableSmartQuotes, async (v) => { this.settings.enableSmartQuotes = v; await this.saveSettings(); }, 'quote-glyph');
-		this.addCompactToggle(container, '스마트 엔터', this.settings.enableSmartEnter, async (v) => { this.settings.enableSmartEnter = v; await this.saveSettings(); }, 'corner-down-left');
-		this.addCompactToggle(container, '자동완성', this.settings.enableSmartInput, async (v) => { this.settings.enableSmartInput = v; await this.saveSettings(); }, 'keyboard');
-		this.addCompactToggle(container, '텍스트 치환', this.settings.enableTextSubstitution, async (v) => { this.settings.enableTextSubstitution = v; await this.saveSettings(); }, 'replace');
+		void this.addCompactToggle(container, '스마트 따옴표', this.settings.enableSmartQuotes, async (v) => { this.settings.enableSmartQuotes = v; await this.saveSettings(); }, 'quote-glyph');
+		void this.addCompactToggle(container, '스마트 엔터', this.settings.enableSmartEnter, async (v) => { this.settings.enableSmartEnter = v; await this.saveSettings(); }, 'corner-down-left');
+		void this.addCompactToggle(container, '자동완성', this.settings.enableSmartInput, async (v) => { this.settings.enableSmartInput = v; await this.saveSettings(); }, 'keyboard');
+		void this.addCompactToggle(container, '텍스트 치환', this.settings.enableTextSubstitution, async (v) => { this.settings.enableTextSubstitution = v; await this.saveSettings(); }, 'replace');
 	}
 
 	renderVersionMenuPage(container: HTMLElement, leaf: WorkspaceLeaf) {
@@ -1715,7 +1715,7 @@ export default class WritingMenuPlugin extends Plugin {
 			});
 			// @ts-ignore
 			delete this.settings.symbolPairs;
-			this.saveSettings();
+			void this.saveSettings();
 		}
 		if (!this.settings.customFonts) this.settings.customFonts = [];
 
@@ -1730,7 +1730,7 @@ export default class WritingMenuPlugin extends Plugin {
 			delete this.settings.timeTrackingFolder;
 			// @ts-ignore
 			delete this.settings.heatmapFolder;
-			this.saveSettings();
+			void this.saveSettings();
 		}
 
 		// timeModes 마이그레이션: 구버전 timeKeys/timeGoals → timeModes
@@ -1743,7 +1743,7 @@ export default class WritingMenuPlugin extends Plugin {
 				{ id: 'editing', label: '퇴고', frontmatterKey: tk.editing ?? '퇴고_시간', goalSeconds: tg.editing ?? 7200 },
 			];
 			this.settings.timeTotalKey = tk.total ?? '총_시간';
-			this.saveSettings();
+			void this.saveSettings();
 		}
 
 		// dashboardSections에 새 섹션 누락 시 추가 (마이그레이션)
@@ -1769,8 +1769,8 @@ export default class WritingMenuPlugin extends Plugin {
 		await this.charStore.reinitSnapshot().catch(() => {});
 		const { VIEW_TYPE_CALENDAR: VTC } = await import('./src/calendar/views/CalendarView');
 		this.app.workspace.iterateAllLeaves((leaf: any) => {
-			if ((leaf.view as any)?.getViewType?.() === VTC) {
-				(leaf.view as any).render?.();
+			if (leaf.view?.getViewType?.() === VTC) {
+				leaf.view.render?.();
 			}
 		});
 	}
@@ -1821,7 +1821,7 @@ export default class WritingMenuPlugin extends Plugin {
 
 	async convertFilesToHwpMerged(files: TFile[], exportPath: string, fileName: string, useSpaceIndent: boolean, excludeHeadings: boolean = false): Promise<void>{ return await convertFilesToHwpMerged(this, files, exportPath, fileName, useSpaceIndent, excludeHeadings); }
 
-	async addCompactControl(container: HTMLElement, label: string, value: any, callback: (v: any) => void, icon?: string, type: string = 'text'){ return await addCompactControl(this, container, label, value, callback, icon, type); }
+	async addCompactControl(container: HTMLElement, label: string, value: string, callback: (v: string) => void | Promise<void>, icon?: string, type: string = 'text'){ return await addCompactControl(this, container, label, value, callback, icon, type); }
 
 	addCharCountWithModeSelector(container: HTMLElement, count: number, leaf: WorkspaceLeaf) {
 		const div = container.createDiv('writing-menu-control');
@@ -1903,33 +1903,32 @@ export default class WritingMenuPlugin extends Plugin {
 
 	renderTimeTrackingPage(container: HTMLElement, leaf: WorkspaceLeaf) {
 		this.addMenuBackButton(container, '스톱워치', () => this.renderMenuPage(container, 'main', leaf));
-		this.addCompactToggle(container, '상태바 표시', this.settings.showTimeInStatusBar, async (v) => {
+		void this.addCompactToggle(container, '상태바 표시', this.settings.showTimeInStatusBar, async (v) => {
 			this.settings.showTimeInStatusBar = v;
 			this.settings.enableTimeTracking = v || this.settings.showTimeInDashboard;
 			await this.saveSettings();
 			this.updateStatusBarDisplay();
 		}, 'activity');
-		this.addCompactToggle(container, '대시보드 표시', this.settings.showTimeInDashboard, async (v) => {
+		void this.addCompactToggle(container, '대시보드 표시', this.settings.showTimeInDashboard, async (v) => {
 			this.settings.showTimeInDashboard = v;
 			this.settings.enableTimeTracking = this.settings.showTimeInStatusBar || v;
 			await this.saveSettings();
 		}, 'layout-dashboard');
 	}
 
-	async addCompactToggle(container: HTMLElement, label: string, value: boolean, callback: (v: boolean) => void, icon?: string){ return await addCompactToggle(this, container, label, value, callback, icon); }
+	async addCompactToggle(container: HTMLElement, label: string, value: boolean, callback: (v: boolean) => void | Promise<void>, icon?: string){ return await addCompactToggle(this, container, label, value, callback, icon); }
 
-	async addCompactStepper(container: HTMLElement, label: string, value: number, step: number, min: number, callback: (v: number) => void, icon?: string){ return await addCompactStepper(this, container, label, value, step, min, callback, icon); }
+	async addCompactStepper(container: HTMLElement, label: string, value: number, step: number, min: number, callback: (v: number) => void | Promise<void>, icon?: string){ return await addCompactStepper(this, container, label, value, step, min, callback, icon); }
 
-	async addCompactSlider(container: HTMLElement, label: string, value: number, min: number, max: number, step: number, callback: (v: number) => void, icon?: string){ return await addCompactSlider(this, container, label, value, min, max, step, callback, icon); }
+	async addCompactSlider(container: HTMLElement, label: string, value: number, min: number, max: number, step: number, callback: (v: number) => void | Promise<void>, icon?: string){ return await addCompactSlider(this, container, label, value, min, max, step, callback, icon); }
 
-	async addDualColorControl(container: HTMLElement, label: string, value: string | { light: string, dark: string }, callback: (v: any) => void, icon?: string){ return await addDualColorControl(this, container, label, value, callback, icon); }
+	async addDualColorControl(container: HTMLElement, label: string, value: string | { light: string, dark: string }, callback: (v: string | { light: string; dark: string }) => void | Promise<void>, icon?: string){ return await addDualColorControl(this, container, label, value, callback, icon); }
 
 	// Helper for Settings Tab (Settings Button)
 	openSettings() {
-		// @ts-ignore
-		this.app.setting.open();
-		// @ts-ignore
-		this.app.setting.openTabById(this.manifest.id);
+		interface AppWithSettings extends App { setting?: { open(): void; openTabById(id: string): void } }
+		(this.app as AppWithSettings).setting?.open();
+		(this.app as AppWithSettings).setting?.openTabById(this.manifest.id);
 	}
 }
 

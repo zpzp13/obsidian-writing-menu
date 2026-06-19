@@ -393,13 +393,13 @@ export class VersionPanel {
 
 			const saveBtn = actions.createDiv({ cls: 'wm-cal-icon-btn', attr: { 'aria-label': '버전 저장' } });
 			setIcon(saveBtn, 'square-pen');
-			saveBtn.addEventListener('click', async () => {
+			saveBtn.addEventListener('click', () => { void (async () => {
 				if (!currentFile || !lastEditor) { new Notice('마크다운 노트를 먼저 열어주세요.'); return; }
 				const now = new Date();
 				const name = `${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 				await manager.saveVersion(currentFile, name, lastEditor.getValue());
 				await refresh();
-			});
+			})(); });
 
 			const settingsBtn = actions.createDiv({ cls: 'wm-cal-icon-btn', attr: { 'aria-label': '버전 관리 설정' } });
 			setIcon(settingsBtn, 'settings');
@@ -438,17 +438,17 @@ export class VersionPanel {
 			item.addEventListener('click', (e) => {
 				if ((e.target as HTMLElement).closest('.wm-vhv-action-btn')) return;
 				page = { type: 'preview', entry };
-				refresh().catch(() => {});
+				void refresh().catch(() => {});
 			});
 
 			const topRow = item.createDiv({ cls: 'wm-vhv-item-top' });
 			topRow.createDiv({ cls: 'wm-vhv-item-name', text: entry.name });
 			const actionsEl = topRow.createDiv({ cls: 'wm-vhv-item-actions' });
 
-			const makeBtn = (label: string, icon: string, onClick: (e: MouseEvent) => void) => {
+			const makeBtn = (label: string, icon: string, onClick: (e: MouseEvent) => void | Promise<void>) => {
 				const btn = actionsEl.createEl('button', { cls: 'wm-vhv-action-btn', attr: { 'aria-label': label } });
 				setIcon(btn, icon);
-				btn.addEventListener('click', (e) => { e.stopPropagation(); onClick(e); });
+				btn.addEventListener('click', (e) => { e.stopPropagation(); void onClick(e); });
 				return btn;
 			};
 
@@ -456,7 +456,7 @@ export class VersionPanel {
 				if (!currentFile) return;
 				entry.pinned = !entry.pinned;
 				await manager.updateVersion(currentFile, entry.id, { pinned: entry.pinned });
-				refresh().catch(() => {});
+				void refresh().catch(() => {});
 			});
 
 			makeBtn('버전 비교', 'git-compare-arrows', async () => {
@@ -486,13 +486,13 @@ export class VersionPanel {
 				noneItem.createDiv({ cls: 'wm-ver-popup-stage-dot wm-ver-popup-stage-dot-none' });
 				noneItem.createDiv({ cls: 'wm-ver-popup-label', text: '없음' });
 				if (!entry.stage) setIcon(noneItem.createDiv({ cls: 'wm-ver-popup-check' }), 'check');
-				noneItem.addEventListener('click', async (ev) => {
+				noneItem.addEventListener('click', (ev) => { void (async () => {
 					ev.stopPropagation(); popup.remove();
 					if (!currentFile) return;
 					entry.stage = undefined;
 					await manager.updateVersion(currentFile, entry.id, { stage: undefined });
-					refresh().catch(() => {});
-				});
+					void refresh().catch(() => {});
+				})(); });
 				popup.createDiv({ cls: 'wm-ver-popup-separator' });
 				for (const s of configuredStages) {
 					const isActive = entry.stage === s.name;
@@ -502,13 +502,13 @@ export class VersionPanel {
 					if (isActive) dot.addClass('is-filled');
 					stageItem.createDiv({ cls: 'wm-ver-popup-label', text: s.name });
 					if (isActive) setIcon(stageItem.createDiv({ cls: 'wm-ver-popup-check' }), 'check');
-					stageItem.addEventListener('click', async (ev) => {
+					stageItem.addEventListener('click', (ev) => { void (async () => {
 						ev.stopPropagation(); popup.remove();
 						if (!currentFile) return;
 						entry.stage = s.name;
 						await manager.updateVersion(currentFile, entry.id, { stage: s.name });
-						refresh().catch(() => {});
-					});
+						void refresh().catch(() => {});
+					})(); });
 				}
 				window.requestAnimationFrame(() => {
 					const pr = popup.getBoundingClientRect();
@@ -522,13 +522,13 @@ export class VersionPanel {
 				if (!currentFile || !lastEditor) { new Notice('편집 중인 노트가 없습니다.'); return; }
 				await manager.restoreVersion(currentFile, entry, lastEditor);
 				new Notice(`"${entry.name}"으로 복원했습니다.`);
-				refresh().catch(() => {});
+				void refresh().catch(() => {});
 			});
 
 			makeBtn('삭제', 'trash-2', async () => {
 				if (!currentFile) return;
 				await manager.deleteVersion(currentFile, entry);
-				refresh().catch(() => {});
+				void refresh().catch(() => {});
 			});
 
 			const descEl = item.createDiv({ cls: 'wm-vhv-item-desc' });
@@ -579,13 +579,13 @@ export class VersionPanel {
 			const actions = normalRow.createDiv({ cls: 'wm-vhv-actions' });
 			const restoreBtn = actions.createDiv({ cls: 'wm-cal-icon-btn', attr: { 'aria-label': '이 버전으로 복원' } });
 			setIcon(restoreBtn, 'rotate-ccw');
-			restoreBtn.addEventListener('click', async () => {
+			restoreBtn.addEventListener('click', () => { void (async () => {
 				if (!currentFile || !lastEditor) { new Notice('편집 중인 노트가 없습니다.'); return; }
 				await manager.restoreVersion(currentFile, entry, lastEditor);
 				new Notice(`"${entry.name}"으로 복원했습니다.`);
 				page = { type: 'list' };
-				refresh().catch(() => {});
-			});
+				void refresh().catch(() => {});
+			})(); });
 
 			const body = root.createDiv({ cls: 'wm-vhv-preview-body' });
 			if (currentFile) {

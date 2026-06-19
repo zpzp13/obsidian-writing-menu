@@ -50,7 +50,7 @@ export class DictionaryModal extends Modal {
 
 		const inputRow = searchBox.createDiv({ cls: 'wm-dict-search-input-row' });
 
-		const searchInput = inputRow.createEl('input', { cls: 'wm-dict-search' }) as HTMLInputElement;
+		const searchInput = inputRow.createEl('input', { cls: 'wm-dict-search' });
 		searchInput.type = 'text';
 		searchInput.value = this.searchQuery;
 		searchInput.placeholder = '검색어 입력 후 엔터';
@@ -71,7 +71,7 @@ export class DictionaryModal extends Modal {
 			if (!searchInput.value.trim()) this.showRecentDropdown();
 		});
 
-		searchInput.addEventListener('keydown', async (e: KeyboardEvent) => {
+		searchInput.addEventListener('keydown', (e: KeyboardEvent) => { void (async () => {
 			if (e.key === 'Escape') {
 				if (this.dropdownEl.style.display !== 'none') {
 					this.hideDropdown();
@@ -95,7 +95,7 @@ export class DictionaryModal extends Modal {
 					await this.doSearch();
 				}
 			}
-		});
+		})(); });
 
 		searchInput.addEventListener('input', () => {
 			acPaused = false;
@@ -103,7 +103,7 @@ export class DictionaryModal extends Modal {
 			const q = searchInput.value.trim();
 			if (!q) { this.showRecentDropdown(); return; }
 			if (!this.plugin.settings.stdictApiKey) { this.hideDropdown(); return; }
-			debounceTimer = window.setTimeout(async () => {
+			debounceTimer = window.setTimeout(() => { void (async () => {
 				if (acPaused) return;
 				const current = searchInput.value.trim();
 				if (!current) return;
@@ -114,7 +114,7 @@ export class DictionaryModal extends Modal {
 				}
 				if (acPaused || searchInput.value.trim() !== current) return;
 				this.showAcDropdown(results, current);
-			}, 150);
+			})(); }, 150);
 		});
 
 		searchInput.addEventListener('blur', () => {
@@ -132,7 +132,7 @@ export class DictionaryModal extends Modal {
 		const footer = contentEl.createDiv({ cls: 'wm-dict-footer' });
 		const footerLeft = footer.createDiv({ cls: 'wm-dict-footer-left' });
 
-		const applyBtn = footerLeft.createEl('button', { cls: 'wm-dict-apply-btn', text: '한자 변환' }) as HTMLButtonElement;
+		const applyBtn = footerLeft.createEl('button', { cls: 'wm-dict-apply-btn', text: '한자 변환' });
 		applyBtn.addEventListener('click', () => this.apply());
 		this.applyBtnEl = applyBtn;
 
@@ -141,11 +141,11 @@ export class DictionaryModal extends Modal {
 		setIcon(bracketIcon, 'square-check-big');
 		bracketBtn.createEl('span', { text: '괄호 병기' });
 		if (this.plugin.settings.hanjaBracketMode) bracketBtn.addClass('is-checked');
-		bracketBtn.addEventListener('click', async () => {
+		bracketBtn.addEventListener('click', () => { void (async () => {
 			this.plugin.settings.hanjaBracketMode = !this.plugin.settings.hanjaBracketMode;
 			await this.plugin.saveSettings();
 			bracketBtn.toggleClass('is-checked', this.plugin.settings.hanjaBracketMode);
-		});
+		})(); });
 		this.bracketBtnEl = bracketBtn;
 
 		footer.createEl('button', { cls: 'wm-dict-footer-btn', text: '닫기' })
@@ -208,13 +208,13 @@ export class DictionaryModal extends Modal {
 
 			const removeBtn = item.createDiv({ cls: 'wm-dict-drop-remove' });
 			setIcon(removeBtn, 'x');
-			removeBtn.addEventListener('mousedown', async (e: MouseEvent) => {
+			removeBtn.addEventListener('mousedown', (e: MouseEvent) => { void (async () => {
 				e.preventDefault();
 				e.stopPropagation();
 				await this.removeRecentSearch(word);
-			});
+			})(); });
 
-			item.addEventListener('mousedown', async (e: MouseEvent) => {
+			item.addEventListener('mousedown', (e: MouseEvent) => { void (async () => {
 				if ((e.target as HTMLElement).closest('.wm-dict-drop-remove')) return;
 				e.preventDefault();
 				this.searchInputEl.value = word;
@@ -222,17 +222,17 @@ export class DictionaryModal extends Modal {
 				this.hideDropdown();
 				await this.saveRecentSearch(word);
 				await this.doSearch();
-			});
+			})(); });
 		});
 
 		const clearAll = this.dropdownEl.createDiv({ cls: 'wm-dict-drop-clear-all' });
 		clearAll.createEl('span', { text: '최근 검색어 모두 삭제' });
-		clearAll.addEventListener('mousedown', async (e: MouseEvent) => {
+		clearAll.addEventListener('mousedown', (e: MouseEvent) => { void (async () => {
 			e.preventDefault();
 			this.plugin.settings.recentSearches = [];
 			await this.plugin.saveSettings();
 			this.hideDropdown();
-		});
+		})(); });
 
 		this.openDropdown();
 	}
@@ -259,14 +259,14 @@ export class DictionaryModal extends Modal {
 			const wordEl = item.createEl('span', { cls: 'wm-dict-dropdown-word' });
 			this.renderHighlight(wordEl, entry.word, query);
 
-			item.addEventListener('mousedown', async (e: MouseEvent) => {
+			item.addEventListener('mousedown', (e: MouseEvent) => { void (async () => {
 				e.preventDefault();
 				this.searchInputEl.value = entry.word;
 				this.searchQuery = entry.word;
 				this.hideDropdown();
 				await this.saveRecentSearch(entry.word);
 				await this.doSearch();
-			});
+			})(); });
 		});
 
 		this.openDropdown();
@@ -307,7 +307,7 @@ export class DictionaryModal extends Modal {
 		this.searchInputEl.value = word;
 		this.searchQuery = word;
 		this.hideDropdown();
-		this.saveRecentSearch(word).then(() => this.doSearch());
+		void this.saveRecentSearch(word).then(() => this.doSearch());
 	}
 
 	// ── 최근 검색어 관리 ──────────────────────────────────────────
@@ -412,7 +412,7 @@ export class DictionaryModal extends Modal {
 		divider.createEl('span', { text: '용례' });
 		const exList = exSection.createDiv({ cls: 'wm-dict-examples-list' });
 		exList.createEl('div', { cls: 'wm-dict-loading-small', text: '로딩 중…' });
-		this.loadExamples(entry, exList);
+		void this.loadExamples(entry, exList);
 
 		this.updateFooter(!!entry.origin);
 	}

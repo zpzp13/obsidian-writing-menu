@@ -334,7 +334,7 @@ export class WritingTimeSection {
 		}, 1000);
 
 		// ── UI 갱신 + 30초마다 자동 저장 ──
-		const uiInterval = window.setInterval(async () => {
+		const uiInterval = window.setInterval(() => { void (async () => {
 			if (!container.isConnected) { window.clearInterval(uiInterval); return; }
 			saveTickCount++;
 			if (saveTickCount >= 30 && trackingFile) {
@@ -342,7 +342,7 @@ export class WritingTimeSection {
 				await savePending(trackingFile);
 			}
 			if (modeCardEls.size > 0) updateDisplay();
-		}, 1000);
+		})(); }, 1000);
 
 		const editorHandler = app.workspace.on('editor-change', () => {
 			if (isSaving) return;
@@ -353,19 +353,19 @@ export class WritingTimeSection {
 		const leafHandler = app.workspace.on('active-leaf-change', () => {
 			const f = app.workspace.getActiveFile();
 			if (!f || f === trackingFile) return;
-			onFileChange(f).catch(() => {});
+			void onFileChange(f).catch(() => {});
 		});
 
 		const avgModifyHandler = app.vault.on('modify', () => {
 			window.clearTimeout(avgDebounceTimer);
-			avgDebounceTimer = window.setTimeout(async () => {
+			avgDebounceTimer = window.setTimeout(() => { void (async () => {
 				const f = trackingFile;
 				const proj = getProjectName(f);
 				stat = proj
 					? await WritingTimeStore.averageDailyNotes(app, getDnConfig(plugin).folder, proj, modes)
 					: await WritingTimeStore.averageFolder(app, getAvgFolder(f), modes);
 				if (modeCardEls.size > 0) updateDisplay();
-			}, 2000);
+			})(); }, 2000);
 		});
 
 		watchDisconnect(container, () => {

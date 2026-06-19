@@ -94,12 +94,12 @@ function openPlaylistPopup(anchor: HTMLElement, plugin: WritingMenuPlugin) {
 			item.createDiv({ cls: 'wm-music-list-item-name', text: track.name });
 			const heartEl = item.createDiv({ cls: 'wm-music-list-item-unfav' });
 			setIcon(heartEl, 'heart');
-			heartEl.addEventListener('mousedown', async (e) => {
+			heartEl.addEventListener('mousedown', (e) => { void (async () => {
 				e.preventDefault();
 				e.stopPropagation();
 				await mp.toggleFavorite(track);
 				state.render();
-			});
+			})(); });
 			item.addEventListener('mousedown', (e) => {
 				if ((e.target as HTMLElement).closest('.wm-music-list-item-unfav')) return;
 				e.preventDefault();
@@ -250,7 +250,7 @@ function makeVolWrap(
 	const wrap = controls.createDiv({ cls: 'wm-music-vol-wrap' });
 	const sliderOuter = wrap.createDiv({ cls: 'wm-music-vol-slider-outer' });
 
-	const slider = sliderOuter.createEl('input', { type: 'range', cls: 'slider wm-music-vol-slider' }) as HTMLInputElement;
+	const slider = sliderOuter.createEl('input', { type: 'range', cls: 'slider wm-music-vol-slider' });
 	slider.min = '0'; slider.max = '100'; slider.step = '1';
 	slider.value = String(Math.round(mp.volume * 100));
 
@@ -331,7 +331,7 @@ function loadCoverInto(imgSlot: HTMLElement, track: Track | null, plugin: Writin
 		if (!imgSlot.isConnected) return;
 		imgSlot.empty();
 		if (url) {
-			const img = imgSlot.createEl('img', { cls: 'wm-music-strip-img' }) as HTMLImageElement;
+			const img = imgSlot.createEl('img', { cls: 'wm-music-strip-img' });
 			img.src = url;
 		} else {
 			setIcon(imgSlot.createDiv({ cls: 'wm-music-strip-placeholder' }), 'music');
@@ -340,7 +340,7 @@ function loadCoverInto(imgSlot: HTMLElement, track: Track | null, plugin: Writin
 	const cached = mp.coverCache.get(track.path);
 	if (cached !== undefined) { applyImg(cached); return; }
 	setIcon(imgSlot.createDiv({ cls: 'wm-music-strip-placeholder' }), 'music');
-	mp.getCover(track).then(url => applyImg(url));
+	void mp.getCover(track).then(url => applyImg(url));
 }
 
 // art-wrap 구조 (hover title은 별도 label로 처리)

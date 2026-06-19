@@ -60,7 +60,7 @@ export class DiffWindow {
 		splitBtn.addEventListener('click', (e) => {
 			e.stopPropagation();
 			this.viewMode = this.viewMode === 'split' ? 'unified' : 'split';
-			this.renderContent();
+			void this.renderContent();
 		});
 
 		const closeBtn = controls.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '닫기' } });
@@ -71,7 +71,7 @@ export class DiffWindow {
 
 		// ── Content area ──────────────────────────────────────────────────
 		this.contentEl = this.el.createDiv({ cls: 'wm-diff-window-content' });
-		this.renderContent();
+		void this.renderContent();
 	}
 
 	private async renderContent() {

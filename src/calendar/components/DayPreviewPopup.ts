@@ -205,7 +205,7 @@ function renderDayData(container: HTMLElement, data: DayData, plugin: WritingMen
 				const checkEl = row.createDiv({ cls: 'wm-day-preview-task-check' + (task.done ? ' is-done' : '') });
 				if (task.done) setIcon(checkEl, 'check');
 
-				checkEl.addEventListener('click', async (e) => {
+				checkEl.addEventListener('click', (e) => { void (async () => {
 					e.stopPropagation();
 					e.preventDefault();
 					const nowDone = !task.done;
@@ -234,7 +234,7 @@ function renderDayData(container: HTMLElement, data: DayData, plugin: WritingMen
 						);
 					}
 					if (updated !== content) await plugin.app.vault.modify(file, updated);
-				});
+				})(); });
 			}
 		}
 		container.createDiv({ cls: 'wm-ver-popup-separator' });

@@ -53,7 +53,7 @@ export class TasksRenderer {
 
 		const scheduleReload = () => {
 			if (reloadTimer) window.clearTimeout(reloadTimer);
-			reloadTimer = window.setTimeout(reloadAndRender, 300);
+			reloadTimer = window.setTimeout(() => { void reloadAndRender(); }, 300);
 		};
 
 		const modifyRef = plugin.app.vault.on('modify', () => {

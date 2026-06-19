@@ -63,7 +63,7 @@ export class DiffModal extends Modal {
 		// A selector group
 		const aGroup = this.headerEl.createDiv({ cls: 'wm-diff-sel-group' });
 		aGroup.createEl('span', { text: 'A (원본)', cls: 'wm-diff-sel-label' });
-		const aSelect = aGroup.createEl('select', { cls: 'wm-diff-select' }) as HTMLSelectElement;
+		const aSelect = aGroup.createEl('select', { cls: 'wm-diff-select' });
 		for (const v of this.allVersions) {
 			const opt = aSelect.createEl('option', { text: v.name, value: v.id });
 			if (v.id === this.versionA.id) opt.selected = true;
@@ -83,7 +83,7 @@ export class DiffModal extends Modal {
 		// B selector group
 		const bGroup = this.headerEl.createDiv({ cls: 'wm-diff-sel-group' });
 		bGroup.createEl('span', { text: 'B (비교 대상)', cls: 'wm-diff-sel-label' });
-		const bSelect = bGroup.createEl('select', { cls: 'wm-diff-select' }) as HTMLSelectElement;
+		const bSelect = bGroup.createEl('select', { cls: 'wm-diff-select' });
 
 		if (this.editor) {
 			const opt = bSelect.createEl('option', { text: '현재 본문', value: 'current' });
@@ -92,7 +92,7 @@ export class DiffModal extends Modal {
 		for (const v of this.allVersions) {
 			if (v.id === this.versionA.id) continue;
 			const opt = bSelect.createEl('option', { text: v.name, value: v.id });
-			if (this.versionB !== 'current' && (this.versionB as VersionEntry).id === v.id) opt.selected = true;
+			if (this.versionB !== 'current' && this.versionB.id === v.id) opt.selected = true;
 		}
 		bSelect.addEventListener('change', async () => {
 			if (bSelect.value === 'current') {
@@ -112,7 +112,7 @@ export class DiffModal extends Modal {
 			swapAB.addEventListener('click', async () => {
 				if (this.versionB === 'current') return;
 				const tmp = this.versionA;
-				this.versionA = this.versionB as VersionEntry;
+				this.versionA = this.versionB;
 				this.versionB = tmp;
 				this.renderHeader();
 				this.renderFooter();
@@ -135,7 +135,7 @@ export class DiffModal extends Modal {
 			restoreBtn.createSpan({ text: 'A 버전으로 전체 복원' });
 			restoreBtn.addEventListener('click', async () => {
 				if (!this.editor) return;
-				(restoreBtn as HTMLButtonElement).disabled = true;
+				restoreBtn.disabled = true;
 				restoreBtn.querySelector('span:last-child')!.textContent = '복원 중…';
 				await this.manager.restoreVersion(this.file, this.versionA, this.editor);
 				this.close();
@@ -159,7 +159,7 @@ export class DiffModal extends Modal {
 		if (this.versionB === 'current') {
 			textB = this.editor ? this.editor.getValue() : '';
 		} else {
-			textB = await this.manager.readVersion(this.file, this.versionB as VersionEntry);
+			textB = await this.manager.readVersion(this.file, this.versionB);
 		}
 
 		loading.remove();
@@ -281,7 +281,7 @@ export class DiffModal extends Modal {
 		}
 
 		new Notice('교체했습니다.');
-		this.renderDiff();
+		void this.renderDiff();
 	}
 
 	private renderEqualHunk(container: HTMLElement, lines: string[]) {
