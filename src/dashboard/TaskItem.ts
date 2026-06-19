@@ -1,4 +1,4 @@
-import { setIcon, TFile } from 'obsidian';
+﻿import { setIcon, TFile, MarkdownView } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { ParsedTask } from './data/TaskParser';
 import { TaskParser } from './data/TaskParser';
@@ -65,7 +65,7 @@ export function renderTaskItem(
 		await leaf.openFile(file, lineIdx >= 0 ? { eState: { line: lineIdx, col: 0 } } : undefined);
 		if (lineIdx >= 0) {
 			window.setTimeout(() => {
-				const editor = (leaf.view as any)?.editor;
+				const editor = (leaf.view instanceof MarkdownView) ? leaf.view.editor : null;
 				if (!editor) return;
 				editor.setCursor({ line: lineIdx, ch: 0 });
 				editor.scrollIntoView(
@@ -91,7 +91,7 @@ export function renderTaskItem(
 				subCheck.classList.toggle('is-done', nowDone);
 				subItem.classList.toggle('is-done', nowDone);
 				sub.completed = nowDone;
-				try { await TaskParser.toggleSubTask(task, idx, nowDone, plugin); } catch {}
+				try { await TaskParser.toggleSubTask(task, idx, nowDone, plugin); } catch (_e) {}
 			});
 		});
 	}
@@ -142,7 +142,7 @@ export function renderTaskItem(
 			pitem.addEventListener('click', async (e2) => {
 				e2.stopPropagation();
 				ppop.remove();
-				try { await TaskParser.setTaskPriority(task, p.emoji, plugin); } catch {}
+				try { await TaskParser.setTaskPriority(task, p.emoji, plugin); } catch (_e) {}
 			});
 		}
 
@@ -161,6 +161,6 @@ export function renderTaskItem(
 		titleEl.classList.toggle('is-done', nowDone);
 		setIcon(check, nowDone ? 'check-circle-2' : 'circle');
 		task.completed = nowDone || undefined;
-		try { await TaskParser.toggleTask(task, nowDone, plugin); } catch {}
+		try { await TaskParser.toggleTask(task, nowDone, plugin); } catch (_e) {}
 	});
 }

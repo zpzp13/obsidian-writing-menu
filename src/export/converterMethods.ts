@@ -1,13 +1,19 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
-import { TFile, Notice, WorkspaceLeaf, MarkdownView } from 'obsidian';
+import { TFile, Notice, WorkspaceLeaf, MarkdownView, FileSystemAdapter } from 'obsidian';
 import { CONVERTER_PY_CONTENT } from './converterScript';
 import type WritingMenuPlugin from '../../main';
 
+function getVaultBasePath(plugin: WritingMenuPlugin): string {
+	const adapter = plugin.app.vault.adapter;
+	if (!(adapter instanceof FileSystemAdapter))
+		throw new Error('Not a filesystem vault');
+	return adapter.getBasePath();
+}
+
 export async function ensureConverterScript(plugin: WritingMenuPlugin){
-	const adapter = plugin.app.vault.adapter as any;
-	const pluginDir = path.join(adapter.getBasePath(), plugin.manifest.dir || '');
+	const pluginDir = path.join(getVaultBasePath(plugin), plugin.manifest.dir || '');
 	const scriptDir = path.join(pluginDir, 'scripts');
 	const scriptPath = path.join(scriptDir, 'converter.py');
 
@@ -28,8 +34,7 @@ export async function openTemplatePicker(plugin: WritingMenuPlugin): Promise<str
 }
 
 export async function runPicker(plugin: WritingMenuPlugin, mode: 'folder' | 'file'): Promise<string | null>{
-	const adapter = plugin.app.vault.adapter as any;
-	const pluginDir = path.join(adapter.getBasePath(), plugin.manifest.dir || '');
+	const pluginDir = path.join(getVaultBasePath(plugin), plugin.manifest.dir || '');
 	const scriptDir = path.join(pluginDir, 'scripts');
 	const scriptFile = 'converter.py';
 	const fullScriptPath = path.join(scriptDir, scriptFile);
@@ -68,12 +73,12 @@ export async function runPicker(plugin: WritingMenuPlugin, mode: 'folder' | 'fil
 export async function convertToHwp(plugin: WritingMenuPlugin, file: TFile, fileName: string, exportPath: string, useSpaceIndent: boolean, excludeHeadings: boolean = false): Promise<boolean>{
 	new Notice('HWP로 변환 중...', 5000);
 
-	const adapter = plugin.app.vault.adapter as any;
-	const absolutePath = path.join(adapter.getBasePath(), file.path);
+	const basePath = getVaultBasePath(plugin);
+	const absolutePath = path.join(basePath, file.path);
 	const safeExportPath = exportPath.replace(/[\\/]$/, '');
 	const fullOutputPath = path.join(safeExportPath, fileName);
 
-	const pluginDir = path.join(adapter.getBasePath(), plugin.manifest.dir || '');
+	const pluginDir = path.join(basePath, plugin.manifest.dir || '');
 	const scriptDir = path.join(pluginDir, 'scripts');
 	const scriptFile = 'converter.py';
 	const fullScriptPath = path.join(scriptDir, scriptFile);
@@ -219,9 +224,7 @@ export async function convertToTxt(plugin: WritingMenuPlugin, file: TFile, fileN
 export async function convertFolderToTxt(plugin: WritingMenuPlugin, folderPath: string, exportPath: string, useSpaceIndent: boolean, excludeHeadings: boolean = false): Promise<void>{
 	new Notice(`폴더 변환 시작 (TXT)`, 3000);
 
-	const adapter = plugin.app.vault.adapter as any;
-	const basePath = adapter.getBasePath();
-	const absoluteFolderPath = path.join(basePath, folderPath);
+	const absoluteFolderPath = path.join(getVaultBasePath(plugin), folderPath);
 
 	let count = 0;
 	let successCount = 0;
@@ -289,11 +292,11 @@ export async function convertFilesToTxt(plugin: WritingMenuPlugin, files: TFile[
 }
 
 export async function convertFolderToHwp(plugin: WritingMenuPlugin, folderPath: string, exportPath: string, useSpaceIndent: boolean, excludeHeadings: boolean = false): Promise<void>{
-	const adapter = plugin.app.vault.adapter as any;
-	const pluginDir = path.join(adapter.getBasePath(), plugin.manifest.dir || '');
+	const basePath = getVaultBasePath(plugin);
+	const pluginDir = path.join(basePath, plugin.manifest.dir || '');
 	const scriptDir = path.join(pluginDir, 'scripts');
 	const scriptFile = 'converter.py';
-	const absoluteFolderPath = path.join(adapter.getBasePath(), folderPath);
+	const absoluteFolderPath = path.join(basePath, folderPath);
 
 	new Notice(`폴더 변환 시작 (HWP)`, 3000);
 
@@ -337,8 +340,8 @@ export async function convertFolderToHwp(plugin: WritingMenuPlugin, folderPath: 
 }
 
 export async function convertFilesToHwp(plugin: WritingMenuPlugin, files: TFile[], exportPath: string, useSpaceIndent: boolean, excludeHeadings: boolean = false): Promise<void>{
-	const adapter = plugin.app.vault.adapter as any;
-	const pluginDir = path.join(adapter.getBasePath(), plugin.manifest.dir || '');
+	const basePath = getVaultBasePath(plugin);
+	const pluginDir = path.join(basePath, plugin.manifest.dir || '');
 	const scriptDir = path.join(pluginDir, 'scripts');
 	const scriptFile = 'converter.py';
 
@@ -347,7 +350,7 @@ export async function convertFilesToHwp(plugin: WritingMenuPlugin, files: TFile[
 	const listFilePath = path.join(scriptDir, listFileName);
 
 	try {
-		const pathsToConvert = files.map(f => path.join(adapter.getBasePath(), f.path)).join('\n');
+		const pathsToConvert = files.map(f => path.join(basePath, f.path)).join('\n');
 		fs.writeFileSync(listFilePath, pathsToConvert, 'utf-8');
 	} catch (e) {
 		new Notice('임시 리스트 파일 생성 실패', 5000);
@@ -395,9 +398,7 @@ export async function convertFilesToHwp(plugin: WritingMenuPlugin, files: TFile[
 export async function convertFolderToTxtMerged(plugin: WritingMenuPlugin, folderPath: string, exportPath: string, fileName: string, useSpaceIndent: boolean): Promise<void>{
 	new Notice('병합 변환 시작 (TXT)', 3000);
 
-	const adapter = plugin.app.vault.adapter as any;
-	const basePath = adapter.getBasePath();
-	const absoluteFolderPath = path.join(basePath, folderPath);
+	const absoluteFolderPath = path.join(getVaultBasePath(plugin), folderPath);
 
 	const allContents: string[] = [];
 
@@ -483,11 +484,11 @@ export async function convertFilesToTxtMerged(plugin: WritingMenuPlugin, files: 
 }
 
 export async function convertFolderToHwpMerged(plugin: WritingMenuPlugin, folderPath: string, exportPath: string, fileName: string, useSpaceIndent: boolean, excludeHeadings: boolean = false): Promise<void>{
-	const adapter = plugin.app.vault.adapter as any;
-	const pluginDir = path.join(adapter.getBasePath(), plugin.manifest.dir || '');
+	const basePath = getVaultBasePath(plugin);
+	const pluginDir = path.join(basePath, plugin.manifest.dir || '');
 	const scriptDir = path.join(pluginDir, 'scripts');
 	const scriptFile = 'converter.py';
-	const absoluteFolderPath = path.join(adapter.getBasePath(), folderPath);
+	const absoluteFolderPath = path.join(basePath, folderPath);
 	const fullOutputPath = path.join(exportPath, fileName);
 
 	new Notice('병합 변환 시작 (HWP)', 3000);
@@ -528,8 +529,8 @@ export async function convertFolderToHwpMerged(plugin: WritingMenuPlugin, folder
 }
 
 export async function convertFilesToHwpMerged(plugin: WritingMenuPlugin, files: TFile[], exportPath: string, fileName: string, useSpaceIndent: boolean, excludeHeadings: boolean = false): Promise<void>{
-	const adapter = plugin.app.vault.adapter as any;
-	const pluginDir = path.join(adapter.getBasePath(), plugin.manifest.dir || '');
+	const basePath = getVaultBasePath(plugin);
+	const pluginDir = path.join(basePath, plugin.manifest.dir || '');
 	const scriptDir = path.join(pluginDir, 'scripts');
 	const scriptFile = 'converter.py';
 	const fullOutputPath = path.join(exportPath, fileName);
@@ -539,7 +540,7 @@ export async function convertFilesToHwpMerged(plugin: WritingMenuPlugin, files: 
 	const listFilePath = path.join(scriptDir, listFileName);
 
 	try {
-		const pathsToConvert = files.map(f => path.join(adapter.getBasePath(), f.path)).join('\n');
+		const pathsToConvert = files.map(f => path.join(basePath, f.path)).join('\n');
 		fs.writeFileSync(listFilePath, pathsToConvert, 'utf-8');
 	} catch (e) {
 		new Notice('임시 리스트 파일 생성 실패', 5000);

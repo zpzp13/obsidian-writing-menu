@@ -1,4 +1,6 @@
 import { normalizePath, TFile } from 'obsidian';
+
+declare const moment: (date?: unknown, fmt?: string) => { format(f: string): string };
 import type { App } from 'obsidian';
 import type { TimeModeConfig } from '../../types';
 import type WritingMenuPlugin from '../../../main';
@@ -146,7 +148,7 @@ export class WritingTimeStore {
 		for (let i = days - 1; i >= 0; i--) {
 			const d = new Date(today);
 			d.setDate(d.getDate() - i);
-			const name = (window as any).moment(d).format(format);
+			const name = moment(d).format(format);
 			const path = folder ? `${folder}/${name}.md` : `${name}.md`;
 			const file = app.vault.getAbstractFileByPath(path);
 			const fm = (file instanceof TFile)

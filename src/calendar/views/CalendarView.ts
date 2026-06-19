@@ -1,4 +1,10 @@
-import { ItemView, WorkspaceLeaf, setIcon, TFile, Notice } from 'obsidian';
+import { ItemView, WorkspaceLeaf, setIcon, TFile, Notice, App } from 'obsidian';
+
+interface AppWithInternalPlugins extends App {
+	internalPlugins?: { plugins?: Record<string, { enabled?: boolean; instance?: { options?: { folder?: string; format?: string; template?: string } } }> };
+}
+
+declare const moment: (date?: unknown, fmt?: string) => { format(f: string): string };
 import { showDayPreview, removeDayPreview } from '../components/DayPreviewPopup';
 import type WritingMenuPlugin from '../../../main';
 import { DashboardSection } from '../../dashboard/DashboardSection';
@@ -502,12 +508,12 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 	// ── Daily note ───────────────────────────────────────────────────
 
 	private async openOrCreateDailyNote(date: Date) {
-		const dnPlugin = (this.app as any).internalPlugins?.plugins?.['daily-notes'];
+		const dnPlugin = (this.app as AppWithInternalPlugins).internalPlugins?.plugins?.['daily-notes'];
 		const options  = dnPlugin?.enabled ? dnPlugin?.instance?.options : null;
 		const format   = options?.format || this.plugin.settings.dailyNotesFormat || 'YYYY-MM-DD';
 		const folder   = options?.folder  || this.plugin.settings.dailyNotesFolder || '';
 
-		const filename = (window as any).moment(date).format(format);
+		const filename = moment(date).format(format);
 		const filePath = folder ? `${folder}/${filename}.md` : `${filename}.md`;
 
 		const existing = this.app.vault.getAbstractFileByPath(filePath);

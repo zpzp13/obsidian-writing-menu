@@ -984,8 +984,6 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			const pairs = card.createDiv('wm-card-pairs');
 			trigger.options.forEach((opt, oIndex) => {
 				const row = pairs.createDiv('wm-card-pair-row');
-				const inputStyle = 'flex:1; text-align:center; border:1px solid var(--background-modifier-border); border-radius:4px; padding:4px; background:var(--background-primary-alt); min-width:0;';
-
 				const open = row.createEl('input', { type: 'text', value: opt.open, cls: 'wm-card-pair-input' });
 				open.onchange = async () => { opt.open = open.value; await this.plugin.saveSettings(); };
 

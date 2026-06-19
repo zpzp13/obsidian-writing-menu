@@ -1,6 +1,12 @@
-import { TFile } from 'obsidian';
+﻿import { TFile, App } from 'obsidian';
 import type WritingMenuPlugin from '../../../main';
 import { formatDateKey } from '../../utils/dateUtils';
+
+interface AppWithInternalPlugins extends App {
+	internalPlugins?: { plugins?: Record<string, { enabled?: boolean; instance?: { options?: { folder?: string; format?: string; template?: string } } }> };
+}
+
+declare const moment: (date?: unknown, fmt?: string) => { format(f: string): string };
 
 function escapeRegex(s: string): string {
 	return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -29,7 +35,7 @@ export interface ParsedTask {
 
 export class TaskParser {
 	static async loadTasks(plugin: WritingMenuPlugin): Promise<ParsedTask[]> {
-		const dnPlugin = (plugin.app as any).internalPlugins?.plugins?.['daily-notes'];
+		const dnPlugin = (plugin.app as AppWithInternalPlugins).internalPlugins?.plugins?.['daily-notes'];
 		const dnOpts   = dnPlugin?.enabled ? dnPlugin?.instance?.options : null;
 		const folder   = dnOpts?.folder  ?? plugin.settings.dailyNotesFolder ?? '';
 		const format   = dnOpts?.format  ?? plugin.settings.dailyNotesFormat ?? 'YYYY-MM-DD';
@@ -79,7 +85,7 @@ export class TaskParser {
 						subItems,
 					});
 				}
-			} catch {}
+			} catch (_e) {}
 		}
 
 		return results;
@@ -223,14 +229,14 @@ export class TaskParser {
 	}
 
 	static async addTaskToDailyNote(text: string, plugin: WritingMenuPlugin, subItems: string[] = []): Promise<void> {
-		const dnPlugin = (plugin.app as any).internalPlugins?.plugins?.['daily-notes'];
+		const dnPlugin = (plugin.app as AppWithInternalPlugins).internalPlugins?.plugins?.['daily-notes'];
 		const dnOpts   = dnPlugin?.enabled ? dnPlugin?.instance?.options : null;
 		const folder   = dnOpts?.folder  ?? plugin.settings.dailyNotesFolder ?? '';
 		const format   = dnOpts?.format  ?? plugin.settings.dailyNotesFormat ?? 'YYYY-MM-DD';
-		const name     = (window as any).moment().format(format);
+		const name     = moment().format(format);
 		const path     = folder ? `${folder}/${name}.md` : `${name}.md`;
 
-		let file = plugin.app.vault.getAbstractFileByPath(path) as TFile | null;
+		let file = plugin.app.vault.getAbstractFileByPath(path);
 		if (!(file instanceof TFile)) {
 			let initContent = '';
 			const templatePath = dnOpts?.template as string | undefined;
@@ -241,14 +247,14 @@ export class TaskParser {
 					try {
 						initContent = await plugin.app.vault.read(tf);
 						initContent = initContent
-							.replace(/\{\{date\}\}/gi, (window as any).moment().format('YYYY-MM-DD'))
-							.replace(/\{\{date:([^}]+)\}\}/gi, (_: string, fmt: string) => (window as any).moment().format(fmt))
-							.replace(/\{\{time\}\}/gi, (window as any).moment().format('HH:mm'))
+							.replace(/\{\{date\}\}/gi, moment().format('YYYY-MM-DD'))
+							.replace(/\{\{date:([^}]+)\}\}/gi, (_: string, fmt: string) => moment().format(fmt))
+							.replace(/\{\{time\}\}/gi, moment().format('HH:mm'))
 							.replace(/\{\{title\}\}/gi, name);
-					} catch {}
+					} catch (_e) {}
 				}
 			}
-			try { file = await plugin.app.vault.create(path, initContent); } catch {}
+			try { file = await plugin.app.vault.create(path, initContent); } catch (_e) {}
 		}
 		if (!(file instanceof TFile)) return;
 
@@ -288,7 +294,7 @@ export class TaskParser {
 	}
 
 	private static datePath(date: Date, folder: string, format: string): string {
-		const name = (window as any).moment(date).format(format);
+		const name = moment(date).format(format);
 		return folder ? `${folder}/${name}.md` : `${name}.md`;
 	}
 }

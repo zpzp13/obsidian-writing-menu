@@ -1,4 +1,8 @@
-import { Component, MarkdownRenderer, Notice, TFile, TFolder, setIcon, sanitizeHTMLToDom } from 'obsidian';
+import { Component, MarkdownRenderer, Notice, TFile, TFolder, setIcon, sanitizeHTMLToDom, App } from 'obsidian';
+
+interface AppWithSettings extends App {
+	setting?: { open(): void; openTabById(id: string): void };
+}
 import type WritingMenuPlugin from '../../main';
 import { getToneColor } from './WikiTypes';
 import { FolderOrNoteSuggestModal, ImageSuggestModal } from './WikiModals';
@@ -365,8 +369,8 @@ export class WikiPanel {
 		const settingsBtn = right.createDiv({ cls: 'wm-cal-icon-btn', attr: { 'aria-label': '위키 설정' } });
 		setIcon(settingsBtn, 'settings');
 		settingsBtn.onclick = () => {
-			(this.app as any).setting?.open();
-			(this.app as any).setting?.openTabById(this.plugin.manifest.id);
+			(this.app as AppWithSettings).setting?.open();
+			(this.app as AppWithSettings).setting?.openTabById(this.plugin.manifest.id);
 			window.setTimeout(() => { this.plugin.settingTab?.renderPage('wiki'); }, 60);
 		};
 	}

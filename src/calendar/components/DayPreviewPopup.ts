@@ -1,4 +1,4 @@
-import { TFile, setIcon } from 'obsidian';
+﻿import { TFile, setIcon } from 'obsidian';
 import type WritingMenuPlugin from '../../../main';
 import { formatDateKey } from '../../utils/dateUtils';
 import { findDailyNote } from '../../utils/dailyNoteUtils';
@@ -146,7 +146,7 @@ async function loadDayData(date: Date, plugin: WritingMenuPlugin): Promise<DayDa
 				done:       t.completed === true,
 				category:   t.category,
 			}));
-	} catch {}
+	} catch (_e) {}
 
 	const timeModes: { label: string; seconds: number }[] = [];
 	let totalSeconds = 0;
@@ -215,7 +215,8 @@ function renderDayData(container: HTMLElement, data: DayData, plugin: WritingMen
 					checkEl.empty();
 					if (nowDone) setIcon(checkEl, 'check');
 
-					const file = plugin.app.vault.getAbstractFileByPath(task.sourcePath) as TFile | null;
+					const abstract = plugin.app.vault.getAbstractFileByPath(task.sourcePath);
+					const file = abstract instanceof TFile ? abstract : null;
 					if (!file) return;
 					const content = await plugin.app.vault.read(file);
 					const baseRaw = task.rawText.replace(/\s*✅\s*\d{4}-\d{2}-\d{2}\s*$/, '').trimEnd();

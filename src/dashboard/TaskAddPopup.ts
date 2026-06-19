@@ -1,4 +1,6 @@
-import { setIcon } from 'obsidian';
+﻿import { setIcon } from 'obsidian';
+
+declare const moment: (date?: unknown, fmt?: string) => { format(f: string): string };
 import type WritingMenuPlugin from '../../main';
 import { TaskParser } from './data/TaskParser';
 import { openPopupAutoClose } from './TaskItem';
@@ -19,7 +21,7 @@ export function showTaskAddPopup(
 	popup.setCssStyles({ right: `${window.innerWidth - rect.right}px` });
 
 	// ── 날짜 선택 ──
-	const todayStr = (window as any).moment().format('YYYY-MM-DD');
+	const todayStr = moment().format('YYYY-MM-DD');
 	let selectedDate = todayStr;
 
 	const dateRow = popup.createDiv({ cls: 'wm-task-add-field wm-task-add-date-row' });
@@ -125,7 +127,7 @@ export function showTaskAddPopup(
 		const dateEmoji = selectedDate !== todayStr ? ` 📅 ${selectedDate}` : '';
 		const text = (tags ? `${title} ${tags}` : title) + dateEmoji;
 		const subItems = subArea.value.split('\n').map((l: string) => l.trim()).filter(Boolean);
-		try { await TaskParser.addTaskToDailyNote(text, plugin, subItems); } catch {}
+		try { await TaskParser.addTaskToDailyNote(text, plugin, subItems); } catch (_e) {}
 		close();
 		scheduleReload();
 	};

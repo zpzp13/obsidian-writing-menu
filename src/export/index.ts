@@ -110,7 +110,7 @@ export class HwpExportModal extends Modal {
 					.onClick(() => {
 						this.close();
 						const finalName = this.resultName + '.hwp';
-						this.plugin.convertToHwp(this.file, finalName, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
+						void this.plugin.convertToHwp(this.file, finalName, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
 					})
 			);
 	}
@@ -228,7 +228,7 @@ export class TxtExportModal extends Modal {
 					.onClick(() => {
 						this.close();
 						const finalName = this.resultName + '.txt';
-						this.plugin.convertToTxt(this.file, finalName, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
+						void this.plugin.convertToTxt(this.file, finalName, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
 					})
 			);
 	}
@@ -444,23 +444,23 @@ export class BatchExportModal extends Modal {
 						if (this.mergeFiles) {
 							// Merge export - use sortedFiles which respects user's drag-and-drop order
 							if (this.format === 'hwp') {
-								this.plugin.convertFilesToHwpMerged(this.sortedFiles, this.resultPath, fileName, this.useSpaceIndent, this.excludeHeadings);
+								void this.plugin.convertFilesToHwpMerged(this.sortedFiles, this.resultPath, fileName, this.useSpaceIndent, this.excludeHeadings);
 							} else {
-								this.plugin.convertFilesToTxtMerged(this.sortedFiles, this.resultPath, fileName, this.useSpaceIndent, this.excludeHeadings);
+								void this.plugin.convertFilesToTxtMerged(this.sortedFiles, this.resultPath, fileName, this.useSpaceIndent, this.excludeHeadings);
 							}
 						} else {
 							// Individual export
 							if (this.mode === 'folder') {
 								if (this.format === 'hwp') {
-									this.plugin.convertFolderToHwp(this.target.path, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
+									void this.plugin.convertFolderToHwp(this.target.path, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
 								} else {
-									this.plugin.convertFolderToTxt(this.target.path, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
+									void this.plugin.convertFolderToTxt(this.target.path, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
 								}
 							} else {
 								if (this.format === 'hwp') {
-									this.plugin.convertFilesToHwp(this.target, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
+									void this.plugin.convertFilesToHwp(this.target, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
 								} else {
-									this.plugin.convertFilesToTxt(this.target, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
+									void this.plugin.convertFilesToTxt(this.target, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
 								}
 							}
 						}
@@ -641,7 +641,7 @@ export class BatchExportModal extends Modal {
 
 		const removedHeader = removedSection.createDiv({ cls: 'removed-files-header' });
 		removedHeader.createEl('span', { text: '제외된 파일', cls: 'wm-removed-files-title' });
-		const removedCountEl = removedHeader.createEl('span', { text: `${this.removedFiles.length}개`, cls: 'wm-file-list-count' });
+		removedHeader.createEl('span', { text: `${this.removedFiles.length}개`, cls: 'wm-file-list-count' });
 
 		const removedListEl = removedSection.createDiv({ cls: 'removed-file-list' });
 
@@ -649,7 +649,7 @@ export class BatchExportModal extends Modal {
 			const itemEl = removedListEl.createDiv({ cls: 'removed-file-item' });
 			itemEl.setAttribute('data-index', String(index));
 
-			const nameEl = itemEl.createEl('span', { text: file.basename, cls: 'wm-removed-file-name' });
+			itemEl.createEl('span', { text: file.basename, cls: 'wm-removed-file-name' });
 
 			const addBtn = itemEl.createDiv({ cls: 'file-add-btn' });
 			setIcon(addBtn, 'plus');

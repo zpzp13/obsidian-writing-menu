@@ -65,7 +65,7 @@ export class TimeTrackingView extends ItemView {
 		const mainLabelGroup = mainDiv.createDiv('wm-tt-label-group');
 		const mainIcon = mainLabelGroup.createSpan('wm-tt-icon');
 		setIcon(mainIcon, 'clock');
-		const labelSpan = mainLabelGroup.createEl('span', { text: '작업 시간', cls: 'writing-menu-label wm-tt-label' });
+		mainLabelGroup.createEl('span', { text: '작업 시간', cls: 'writing-menu-label wm-tt-label' });
 
 		const mainToggle = mainDiv.createDiv(`writing-menu-toggle ${this.plugin.settings.enableTimeTracking ? 'is-enabled' : ''}`);
 		mainToggle.createDiv('writing-menu-toggle-thumb');
