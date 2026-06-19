@@ -1656,7 +1656,8 @@ export default class WritingMenuPlugin extends Plugin {
 		this.addMenuBackButton(container, '버전 관리', () => this.renderMenuPage(container, 'main', leaf));
 
 		const getHotkey = (commandId: string): string => {
-			const hotkeys = (this.app as any).hotkeyManager?.getHotkeys(`writing-menu:${commandId}`) as Array<{ modifiers: string[]; key: string }> | undefined;
+			type HotkeyManager = { getHotkeys(id: string): Array<{ modifiers: string[]; key: string }> };
+		const hotkeys = (this.app as unknown as { hotkeyManager?: HotkeyManager }).hotkeyManager?.getHotkeys(`writing-menu:${commandId}`);
 			if (!hotkeys || hotkeys.length === 0) return '';
 			const hk = hotkeys[0];
 			const mods = (hk.modifiers || []).map((m: string) => {
@@ -1700,7 +1701,7 @@ export default class WritingMenuPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		const savedData = await this.loadData();
+		const savedData = await this.loadData() as Partial<WritingMenuSettings>;
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, savedData);
 		// @ts-ignore
 		if (this.settings.symbolPairs && !this.settings.symbolTriggers) {

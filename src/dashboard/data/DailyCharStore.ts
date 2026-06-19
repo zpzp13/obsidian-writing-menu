@@ -161,7 +161,7 @@ export class DailyCharStore {
 			if (dnPrefix && !file.path.startsWith(dnPrefix)) continue;
 			const fm = this.plugin.app.metadataCache.getFileCache(file)?.frontmatter;
 			if (!fm) continue;
-			const v = fm[key];
+			const v: unknown = fm[key];
 			if (typeof v === 'number' && v > 0) values.push(v);
 		}
 
