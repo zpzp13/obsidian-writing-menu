@@ -77,11 +77,11 @@ export class MonthScroller {
 
 			const onMove = (me: MouseEvent) => {
 				const dx = me.pageX - startX;
-				if (!isDragging && Math.abs(dx) > 4) { isDragging = true; scroller.setCssStyles({ cursor: 'grabbing' }); }
+				if (!isDragging && Math.abs(dx) > 4) { isDragging = true; scroller.addClass('is-grabbing'); }
 				if (isDragging) { scroller.scrollLeft = startL - dx; hasMoved = true; }
 			};
 			const onUp = (ue: MouseEvent) => {
-				scroller.setCssStyles({ cursor: '' });
+				scroller.removeClass('is-grabbing');
 				scrollerDoc.removeEventListener('mousemove', onMove);
 				scrollerDoc.removeEventListener('mouseup', onUp);
 				if (!hasMoved) {

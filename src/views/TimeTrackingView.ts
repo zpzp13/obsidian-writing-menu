@@ -54,23 +54,18 @@ export class TimeTrackingView extends ItemView {
 
 	private renderUI(container: HTMLElement) {
 		const wrapper = container.createDiv('writing-menu-sidebar-wrapper');
-		wrapper.setCssStyles({ 'padding': '12px' });
 
 		if (this.plugin.stopwatchSeconds <= 0) {
 			this.plugin.initStopwatch();
 		}
 
 		// === Main row: 작업 시간 [토글] ===
-		const mainDiv = wrapper.createDiv('writing-menu-control');
-		mainDiv.setCssStyles({ 'display': 'flex', 'justifyContent': 'space-between', 'alignItems': 'center', 'padding': '8px 0' });
+		const mainDiv = wrapper.createDiv('writing-menu-control wm-tt-row');
 
-		const mainLabelGroup = mainDiv.createDiv();
-		mainLabelGroup.setCssStyles({ 'display': 'flex', 'alignItems': 'center', 'gap': '6px' });
-		const mainIcon = mainLabelGroup.createSpan();
-		mainIcon.setCssStyles({ 'display': 'flex', 'alignItems': 'center', 'width': '16px', 'height': '16px' });
+		const mainLabelGroup = mainDiv.createDiv('wm-tt-label-group');
+		const mainIcon = mainLabelGroup.createSpan('wm-tt-icon');
 		setIcon(mainIcon, 'clock');
-		const labelSpan = mainLabelGroup.createEl('span', { text: '작업 시간', cls: 'writing-menu-label' });
-		labelSpan.setCssStyles({ 'fontSize': '14px', 'height': '16px', 'lineHeight': '16px' });
+		const labelSpan = mainLabelGroup.createEl('span', { text: '작업 시간', cls: 'writing-menu-label wm-tt-label' });
 
 		const mainToggle = mainDiv.createDiv(`writing-menu-toggle ${this.plugin.settings.enableTimeTracking ? 'is-enabled' : ''}`);
 		mainToggle.createDiv('writing-menu-toggle-thumb');
@@ -83,26 +78,20 @@ export class TimeTrackingView extends ItemView {
 		};
 
 		// === Sub row: └ 스톱워치 [countdown] [play/pause] [reset] ===
-		const stopwatchDiv = wrapper.createDiv('writing-menu-control');
-		stopwatchDiv.setCssStyles({ 'display': this.plugin.settings.enableTimeTracking ? 'flex' : 'none', 'justifyContent': 'space-between', 'alignItems': 'center', 'padding': '8px 0 8px 20px' });
+		const stopwatchDiv = wrapper.createDiv('writing-menu-control wm-tt-sub-row');
+		if (!this.plugin.settings.enableTimeTracking) stopwatchDiv.setCssStyles({ display: 'none' });
 
-		const stopwatchLabelGroup = stopwatchDiv.createDiv();
-		stopwatchLabelGroup.setCssStyles({ 'display': 'flex', 'alignItems': 'center', 'gap': '0' });
-		const cornerIcon1 = stopwatchLabelGroup.createSpan();
-		cornerIcon1.setCssStyles({ 'display': 'flex', 'alignItems': 'center', 'width': '16px', 'height': '16px', 'opacity': '0.5' });
+		const stopwatchLabelGroup = stopwatchDiv.createDiv('wm-tt-sub-label-group');
+		const cornerIcon1 = stopwatchLabelGroup.createSpan('wm-tt-corner-icon');
 		setIcon(cornerIcon1, 'corner-down-right');
-		const stopwatchLabel = stopwatchLabelGroup.createEl('span', { text: '스톱워치' });
-		stopwatchLabel.setCssStyles({ 'fontSize': '14px', 'marginLeft': '4px' });
+		const stopwatchLabel = stopwatchLabelGroup.createEl('span', { text: '스톱워치', cls: 'wm-tt-sub-text' });
 
-		const stopwatchRightGroup = stopwatchDiv.createDiv();
-		stopwatchRightGroup.setCssStyles({ 'display': 'flex', 'alignItems': 'center', 'gap': '8px' });
+		const stopwatchRightGroup = stopwatchDiv.createDiv('wm-tt-right-group');
 
 		const stopwatchSpan = stopwatchRightGroup.createEl('span', { cls: 'writing-menu-stopwatch-display' });
-		stopwatchSpan.setCssStyles({ 'fontSize': '14px', 'color': 'var(--text-muted)' });
 		stopwatchSpan.textContent = this.plugin.formatTime(this.plugin.stopwatchSeconds);
 
-		const btnGroup = stopwatchRightGroup.createDiv();
-		btnGroup.setCssStyles({ 'display': 'flex', 'alignItems': 'center', 'gap': '0' });
+		const btnGroup = stopwatchRightGroup.createDiv('wm-tt-btn-group');
 
 		const playPauseBtn = btnGroup.createDiv('clickable-icon');
 		setIcon(playPauseBtn, this.plugin.stopwatchInterval ? 'pause' : 'play');

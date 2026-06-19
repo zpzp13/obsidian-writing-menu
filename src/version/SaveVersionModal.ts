@@ -21,8 +21,7 @@ export class SaveVersionModal extends Modal {
 		const { contentEl, modalEl } = this;
 		contentEl.empty();
 		contentEl.addClass('wm-save-ver-modal');
-		modalEl.setCssStyles({ width: '400px' });
-		modalEl.setCssStyles({ maxWidth: '90vw' });
+		modalEl.addClass('wm-save-ver-modal-container');
 
 		contentEl.createEl('h3', { text: '버전 저장', cls: 'wm-save-ver-title' });
 

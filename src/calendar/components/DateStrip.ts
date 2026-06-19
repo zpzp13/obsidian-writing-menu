@@ -114,11 +114,11 @@ export class DateStrip {
 
 			const onMove = (me: MouseEvent) => {
 				const dx = me.pageX - startX;
-				if (!isDragging && Math.abs(dx) > 4) { isDragging = true; strip.setCssStyles({ cursor: 'grabbing' }); }
+				if (!isDragging && Math.abs(dx) > 4) { isDragging = true; strip.addClass('is-grabbing'); }
 				if (isDragging) { strip.scrollLeft = startScrollLeft - dx; hasMoved = true; }
 			};
 			const onUp = (ue: MouseEvent) => {
-				strip.setCssStyles({ cursor: '' });
+				strip.removeClass('is-grabbing');
 				stripDoc.removeEventListener('mousemove', onMove);
 				stripDoc.removeEventListener('mouseup',  onUp);
 				if (!hasMoved) {

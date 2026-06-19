@@ -557,6 +557,9 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 
 /* ── Preview settings dropdown ── */
 .wm-preview-dropdown {
+    position: fixed;
+    top: var(--dd-top, 0);
+    left: var(--dd-left, 0);
     z-index: 10000;
 }
 
@@ -2860,6 +2863,9 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 
 /* Suggestions Container */
 .wiki-suggestion-container {
+    position: fixed;
+    top: var(--suggest-top, 0);
+    left: var(--suggest-left, 0);
     background-color: var(--background-secondary) !important;
     border: 1px solid var(--wiki-border-color) !important;
     box-shadow: var(--shadow-s);
@@ -3016,6 +3022,8 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 }
 
 /* Config Popover (Filter Menu) Styles */
+.wiki-config-popover { width: 270px; }
+.wiki-group-popover { width: 650px; }
 .wiki-config-popover .wiki-config-row {
     display: flex;
     align-items: center;
@@ -3261,7 +3269,7 @@ button[aria-label="규칙 추가"] {
     gap: 6px;
     overflow-x: auto;
     overflow-y: visible;
-    padding: 40px 10px;
+    padding: 40px var(--strip-pad, 10px);
     scrollbar-width: none;
     align-items: center;
     cursor: default;
@@ -4148,7 +4156,8 @@ button[aria-label="규칙 추가"] {
 			.wm-ver-popup-stage-btn { display: flex; align-items: center; gap: 5px; padding: 5px 8px; background: none !important; border: none !important; box-shadow: none !important; cursor: pointer; border-radius: var(--radius-s); font-size: var(--font-ui-small); color: var(--text-muted); flex: 1; justify-content: center; transition: background .1s; }
 			.wm-ver-popup-stage-btn:hover { background: var(--background-modifier-hover) !important; }
 			.wm-ver-popup-stage-btn.is-active { color: var(--text-normal); font-weight: 600; }
-			.wm-ver-popup-stage-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid; flex-shrink: 0; background: none !important; }
+			.wm-ver-popup-stage-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid; border-color: var(--stage-color, var(--text-faint)); flex-shrink: 0; background: none !important; }
+			.wm-ver-popup-stage-dot.is-filled { background-color: var(--stage-color, var(--text-faint)) !important; }
 			.wm-ver-popup-stage-dot-none { border-color: var(--text-faint) !important; }
 
 			/* 팝업 메뉴 */
@@ -4429,3 +4438,142 @@ button[aria-label="규칙 추가"] {
     padding: 0 !important;
     margin: 0 !important;
 }
+
+/* ── Wiki Popovers ─────────────────────────────────────────────────────────── */
+.wiki-popover-base {
+    position: fixed;
+    z-index: 1000;
+    top: var(--popup-top, 0);
+    left: var(--popup-left, auto);
+    right: var(--popup-right, auto);
+}
+.wm-wiki-popover-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 999;
+    background: transparent;
+}
+.wm-wiki-prop-search { margin: 8px; width: 200px; }
+.wm-wiki-prop-scroll { max-height: 300px; overflow-y: auto; }
+.wm-wiki-rule-scroll { max-height: 400px; overflow-y: auto; }
+.wm-wiki-rule-item { cursor: default; padding: 8px 12px; gap: 8px; }
+.wm-grab-cursor { cursor: grab; }
+.wm-group-name-input { width: 120px; }
+.wm-group-rule-input { width: 85px; }
+.wm-group-cond-select { width: 60px; }
+.menu-item-icon.is-pinned { color: var(--text-accent); }
+.wm-text-muted { color: var(--text-muted); }
+
+/* ── Wiki Panel ────────────────────────────────────────────────────────────── */
+.wm-fade-out { transition: opacity 0.12s ease; opacity: 0; }
+.wm-invisible { visibility: hidden; }
+.is-grabbing { cursor: grabbing !important; }
+.wm-wiki-accent-val { color: var(--wiki-accent-color); font-weight: bold; }
+
+/* ── Settings ──────────────────────────────────────────────────────────────── */
+.wm-settings-req-note {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 4px 0 8px 0;
+    padding: 0 4px;
+}
+.wm-stage-name-input { width: 160px; }
+.writing-menu-kanban {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 8px 0;
+}
+.wm-card-disabled { opacity: 0.5; }
+.wm-card-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.wm-card-toggle-div { display: flex; align-items: center; }
+.wm-card-trigger-input { flex: 1; min-width: 0; }
+.wm-muted-icon { opacity: 0.4; }
+.wm-muted-icon:hover { opacity: 1; }
+.wm-card-divider { border-top: 1px solid var(--background-modifier-border); margin: 6px 0; }
+.wm-card-pairs { display: flex; flex-direction: column; gap: 4px; }
+.wm-card-pair-row { display: flex; align-items: center; gap: 4px; }
+.wm-card-pair-input { width: 60px; }
+.wm-pair-delete-btn { opacity: 0.4; }
+.wm-pair-delete-btn:hover { opacity: 1; }
+.wm-pair-add-btn { text-align: center; color: var(--text-accent); cursor: pointer; font-size: 16px; margin-top: 4px; }
+.wm-settings-add-btn-row { margin: 8px 0; }
+.wm-substitution-list { display: flex; flex-direction: column; gap: 6px; max-width: 520px; }
+.wm-substitution-list.is-mobile-width { max-width: 100%; }
+.wm-substitution-row { display: flex; align-items: center; gap: 6px; }
+.wm-row-disabled { opacity: 0.5; }
+.wm-substitution-input { width: 120px; }
+.wm-substitution-arrow { color: var(--text-muted); font-size: 12px; flex-shrink: 0; }
+.wm-mode-label-input { width: 65px; }
+.wm-mode-icon-input { width: 100px; }
+.wm-mode-key-input { width: 110px; }
+.wm-mode-goal-input { width: 65px; }
+.wm-mode-setting-row { flex-wrap: wrap !important; }
+
+/* ── Time Tracking View ────────────────────────────────────────────────────── */
+.writing-menu-sidebar-wrapper { padding: 12px; }
+.wm-tt-row { gap: 8px; }
+.wm-tt-label-group { display: flex; align-items: center; gap: 6px; flex: 1; }
+.wm-tt-icon { display: flex; align-items: center; }
+.wm-tt-sub-row { gap: 8px; }
+.wm-tt-sub-label-group { display: flex; align-items: center; gap: 4px; flex: 1; padding-left: 8px; }
+.wm-tt-corner-icon { display: flex; align-items: center; color: var(--text-faint); }
+.wm-tt-corner-icon svg { width: 14px; height: 14px; }
+.wm-tt-sub-text { font-size: 13px; color: var(--text-muted); }
+.wm-tt-right-group { display: flex; align-items: center; gap: 4px; }
+.wm-tt-btn-group { display: flex; align-items: center; gap: 2px; }
+
+/* ── Preview ───────────────────────────────────────────────────────────────── */
+.wm-clickable { cursor: pointer; }
+.wm-measure-offscreen { position: fixed !important; top: -9999px !important; left: -9999px !important; visibility: hidden !important; }
+.wm-han-icon-text { font-weight: bold; display: inline-block; line-height: 1; vertical-align: text-bottom; }
+.wm-preview-text-input { width: 100px; text-align: right; }
+
+/* ── Editor ────────────────────────────────────────────────────────────────── */
+.wm-heading-raw { color: inherit; pointer-events: none; cursor: text; }
+
+/* ── Dictionary Modal ──────────────────────────────────────────────────────── */
+.wm-dict-modal-container { width: 620px; max-width: 94vw; }
+
+/* ── Version ───────────────────────────────────────────────────────────────── */
+.wm-diff-modal-container { width: min(1100px, 94vw); max-width: 94vw; height: min(740px, 90vh); }
+.wm-save-ver-modal-container { width: 400px; max-width: 90vw; }
+
+/* ── Controls ──────────────────────────────────────────────────────────────── */
+.wm-compact-text-input { width: 100px; text-align: right; }
+.wm-stepper-control { padding-right: 4px !important; }
+.wm-stepper-group { gap: 0 !important; }
+.wm-stepper-input { width: 40px; text-align: right; border: none !important; background: transparent !important; margin-right: 12px; }
+.wm-icon-15 { width: 15px !important; height: 15px !important; }
+.wm-color-group { gap: 8px !important; }
+
+/* ── Export ────────────────────────────────────────────────────────────────── */
+.wm-export-ext-label { margin-left: 4px; color: var(--text-muted); font-size: 14px; }
+.batch-export-file-list-container { margin-bottom: 16px; }
+.file-list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.wm-file-list-title { font-size: 13px; color: var(--text-muted); }
+.wm-file-list-count { font-size: 12px; color: var(--text-faint); }
+.file-list { border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m); max-height: 200px; overflow-y: auto; }
+.file-list-item { display: flex; align-items: center; padding: 6px 12px; cursor: grab; border-bottom: 1px solid var(--background-modifier-border); background: var(--background-primary); transition: background 0.1s; }
+.file-list-item:last-child { border-bottom: none; }
+.file-list-item:hover { background: var(--background-secondary); }
+.file-list-item.wm-dragging { opacity: 0.5; }
+.file-list-item.wm-drop-above { border-top: 2px solid var(--interactive-accent); }
+.file-list-item.wm-drop-below { border-bottom: 2px solid var(--interactive-accent); }
+.drag-handle { margin-right: 8px; color: var(--text-faint); display: flex; align-items: center; cursor: grab; }
+.file-num { margin-right: 8px; color: var(--text-faint); font-size: 12px; min-width: 20px; }
+.wm-file-name-el { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-remove-btn { margin-left: 8px; color: var(--text-faint); cursor: pointer; display: flex; align-items: center; padding: 2px; }
+.file-remove-btn:hover { color: var(--text-error); }
+.removed-files-header { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; margin-bottom: 8px; }
+.wm-removed-files-title { font-size: 13px; color: var(--text-muted); }
+.removed-file-list { border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m); max-height: 120px; overflow-y: auto; opacity: 0.7; }
+.removed-file-item { display: flex; align-items: center; padding: 6px 12px; border-bottom: 1px solid var(--background-modifier-border); background: var(--background-primary); transition: background 0.1s; }
+.removed-file-item:last-child { border-bottom: none; }
+.removed-file-item:hover { background: var(--background-secondary); }
+.wm-removed-file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+.file-add-btn { margin-left: 8px; color: var(--text-faint); cursor: pointer; display: flex; align-items: center; padding: 2px; }
+.file-add-btn:hover { color: var(--text-success); }

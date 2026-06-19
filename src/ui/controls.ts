@@ -12,7 +12,7 @@ export async function addCompactControl(plugin: WritingMenuPlugin, container: HT
 	const input = div.createEl('input', { type: type, value: value });
 
 	if (type === 'text') {
-		input.setCssStyles({ width: '100px', textAlign: 'right' });
+		input.addClass('wm-compact-text-input');
 	}
 
 	input.onchange = (e) => callback((e.target as HTMLInputElement).value);
@@ -36,8 +36,7 @@ export async function addCompactToggle(plugin: WritingMenuPlugin, container: HTM
 }
 
 export async function addCompactStepper(plugin: WritingMenuPlugin, container: HTMLElement, label: string, value: number, step: number, min: number, callback: (v: number) => void, icon?: string){
-	const div = container.createDiv('writing-menu-control');
-	div.setCssStyles({ paddingRight: '4px' });
+	const div = container.createDiv('writing-menu-control wm-stepper-control');
 
 	const labelGroup = div.createDiv('writing-menu-control-label-group');
 	if (icon) {
@@ -46,16 +45,13 @@ export async function addCompactStepper(plugin: WritingMenuPlugin, container: HT
 	}
 	labelGroup.createEl('label', { text: label });
 
-	const group = div.createDiv('writing-menu-control-group');
-	group.setCssStyles({ gap: '0' });
+	const group = div.createDiv('writing-menu-control-group wm-stepper-group');
 
-	const input = group.createEl('input', { type: 'number', value: value.toString() });
-	input.setCssStyles({ width: '40px', textAlign: 'right', border: 'none', background: 'transparent', marginRight: '12px' });
+	const input = group.createEl('input', { type: 'number', value: value.toString(), cls: 'wm-stepper-input' });
 	input.onchange = (e) => callback(Number((e.target as HTMLInputElement).value));
 
 	const minus = group.createDiv('clickable-icon wm-icon-btn-20');
 	setIcon(minus, 'minus');
-	minus.setCssStyles({ cursor: 'pointer' });
 	minus.onclick = () => {
 		let newVal = Number(input.value) - step;
 		newVal = Math.round(newVal * 100) / 100;
@@ -66,12 +62,11 @@ export async function addCompactStepper(plugin: WritingMenuPlugin, container: HT
 	const minusSvg = minus.querySelector('svg');
 	if (minusSvg) {
 		minusSvg.setAttribute('width', '15'); minusSvg.setAttribute('height', '15');
-		(minusSvg as unknown as HTMLElement).setCssStyles({ width: '15px', height: '15px' });
+		(minusSvg as unknown as HTMLElement).addClass('wm-icon-15');
 	}
 
 	const plus = group.createDiv('clickable-icon wm-icon-btn-20');
 	setIcon(plus, 'plus');
-	plus.setCssStyles({ cursor: 'pointer' });
 	plus.onclick = () => {
 		let newVal = Number(input.value) + step;
 		newVal = Math.round(newVal * 100) / 100;
@@ -81,7 +76,7 @@ export async function addCompactStepper(plugin: WritingMenuPlugin, container: HT
 	const plusSvg = plus.querySelector('svg');
 	if (plusSvg) {
 		plusSvg.setAttribute('width', '15'); plusSvg.setAttribute('height', '15');
-		(plusSvg as unknown as HTMLElement).setCssStyles({ width: '15px', height: '15px' });
+		(plusSvg as unknown as HTMLElement).addClass('wm-icon-15');
 	}
 
 	group.empty();
@@ -100,13 +95,11 @@ export async function addCompactSlider(plugin: WritingMenuPlugin, container: HTM
 	}
 	labelGroup.createEl('label', { text: label });
 
-	const slider = div.createEl('input', { type: 'range', cls: 'slider' });
+	const slider = div.createEl('input', { type: 'range', cls: 'slider wm-compact-slider' });
 	slider.min = min.toString();
 	slider.max = max.toString();
 	slider.step = step.toString();
 	slider.value = value.toString();
-	slider.setCssStyles({ width: '80px' });
-	slider.addClass('wm-compact-slider');
 	slider.oninput = (e) => callback(Number((e.target as HTMLInputElement).value));
 }
 
@@ -120,8 +113,7 @@ export async function addDualColorControl(plugin: WritingMenuPlugin, container: 
 	}
 	labelGroup.createEl('label', { text: label });
 
-	const group = div.createDiv('writing-menu-control-group');
-	group.setCssStyles({ gap: '8px' });
+	const group = div.createDiv('writing-menu-control-group wm-color-group');
 
 	const lightVal = typeof value === 'string' ? value : value.light;
 	const darkVal = typeof value === 'string' ? value : value.dark;

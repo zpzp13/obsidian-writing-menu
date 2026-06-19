@@ -38,8 +38,7 @@ export class DictionaryModal extends Modal {
 		const { contentEl, modalEl } = this;
 		contentEl.empty();
 		contentEl.addClass('wm-dict-modal');
-		modalEl.setCssStyles({ width: '620px' });
-		modalEl.setCssStyles({ maxWidth: '94vw' });
+		modalEl.addClass('wm-dict-modal-container');
 
 		// ── 헤더 ───────────────────────────────────────────────────
 
