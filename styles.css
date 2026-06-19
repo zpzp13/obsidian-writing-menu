@@ -621,6 +621,10 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 
 /* ── Top bar ── */
 .wm-cal-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--background-secondary);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -1948,12 +1952,21 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     font-size: 13px;
     font-weight: 600;
     color: var(--interactive-accent);
-    white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
-    padding: 0 4px;
+    padding: 0 10px;
     transition: color 0.15s, font-weight 0s;
     pointer-events: none;
+}
+.wm-track-title-inner {
+    display: inline-block;
+    white-space: nowrap;
+}
+.wm-track-title-inner.wm-is-scrolling {
+    animation: wm-title-scroll var(--wm-scroll-dur, 10s) linear infinite alternate;
+}
+@keyframes wm-title-scroll {
+    from { transform: translateX(0); }
+    to   { transform: translateX(var(--wm-scroll-dist, 0px)); }
 }
 .wm-dash-music-track-title.is-hover {
     font-weight: 400;
@@ -4294,11 +4307,11 @@ button[aria-label="규칙 추가"] {
     caret-color: var(--wm-font-color, inherit) !important;
 }
 [data-writing-menu-id] .cm-line {
-    padding-inline-start: var(--wm-text-indent, 0px) !important;
+    text-indent: var(--wm-text-indent, 0px) !important;
 }
 [data-writing-menu-id] .markdown-reading-view p {
     margin-bottom: var(--wm-paragraph-spacing, 0em) !important;
-    padding-inline-start: var(--wm-text-indent, 0px) !important;
+    text-indent: var(--wm-text-indent, 0px) !important;
 }
 [data-writing-menu-id] .cm-line { padding-bottom: var(--wm-paragraph-spacing, 0em) !important; }
 [data-writing-menu-id] .cm-sizer {

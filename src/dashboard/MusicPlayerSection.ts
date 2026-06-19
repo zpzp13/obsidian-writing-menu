@@ -414,7 +414,20 @@ export class MusicPlayerSection {
 
 		// 병합된 타이틀 컨테이너: 기본=현재곡, hover=이전/다음곡
 		const trackTitleEl = strip.createDiv({ cls: 'wm-dash-music-track-title' });
-		trackTitleEl.textContent = mp.currentTrack?.name ?? '—';
+
+		const refreshMarquee = (container: HTMLElement, text: string) => {
+			container.empty();
+			const span = container.createSpan({ cls: 'wm-track-title-inner', text });
+			window.setTimeout(() => {
+				const overflow = container.scrollWidth - container.clientWidth;
+				if (overflow > 0) {
+					span.style.setProperty('--wm-scroll-dist', `-${overflow}px`);
+					const dur = Math.min(30, Math.max(10, overflow / 4));
+					span.style.setProperty('--wm-scroll-dur', `${dur.toFixed(1)}s`);
+					span.addClass('wm-is-scrolling');
+				}
+			}, 80);
+		};
 
 		// 클릭: skip() 사용 (현재 재생 위치 무관하게 트랙 이동)
 		fp2aw.wrap.addEventListener('click', (e) => { e.stopPropagation(); mp.skip(-2); });
@@ -428,11 +441,14 @@ export class MusicPlayerSection {
 		const attachHover = (aw: ArtWrap, getTrack: () => Track | null) => {
 			aw.wrap.addEventListener('mouseenter', () => {
 				const t = getTrack();
-				if (t) { trackTitleEl.textContent = t.name; trackTitleEl.addClass('is-hover'); }
+				if (t) {
+					trackTitleEl.addClass('is-hover');
+					refreshMarquee(trackTitleEl, t.name);
+				}
 			});
 			aw.wrap.addEventListener('mouseleave', () => {
-				trackTitleEl.textContent = currentTrackName();
 				trackTitleEl.removeClass('is-hover');
+				refreshMarquee(trackTitleEl, currentTrackName());
 			});
 		};
 
@@ -458,7 +474,7 @@ export class MusicPlayerSection {
 
 			// 현재곡 제목 & 폴더명 갱신 (hover 중이 아닐 때만)
 			if (!trackTitleEl.hasClass('is-hover')) {
-				trackTitleEl.textContent = mp.currentTrack?.name ?? '—';
+				refreshMarquee(trackTitleEl, mp.currentTrack?.name ?? '—');
 			}
 			folderEl.textContent = mp.currentTrack ? folderNameOf(mp.currentTrack.path) : '—';
 		};
@@ -470,6 +486,7 @@ export class MusicPlayerSection {
 		attachHover(fn2aw, () => mp.viewPlaylist.length > 1 ? mp.viewPlaylist[(mp.currentIndex + 2) % mp.viewPlaylist.length] : null);
 
 		buildStrip();
+		refreshMarquee(trackTitleEl, mp.currentTrack?.name ?? '—');
 
 		// ── 진행바 ──
 		const progressRow = player.createDiv({ cls: 'wm-dash-music-progress-row' });
