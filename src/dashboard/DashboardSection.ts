@@ -1,11 +1,10 @@
 import { setIcon, MarkdownView } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
-import { HeatmapRenderer } from './HeatmapRenderer';
 import { TaskParser } from './data/TaskParser';
 import { TasksRenderer } from './TasksRenderer';
 import { WritingTimeSection } from './WritingTimeSection';
 import { MusicPlayerSection } from './MusicPlayerSection';
-import type { HeatmapStore } from './data/HeatmapStore';
+import type { DailyCharStore } from './data/DailyCharStore';
 import type { DashSectionConfig } from '../types';
 import { calcVersionCharCount } from '../version/charCount';
 import { MUNPIA_SVG, NOVELPIA_SVG } from '../assets/platformLogos';
@@ -16,7 +15,7 @@ export class DashboardSection {
 
 	static render(container: HTMLElement, plugin: WritingMenuPlugin, sections?: DashSectionConfig[]) {
 		const wrap = container.createDiv({ cls: 'wm-dash' });
-		const store = plugin.heatmapStore;
+		const store = plugin.charStore;
 
 		const cfg = sections ?? plugin.settings.dashboardSections ?? [
 			{ id: 'chars',  label: '글자수',   visible: true },
@@ -30,13 +29,13 @@ export class DashboardSection {
 				this.renderSection(wrap, '글자수', (body) => {
 					body.addClass('no-item-dividers');
 					this.renderCharsContent(body, plugin);
-				}, 'calendar-chars', plugin);
+				}, 'writing-stats', plugin);
 			} else if (sec.id === 'time') {
 				this.renderSection(wrap, '작업 시간', (body) => {
 					body.addClass('no-item-dividers');
 					const slot = body.createDiv({ cls: 'wm-dash-group-item' });
 					WritingTimeSection.render(slot, plugin).catch(() => {});
-				}, 'time', plugin);
+				}, 'writing-stats', plugin);
 			} else if (sec.id === 'tasks') {
 				this.renderSection(wrap, '할 일', (body) => {
 					const slot = body.createDiv();
@@ -62,9 +61,8 @@ export class DashboardSection {
 	}
 
 	private static renderCharsContent(root: HTMLElement, plugin: WritingMenuPlugin) {
-		const store = plugin.heatmapStore;
-		const statsItem   = root.createDiv({ cls: 'wm-dash-group-item' });
-		const heatmapItem = root.createDiv({ cls: 'wm-dash-group-item' });
+		const store = plugin.charStore;
+		const statsItem = root.createDiv({ cls: 'wm-dash-group-item' });
 		const getCurrentCounts = () => {
 			const view = plugin.app.workspace.getActiveViewOfType(MarkdownView);
 			if (!view?.file) return null;
@@ -75,7 +73,6 @@ export class DashboardSection {
 			};
 		};
 		this.renderStatsCard(statsItem, store, plugin, getCurrentCounts());
-		HeatmapRenderer.render(heatmapItem, store, plugin);
 		const refreshStats = () => { statsItem.empty(); this.renderStatsCard(statsItem, store, plugin, getCurrentCounts()); };
 		const modifyHandler = plugin.app.vault.on('modify', refreshStats);
 		const editorHandler = plugin.app.workspace.on('editor-change', refreshStats);
@@ -134,7 +131,7 @@ export class DashboardSection {
 
 	private static renderStatsCard(
 		container: HTMLElement,
-		store: HeatmapStore,
+		store: DailyCharStore,
 		plugin: WritingMenuPlugin,
 		currentCounts: { munpia: number; novelpia: number } | null = null,
 	) {
@@ -159,28 +156,29 @@ export class DashboardSection {
 			const logoEl = row.createDiv({ cls: 'wm-dash-platform-logo' });
 			logoEl.innerHTML = plat === 'munpia' ? MUNPIA_SVG : NOVELPIA_SVG;
 			const n = currentCounts?.[plat] ?? null;
-			row.createDiv({ cls: 'wm-dash-stat-num wm-dash-today-num', text: n !== null ? n.toLocaleString() : '—' });
+			row.createDiv({ cls: 'wm-dash-stat-num wm-dash-today-num wm-dash-today-sum', text: n !== null ? `${n.toLocaleString()}자` : '—' });
 		}
 		const todayBot = todayCard.createDiv({ cls: 'wm-dash-today-bot' });
 		const remain   = todayBot.createDiv({ cls: 'wm-dash-today-remain' });
 		if (currentCounts !== null && goal > 0 && count >= goal) {
-			remain.textContent = '목표 달성! 🎉';
+			remain.addClass('is-achieved');
+			todayBot.addClass('is-achieved');
+			remain.appendText('목표 달성!');
 		} else if (currentCounts !== null && goal > 0) {
 			remain.appendText('목표까지 ');
 			remain.createSpan({ cls: 'wm-dash-today-remain-num', text: `${(goal - count).toLocaleString()}자` });
-			remain.appendText(' 남았어요');
 		}
 
-		// ── 목표 카드 (우상단) ──
-		const goalCard = grid.createDiv({ cls: 'wm-dash-stat-card is-goal' });
-		const goalRow  = goalCard.createDiv({ cls: 'wm-dash-stat-row' });
-		goalRow.createDiv({ cls: 'wm-dash-stat-lbl', text: '목표' });
-		goalRow.createDiv({ cls: 'wm-dash-stat-num', text: goal > 0 ? goal.toLocaleString() : '—' });
-
-		// ── 일평균 카드 (우하단) ──
+		// ── 일평균 카드 (우상단) ──
 		const avgCard = grid.createDiv({ cls: 'wm-dash-stat-card is-avg' });
 		const avgRow = avgCard.createDiv({ cls: 'wm-dash-stat-row' });
 		avgRow.createDiv({ cls: 'wm-dash-stat-lbl', text: '일평균' });
 		avgRow.createDiv({ cls: 'wm-dash-stat-num', text: average > 0 ? average.toLocaleString() : '—' });
+
+		// ── 목표 카드 (우하단) ──
+		const goalCard = grid.createDiv({ cls: 'wm-dash-stat-card is-goal' });
+		const goalRow  = goalCard.createDiv({ cls: 'wm-dash-stat-row' });
+		goalRow.createDiv({ cls: 'wm-dash-stat-lbl', text: '목표' });
+		goalRow.createDiv({ cls: 'wm-dash-stat-num', text: goal > 0 ? goal.toLocaleString() : '—' });
 	}
 }

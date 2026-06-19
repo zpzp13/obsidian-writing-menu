@@ -3,8 +3,8 @@
 	"name": "Writing Menu",
 	"version": "2.11.1",
 	"minAppVersion": "0.15.0",
-	"description": "글쓰기 환경 커스터마이징 플러그인 - 타이포그래피, 포커스 모드, 스마트 따옴표, 텍스트 치환 등",
+	"description": "A writing environment customization plugin with typography controls, focus mode, smart quotes, text substitution, typewriter scroll, word counter, and more.",
 	"author": "zpzp13",
-	"authorUrl": "",
+	"authorUrl": "https://github.com/zpzp13",
 	"isDesktopOnly": false
 }

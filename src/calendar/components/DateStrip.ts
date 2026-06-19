@@ -10,6 +10,8 @@ type DateStripCallbacks = {
 	onDateChange:  (date: Date) => void;
 	onMonthChange: (month: number) => void;
 	openDailyNote: (date: Date) => void;
+	onHover?:      (date: Date, el: HTMLElement) => void;
+	onHoverEnd?:   () => void;
 };
 
 export class DateStrip {
@@ -48,6 +50,10 @@ export class DateStrip {
 			card.dataset.month   = String(d.getMonth());
 			card.dataset.ds      = ds;
 			card.dataset.datekey = formatDateKey(d);
+			if (callbacks.onHover) {
+				card.addEventListener('mouseenter', () => callbacks.onHover!(new Date(card.dataset.ds!), card));
+				card.addEventListener('mouseleave', () => callbacks.onHoverEnd?.());
+			}
 			this.allCards.push(card);
 		}
 

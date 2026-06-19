@@ -9,7 +9,7 @@ function groupBox(el: HTMLElement): HTMLElement {
 }
 
 export function renderWikiSettingsPage(containerEl: HTMLElement, plugin: WritingMenuPlugin, rerender: () => void) {
-	groupTitle(containerEl, '기본 설정');
+	groupTitle(containerEl, '기본');
 	const basicBox = groupBox(containerEl);
 
 	new Setting(basicBox)
@@ -18,7 +18,7 @@ export function renderWikiSettingsPage(containerEl: HTMLElement, plugin: Writing
 		.addToggle(t => t.setValue(plugin.settings.wikiStripCollapsedDefault ?? false)
 			.onChange(async v => { plugin.settings.wikiStripCollapsedDefault = v; await plugin.saveSettings(); }));
 
-	groupTitle(containerEl, '속성 설정');
+	groupTitle(containerEl, '속성');
 	const propBox = groupBox(containerEl);
 
 	new Setting(propBox)
@@ -49,7 +49,7 @@ export function renderWikiSettingsPage(containerEl: HTMLElement, plugin: Writing
 				await plugin.saveSettings();
 			}));
 
-	groupTitle(containerEl, '스타일 설정');
+	groupTitle(containerEl, '스타일');
 	const styleBox = groupBox(containerEl);
 
 	new Setting(styleBox)

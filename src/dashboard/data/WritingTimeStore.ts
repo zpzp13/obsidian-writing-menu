@@ -100,6 +100,39 @@ export class WritingTimeStore {
 		return { avg, count: counts };
 	}
 
+	/**
+	 * 데일리노트 폴더에서 특정 프로젝트의 모드별 일평균 계산.
+	 * 키 형식: {projectName}_{mode.frontmatterKey}
+	 */
+	static async averageDailyNotes(
+		app: App,
+		dailyFolder: string,
+		projectName: string,
+		modes: TimeModeConfig[],
+	): Promise<ModeStat> {
+		const totals: Record<string, number> = {};
+		const counts: Record<string, number> = {};
+		for (const m of modes) { totals[m.id] = 0; counts[m.id] = 0; }
+		const prefix = dailyFolder ? normalizePath(dailyFolder) + '/' : '';
+
+		for (const file of app.vault.getMarkdownFiles()) {
+			if (prefix && !file.path.startsWith(prefix)) continue;
+			const fm = app.metadataCache.getFileCache(file)?.frontmatter;
+			if (!fm) continue;
+			for (const m of modes) {
+				const key = `${projectName}_${m.frontmatterKey}`;
+				const v = this.parseTime(fm[key]);
+				if (v > 0) { totals[m.id] += v; counts[m.id]++; }
+			}
+		}
+
+		const avg: Record<string, number> = {};
+		for (const m of modes) {
+			avg[m.id] = counts[m.id] > 0 ? Math.round(totals[m.id] / counts[m.id]) : 0;
+		}
+		return { avg, count: counts };
+	}
+
 	/** 최근 N일의 데일리노트에서 모드별 작업시간 추출 */
 	static async getDailyHistory(
 		app: App,

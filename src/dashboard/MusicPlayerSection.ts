@@ -132,24 +132,7 @@ function openPlaylistPopup(anchor: HTMLElement, plugin: WritingMenuPlugin) {
 		}
 	};
 
-	const renderFolderLevel = (folderPath: string) => {
-		state.level = 'folder';
-		state.currentFolder = folderPath;
-		popup.empty();
-		const norm = folderPath.replace(/\\/g, '/').replace(/\/?$/, '/');
-		const tracks = mp.playlist.filter(t => t.path.replace(/\\/g, '/').startsWith(norm));
-
-		if (folders.length > 1) {
-			const hdr = popup.createDiv({ cls: 'wm-music-list-hdr' });
-			const back = hdr.createDiv({ cls: 'wm-music-btn wm-music-list-back' });
-			setIcon(back, 'arrow-left');
-			back.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); renderRootLevel(); });
-			hdr.createDiv({ cls: 'wm-music-list-hdr-title', text: folderPath.split('/').pop() ?? folderPath });
-		} else {
-			popup.createDiv({ cls: 'wm-music-list-section-label', text: folderPath.split('/').pop() ?? folderPath });
-		}
-		if (tracks.length === 0) { popup.createDiv({ cls: 'wm-music-list-empty', text: '오디오 파일이 없습니다' }); return; }
-		const list = popup.createDiv({ cls: 'wm-music-list-tracks' });
+	const renderTrackList = (list: HTMLElement, tracks: Track[], forFolder: string) => {
 		for (const track of tracks) {
 			const isCurrent = mp.currentTrack?.path === track.path;
 			const item = list.createDiv({ cls: `wm-music-list-item${isCurrent ? ' is-playing' : ''}` });
@@ -159,8 +142,72 @@ function openPlaylistPopup(anchor: HTMLElement, plugin: WritingMenuPlugin) {
 				e.preventDefault();
 				e.stopPropagation();
 				mp.playInFolder(track);
-				renderFolderLevel(folderPath);
+				renderFolderLevel(forFolder);
 			});
+		}
+	};
+
+	const renderFolderLevel = (folderPath: string) => {
+		state.level = 'folder';
+		state.currentFolder = folderPath;
+		popup.empty();
+		const norm      = folderPath.replace(/\\/g, '/').replace(/\/?$/, '/');
+		const allTracks = mp.playlist.filter(t => t.path.replace(/\\/g, '/').startsWith(norm));
+
+		// 헤더: 최상위 설정 폴더이고 단일 폴더면 레이블만, 나머지는 뒤로가기
+		const isTopFolder = folders.some(f => f.replace(/\\/g, '/').replace(/\/?$/, '/') === norm);
+		if (!isTopFolder || folders.length > 1) {
+			const hdr  = popup.createDiv({ cls: 'wm-music-list-hdr' });
+			const back = hdr.createDiv({ cls: 'wm-music-btn wm-music-list-back' });
+			setIcon(back, 'arrow-left');
+			back.addEventListener('mousedown', (e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				const parentFolder = folders.find(f => {
+					const fn = f.replace(/\\/g, '/').replace(/\/?$/, '/');
+					return norm.startsWith(fn) && fn !== norm;
+				});
+				if (parentFolder) renderFolderLevel(parentFolder);
+				else renderRootLevel();
+			});
+			hdr.createDiv({ cls: 'wm-music-list-hdr-title', text: folderPath.split('/').pop() ?? folderPath });
+		} else {
+			popup.createDiv({ cls: 'wm-music-list-section-label', text: folderPath.split('/').pop() ?? folderPath });
+		}
+
+		if (allTracks.length === 0) {
+			popup.createDiv({ cls: 'wm-music-list-empty', text: '오디오 파일이 없습니다' });
+			return;
+		}
+
+		// 직계 하위 폴더 감지
+		const subfolderPaths = new Set<string>();
+		const directTracks: Track[] = [];
+		for (const track of allTracks) {
+			const rest     = track.path.replace(/\\/g, '/').slice(norm.length);
+			const slashIdx = rest.indexOf('/');
+			if (slashIdx >= 0) subfolderPaths.add(norm + rest.slice(0, slashIdx));
+			else directTracks.push(track);
+		}
+
+		if (subfolderPaths.size > 0) {
+			for (const subfolder of [...subfolderPaths].sort()) {
+				const item = popup.createDiv({ cls: 'wm-music-list-item' });
+				setIcon(item.createDiv({ cls: 'wm-music-list-item-icon' }), 'folder');
+				item.createDiv({ cls: 'wm-music-list-item-name', text: subfolder.split('/').pop() ?? subfolder });
+				setIcon(item.createDiv({ cls: 'wm-music-list-item-chevron' }), 'chevron-right');
+				item.addEventListener('mousedown', (e) => {
+					e.preventDefault();
+					e.stopPropagation();
+					renderFolderLevel(subfolder);
+				});
+			}
+			if (directTracks.length > 0) {
+				popup.createDiv({ cls: 'wm-music-list-sep' });
+				renderTrackList(popup.createDiv({ cls: 'wm-music-list-tracks' }), directTracks, folderPath);
+			}
+		} else {
+			renderTrackList(popup.createDiv({ cls: 'wm-music-list-tracks' }), allTracks, folderPath);
 		}
 	};
 
