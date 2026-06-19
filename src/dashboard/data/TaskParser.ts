@@ -85,7 +85,7 @@ export class TaskParser {
 						subItems,
 					});
 				}
-			} catch (_e) {}
+			} catch { /* intentional */ }
 		}
 
 		return results;
@@ -251,10 +251,10 @@ export class TaskParser {
 							.replace(/\{\{date:([^}]+)\}\}/gi, (_: string, fmt: string) => moment().format(fmt))
 							.replace(/\{\{time\}\}/gi, moment().format('HH:mm'))
 							.replace(/\{\{title\}\}/gi, name);
-					} catch (_e) {}
+					} catch { /* intentional */ }
 				}
 			}
-			try { file = await plugin.app.vault.create(path, initContent); } catch (_e) {}
+			try { file = await plugin.app.vault.create(path, initContent); } catch { /* intentional */ }
 		}
 		if (!(file instanceof TFile)) return;
 

@@ -65,7 +65,7 @@ export default class WritingMenuPlugin extends Plugin {
 				.catch(() => {});
 		});
 		this.registerEvent(this.app.vault.on('modify', file => {
-			if (file instanceof TFile) this.charStore.onFileModify(file);
+			if (file instanceof TFile) void this.charStore.onFileModify(file);
 		}));
 
 		if (Platform.isWin) {
@@ -130,14 +130,14 @@ export default class WritingMenuPlugin extends Plugin {
 
 		this.registerEvent(
 			this.app.workspace.on('file-menu', (menu, file) => {
-				if ((file as any).extension === 'md') {
+				if (file instanceof TFile && file.extension === 'md') {
 					if (Platform.isDesktopApp) {
 						menu.addItem((item) => {
 							item
 								.setTitle('TXT로 내보내기')
 								.setIcon('file-text')
 								.onClick(() => {
-									new TxtExportModal(this.app, this, file as TFile).open();
+									new TxtExportModal(this.app, this, file).open();
 								});
 						});
 					}
@@ -147,11 +147,11 @@ export default class WritingMenuPlugin extends Plugin {
 								.setTitle('HWP로 내보내기')
 								.setIcon('file')
 								.onClick(() => {
-									new HwpExportModal(this.app, this, file as TFile).open();
+									new HwpExportModal(this.app, this, file).open();
 								});
 						});
 					}
-				} else if ((file as any).children) {
+				} else if (file instanceof TFolder) {
 					if (Platform.isDesktopApp) {
 						menu.addItem((item) => {
 							item
@@ -179,7 +179,7 @@ export default class WritingMenuPlugin extends Plugin {
 
 		this.registerEvent(
 			this.app.workspace.on('files-menu', (menu, files) => {
-				const mdFiles = files.filter((f: any) => f.extension === 'md');
+				const mdFiles = files.filter((f): f is TFile => f instanceof TFile && f.extension === 'md');
 				if (mdFiles.length > 0) {
 					if (Platform.isDesktopApp) {
 						menu.addItem((item) => {
@@ -229,7 +229,7 @@ export default class WritingMenuPlugin extends Plugin {
 			id: 'toggle-time-tracking-sidebar',
 			name: '작업 시간 사이드바 열기/닫기',
 			callback: () => {
-				this.toggleTimeTrackingSidebar();
+				void this.toggleTimeTrackingSidebar();
 			}
 		});
 
@@ -336,7 +336,8 @@ export default class WritingMenuPlugin extends Plugin {
 	}
 
 	private registerNotebookNavigatorMenus() {
-		const nn = ((this.app as any).plugins as any)?.plugins?.['notebook-navigator'];
+		interface AppWithPlugins { plugins?: { plugins?: Record<string, unknown> } }
+		const nn = (this.app as unknown as AppWithPlugins).plugins?.plugins?.['notebook-navigator'] as { api?: { menus?: { registerFileMenu(fn: (ctx: unknown) => void): unknown; registerFolderMenu(fn: (ctx: unknown) => void): unknown } } } | undefined;
 		if (!nn?.api?.menus) return;
 
 		const unregFile = nn.api.menus.registerFileMenu((ctx: {
@@ -394,8 +395,8 @@ export default class WritingMenuPlugin extends Plugin {
 			}
 		});
 
-		if (typeof unregFile === 'function') this.nnMenuUnregisterFns.push(unregFile);
-		if (typeof unregFolder === 'function') this.nnMenuUnregisterFns.push(unregFolder);
+		if (typeof unregFile === 'function') this.nnMenuUnregisterFns.push(unregFile as () => void);
+		if (typeof unregFolder === 'function') this.nnMenuUnregisterFns.push(unregFolder as () => void);
 	}
 
 
@@ -433,7 +434,7 @@ export default class WritingMenuPlugin extends Plugin {
 		this.musicPlayer = null;
 
 		for (const unregister of this.nnMenuUnregisterFns) {
-			try { unregister(); } catch {}
+			try { unregister(); } catch { /* intentional */ }
 		}
 		this.nnMenuUnregisterFns = [];
 
@@ -742,7 +743,7 @@ export default class WritingMenuPlugin extends Plugin {
 				// Get context from ORIGINAL doc (before insertion)
 				const context = tr.startState.doc.sliceString(Math.max(0, fromA - 1), fromA);
 				// Opening quote: at start, after space, or after opening brackets/quotes
-				const isOpening = fromA === 0 || /[\s\(\[\{\<]$/.test(context);
+				const isOpening = fromA === 0 || /[\s([{<]$/.test(context);
 
 				const replacement = isOpening ? rule.open : rule.close;
 				changes.push({ from: fromA, to: toA, insert: replacement });
@@ -969,7 +970,7 @@ export default class WritingMenuPlugin extends Plugin {
 					for (let i = fl; i <= tl; i++) {
 						const line = view.state.doc.line(i);
 						if (!/^#{1,6}\s/.test(line.text)) continue;
-						const re = /\[([^\[\]]*)\]\s?\[([^\[\]]*)\]/g;
+						const re = /\[([^\]]*)\]\s?\[([^\]]*)\]/g;
 						let m;
 						while ((m = re.exec(line.text)) !== null) {
 							const mFrom = line.from + m.index;
@@ -1553,7 +1554,7 @@ export default class WritingMenuPlugin extends Plugin {
 			if (view instanceof MarkdownView && view.editor) {
 				this.addCharCountWithModeSelector(container, this.calculateCharCount(view.editor.getValue()), leaf);
 			}
-		} catch {}
+		} catch { /* intentional */ }
 
 		this.addSeparator(container);
 

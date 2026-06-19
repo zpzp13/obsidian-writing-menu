@@ -91,7 +91,7 @@ export function renderTaskItem(
 				subCheck.classList.toggle('is-done', nowDone);
 				subItem.classList.toggle('is-done', nowDone);
 				sub.completed = nowDone;
-				try { await TaskParser.toggleSubTask(task, idx, nowDone, plugin); } catch (_e) {}
+				try { await TaskParser.toggleSubTask(task, idx, nowDone, plugin); } catch { /* intentional */ }
 			});
 		});
 	}
@@ -142,7 +142,7 @@ export function renderTaskItem(
 			pitem.addEventListener('click', async (e2) => {
 				e2.stopPropagation();
 				ppop.remove();
-				try { await TaskParser.setTaskPriority(task, p.emoji, plugin); } catch (_e) {}
+				try { await TaskParser.setTaskPriority(task, p.emoji, plugin); } catch { /* intentional */ }
 			});
 		}
 
@@ -161,6 +161,6 @@ export function renderTaskItem(
 		titleEl.classList.toggle('is-done', nowDone);
 		setIcon(check, nowDone ? 'check-circle-2' : 'circle');
 		task.completed = nowDone || undefined;
-		try { await TaskParser.toggleTask(task, nowDone, plugin); } catch (_e) {}
+		try { await TaskParser.toggleTask(task, nowDone, plugin); } catch { /* intentional */ }
 	});
 }

@@ -1,4 +1,4 @@
-import { setIcon, Notice, MarkdownView, MarkdownRenderer, TFile, App } from 'obsidian';
+import { setIcon, Notice, MarkdownView, MarkdownRenderer, TFile, App, Component } from 'obsidian';
 
 interface AppWithSettings extends App {
 	setting?: { open(): void; openTabById(id: string): void };
@@ -591,7 +591,8 @@ export class VersionPanel {
 			if (currentFile) {
 				manager.readVersion(currentFile, entry).then(content => {
 					if (!body.isConnected) return;
-					void MarkdownRenderer.render(plugin.app, content, body, currentFile!.path, plugin).catch(() => {});
+					const scope = new Component(); scope.load();
+					void MarkdownRenderer.render(plugin.app, content, body, currentFile!.path, scope).catch(() => {});
 				}).catch(() => {
 					body.createEl('p', { text: '내용을 불러올 수 없습니다.' });
 				});

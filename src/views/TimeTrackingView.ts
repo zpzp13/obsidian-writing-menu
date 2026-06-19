@@ -84,7 +84,7 @@ export class TimeTrackingView extends ItemView {
 		const stopwatchLabelGroup = stopwatchDiv.createDiv('wm-tt-sub-label-group');
 		const cornerIcon1 = stopwatchLabelGroup.createSpan('wm-tt-corner-icon');
 		setIcon(cornerIcon1, 'corner-down-right');
-		const stopwatchLabel = stopwatchLabelGroup.createEl('span', { text: '스톱워치', cls: 'wm-tt-sub-text' });
+		stopwatchLabelGroup.createEl('span', { text: '스톱워치', cls: 'wm-tt-sub-text' });
 
 		const stopwatchRightGroup = stopwatchDiv.createDiv('wm-tt-right-group');
 

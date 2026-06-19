@@ -146,7 +146,7 @@ async function loadDayData(date: Date, plugin: WritingMenuPlugin): Promise<DayDa
 				done:       t.completed === true,
 				category:   t.category,
 			}));
-	} catch (_e) {}
+	} catch { /* intentional */ }
 
 	const timeModes: { label: string; seconds: number }[] = [];
 	let totalSeconds = 0;

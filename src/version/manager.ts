@@ -120,7 +120,7 @@ export class VersionManager {
 					entry.charCount = calcVersionCharCount(content, 'novelpia');
 				entry.charCountTotal = calcVersionCharCount(content, 'munpia');
 					changed = true;
-				} catch (_e) {}
+				} catch { /* intentional */ }
 			}
 		}
 		if (changed) await this.saveManifest(file, manifest);
