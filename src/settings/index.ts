@@ -973,9 +973,9 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			new Setting(toggleDiv).addToggle(t => t.setValue(trigger.enabled !== false).onChange(async v => {
 				trigger.enabled = v; await this.plugin.saveSettings(); this.displaySymbolPairs(container);
 			})).setName('').setDesc('');
-			(toggleDiv.querySelector('.setting-item') as HTMLElement)?.setAttribute('style', 'border:none;padding:0;margin:0;min-height:auto;display:flex;align-items:center;');
-			(toggleDiv.querySelector('.setting-item-info') as HTMLElement)?.setAttribute('style', 'display:none;');
-			(toggleDiv.querySelector('.setting-item-control') as HTMLElement)?.setAttribute('style', 'padding:0;margin:0;');
+			(toggleDiv.querySelector('.setting-item') as HTMLElement)?.addClass('wm-inline-setting');
+			(toggleDiv.querySelector('.setting-item-info') as HTMLElement)?.addClass('wm-inline-setting-info');
+			(toggleDiv.querySelector('.setting-item-control') as HTMLElement)?.addClass('wm-inline-setting-ctrl');
 
 			const input = header.createEl('input', { type: 'text', value: trigger.trigger });
 			input.setCssStyles({ 'flex': '1', 'textAlign': 'center', 'fontWeight': 'bold', 'borderRadius': '4px', 'border': '1px solid var(--background-modifier-border)', 'padding': '4px', 'minWidth': '0' });
@@ -1043,9 +1043,9 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			new Setting(toggleDiv).addToggle(t => t.setValue(sub.enabled).onChange(async v => {
 				sub.enabled = v; await this.plugin.saveSettings(); this.displayTextSubstitutions(container);
 			})).setName('').setDesc('');
-			(toggleDiv.querySelector('.setting-item') as HTMLElement)?.setAttribute('style', 'border:none;padding:0;margin:0;min-height:auto;display:flex;align-items:center;');
-			(toggleDiv.querySelector('.setting-item-info') as HTMLElement)?.setAttribute('style', 'display:none;');
-			(toggleDiv.querySelector('.setting-item-control') as HTMLElement)?.setAttribute('style', 'padding:0;margin:0;');
+			(toggleDiv.querySelector('.setting-item') as HTMLElement)?.addClass('wm-inline-setting');
+			(toggleDiv.querySelector('.setting-item-info') as HTMLElement)?.addClass('wm-inline-setting-info');
+			(toggleDiv.querySelector('.setting-item-control') as HTMLElement)?.addClass('wm-inline-setting-ctrl');
 
 			const fromInput = row.createEl('input', { type: 'text', value: sub.from });
 			fromInput.setCssStyles({ 'flex': '1', 'textAlign': 'center', 'border': '1px solid var(--background-modifier-border)', 'borderRadius': '4px', 'padding': '6px', 'minWidth': '60px' });
