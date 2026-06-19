@@ -66,20 +66,28 @@ export class DashboardSection {
 	private static renderCharsContent(root: HTMLElement, plugin: WritingMenuPlugin) {
 		const store = plugin.charStore;
 		const statsItem = root.createDiv({ cls: 'wm-dash-group-item' });
-		const getCurrentCounts = () => {
+
+		// DOM 구조 한 번 생성, SVG 재파싱 없이 text node만 갱신하는 함수 반환
+		const { updateChars, updateAvg } = this.buildStatsCardLive(statsItem, store, plugin);
+
+		// 노트 글자수: 키 입력 즉시 반영 (디바운스 없음, DOM 재생성 없음)
+		const refreshChars = () => {
 			const view = plugin.app.workspace.getActiveViewOfType(MarkdownView);
-			if (!view?.file) return null;
+			if (!view?.file) { updateChars(null); return; }
 			const content = view.editor.getValue();
-			return {
+			updateChars({
 				munpia:   calcVersionCharCount(content, 'munpia'),
 				novelpia: calcVersionCharCount(content, 'novelpia'),
-			};
+			});
 		};
-		this.renderStatsCard(statsItem, store, plugin, getCurrentCounts());
-		const refreshStats = () => { statsItem.empty(); this.renderStatsCard(statsItem, store, plugin, getCurrentCounts()); };
-		const modifyHandler = plugin.app.vault.on('modify', refreshStats);
-		const editorHandler = plugin.app.workspace.on('editor-change', refreshStats);
-		const leafHandler   = plugin.app.workspace.on('active-leaf-change', refreshStats);
+
+		refreshChars();
+
+		const editorHandler = plugin.app.workspace.on('editor-change', refreshChars);
+		const leafHandler   = plugin.app.workspace.on('active-leaf-change', () => { refreshChars(); updateAvg(); });
+		// 일평균은 자동저장 시점에만 갱신
+		const modifyHandler = plugin.app.vault.on('modify', updateAvg);
+
 		watchDisconnect(root, () => {
 			plugin.app.vault.offref(modifyHandler);
 			plugin.app.workspace.offref(editorHandler);
@@ -132,56 +140,78 @@ export class DashboardSection {
 		});
 	}
 
-	private static renderStatsCard(
+	private static buildStatsCardLive(
 		container: HTMLElement,
 		store: DailyCharStore,
 		plugin: WritingMenuPlugin,
-		currentCounts: { munpia: number; novelpia: number } | null = null,
-	) {
-		const goal    = plugin.settings.writingGoalChars ?? 0;
-		const average = store.getDailyAverage();
-		const mode    = plugin.settings.charCountMode ?? 'munpia';
-		const count   = currentCounts?.[mode] ?? 0;
-
-		const grid = container.createDiv({ cls: 'wm-dash-stats-grid' });
-
-		// ── 오늘 카드 (좌열 2행 span) — 현재 노트 글자수 ──
-		const todayCard = grid.createDiv({ cls: 'wm-dash-stat-card is-today' });
-		const todayTop  = todayCard.createDiv({ cls: 'wm-dash-today-top' });
-		todayTop.createDiv({ cls: 'wm-dash-today-label', text: 'TODAY' });
-		const numStack = todayTop.createDiv({ cls: 'wm-dash-today-num-stack' });
+	): {
+		updateChars(counts: { munpia: number; novelpia: number } | null): void;
+		updateAvg(): void;
+	} {
 		const display = plugin.settings.statCardDisplay ?? 'both';
 		const plats = display === 'munpia' ? (['munpia'] as const)
 		            : display === 'novelpia' ? (['novelpia'] as const)
 		            : (['munpia', 'novelpia'] as const);
+
+		const grid = container.createDiv({ cls: 'wm-dash-stats-grid' });
+
+		// ── 오늘 카드 — SVG는 최초 1회만 생성 ──
+		const todayCard = grid.createDiv({ cls: 'wm-dash-stat-card is-today' });
+		const todayTop  = todayCard.createDiv({ cls: 'wm-dash-today-top' });
+		todayTop.createDiv({ cls: 'wm-dash-today-label', text: 'TODAY' });
+		const numStack  = todayTop.createDiv({ cls: 'wm-dash-today-num-stack' });
+		const numEls    = new Map<string, HTMLElement>();
 		for (const plat of plats) {
-			const row = numStack.createDiv({ cls: 'wm-dash-today-num-row' });
+			const row    = numStack.createDiv({ cls: 'wm-dash-today-num-row' });
 			const logoEl = row.createDiv({ cls: 'wm-dash-platform-logo' });
 			logoEl.appendChild(sanitizeHTMLToDom(plat === 'munpia' ? MUNPIA_SVG : NOVELPIA_SVG));
-			const n = currentCounts?.[plat] ?? null;
-			row.createDiv({ cls: 'wm-dash-stat-num wm-dash-today-num wm-dash-today-sum', text: n !== null ? `${n.toLocaleString()}자` : '—' });
+			numEls.set(plat, row.createDiv({ cls: 'wm-dash-stat-num wm-dash-today-num wm-dash-today-sum', text: '—' }));
 		}
 		const todayBot = todayCard.createDiv({ cls: 'wm-dash-today-bot' });
-		const remain   = todayBot.createDiv({ cls: 'wm-dash-today-remain' });
-		if (currentCounts !== null && goal > 0 && count >= goal) {
-			remain.addClass('is-achieved');
-			todayBot.addClass('is-achieved');
-			remain.appendText('목표 달성!');
-		} else if (currentCounts !== null && goal > 0) {
-			remain.appendText('목표까지 ');
-			remain.createSpan({ cls: 'wm-dash-today-remain-num', text: `${(goal - count).toLocaleString()}자` });
-		}
+		const remainEl = todayBot.createDiv({ cls: 'wm-dash-today-remain' });
 
-		// ── 일평균 카드 (우상단) ──
-		const avgCard = grid.createDiv({ cls: 'wm-dash-stat-card is-avg' });
-		const avgRow = avgCard.createDiv({ cls: 'wm-dash-stat-row' });
+		// ── 일평균 카드 ──
+		const avgCard  = grid.createDiv({ cls: 'wm-dash-stat-card is-avg' });
+		const avgRow   = avgCard.createDiv({ cls: 'wm-dash-stat-row' });
 		avgRow.createDiv({ cls: 'wm-dash-stat-lbl', text: '일평균' });
-		avgRow.createDiv({ cls: 'wm-dash-stat-num', text: average > 0 ? average.toLocaleString() : '—' });
+		const avgNumEl = avgRow.createDiv({ cls: 'wm-dash-stat-num', text: '—' });
 
-		// ── 목표 카드 (우하단) ──
+		// ── 목표 카드 ──
+		const goal     = plugin.settings.writingGoalChars ?? 0;
 		const goalCard = grid.createDiv({ cls: 'wm-dash-stat-card is-goal' });
 		const goalRow  = goalCard.createDiv({ cls: 'wm-dash-stat-row' });
 		goalRow.createDiv({ cls: 'wm-dash-stat-lbl', text: '목표' });
 		goalRow.createDiv({ cls: 'wm-dash-stat-num', text: goal > 0 ? goal.toLocaleString() : '—' });
+
+		// 글자수 text node만 갱신 (DOM 재생성 없음)
+		const updateChars = (counts: { munpia: number; novelpia: number } | null) => {
+			const mode        = plugin.settings.charCountMode ?? 'munpia';
+			const currentGoal = plugin.settings.writingGoalChars ?? 0;
+			for (const plat of plats) {
+				const el = numEls.get(plat);
+				if (el) el.textContent = counts ? `${counts[plat].toLocaleString()}자` : '—';
+			}
+			const count = counts?.[mode] ?? 0;
+			remainEl.empty();
+			todayBot.removeClass('is-achieved');
+			remainEl.removeClass('is-achieved');
+			if (counts !== null && currentGoal > 0 && count >= currentGoal) {
+				remainEl.addClass('is-achieved');
+				todayBot.addClass('is-achieved');
+				remainEl.appendText('목표 달성!');
+			} else if (counts !== null && currentGoal > 0) {
+				remainEl.appendText('목표까지 ');
+				remainEl.createSpan({ cls: 'wm-dash-today-remain-num', text: `${(currentGoal - count).toLocaleString()}자` });
+			}
+		};
+
+		// 일평균 text node만 갱신
+		const updateAvg = () => {
+			const avg = store.getDailyAverage();
+			avgNumEl.textContent = avg > 0 ? avg.toLocaleString() : '—';
+		};
+
+		updateAvg();
+		return { updateChars, updateAvg };
 	}
 }
