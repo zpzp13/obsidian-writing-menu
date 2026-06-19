@@ -4271,11 +4271,11 @@ button[aria-label="규칙 추가"] {
 			.writing-menu-text-btn:hover { color: var(--interactive-accent); border-color: var(--interactive-accent); }
 
 			/* Zen mode — show only the active leaf */
-			body.wm-focus-mode.wm-has-zen-leaf .workspace-tabs:not(:has(.wm-zen-leaf)),
-			body.wm-focus-mode.wm-has-zen-leaf .workspace-split:not(.mod-root):not(:has(.wm-zen-leaf)) {
+			body.wm-focus-mode.wm-has-zen-leaf .workspace-tabs:not(.wm-zen-tabs),
+			body.wm-focus-mode.wm-has-zen-leaf .workspace-split:not(.mod-root):not(.wm-zen-split) {
 				display: none !important;
 			}
-			body.wm-focus-mode.wm-has-zen-leaf .workspace-tabs:has(.wm-zen-leaf) { flex: 1 1 auto !important; }
+			body.wm-focus-mode.wm-has-zen-leaf .workspace-tabs.wm-zen-tabs { flex: 1 1 auto !important; }
 			body.wm-focus-mode.wm-has-zen-leaf .workspace-leaf.wm-zen-leaf { flex: 1 1 auto !important; }
 
 

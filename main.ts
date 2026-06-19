@@ -1226,11 +1226,22 @@ export default class WritingMenuPlugin extends Plugin {
 		if (el) {
 			el.classList.add('wm-zen-leaf');
 			activeDocument.body.classList.add('wm-has-zen-leaf');
+			// Mark ancestor workspace-tabs and workspace-splits so CSS can target them
+			// without :has() selector
+			const tabs = el.closest('.workspace-tabs');
+			if (tabs) tabs.classList.add('wm-zen-tabs');
+			let split = el.closest('.workspace-split');
+			while (split) {
+				split.classList.add('wm-zen-split');
+				split = split.parentElement?.closest('.workspace-split') ?? null;
+			}
 		}
 	}
 
 	private clearZenLeaf() {
 		activeDocument.querySelectorAll('.wm-zen-leaf').forEach((el: Element) => el.classList.remove('wm-zen-leaf'));
+		activeDocument.querySelectorAll('.wm-zen-tabs').forEach((el: Element) => el.classList.remove('wm-zen-tabs'));
+		activeDocument.querySelectorAll('.wm-zen-split').forEach((el: Element) => el.classList.remove('wm-zen-split'));
 		activeDocument.body.classList.remove('wm-has-zen-leaf');
 		this.zenLeaf = null;
 	}

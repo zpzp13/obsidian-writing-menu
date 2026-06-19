@@ -101,9 +101,14 @@ export async function convertToHwp(plugin: WritingMenuPlugin, file: TFile, fileN
 			args.push(plugin.settings.hwpTemplatePath);
 		}
 
+		const spawnEnv: Record<string, string> = { PYTHONIOENCODING: 'utf-8' };
+		for (const key of ['PATH', 'PATHEXT', 'TEMP', 'TMP', 'SystemRoot', 'WINDIR', 'COMSPEC', 'SYSTEMDRIVE']) {
+			const val = process.env[key];
+			if (val !== undefined) spawnEnv[key] = val;
+		}
 		const pythonProcess = spawn('python', args, {
 			cwd: scriptDir,
-			env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
+			env: spawnEnv
 		});
 
 		let stderrOutput = '';
@@ -142,7 +147,7 @@ export function getDefaultExportPath(plugin: WritingMenuPlugin): string{
 		return plugin.settings.hwpExportPath;
 	}
 	// Default to Desktop
-	return process.env.USERPROFILE ? path.join(process.env.USERPROFILE, 'Desktop') : '';
+	return '';
 }
 
 export function cleanMarkdownFrontmatter(plugin: WritingMenuPlugin, content: string): string{
