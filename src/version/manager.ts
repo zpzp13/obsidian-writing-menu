@@ -33,7 +33,7 @@ export class VersionManager {
 		if (!exists) return { filePath: file.path, versions: [] };
 		try {
 			const raw = await this.app.vault.adapter.read(manifestPath);
-			return JSON.parse(raw);
+			return JSON.parse(raw) as VersionManifest;
 		} catch {
 			return { filePath: file.path, versions: [] };
 		}

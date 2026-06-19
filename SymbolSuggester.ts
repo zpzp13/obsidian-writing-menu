@@ -1,98 +1,96 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-import { EditorSuggest, Editor, EditorPosition, TFile, EditorSuggestContext, EditorSuggestTriggerInfo, MarkdownView } from 'obsidian';
-// import WritingMenuPlugin from './main'; // Avoid circular dependency
+import { EditorSuggest, Editor, EditorPosition, TFile, EditorSuggestContext, EditorSuggestTriggerInfo, MarkdownView, Plugin } from 'obsidian';
+import type { SymbolTrigger } from './src/types';
 
-export class SymbolSuggester extends EditorSuggest<any> {
-    plugin: any;
+interface SymbolSuggestion {
+	open: string;
+	close: string;
+	trigger: string;
+	label: string;
+}
 
-    constructor(plugin: any) {
-        super(plugin.app);
-        this.plugin = plugin;
-    }
+interface ISymbolPlugin extends Plugin {
+	settings: {
+		enableSmartInput: boolean;
+		symbolTriggers: SymbolTrigger[];
+	};
+}
 
-    onTrigger(cursor: EditorPosition, editor: Editor, file: TFile): EditorSuggestTriggerInfo | null {
-        // Master switch check
-        if (!this.plugin.settings.enableSmartInput) {
-            return null;
-        }
+export class SymbolSuggester extends EditorSuggest<SymbolSuggestion> {
+	plugin: ISymbolPlugin;
 
-        const line = editor.getLine(cursor.line);
-        const sub = line.substring(0, cursor.ch);
+	constructor(plugin: ISymbolPlugin) {
+		super(plugin.app);
+		this.plugin = plugin;
+	}
 
-        // Find all matching triggers (only enabled ones)
-        const matches = this.plugin.settings.symbolTriggers.filter((t: any) => t.enabled !== false && sub.endsWith(t.trigger));
+	onTrigger(cursor: EditorPosition, editor: Editor, _file: TFile): EditorSuggestTriggerInfo | null {
+		if (!this.plugin.settings.enableSmartInput) {
+			return null;
+		}
 
-        if (matches.length === 0) return null;
+		const line = editor.getLine(cursor.line);
+		const sub = line.substring(0, cursor.ch);
 
-        // Sort by length descending (Longest match wins)
-        matches.sort((a: any, b: any) => b.trigger.length - a.trigger.length);
-        const bestMatch = matches[0];
+		const matches = this.plugin.settings.symbolTriggers.filter(t => t.enabled !== false && sub.endsWith(t.trigger));
 
-        return {
-            start: { line: cursor.line, ch: cursor.ch - bestMatch.trigger.length },
-            end: cursor,
-            query: bestMatch.trigger
-        };
-    }
+		if (matches.length === 0) return null;
 
-    getSuggestions(context: EditorSuggestContext): any[] {
-        const triggerStr = context.query;
-        const triggerObj = this.plugin.settings.symbolTriggers.find((t: any) => t.trigger === triggerStr);
+		matches.sort((a, b) => b.trigger.length - a.trigger.length);
+		const bestMatch = matches[0];
 
-        if (!triggerObj) return [];
+		return {
+			start: { line: cursor.line, ch: cursor.ch - bestMatch.trigger.length },
+			end: cursor,
+			query: bestMatch.trigger
+		};
+	}
 
-        // Return all options for this trigger, mapping them to the format expected by render/select
-        return triggerObj.options.map((opt: any) => ({
-            open: opt.open,
-            close: opt.close,
-            trigger: triggerObj.trigger,
-            label: `${opt.open} ${opt.close}` // Helper for unique keys if needed
-        }));
-    }
+	getSuggestions(context: EditorSuggestContext): SymbolSuggestion[] {
+		const triggerStr = context.query;
+		const triggerObj = this.plugin.settings.symbolTriggers.find(t => t.trigger === triggerStr);
 
-    renderSuggestion(suggestion: any, el: HTMLElement): void {
-        el.setText(`${suggestion.open} ... ${suggestion.close}`);
-    }
+		if (!triggerObj) return [];
 
-    selectSuggestion(suggestion: any, evt: MouseEvent | KeyboardEvent): void {
-        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-        if (!activeView) return;
+		return triggerObj.options.map(opt => ({
+			open: opt.open,
+			close: opt.close,
+			trigger: triggerObj.trigger,
+			label: `${opt.open} ${opt.close}`
+		}));
+	}
 
-        const editor = activeView.editor;
-        const cursor = editor.getCursor();
-        const triggerLength = suggestion.trigger.length;
+	renderSuggestion(suggestion: SymbolSuggestion, el: HTMLElement): void {
+		el.setText(`${suggestion.open} ... ${suggestion.close}`);
+	}
 
-        // Calculate replacement range (remove trigger char)
-        const from = { line: cursor.line, ch: cursor.ch - triggerLength };
+	selectSuggestion(suggestion: SymbolSuggestion, evt: MouseEvent | KeyboardEvent): void {
+		const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (!activeView) return;
 
-        const doReplace = () => {
-            // Insert pair
-            editor.replaceRange(suggestion.open + suggestion.close, from, cursor);
+		const editor = activeView.editor;
+		const cursor = editor.getCursor();
+		const triggerLength = suggestion.trigger.length;
 
-            // Move cursor to center
-            editor.setCursor({
-                line: cursor.line,
-                ch: from.ch + suggestion.open.length
-            });
-        };
+		const from = { line: cursor.line, ch: cursor.ch - triggerLength };
 
-        // Touch/mouse selection: blur then focus to reset IME composition state
-        if (evt instanceof MouseEvent) {
-            evt.preventDefault();
-            evt.stopPropagation();
-            // Blur to end any active IME composition
-            editor.blur();
-            window.setTimeout(() => {
-                editor.focus();
-                doReplace();
-            }, 50);
-        } else {
-            doReplace();
-        }
-    }
+		const doReplace = () => {
+			editor.replaceRange(suggestion.open + suggestion.close, from, cursor);
+			editor.setCursor({
+				line: cursor.line,
+				ch: from.ch + suggestion.open.length
+			});
+		};
+
+		if (evt instanceof MouseEvent) {
+			evt.preventDefault();
+			evt.stopPropagation();
+			editor.blur();
+			window.setTimeout(() => {
+				editor.focus();
+				doReplace();
+			}, 50);
+		} else {
+			doReplace();
+		}
+	}
 }

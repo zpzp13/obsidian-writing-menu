@@ -1,4 +1,4 @@
-import { App, Modal, TFile, TFolder, Setting, Vault, TAbstractFile, setIcon } from 'obsidian';
+import { App, Modal, TFile, TFolder, Setting, Vault, TAbstractFile, setIcon, TextComponent } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 
 // HWP Export Modal
@@ -9,7 +9,7 @@ export class HwpExportModal extends Modal {
 	private resultPath: string;
 	private useSpaceIndent: boolean;
 	private excludeHeadings: boolean;
-	private pathComponent: any = null;
+	private pathComponent: TextComponent | null = null;
 
 	constructor(app: App, plugin: WritingMenuPlugin, file: TFile) {
 		super(app);
@@ -129,7 +129,7 @@ export class TxtExportModal extends Modal {
 	private resultPath: string;
 	private useSpaceIndent: boolean;
 	private excludeHeadings: boolean;
-	private pathComponent: any = null;
+	private pathComponent: TextComponent | null = null;
 
 	constructor(app: App, plugin: WritingMenuPlugin, file: TFile) {
 		super(app);
@@ -242,7 +242,7 @@ export class TxtExportModal extends Modal {
 // Batch Export Modal (Folder or Multi-file)
 export class BatchExportModal extends Modal {
 	private plugin: WritingMenuPlugin;
-	private target: any; // TFolder or TFile[]
+	private target: TFolder | TFile[];
 	private mode: 'folder' | 'multi';
 	private format: 'hwp' | 'txt';
 	private resultPath: string;
@@ -250,15 +250,15 @@ export class BatchExportModal extends Modal {
 	private useSpaceIndent: boolean;
 	private excludeHeadings: boolean;
 	private mergeFiles: boolean = false;
-	private pathComponent: any = null;
-	private nameComponent: any = null;
-	private fileNameSetting: any = null;
+	private pathComponent: TextComponent | null = null;
+	private nameComponent: TextComponent | null = null;
+	private fileNameSetting: Setting | null = null;
 	private sortedFiles: TFile[] = [];
 	private removedFiles: TFile[] = [];
 	private fileListContainer: HTMLElement | null = null;
 	private listScrollTop: number = 0;
 
-	constructor(app: App, plugin: WritingMenuPlugin, target: any, format: 'hwp' | 'txt') {
+	constructor(app: App, plugin: WritingMenuPlugin, target: TFolder | TFile[], format: 'hwp' | 'txt') {
 		super(app);
 		this.plugin = plugin;
 		this.target = target;
@@ -269,7 +269,7 @@ export class BatchExportModal extends Modal {
 		this.excludeHeadings = plugin.settings.exportDefaultExcludeHeadings;
 		// Default merged file name
 		if (this.mode === 'folder') {
-			this.resultName = this.target.name;
+			this.resultName = (this.target as TFolder).name;
 		} else {
 			this.resultName = '병합된_문서';
 		}
@@ -306,7 +306,7 @@ export class BatchExportModal extends Modal {
 	private initSortedFiles() {
 		if (this.mode === 'multi') {
 			// For multi-file selection, copy and sort
-			this.sortedFiles = [...this.target].sort((a: TFile, b: TFile) => this.naturalSort(a, b));
+			this.sortedFiles = [...(this.target as TFile[])].sort((a: TFile, b: TFile) => this.naturalSort(a, b));
 		} else {
 			// For folder, get all markdown files and sort
 			if (!(this.target instanceof TFolder)) return;
@@ -330,11 +330,11 @@ export class BatchExportModal extends Modal {
 		if (this.mode === 'folder') {
 			contentEl.createEl('h2', { text: `폴더를 ${formatLabel}로 내보내기` });
 			contentEl.createEl('p', {
-				text: `"${this.target.name}" 폴더 내 모든 마크다운 파일이 변환됩니다.`,
+				text: `"${(this.target as TFolder).name}" 폴더 내 모든 마크다운 파일이 변환됩니다.`,
 				cls: 'setting-item-description'
 			});
 		} else {
-			contentEl.createEl('h2', { text: `${this.target.length}개 파일을 ${formatLabel}로 내보내기` });
+			contentEl.createEl('h2', { text: `${(this.target as TFile[]).length}개 파일을 ${formatLabel}로 내보내기` });
 		}
 
 		// Merge/Individual Toggle
@@ -355,7 +355,7 @@ export class BatchExportModal extends Modal {
 			.setName('파일 이름')
 			.setDesc('저장할 파일의 이름을 입력하세요.');
 
-		this.fileNameSetting.addText((text: any) => {
+		this.fileNameSetting.addText((text: TextComponent) => {
 			text
 				.setValue(this.resultName)
 				.onChange((value: string) => {
@@ -452,15 +452,15 @@ export class BatchExportModal extends Modal {
 							// Individual export
 							if (this.mode === 'folder') {
 								if (this.format === 'hwp') {
-									void this.plugin.convertFolderToHwp(this.target.path, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
+									void this.plugin.convertFolderToHwp((this.target as TFolder).path, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
 								} else {
-									void this.plugin.convertFolderToTxt(this.target.path, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
+									void this.plugin.convertFolderToTxt((this.target as TFolder).path, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
 								}
 							} else {
 								if (this.format === 'hwp') {
-									void this.plugin.convertFilesToHwp(this.target, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
+									void this.plugin.convertFilesToHwp(this.target as TFile[], this.resultPath, this.useSpaceIndent, this.excludeHeadings);
 								} else {
-									void this.plugin.convertFilesToTxt(this.target, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
+									void this.plugin.convertFilesToTxt(this.target as TFile[], this.resultPath, this.useSpaceIndent, this.excludeHeadings);
 								}
 							}
 						}

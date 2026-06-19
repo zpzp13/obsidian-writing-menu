@@ -220,7 +220,7 @@ export class DailyCharStore {
 		}
 		if (!(dnFile instanceof TFile)) return;
 		try {
-			await this.plugin.app.fileManager.processFrontMatter(dnFile, fm => { fm[key] = charCount; });
+			await this.plugin.app.fileManager.processFrontMatter(dnFile, (fm: Record<string, unknown>) => { fm[key] = charCount; });
 		} catch { /* intentional */ }
 	}
 
@@ -269,7 +269,7 @@ export class DailyCharStore {
 	private async load() {
 		try {
 			const raw    = await this.plugin.app.vault.adapter.read(normalizePath(STORE_PATH));
-			const parsed = JSON.parse(raw);
+			const parsed = JSON.parse(raw) as Partial<TodayStorage>;
 			this.storage = {
 				today:          parsed.today ?? null,
 				trackingFolder: parsed.trackingFolder,

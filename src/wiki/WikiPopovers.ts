@@ -310,7 +310,7 @@ export function showPaletteMenu(
 		menu.addItem(item => item.setTitle(`팔레트: ${pName}`).onClick(async () => {
 			const target = await getTargetSettingsFile();
 			if (target) {
-				await plugin.app.fileManager.processFrontMatter(target, fm => { fm['wikiPalette'] = pName; });
+				await plugin.app.fileManager.processFrontMatter(target, (fm: Record<string, unknown>) => { fm['wikiPalette'] = pName; });
 				onRender();
 			}
 		}));

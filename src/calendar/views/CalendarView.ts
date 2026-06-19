@@ -340,7 +340,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 			this.wikiPanel = new WikiPanel(this.plugin, this);
 			this.plugin.wikiPanelRerender = () => this.wikiPanel?.rerender();
 		}
-		this.wikiPanel.render(panel);
+		void this.wikiPanel.render(panel);
 	}
 
 	private renderVersionPanel(panel: HTMLElement) {

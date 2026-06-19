@@ -222,7 +222,7 @@ export class MobilePreviewFloating {
 
 	private buildPreviewSettingsMenu(container: HTMLElement) {
 		const pt = this.plugin.settings.previewTypography;
-		const save = async () => { await this.plugin.saveSettings(); this.renderContent(); };
+		const save = async () => { await this.plugin.saveSettings(); void this.renderContent(); };
 
 		// Font family — same row style as main dropdown
 		const fontDiv = container.createDiv('writing-menu-control');
@@ -235,10 +235,10 @@ export class MobilePreviewFloating {
 		fontInput.addClass('wm-preview-text-input');
 		fontInput.onchange = (e) => { pt.fontFamily = (e.target as HTMLInputElement).value; void save(); };
 
-		void this.plugin.addCompactStepper(container, '글자 크기', pt.fontSize, 1, 1, async (v) => { pt.fontSize = v; await save(); }, 'type');
-		void this.plugin.addCompactStepper(container, '줄간격', pt.lineHeight, 0.1, 0, async (v) => { pt.lineHeight = v; await save(); }, 'align-justify');
-		void this.plugin.addCompactStepper(container, '문단간격', pt.paragraphSpacing, 0.5, 0, async (v) => { pt.paragraphSpacing = v; await save(); }, 'pilcrow');
-		void this.plugin.addCompactStepper(container, '들여쓰기', pt.indentation, 5, 0, async (v) => { pt.indentation = v; await save(); }, 'indent');
+		void this.plugin.addCompactStepper(container, '글자 크기', pt.fontSize, 1, 1, (v) => { pt.fontSize = v; void save(); }, 'type');
+		void this.plugin.addCompactStepper(container, '줄간격', pt.lineHeight, 0.1, 0, (v) => { pt.lineHeight = v; void save(); }, 'align-justify');
+		void this.plugin.addCompactStepper(container, '문단간격', pt.paragraphSpacing, 0.5, 0, (v) => { pt.paragraphSpacing = v; void save(); }, 'pilcrow');
+		void this.plugin.addCompactStepper(container, '들여쓰기', pt.indentation, 5, 0, (v) => { pt.indentation = v; void save(); }, 'indent');
 
 		this.plugin.addSeparator(container);
 

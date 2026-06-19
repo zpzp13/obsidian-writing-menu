@@ -127,7 +127,7 @@ async function loadDayData(date: Date, plugin: WritingMenuPlugin): Promise<DayDa
 		charCount = folder ? store.getTodayTotalForFolder(folder) : store.getTodayTotal();
 	} else {
 		const charKey = plugin.settings.dailyCharCountKey || '글자수';
-		const fm = dailyNote ? plugin.app.metadataCache.getFileCache(dailyNote)?.frontmatter ?? {} : {};
+		const fm: Record<string, unknown> = dailyNote ? plugin.app.metadataCache.getFileCache(dailyNote)?.frontmatter ?? {} : {};
 		const raw = fm[charKey];
 		charCount = typeof raw === 'number' ? raw : 0;
 	}
