@@ -165,12 +165,13 @@ export class WritingTimeSection {
 		// ── 배지 (퍼센트 + 아이콘) ──
 		const updateBadge = (el: HTMLElement, cur: number, ref: number, invertColors = false) => {
 			el.empty();
-			if (ref <= 0) {
+			if (ref <= 0 || cur < 60) {
 				el.textContent = '—';
 				el.className = 'wm-wt-mc-badge is-neutral';
 				return;
 			}
-			const pct     = Math.round(((cur - ref) / ref) * 100);
+			const rawPct  = ((cur - ref) / ref) * 100;
+			const pct     = rawPct > 0 ? Math.round(rawPct) : Math.max(-99, Math.round(rawPct));
 			const isAbove = pct > 0;
 			const isBelow = pct < 0;
 			if (pct === 0) {

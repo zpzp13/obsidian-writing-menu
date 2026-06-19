@@ -67,6 +67,9 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 	getIcon()        { return 'layout-dashboard'; }
 
 	async onOpen() {
+		const now = new Date();
+		now.setHours(0, 0, 0, 0);
+		this.selectedDate = now;
 		this.render();
 		// 태스크 파일 변경 시 배지 자동 갱신
 		this.registerEvent(this.app.vault.on('modify', () => {
