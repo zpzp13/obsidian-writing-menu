@@ -76,8 +76,8 @@
     border-radius: 6px;
     padding: 8px;
     z-index: 1000;
-    min-width: 270px !important;
-    width: 270px !important;
+    min-width: 270px;
+    width: 270px;
     max-height: 500px;
     /* Increased to reduce scroll need */
     overflow-y: auto;
@@ -92,7 +92,7 @@
     width: 100%;
     height: 40px;
     padding: 0 8px;
-    margin-bottom: 0 !important;
+    margin-bottom: 0;
 }
 
 .writing-menu-control label {
@@ -551,7 +551,7 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 }
 .wm-float-content::-webkit-scrollbar { display: none; }
 .wm-float-content p { margin-bottom: var(--wm-preview-para, 1em); text-align: justify; }
-.wm-float-content p + p { text-indent: var(--wm-preview-indent, 0); }
+.wm-float-content p + p { padding-inline-start: var(--wm-preview-indent, 0); }
 .wm-float-content h1, .wm-float-content h2, .wm-float-content h3,
 .wm-float-content h4, .wm-float-content h5, .wm-float-content h6 { text-align: left; }
 
@@ -4291,12 +4291,14 @@ button[aria-label="규칙 추가"] {
     text-align: justify !important;
 }
 [data-writing-menu-id] .cm-content {
-    text-indent: var(--wm-text-indent, 0px) !important;
     caret-color: var(--wm-font-color, inherit) !important;
+}
+[data-writing-menu-id] .cm-line {
+    padding-inline-start: var(--wm-text-indent, 0px) !important;
 }
 [data-writing-menu-id] .markdown-reading-view p {
     margin-bottom: var(--wm-paragraph-spacing, 0em) !important;
-    text-indent: var(--wm-text-indent, 0px) !important;
+    padding-inline-start: var(--wm-text-indent, 0px) !important;
 }
 [data-writing-menu-id] .cm-line { padding-bottom: var(--wm-paragraph-spacing, 0em) !important; }
 [data-writing-menu-id] .cm-sizer {

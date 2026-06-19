@@ -1,6 +1,6 @@
 {
 	"name": "writing-menu",
-	"version": "3.0.11",
+	"version": "3.0.12",
 	"description": "An Obsidian plugin for customizing editor formatting",
 	"main": "main.js",
 	"scripts": {
