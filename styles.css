@@ -4395,3 +4395,21 @@ button[aria-label="규칙 추가"] {
     width: 15px !important;
     height: 15px !important;
 }
+
+.wm-compact-slider {
+    background: var(--background-modifier-border) !important;
+    height: 4px !important;
+    border-radius: 2px !important;
+    outline: none !important;
+}
+.wm-compact-color-input {
+    width: 25px !important;
+    height: 25px !important;
+    min-width: 25px !important;
+    min-height: 25px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    outline: none !important;
+    cursor: pointer;
+}

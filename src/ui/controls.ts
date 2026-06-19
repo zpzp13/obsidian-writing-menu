@@ -106,10 +106,7 @@ export async function addCompactSlider(plugin: WritingMenuPlugin, container: HTM
 	slider.step = step.toString();
 	slider.value = value.toString();
 	slider.setCssStyles({ width: '80px' });
-	slider.style.setProperty('background', 'var(--background-modifier-border)', 'important');
-	slider.style.setProperty('height', '4px', 'important');
-	slider.style.setProperty('border-radius', '2px', 'important');
-	slider.style.setProperty('outline', 'none', 'important');
+	slider.addClass('wm-compact-slider');
 	slider.oninput = (e) => callback(Number((e.target as HTMLInputElement).value));
 }
 
@@ -130,15 +127,7 @@ export async function addDualColorControl(plugin: WritingMenuPlugin, container: 
 	const darkVal = typeof value === 'string' ? value : value.dark;
 
 	const lightInput = group.createEl('input', { type: 'color', value: lightVal === 'inherit' ? '#000000' : lightVal === 'transparent' ? '#ffffff' : lightVal });
-	lightInput.style.setProperty('width', '25px', 'important');
-	lightInput.style.setProperty('height', '25px', 'important');
-	lightInput.style.setProperty('min-width', '25px', 'important');
-	lightInput.style.setProperty('min-height', '25px', 'important');
-	lightInput.style.setProperty('padding', '0', 'important');
-	lightInput.style.setProperty('margin', '0', 'important');
-	lightInput.style.setProperty('border', 'none', 'important');
-	lightInput.style.setProperty('outline', 'none', 'important');
-	lightInput.setCssStyles({ cursor: 'pointer' });
+	lightInput.addClass('wm-compact-color-input');
 
 	lightInput.onchange = (e) => {
 		const newVal = { light: (e.target as HTMLInputElement).value, dark: darkVal };
@@ -146,15 +135,7 @@ export async function addDualColorControl(plugin: WritingMenuPlugin, container: 
 	};
 
 	const darkInput = group.createEl('input', { type: 'color', value: darkVal === 'inherit' ? '#ffffff' : darkVal === 'transparent' ? '#000000' : darkVal });
-	darkInput.style.setProperty('width', '25px', 'important');
-	darkInput.style.setProperty('height', '25px', 'important');
-	darkInput.style.setProperty('min-width', '25px', 'important');
-	darkInput.style.setProperty('min-height', '25px', 'important');
-	darkInput.style.setProperty('padding', '0', 'important');
-	darkInput.style.setProperty('margin', '0', 'important');
-	darkInput.style.setProperty('border', 'none', 'important');
-	darkInput.style.setProperty('outline', 'none', 'important');
-	darkInput.setCssStyles({ cursor: 'pointer' });
+	darkInput.addClass('wm-compact-color-input');
 
 	darkInput.onchange = (e) => {
 		const newVal = { light: lightVal, dark: (e.target as HTMLInputElement).value };
