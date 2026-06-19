@@ -200,7 +200,7 @@ export class MusicPlayer {
 		this.volume = Math.max(0, Math.min(1, v));
 		this.audio.volume = this.volume;
 		this.plugin.settings.musicVolume = this.volume;
-		this.plugin.saveSettings();
+		void this.plugin.saveSettings();
 		this.notifyCallbacks();
 	}
 
@@ -208,7 +208,7 @@ export class MusicPlayer {
 		const wasTrack = this.currentTrack;
 		this.mode = m;
 		this.plugin.settings.musicPlaybackMode = m;
-		this.plugin.saveSettings();
+		void this.plugin.saveSettings();
 		// 현재 폴더 범위 유지하며 재빌드
 		const currentFolder = wasTrack
 			? folderOf(wasTrack.path)

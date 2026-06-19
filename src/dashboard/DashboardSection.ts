@@ -1,4 +1,8 @@
-import { setIcon, MarkdownView, sanitizeHTMLToDom } from 'obsidian';
+import { setIcon, MarkdownView, sanitizeHTMLToDom, App } from 'obsidian';
+
+interface AppWithSettings extends App {
+	setting?: { open(): void; openTabById(id: string): void };
+}
 import type WritingMenuPlugin from '../../main';
 import { TaskParser } from './data/TaskParser';
 import { TasksRenderer } from './TasksRenderer';
@@ -102,9 +106,9 @@ export class DashboardSection {
 			cog.setAttribute('aria-label', `${title} 설정`);
 			cog.addEventListener('click', (e) => {
 				e.stopPropagation();
-				const setting = (plugin.app as any).setting;
-				setting.open();
-				setting.openTabById(plugin.manifest.id);
+				const setting = (plugin.app as AppWithSettings).setting;
+				setting?.open();
+				setting?.openTabById(plugin.manifest.id);
 				window.setTimeout(() => plugin.settingTab?.renderPage(settingsPage), 20);
 			});
 		}

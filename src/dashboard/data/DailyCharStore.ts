@@ -1,4 +1,6 @@
-import { TFile, normalizePath } from 'obsidian';
+﻿import { TFile, normalizePath } from 'obsidian';
+
+declare const moment: (date?: unknown, fmt?: string) => { format(f: string): string };
 import type WritingMenuPlugin from '../../../main';
 import { calcVersionCharCount } from '../../version/charCount';
 import { formatDateKey } from '../../utils/dateUtils';
@@ -87,7 +89,7 @@ export class DailyCharStore {
 				if (!(file.path in this.storage.today.start))
 					this.storage.today.start[file.path] = count;
 				this.scheduleSave();
-			} catch {}
+			} catch (_e) {}
 		}
 
 		const { folder } = getDnConfig(this.plugin);
@@ -149,7 +151,7 @@ export class DailyCharStore {
 		const { folder, format } = getDnConfig(this.plugin);
 		const key        = this.plugin.settings.dailyCharCountKey || '글자수';
 		const todayStr   = this.todayStr();
-		const todayName  = (window as any).moment(todayStr, 'YYYY-MM-DD').format(format);
+		const todayName  = moment(todayStr, 'YYYY-MM-DD').format(format);
 		const todayPath  = normalizePath(folder ? `${folder}/${todayName}.md` : `${todayName}.md`);
 		const dnPrefix   = folder ? normalizePath(folder) + '/' : null;
 		const values: number[] = [];
@@ -210,7 +212,7 @@ export class DailyCharStore {
 	private async writeCharCountToDailyNote(dateStr: string, charCount: number) {
 		const key    = this.plugin.settings.dailyCharCountKey || '글자수';
 		const { folder, format } = getDnConfig(this.plugin);
-		const name   = (window as any).moment(dateStr, 'YYYY-MM-DD').format(format);
+		const name   = moment(dateStr, 'YYYY-MM-DD').format(format);
 		const dnPath = folder ? `${folder}/${name}.md` : `${name}.md`;
 		let dnFile   = this.plugin.app.vault.getAbstractFileByPath(dnPath);
 		if (!(dnFile instanceof TFile)) {
@@ -219,7 +221,7 @@ export class DailyCharStore {
 		if (!(dnFile instanceof TFile)) return;
 		try {
 			await this.plugin.app.fileManager.processFrontMatter(dnFile, fm => { fm[key] = charCount; });
-		} catch {}
+		} catch (_e) {}
 	}
 
 	private async snapshotAll(): Promise<Record<string, number>> {
@@ -230,7 +232,7 @@ export class DailyCharStore {
 			try {
 				const content = await this.plugin.app.vault.cachedRead(file);
 				snapshot[file.path] = calcVersionCharCount(content, this.plugin.settings.charCountMode);
-			} catch {}
+			} catch (_e) {}
 		}
 		return snapshot;
 	}
@@ -284,6 +286,6 @@ export class DailyCharStore {
 				normalizePath(STORE_PATH),
 				JSON.stringify(this.storage),
 			);
-		} catch {}
+		} catch (_e) {}
 	}
 }

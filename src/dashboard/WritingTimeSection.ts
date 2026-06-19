@@ -1,4 +1,6 @@
 import { TFile, setIcon, normalizePath } from 'obsidian';
+
+declare const moment: (date?: unknown, fmt?: string) => { format(f: string): string };
 import type WritingMenuPlugin from '../../main';
 import { WritingTimeStore } from './data/WritingTimeStore';
 import type { TimeModeConfig } from '../types';
@@ -98,7 +100,7 @@ export class WritingTimeSection {
 		) => {
 			if (isDailySaving) return;
 			const { folder, format } = getDnConfig(plugin);
-			const name = (window as any).moment().format(format);
+			const name = moment().format(format);
 			const dnPath = folder ? `${folder}/${name}.md` : `${name}.md`;
 			let dnFile = app.vault.getAbstractFileByPath(dnPath);
 			if (!(dnFile instanceof TFile)) {

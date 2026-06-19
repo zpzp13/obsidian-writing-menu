@@ -1,4 +1,8 @@
-import { setIcon, Notice, MarkdownView, MarkdownRenderer, TFile } from 'obsidian';
+import { setIcon, Notice, MarkdownView, MarkdownRenderer, TFile, App } from 'obsidian';
+
+interface AppWithSettings extends App {
+	setting?: { open(): void; openTabById(id: string): void };
+}
 import type WritingMenuPlugin from '../../main';
 import { VersionManager } from './manager';
 import type { VersionEntry } from './types';
@@ -251,7 +255,7 @@ export class VersionPanel {
 			// 상태 필터
 			addSectionLabel('상태 필터', 'filter');
 			const configuredStages: Array<{ name: string; color: string }> =
-				(plugin.settings as any).versionStages ?? [
+				plugin.settings.versionStages ?? [
 					{ name: '초고', color: '#94a3b8' },
 					{ name: '집필', color: '#60a5fa' },
 					{ name: '퇴고', color: '#34d399' },
@@ -400,8 +404,8 @@ export class VersionPanel {
 			const settingsBtn = actions.createDiv({ cls: 'wm-cal-icon-btn', attr: { 'aria-label': '버전 관리 설정' } });
 			setIcon(settingsBtn, 'settings');
 			settingsBtn.addEventListener('click', () => {
-				(plugin.app as any).setting?.open();
-				(plugin.app as any).setting?.openTabById(plugin.manifest.id);
+				(plugin.app as AppWithSettings).setting?.open();
+				(plugin.app as AppWithSettings).setting?.openTabById(plugin.manifest.id);
 				window.setTimeout(() => { plugin.settingTab?.renderPage('version-control'); }, 60);
 			});
 
@@ -473,7 +477,7 @@ export class VersionPanel {
 				popup.setCssStyles({ top: `${rect.bottom + 4}px` });
 				popup.setCssStyles({ left: `${rect.left}px` });
 				const configuredStages: Array<{ name: string; color: string }> =
-					(plugin.settings as any).versionStages ?? [
+					plugin.settings.versionStages ?? [
 						{ name: '초고', color: '#94a3b8' },
 						{ name: '집필', color: '#60a5fa' },
 						{ name: '퇴고', color: '#34d399' },
@@ -587,7 +591,7 @@ export class VersionPanel {
 			if (currentFile) {
 				manager.readVersion(currentFile, entry).then(content => {
 					if (!body.isConnected) return;
-					MarkdownRenderer.render(plugin.app, content, body, currentFile!.path, plugin as any).catch(() => {});
+					void MarkdownRenderer.render(plugin.app, content, body, currentFile!.path, plugin).catch(() => {});
 				}).catch(() => {
 					body.createEl('p', { text: '내용을 불러올 수 없습니다.' });
 				});

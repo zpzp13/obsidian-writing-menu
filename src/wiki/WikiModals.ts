@@ -21,7 +21,7 @@ export class FolderOrNoteSuggestModal extends FuzzySuggestModal<TFolder | TFile>
 		this.setPlaceholder('폴더 또는 노트를 선택하세요...');
 	}
 	getItems(): (TFolder | TFile)[] {
-		const folders = this.app.vault.getAllLoadedFiles().filter(f => f instanceof TFolder) as TFolder[];
+		const folders = this.app.vault.getAllLoadedFiles().filter((f): f is TFolder => f instanceof TFolder);
 		const notes = this.app.vault.getMarkdownFiles();
 		return [...folders, ...notes];
 	}
@@ -42,7 +42,7 @@ export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
 		this.onChoose = onChoose;
 		this.setPlaceholder('폴더를 선택하세요...');
 	}
-	getItems(): TFolder[] { return this.app.vault.getAllLoadedFiles().filter(f => f instanceof TFolder) as TFolder[]; }
+	getItems(): TFolder[] { return this.app.vault.getAllLoadedFiles().filter((f): f is TFolder => f instanceof TFolder); }
 	getItemText(item: TFolder): string { return item.path; }
 	onChooseItem(item: TFolder): void { this.onChoose(item); }
 }

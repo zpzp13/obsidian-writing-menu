@@ -1,4 +1,4 @@
-import { App, TFile, normalizePath } from 'obsidian';
+﻿import { App, TFile, normalizePath } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { VersionEntry, VersionManifest } from './types';
 import { calcVersionCharCount } from './charCount';
@@ -120,7 +120,7 @@ export class VersionManager {
 					entry.charCount = calcVersionCharCount(content, 'novelpia');
 				entry.charCountTotal = calcVersionCharCount(content, 'munpia');
 					changed = true;
-				} catch {}
+				} catch (_e) {}
 			}
 		}
 		if (changed) await this.saveManifest(file, manifest);
