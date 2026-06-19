@@ -278,12 +278,12 @@ export default class WritingMenuPlugin extends Plugin {
 					const leaf = this.app.workspace.getRightLeaf(false);
 					if (!leaf) return;
 					await leaf.setViewState({ type: VIEW_TYPE_CALENDAR, active: true });
-					this.app.workspace.revealLeaf(leaf);
+					await this.app.workspace.revealLeaf(leaf);
 					leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CALENDAR);
 				}
 				if (leaves.length === 0) return;
 				const leaf = leaves[0];
-				this.app.workspace.revealLeaf(leaf);
+				await this.app.workspace.revealLeaf(leaf);
 				(leaf.view as CalendarView).activateWikiPicker();
 			},
 		});
@@ -407,7 +407,7 @@ export default class WritingMenuPlugin extends Plugin {
 			const leaf = this.app.workspace.getRightLeaf(false);
 			if (leaf) {
 				await leaf.setViewState({ type: VIEW_TYPE_CALENDAR, active: true });
-				this.app.workspace.revealLeaf(leaf);
+				await this.app.workspace.revealLeaf(leaf);
 			}
 		}
 	}
@@ -423,7 +423,7 @@ export default class WritingMenuPlugin extends Plugin {
 					type: TIME_TRACKING_VIEW_TYPE,
 					active: true
 				});
-				this.app.workspace.revealLeaf(leaf);
+				await this.app.workspace.revealLeaf(leaf);
 			}
 		}
 	}

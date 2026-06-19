@@ -254,15 +254,7 @@ export class MobilePreviewFloating {
 		const input = div.createEl('input', { type: 'color' });
 		const hex = value.startsWith('#') ? value : '#000000';
 		input.value = hex;
-		input.style.setProperty('width', '25px', 'important');
-		input.style.setProperty('height', '25px', 'important');
-		input.style.setProperty('min-width', '25px', 'important');
-		input.style.setProperty('min-height', '25px', 'important');
-		input.style.setProperty('padding', '0', 'important');
-		input.style.setProperty('margin', '0', 'important');
-		input.style.setProperty('border', 'none', 'important');
-		input.style.setProperty('outline', 'none', 'important');
-		input.setCssStyles({ cursor: 'pointer' });
+		input.addClass('wm-compact-color-input');
 		input.onchange = (e) => onChange((e.target as HTMLInputElement).value);
 	}
 

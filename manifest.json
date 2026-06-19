@@ -2,7 +2,7 @@
 	"id": "writing-menu",
 	"name": "Writing Menu",
 	"version": "3.0.3",
-	"minAppVersion": "1.7.0",
+	"minAppVersion": "1.7.2",
 	"description": "A writing environment customization plugin with typography controls, focus mode, smart quotes, text substitution, typewriter scroll, word counter, and more.",
 	"author": "zpzp13",
 	"authorUrl": "https://github.com/zpzp13",
