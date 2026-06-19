@@ -467,7 +467,7 @@ export class VersionPanel {
 
 			makeBtn('편집', 'pencil', () => {
 				if (!currentFile) return;
-				new EditVersionModal(plugin.app, plugin, currentFile, entry, manager, () => refresh().catch(() => {})).open();
+				new EditVersionModal(plugin.app, plugin, currentFile, entry, manager, () => { void refresh(); }).open();
 			});
 
 			makeBtn('상태', 'circle-dashed', (e) => {

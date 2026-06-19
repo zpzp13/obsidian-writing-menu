@@ -68,13 +68,13 @@ export class DiffModal extends Modal {
 			const opt = aSelect.createEl('option', { text: v.name, value: v.id });
 			if (v.id === this.versionA.id) opt.selected = true;
 		}
-		aSelect.addEventListener('change', async () => {
+		aSelect.addEventListener('change', () => {
 			const found = this.allVersions.find(v => v.id === aSelect.value);
 			if (!found) return;
 			this.versionA = found;
 			this.renderHeader();
 			this.renderFooter();
-			await this.renderDiff();
+			void this.renderDiff();
 		});
 
 		// VS badge
@@ -94,7 +94,7 @@ export class DiffModal extends Modal {
 			const opt = bSelect.createEl('option', { text: v.name, value: v.id });
 			if (this.versionB !== 'current' && this.versionB.id === v.id) opt.selected = true;
 		}
-		bSelect.addEventListener('change', async () => {
+		bSelect.addEventListener('change', () => {
 			if (bSelect.value === 'current') {
 				this.versionB = 'current';
 			} else {
@@ -102,21 +102,21 @@ export class DiffModal extends Modal {
 				if (found) this.versionB = found;
 			}
 			this.renderFooter();
-			await this.renderDiff();
+			void this.renderDiff();
 		});
 
 		// Swap A↔B button
 		if (this.allVersions.length > 1) {
 			const swapAB = this.headerEl.createEl('button', { cls: 'wm-diff-swap-ab', attr: { 'aria-label': 'A↔B 교환' } });
 			setIcon(swapAB, 'arrow-left-right');
-			swapAB.addEventListener('click', async () => {
+			swapAB.addEventListener('click', () => {
 				if (this.versionB === 'current') return;
 				const tmp = this.versionA;
 				this.versionA = this.versionB;
 				this.versionB = tmp;
 				this.renderHeader();
 				this.renderFooter();
-				await this.renderDiff();
+				void this.renderDiff();
 			});
 		}
 	}
@@ -133,13 +133,15 @@ export class DiffModal extends Modal {
 			const icon = restoreBtn.createSpan();
 			setIcon(icon, 'rotate-ccw');
 			restoreBtn.createSpan({ text: 'A 버전으로 전체 복원' });
-			restoreBtn.addEventListener('click', async () => {
+			restoreBtn.addEventListener('click', () => {
 				if (!this.editor) return;
 				restoreBtn.disabled = true;
 				restoreBtn.querySelector('span:last-child')!.textContent = '복원 중…';
-				await this.manager.restoreVersion(this.file, this.versionA, this.editor);
-				this.close();
-				new Notice(`"${this.versionA.name}"으로 복원했습니다. 현재 내용은 자동 저장되었습니다.`);
+				const editor = this.editor;
+				void this.manager.restoreVersion(this.file, this.versionA, editor).then(() => {
+					this.close();
+					new Notice(`"${this.versionA.name}"으로 복원했습니다. 현재 내용은 자동 저장되었습니다.`);
+				});
 			});
 		}
 

@@ -1,6 +1,6 @@
-﻿import { App, Plugin, MarkdownView, WorkspaceLeaf, setIcon, TFile, TFolder, TAbstractFile, Notice, Platform, EventRef, sanitizeHTMLToDom } from 'obsidian';
-import { EditorView, ViewPlugin, Decoration, DecorationSet } from '@codemirror/view';
-import { Extension, EditorState, ChangeSpec, RangeSetBuilder, Prec, Compartment } from '@codemirror/state';
+﻿import { App, Plugin, MarkdownView, WorkspaceLeaf, setIcon, TFile, TFolder, TAbstractFile, Notice, Platform, EventRef, sanitizeHTMLToDom, MenuItem } from 'obsidian';
+import { EditorView, ViewPlugin, Decoration, DecorationSet, ViewUpdate } from '@codemirror/view';
+import { Extension, EditorState, ChangeSpec, RangeSetBuilder, Prec, Compartment, Transaction } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
 import { SymbolSuggester } from './SymbolSuggester';
 import { WritingMenuSettings, DEFAULT_SETTINGS } from './src/types';
@@ -341,11 +341,11 @@ export default class WritingMenuPlugin extends Plugin {
 		if (!nn?.api?.menus) return;
 
 		const unregFile = nn.api.menus.registerFileMenu((ctx: {
-			addItem: (fn: (item: any) => void) => void;
+			addItem: (fn: (item: MenuItem) => void) => void;
 			file: TFile;
 			selection: { mode: string; files: TAbstractFile[] };
 		}) => {
-			const mdFiles = ctx.selection.files.filter((f: any) => f.extension === 'md') as TFile[];
+			const mdFiles = ctx.selection.files.filter((f): f is TFile => f instanceof TFile && f.extension === 'md');
 			const isMulti = mdFiles.length > 1;
 
 			if (isMulti) {
@@ -378,7 +378,7 @@ export default class WritingMenuPlugin extends Plugin {
 		});
 
 		const unregFolder = nn.api.menus.registerFolderMenu((ctx: {
-			addItem: (fn: (item: any) => void) => void;
+			addItem: (fn: (item: MenuItem) => void) => void;
 			folder: TFolder;
 		}) => {
 			if (Platform.isDesktopApp) {
@@ -765,10 +765,10 @@ export default class WritingMenuPlugin extends Plugin {
 		if (!this.settings.enableTypewriterScrolling) return [];
 		return ViewPlugin.fromClass(class {
 			constructor(public view: EditorView) { }
-			update(update: any) {
+			update(update: ViewUpdate) {
 				// Only center if text was changed by user interaction (typing/deleting)
 				// avoiding scroll on simple cursor movement or click
-				const isUserInput = update.transactions.some((tr: any) => tr.isUserEvent("input") || tr.isUserEvent("delete"));
+				const isUserInput = update.transactions.some((tr: Transaction) => tr.isUserEvent("input") || tr.isUserEvent("delete"));
 				if (update.docChanged && isUserInput) {
 					this.centerCursor(update.view);
 				}
@@ -957,7 +957,7 @@ export default class WritingMenuPlugin extends Plugin {
 		return Prec.highest(ViewPlugin.fromClass(class {
 			decorations: DecorationSet;
 			constructor(view: EditorView) { this.decorations = this.build(view); }
-			update(update: any) {
+			update(update: ViewUpdate) {
 				if (update.docChanged || update.viewportChanged) {
 					this.decorations = this.build(update.view);
 				}
@@ -983,7 +983,7 @@ export default class WritingMenuPlugin extends Plugin {
 				}
 				return builder.finish();
 			}
-		}, { decorations: (v: any) => v.decorations }));
+		}, { decorations: (v: { decorations: DecorationSet }) => v.decorations }));
 	}
 
 	private createSelectionExtension() {
@@ -1010,7 +1010,7 @@ export default class WritingMenuPlugin extends Plugin {
 			lastCursorLine: number = -1;
 			lastDocLength: number = 0;
 			constructor(_view: EditorView) { this.decorations = Decoration.none; }
-			update(update: any) {
+			update(update: ViewUpdate) {
 				if (!pluginSettings.enableFocusMode) {
 					if (this.decorations !== Decoration.none) {
 						this.decorations = Decoration.none;
@@ -1019,7 +1019,7 @@ export default class WritingMenuPlugin extends Plugin {
 					return;
 				}
 
-				const isUserInput = update.transactions.some((tr: any) =>
+				const isUserInput = update.transactions.some((tr: Transaction) =>
 					tr.isUserEvent("input") || tr.isUserEvent("delete")
 				);
 
@@ -1054,7 +1054,7 @@ export default class WritingMenuPlugin extends Plugin {
 				}
 				return builder.finish();
 			}
-		}, { decorations: (v: any) => v.decorations });
+		}, { decorations: (v: { decorations: DecorationSet }) => v.decorations });
 	}
 
 	private updateDynamicStyles() {
@@ -1222,7 +1222,7 @@ export default class WritingMenuPlugin extends Plugin {
 	private applyZenLeaf(leaf: WorkspaceLeaf) {
 		this.clearZenLeaf();
 		this.zenLeaf = leaf;
-		const el: HTMLElement | undefined = (leaf as any).containerEl as HTMLElement | undefined;
+		const el: HTMLElement | undefined = (leaf as WorkspaceLeaf & { containerEl?: HTMLElement }).containerEl;
 		if (el) {
 			el.classList.add('wm-zen-leaf');
 			activeDocument.body.classList.add('wm-has-zen-leaf');
@@ -1706,7 +1706,7 @@ export default class WritingMenuPlugin extends Plugin {
 		if (this.settings.symbolPairs && !this.settings.symbolTriggers) {
 			this.settings.symbolTriggers = [];
 			// @ts-ignore
-			this.settings.symbolPairs.forEach((pair: any) => {
+			(this.settings.symbolPairs as Array<{ trigger: string; openSymbol: string; closeSymbol: string }>).forEach((pair) => {
 				this.settings.symbolTriggers.push({
 					trigger: pair.trigger,
 					options: [{ open: pair.openSymbol, close: pair.closeSymbol }],
@@ -1748,7 +1748,7 @@ export default class WritingMenuPlugin extends Plugin {
 
 		// dashboardSections에 새 섹션 누락 시 추가 (마이그레이션)
 		if (this.settings.dashboardSections) {
-			const existingIds = new Set(this.settings.dashboardSections.map((s: any) => s.id));
+			const existingIds = new Set(this.settings.dashboardSections.map(s => s.id));
 			if (!existingIds.has('music')) {
 				this.settings.dashboardSections.push({ id: 'music', label: '음악', visible: true });
 			}
@@ -1768,9 +1768,9 @@ export default class WritingMenuPlugin extends Plugin {
 	async refreshDashboardView() {
 		await this.charStore.reinitSnapshot().catch(() => {});
 		const { VIEW_TYPE_CALENDAR: VTC } = await import('./src/calendar/views/CalendarView');
-		this.app.workspace.iterateAllLeaves((leaf: any) => {
-			if (leaf.view?.getViewType?.() === VTC) {
-				leaf.view.render?.();
+		this.app.workspace.iterateAllLeaves((leaf: WorkspaceLeaf) => {
+			if (leaf.view.getViewType() === VTC) {
+				(leaf.view as unknown as { render?: () => void }).render?.();
 			}
 		});
 	}

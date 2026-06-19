@@ -128,10 +128,10 @@ export class TaskParser {
 		const meta: TasksMeta = {};
 		let completedDate: string | undefined;
 
-		text = text.replace(/📅\s*(\d{4}-\d{2}-\d{2})/, (_, d) => { meta.due = d; return ''; });
-		text = text.replace(/⏳\s*(\d{4}-\d{2}-\d{2})/, (_, d) => { meta.scheduled = d; return ''; });
-		text = text.replace(/🛫\s*(\d{4}-\d{2}-\d{2})/, (_, d) => { meta.start = d; return ''; });
-		text = text.replace(/✅\s*(\d{4}-\d{2}-\d{2})/, (_, d) => { completedDate = d; return ''; });
+		text = text.replace(/📅\s*(\d{4}-\d{2}-\d{2})/, (_: string, d: string) => { meta.due = d; return ''; });
+		text = text.replace(/⏳\s*(\d{4}-\d{2}-\d{2})/, (_: string, d: string) => { meta.scheduled = d; return ''; });
+		text = text.replace(/🛫\s*(\d{4}-\d{2}-\d{2})/, (_: string, d: string) => { meta.start = d; return ''; });
+		text = text.replace(/✅\s*(\d{4}-\d{2}-\d{2})/, (_: string, d: string) => { completedDate = d; return ''; });
 
 		if (text.includes('⏫'))      { meta.priority = '최고'; text = text.replace('⏫', ''); }
 		else if (text.includes('🔺')) { meta.priority = '높음'; text = text.replace('🔺', ''); }
@@ -139,7 +139,7 @@ export class TaskParser {
 		else if (text.includes('🔽')) { meta.priority = '낮음'; text = text.replace('🔽', ''); }
 		else if (text.includes('⏬')) { meta.priority = '최저'; text = text.replace('⏬', ''); }
 
-		text = text.replace(/🔁\s*([^\n]+?)(?=\s*(?:📅|⏳|🛫|✅|⏫|🔺|🔼|🔽|⏬|$))/, (_, r) => {
+		text = text.replace(/🔁\s*([^\n]+?)(?=\s*(?:📅|⏳|🛫|✅|⏫|🔺|🔼|🔽|⏬|$))/, (_: string, r: string) => {
 			meta.recurrence = r.trim(); return '';
 		});
 

@@ -2,7 +2,7 @@ import { TFile, setIcon, normalizePath } from 'obsidian';
 
 declare const moment: (date?: unknown, fmt?: string) => { format(f: string): string };
 import type WritingMenuPlugin from '../../main';
-import { WritingTimeStore } from './data/WritingTimeStore';
+import { WritingTimeStore, ModeTime } from './data/WritingTimeStore';
 import type { TimeModeConfig } from '../types';
 import { watchDisconnect } from '../utils/domUtils';
 import { getDnConfig } from '../utils/dailyNoteUtils';
@@ -109,7 +109,7 @@ export class WritingTimeSection {
 			if (!(dnFile instanceof TFile)) return;
 			isDailySaving = true;
 			try {
-				await app.fileManager.processFrontMatter(dnFile, fm2 => {
+				await app.fileManager.processFrontMatter(dnFile, (fm2: Record<string, unknown>) => {
 					for (const m of modes) {
 						const delta = deltas[m.id] ?? 0;
 						if (delta === 0) continue;
@@ -141,7 +141,7 @@ export class WritingTimeSection {
 
 			isSaving = true;
 			try {
-				await app.fileManager.processFrontMatter(file, fm2 => {
+				await app.fileManager.processFrontMatter(file, (fm2: Record<string, unknown>) => {
 					for (const m of modes) {
 						if (deltas[m.id] === 0) continue;
 						fm2[m.frontmatterKey] = toHMS(WritingTimeStore.parseTime(fm2[m.frontmatterKey]) + deltas[m.id]);
@@ -204,9 +204,9 @@ export class WritingTimeSection {
 			modeCardEls.clear();
 
 			const timeFile = getTimeFile();
-			const time     = timeFile
+			const time: ModeTime = timeFile
 				? WritingTimeStore.getFileTime(app, timeFile, modes, totalKey, plugin.pendingTimeUpdates)
-				: Object.fromEntries([...modes.map(m => [m.id, 0]), ['total', 0]]);
+				: Object.fromEntries([...modes.map(m => [m.id, 0]), ['total', 0]]) as ModeTime;
 
 			const grid = card.createDiv({ cls: 'wm-wt-mode-grid' });
 

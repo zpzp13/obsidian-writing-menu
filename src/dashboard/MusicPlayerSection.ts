@@ -388,10 +388,10 @@ export class MusicPlayerSection {
 
 		const favBtn = makeBtn(header, 'heart', '즐겨찾기', 'wm-dash-music-fav-btn');
 		if (mp.currentTrack && mp.isFavorite(mp.currentTrack)) favBtn.addClass('is-fav');
-		favBtn.addEventListener('click', async (e) => {
+		favBtn.addEventListener('click', (e) => {
 			e.stopPropagation();
 			if (!mp.currentTrack) return;
-			await mp.toggleFavorite(mp.currentTrack);
+			void mp.toggleFavorite(mp.currentTrack);
 		});
 
 		const modeBtn = makeBtn(header, MODE_ICONS[mp.mode], MODE_LABELS[mp.mode], 'wm-dash-music-mode-btn');

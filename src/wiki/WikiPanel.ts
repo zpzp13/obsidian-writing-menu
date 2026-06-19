@@ -147,7 +147,7 @@ export class WikiPanel {
 		let wikiColor = this.plugin.settings.wikiColor || '#7025db';
 		if (this.currentFile) {
 			const cfm = this.app.metadataCache.getFileCache(this.currentFile)?.frontmatter;
-			if (cfm?.['wikiColor']) wikiColor = cfm['wikiColor'];
+			if (typeof cfm?.['wikiColor'] === 'string') wikiColor = cfm['wikiColor'];
 		}
 		outerContainer.setCssProps({ '--wiki-accent-color': wikiColor, '--wiki-accent-text': getToneColor(wikiColor), '--wiki-profile-header-size': `${this.plugin.settings.wikiProfileHeaderSize ?? 18}px`, '--wiki-profile-key-size': `${this.plugin.settings.wikiProfileKeySize ?? 13}px` });
 		this.stripGen++; // strip 세대 증가 — 이전 strip의 stale 콜백 차단용
@@ -355,7 +355,7 @@ export class WikiPanel {
 			});
 			colorInp.onclick = (e) => e.stopPropagation();
 			colorInp.onchange = async () => {
-				await this.app.fileManager.processFrontMatter(cf, f => { f['wikiColor'] = colorInp.value; });
+				await this.app.fileManager.processFrontMatter(cf, (f: Record<string, unknown>) => { f['wikiColor'] = colorInp.value; });
 				this.rerender();
 			};
 		}
@@ -793,7 +793,7 @@ export class WikiPanel {
 			if (coloredProps.includes(k)) { valEl.addClass('wm-wiki-accent-val'); }
 
 			if (k === 'tags') {
-				const tagList: string[] = Array.isArray(v) ? v : String(v).split(',').map(s => s.trim()).filter(Boolean);
+				const tagList: string[] = Array.isArray(v) ? v.map(item => String(item)) : String(v).split(',').map(s => s.trim()).filter(Boolean);
 				const tagWrap = valEl.createDiv({ cls: 'wiki-prop-tags' });
 				for (const tag of tagList) {
 					const t = tag.startsWith('#') ? tag : `#${tag}`;
@@ -826,7 +826,7 @@ export class WikiPanel {
 			}
 			try {
 				const linktext = this.app.metadataCache.fileToLinktext(f, file.path, false);
-				await this.app.fileManager.processFrontMatter(file, fm => { fm[key.trim()] = `[[${linktext}]]`; });
+				await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => { fm[key.trim()] = `[[${linktext}]]`; });
 				new Notice(`이미지 업데이트: ${key} = [[${f.name}]]`);
 				// DOM 즉시 업데이트 (metadataCache 갱신 전에도 반영)
 				const imgSrc = this.app.vault.getResourcePath(f);

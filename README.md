@@ -14,6 +14,17 @@ A comprehensive writing environment plugin for Obsidian, tailored for novelists 
 - **Export**: TXT/HWP export, heading/footnote exclusion
 - **Music Player**: In-vault audio playback
 
+## Permissions & System Access
+
+The **HWP (Hangul Word Processor) export** feature requires elevated system access to function:
+
+- **Filesystem access** (`fs`, `path`): Writes a bundled Python conversion script to the plugin directory inside the vault, and reads/writes files during export. No files outside the vault or plugin directory are accessed.
+- **Shell execution** (`child_process`): Spawns a Python process to convert Markdown to HWP format using the bundled script. Python 3 must be installed on the system for this feature to work.
+
+These permissions are used **exclusively** for the HWP export feature on Windows. TXT export and all other features do not require filesystem or shell access beyond the standard Obsidian Vault API.
+
+No data is sent to any external server. All processing happens locally on the user's machine.
+
 ---
 
 (한국어 설명은 아래를 참조하세요 / Korean documentation below)
