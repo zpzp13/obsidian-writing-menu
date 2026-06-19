@@ -127,7 +127,7 @@ export function showTaskAddPopup(
 		const dateEmoji = selectedDate !== todayStr ? ` 📅 ${selectedDate}` : '';
 		const text = (tags ? `${title} ${tags}` : title) + dateEmoji;
 		const subItems = subArea.value.split('\n').map((l: string) => l.trim()).filter(Boolean);
-		try { await TaskParser.addTaskToDailyNote(text, plugin, subItems); } catch (_e) {}
+		try { await TaskParser.addTaskToDailyNote(text, plugin, subItems); } catch { /* intentional */ }
 		close();
 		scheduleReload();
 	};

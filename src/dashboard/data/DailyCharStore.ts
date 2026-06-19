@@ -89,7 +89,7 @@ export class DailyCharStore {
 				if (!(file.path in this.storage.today.start))
 					this.storage.today.start[file.path] = count;
 				this.scheduleSave();
-			} catch (_e) {}
+			} catch { /* intentional */ }
 		}
 
 		const { folder } = getDnConfig(this.plugin);
@@ -221,7 +221,7 @@ export class DailyCharStore {
 		if (!(dnFile instanceof TFile)) return;
 		try {
 			await this.plugin.app.fileManager.processFrontMatter(dnFile, fm => { fm[key] = charCount; });
-		} catch (_e) {}
+		} catch { /* intentional */ }
 	}
 
 	private async snapshotAll(): Promise<Record<string, number>> {
@@ -232,7 +232,7 @@ export class DailyCharStore {
 			try {
 				const content = await this.plugin.app.vault.cachedRead(file);
 				snapshot[file.path] = calcVersionCharCount(content, this.plugin.settings.charCountMode);
-			} catch (_e) {}
+			} catch { /* intentional */ }
 		}
 		return snapshot;
 	}
@@ -286,6 +286,6 @@ export class DailyCharStore {
 				normalizePath(STORE_PATH),
 				JSON.stringify(this.storage),
 			);
-		} catch (_e) {}
+		} catch { /* intentional */ }
 	}
 }

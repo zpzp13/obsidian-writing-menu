@@ -309,9 +309,9 @@ export class BatchExportModal extends Modal {
 			this.sortedFiles = [...this.target].sort((a: TFile, b: TFile) => this.naturalSort(a, b));
 		} else {
 			// For folder, get all markdown files and sort
-			const folder = this.target as TFolder;
+			if (!(this.target instanceof TFolder)) return;
 			const files: TFile[] = [];
-			Vault.recurseChildren(folder, (child: TAbstractFile) => {
+			Vault.recurseChildren(this.target, (child: TAbstractFile) => {
 				if (child instanceof TFile && child.extension === 'md') {
 					files.push(child);
 				}
@@ -522,11 +522,10 @@ export class BatchExportModal extends Modal {
 			}
 
 			// File number
-			const numEl = itemEl.createEl('span', { text: `${index + 1}.`, cls: 'file-num' });
-			
+			itemEl.createEl('span', { text: `${index + 1}.`, cls: 'file-num' });
 
 			// File name
-			const nameEl = itemEl.createEl('span', { text: file.basename, cls: 'wm-file-name-el' });
+			itemEl.createEl('span', { text: file.basename, cls: 'wm-file-name-el' });
 
 			// Remove button
 			const removeBtn = itemEl.createDiv({ cls: 'file-remove-btn' });

@@ -1,7 +1,7 @@
 import { setIcon } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 
-export async function addCompactControl(plugin: WritingMenuPlugin, container: HTMLElement, label: string, value: any, callback: (v: any) => void, icon?: string, type: string = 'text'){
+export async function addCompactControl(plugin: WritingMenuPlugin, container: HTMLElement, label: string, value: string, callback: (v: string) => void | Promise<void>, icon?: string, type: string = 'text'){
 	const div = container.createDiv('writing-menu-control');
 	const labelGroup = div.createDiv('writing-menu-control-label-group');
 	if (icon) {
@@ -18,7 +18,7 @@ export async function addCompactControl(plugin: WritingMenuPlugin, container: HT
 	input.onchange = (e) => callback((e.target as HTMLInputElement).value);
 }
 
-export async function addCompactToggle(plugin: WritingMenuPlugin, container: HTMLElement, label: string, value: boolean, callback: (v: boolean) => void, icon?: string){
+export async function addCompactToggle(plugin: WritingMenuPlugin, container: HTMLElement, label: string, value: boolean, callback: (v: boolean) => void | Promise<void>, icon?: string){
 	const div = container.createDiv('writing-menu-control');
 	const labelGroup = div.createDiv('writing-menu-control-label-group');
 	if (icon) {
@@ -35,7 +35,7 @@ export async function addCompactToggle(plugin: WritingMenuPlugin, container: HTM
 	};
 }
 
-export async function addCompactStepper(plugin: WritingMenuPlugin, container: HTMLElement, label: string, value: number, step: number, min: number, callback: (v: number) => void, icon?: string){
+export async function addCompactStepper(plugin: WritingMenuPlugin, container: HTMLElement, label: string, value: number, step: number, min: number, callback: (v: number) => void | Promise<void>, icon?: string){
 	const div = container.createDiv('writing-menu-control wm-stepper-control');
 
 	const labelGroup = div.createDiv('writing-menu-control-label-group');
@@ -85,7 +85,7 @@ export async function addCompactStepper(plugin: WritingMenuPlugin, container: HT
 	group.appendChild(plus);
 }
 
-export async function addCompactSlider(plugin: WritingMenuPlugin, container: HTMLElement, label: string, value: number, min: number, max: number, step: number, callback: (v: number) => void, icon?: string){
+export async function addCompactSlider(plugin: WritingMenuPlugin, container: HTMLElement, label: string, value: number, min: number, max: number, step: number, callback: (v: number) => void | Promise<void>, icon?: string){
 	const div = container.createDiv('writing-menu-control');
 
 	const labelGroup = div.createDiv('writing-menu-control-label-group');
@@ -103,7 +103,7 @@ export async function addCompactSlider(plugin: WritingMenuPlugin, container: HTM
 	slider.oninput = (e) => callback(Number((e.target as HTMLInputElement).value));
 }
 
-export async function addDualColorControl(plugin: WritingMenuPlugin, container: HTMLElement, label: string, value: string | { light: string, dark: string }, callback: (v: any) => void, icon?: string){
+export async function addDualColorControl(plugin: WritingMenuPlugin, container: HTMLElement, label: string, value: string | { light: string, dark: string }, callback: (v: string | { light: string; dark: string }) => void | Promise<void>, icon?: string){
 	const div = container.createDiv('writing-menu-control');
 
 	const labelGroup = div.createDiv('writing-menu-control-label-group');

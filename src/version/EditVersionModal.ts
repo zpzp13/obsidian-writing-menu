@@ -46,7 +46,7 @@ export class EditVersionModal extends Modal {
 		for (let i = 0; i < 3; i++) skeleton.createDiv({ cls: 'wm-evm-skeleton-line' });
 
 		let originalContent = '';
-		try { originalContent = await this.manager.readVersion(this.file, this.entry); } catch (_e) {}
+		try { originalContent = await this.manager.readVersion(this.file, this.entry); } catch { /* intentional */ }
 		skeleton.remove();
 
 		const bodyInput = row3.createEl('textarea', { cls: 'wm-evm-field wm-evm-field-body' }) as HTMLTextAreaElement;
