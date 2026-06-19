@@ -24,6 +24,7 @@ export class DailyCharStore {
 	private storage: TodayStorage = { today: null };
 	private saveTimer = 0;
 	private avgTimer  = 0;
+	private modifyTimers = new Map<string, number>();
 	private _avgCharCount = 0;
 	private ready = false;
 
@@ -78,18 +79,25 @@ export class DailyCharStore {
 		if (file.extension !== 'md' || this.inVersionFolder(file.path)) return;
 
 		if (this.inTrackingFolder(file.path)) {
-			if (this.storage.today.date !== this.todayStr()) {
-				await this.init();
-				return;
-			}
-			try {
-				const content = await this.plugin.app.vault.read(file);
-				const count   = calcVersionCharCount(content, this.plugin.settings.charCountMode);
-				this.storage.today.current[file.path] = count;
-				if (!(file.path in this.storage.today.start))
-					this.storage.today.start[file.path] = count;
-				this.scheduleSave();
-			} catch { /* intentional */ }
+			// 오토세이브마다 즉시 읽지 않고 3초 데바운스
+			window.clearTimeout(this.modifyTimers.get(file.path));
+			this.modifyTimers.set(file.path, window.setTimeout(() => {
+				this.modifyTimers.delete(file.path);
+				if (!this.storage.today) return;
+				if (this.storage.today.date !== this.todayStr()) {
+					void this.init(); return;
+				}
+				void (async () => {
+					try {
+						const content = await this.plugin.app.vault.cachedRead(file);
+						const count   = calcVersionCharCount(content, this.plugin.settings.charCountMode);
+						this.storage.today!.current[file.path] = count;
+						if (!(file.path in this.storage.today!.start))
+							this.storage.today!.start[file.path] = count;
+						this.scheduleSave();
+					} catch { /* intentional */ }
+				})();
+			}, 3000));
 		}
 
 		const { folder } = getDnConfig(this.plugin);
@@ -219,6 +227,9 @@ export class DailyCharStore {
 			try { dnFile = await this.plugin.app.vault.create(dnPath, '---\n---\n'); } catch { return; }
 		}
 		if (!(dnFile instanceof TFile)) return;
+		// 현재 편집 중인 파일과 같으면 병합 충돌 유발 — 저장 건너뜀
+		const activeFile = this.plugin.app.workspace.getActiveFile();
+		if (activeFile?.path === dnFile.path) return;
 		try {
 			await this.plugin.app.fileManager.processFrontMatter(dnFile, (fm: Record<string, unknown>) => { fm[key] = charCount; });
 		} catch { /* intentional */ }

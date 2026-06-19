@@ -82,6 +82,8 @@ export class WritingTimeSection {
 		let saveTickCount   = 0;
 
 		const modeCardEls = new Map<string, ModeCardEls>();
+		// 이번 세션에서 데일리노트에 저장한 누적값 (파일 저장 없이 증분 업데이트용)
+		const dnSaved = new Map<string, number>();
 
 		// ── pending ──
 		const loadPending = (file: TFile) => {
@@ -89,6 +91,11 @@ export class WritingTimeSection {
 				const key = `${file.path}:${m}`;
 				if (!plugin.pendingTimeUpdates.has(key))
 					plugin.pendingTimeUpdates.set(key, { file, mode: m, seconds: 0 });
+			}
+			// dnSaved를 현재 pending 기준으로 초기화 — 재렌더 시 이미 저장된 값을 이중으로 저장하지 않음
+			for (const m of [...modes.map(m => m.id), 'total']) {
+				const key = `${file.path}:${m}`;
+				dnSaved.set(key, plugin.pendingTimeUpdates.get(key)?.seconds ?? 0);
 			}
 		};
 
@@ -107,6 +114,8 @@ export class WritingTimeSection {
 				try { dnFile = await app.vault.create(dnPath, '---\n---\n'); } catch { return; }
 			}
 			if (!(dnFile instanceof TFile)) return;
+			// 현재 편집 중인 파일과 같으면 병합 충돌 유발 — 저장 건너뜀
+			if (app.workspace.getActiveFile()?.path === dnFile.path) return;
 			isDailySaving = true;
 			try {
 				await app.fileManager.processFrontMatter(dnFile, (fm2: Record<string, unknown>) => {
@@ -133,11 +142,38 @@ export class WritingTimeSection {
 			const deltas: Record<string, number> = {};
 			for (const m of modes)
 				deltas[m.id] = plugin.pendingTimeUpdates.get(`${file.path}:${m.id}`)?.seconds ?? 0;
-			const totalEntry = plugin.pendingTimeUpdates.get(`${file.path}:total`);
-			const totalDelta = totalEntry?.seconds ?? 0;
+			const totalDelta = plugin.pendingTimeUpdates.get(`${file.path}:total`)?.seconds ?? 0;
 
 			const hasUpdates = modes.some(m => deltas[m.id] > 0) || totalDelta > 0;
 			if (!hasUpdates) return;
+
+			const isActiveFile = app.workspace.getActiveFile()?.path === file.path;
+
+			// 프로젝트 폴더 안 파일이면 데일리노트에 증분 저장 (파일 활성 여부 무관)
+			const proj = getProjectName(file);
+			if (proj) {
+				const dnDeltas: Record<string, number> = {};
+				let dnTotal = 0;
+				for (const m of modes) {
+					const key = `${file.path}:${m.id}`;
+					const already = dnSaved.get(key) ?? 0;
+					const delta = (deltas[m.id] ?? 0) - already;
+					if (delta > 0) { dnDeltas[m.id] = delta; dnTotal += delta; }
+				}
+				const totalKey2 = `${file.path}:total`;
+				const totalDnDelta = totalDelta - (dnSaved.get(totalKey2) ?? 0);
+				if (Object.keys(dnDeltas).length > 0 || totalDnDelta > 0) {
+					await saveDailyTime(proj, dnDeltas, Math.max(dnTotal, totalDnDelta > 0 ? totalDnDelta : 0));
+					for (const m of modes) {
+						const key = `${file.path}:${m.id}`;
+						dnSaved.set(key, deltas[m.id] ?? 0);
+					}
+					if (totalDnDelta > 0) dnSaved.set(totalKey2, totalDelta);
+				}
+			}
+
+			// 파일이 현재 편집 중이면 frontmatter 저장 건너뜀 (병합 충돌 방지)
+			if (isActiveFile) return;
 
 			isSaving = true;
 			try {
@@ -151,15 +187,12 @@ export class WritingTimeSection {
 				});
 			} finally { window.setTimeout(() => { isSaving = false; }, 200); }
 
-			// 프로젝트 폴더 안 파일이면 데일리노트에도 기록
-			const proj = getProjectName(file);
-			if (proj) await saveDailyTime(proj, deltas, totalDelta);
-
-			// pending 리셋
+			// pending 리셋 + dnSaved 초기화 (파일 저장 완료)
 			for (const m of [...modes.map(m => m.id), 'total']) {
 				const entry = plugin.pendingTimeUpdates.get(`${file.path}:${m}`);
 				if (entry) entry.seconds = 0;
 			}
+			dnSaved.clear();
 		};
 
 		// ── 배지 (퍼센트 + 아이콘) ──
@@ -357,7 +390,10 @@ export class WritingTimeSection {
 			void onFileChange(f).catch(() => {});
 		});
 
-		const avgModifyHandler = app.vault.on('modify', () => {
+		const avgModifyHandler = app.vault.on('modify', (modFile) => {
+			// 데일리노트 폴더 파일 변경 시에만 평균 재계산 (작성 파일 자동저장은 무시)
+			const { folder: dnFolder } = getDnConfig(plugin);
+			if (dnFolder && modFile instanceof TFile && !modFile.path.startsWith(normalizePath(dnFolder) + '/')) return;
 			window.clearTimeout(avgDebounceTimer);
 			avgDebounceTimer = window.setTimeout(() => { void (async () => {
 				const f = trackingFile;
@@ -366,7 +402,7 @@ export class WritingTimeSection {
 					? await WritingTimeStore.averageDailyNotes(app, getDnConfig(plugin).folder, proj, modes)
 					: await WritingTimeStore.averageFolder(app, getAvgFolder(f), modes);
 				if (modeCardEls.size > 0) updateDisplay();
-			})(); }, 2000);
+			})(); }, 500);
 		});
 
 		watchDisconnect(container, () => {
