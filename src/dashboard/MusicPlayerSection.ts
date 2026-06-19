@@ -67,8 +67,8 @@ function openPlaylistPopup(anchor: HTMLElement, plugin: WritingMenuPlugin) {
 	const ownerWin = ownerDoc.defaultView ?? window;
 	const popup = ownerDoc.body.createDiv({ cls: 'wm-music-list-popup' });
 	const rect = anchor.getBoundingClientRect();
-	popup.style.top = `${rect.bottom + 6}px`;
-	popup.style.left = `${rect.left}px`;
+	popup.setCssStyles({ top: `${rect.bottom + 6}px` });
+	popup.setCssStyles({ left: `${rect.left}px` });
 
 	const folders = (plugin.settings.musicFolderPaths ?? []).filter(p => p.trim());
 
@@ -218,11 +218,11 @@ function openPlaylistPopup(anchor: HTMLElement, plugin: WritingMenuPlugin) {
 
 	renderRootLevel();
 
-	requestAnimationFrame(() => {
+	window.requestAnimationFrame(() => {
 		if (!popup.isConnected) return;
 		const pr = popup.getBoundingClientRect();
-		if (pr.right > ownerWin.innerWidth - 10) popup.style.left = `${ownerWin.innerWidth - pr.width - 10}px`;
-		if (pr.bottom > ownerWin.innerHeight - 10) popup.style.top = `${rect.top - pr.height - 6}px`;
+		if (pr.right > ownerWin.innerWidth - 10) popup.setCssStyles({ left: `${ownerWin.innerWidth - pr.width - 10}px` });
+		if (pr.bottom > ownerWin.innerHeight - 10) popup.setCssStyles({ top: `${rect.top - pr.height - 6}px` });
 	});
 
 	// mousedown 기반 외부 클릭 감지 (click 이벤트와 충돌 방지)
@@ -234,7 +234,7 @@ function openPlaylistPopup(anchor: HTMLElement, plugin: WritingMenuPlugin) {
 		}
 	};
 	// 팝업이 열린 직후 mousedown 이벤트를 바로 등록 (setTimeout 없음)
-	requestAnimationFrame(() => {
+	window.requestAnimationFrame(() => {
 		ownerDoc.addEventListener('mousedown', onOutside);
 	});
 }
@@ -257,9 +257,9 @@ function makeVolWrap(
 	// fill: JS gradient (thumb이 track보다 커서 overflow:hidden 불가)
 	const updateFill = (v: number) => {
 		const pct = Math.round(v * 100);
-		slider.style.background = `linear-gradient(to right,
+		slider.setCssStyles({ background: `linear-gradient(to right,
 			var(--interactive-accent) ${pct}%,
-			var(--background-modifier-border) ${pct}%)`;
+			var(--background-modifier-border) ${pct}%)` });
 	};
 	updateFill(mp.volume);
 
@@ -415,7 +415,6 @@ export class MusicPlayerSection {
 		// 병합된 타이틀 컨테이너: 기본=현재곡, hover=이전/다음곡
 		const trackTitleEl = strip.createDiv({ cls: 'wm-dash-music-track-title' });
 		trackTitleEl.textContent = mp.currentTrack?.name ?? '—';
-		const hoverLabel = trackTitleEl; // 동일 요소 재사용
 
 		// 클릭: skip() 사용 (현재 재생 위치 무관하게 트랙 이동)
 		fp2aw.wrap.addEventListener('click', (e) => { e.stopPropagation(); mp.skip(-2); });
@@ -484,7 +483,7 @@ export class MusicPlayerSection {
 			const dur = mp.audio.duration;
 			curTimeEl.textContent = formatTime(cur);
 			remTimeEl.textContent = (!isNaN(dur) && dur > 0) ? `-${formatTime(dur - cur)}` : '-0:00';
-			fill.style.width = `${(!isNaN(dur) && dur > 0) ? (cur / dur) * 100 : 0}%`;
+			fill.setCssStyles({ width: `${(!isNaN(dur) && dur > 0) ? (cur / dur) * 100 : 0}%` });
 		};
 		updateProgress();
 
@@ -494,8 +493,8 @@ export class MusicPlayerSection {
 			mp.seek((e.clientX - r.left) / r.width);
 		};
 		bar.addEventListener('mousedown', (e) => { seeking = true; doSeek(e); });
-		document.addEventListener('mousemove', (e) => { if (seeking) doSeek(e); });
-		document.addEventListener('mouseup', () => { seeking = false; });
+		activeDocument.addEventListener('mousemove', (e) => { if (seeking) doSeek(e); });
+		activeDocument.addEventListener('mouseup', () => { seeking = false; });
 
 		// ── 컨트롤 ──
 		const controls = player.createDiv({ cls: 'wm-dash-music-controls' });

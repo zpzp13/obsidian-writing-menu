@@ -1,4 +1,4 @@
-import { App, Modal, TFile, TFolder, Notice, Setting, Vault, TAbstractFile, setIcon } from 'obsidian';
+import { App, Modal, TFile, TFolder, Setting, Vault, TAbstractFile, setIcon } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 
 // HWP Export Modal
@@ -46,7 +46,7 @@ export class HwpExportModal extends Modal {
 			text: '.hwp',
 			cls: 'hwp-filename-extension'
 		});
-		extEl.style.cssText = 'margin-left:4px; color:var(--text-muted); font-size:14px;';
+		extEl.setCssStyles({ 'marginLeft': '4px', 'color': 'var(--text-muted)', 'fontSize': '14px' });
 
 		// Export Path Input with Folder Button
 		const pathSetting = new Setting(contentEl)
@@ -164,7 +164,7 @@ export class TxtExportModal extends Modal {
 			text: '.txt',
 			cls: 'txt-filename-extension'
 		});
-		extEl.style.cssText = 'margin-left:4px; color:var(--text-muted); font-size:14px;';
+		extEl.setCssStyles({ 'marginLeft': '4px', 'color': 'var(--text-muted)', 'fontSize': '14px' });
 
 		// Export Path Input with Folder Button
 		const pathSetting = new Setting(contentEl)
@@ -368,14 +368,14 @@ export class BatchExportModal extends Modal {
 			text: fileExt,
 			cls: 'export-filename-extension'
 		});
-		extEl.style.cssText = 'margin-left:4px; color:var(--text-muted); font-size:14px;';
+		extEl.setCssStyles({ 'marginLeft': '4px', 'color': 'var(--text-muted)', 'fontSize': '14px' });
 
 		// Initially hide file name setting
-		this.fileNameSetting.settingEl.style.display = 'none';
+		this.fileNameSetting.settingEl.setCssStyles({ display: 'none' });
 
 		// File list container (for drag-and-drop reordering)
 		this.fileListContainer = contentEl.createDiv({ cls: 'batch-export-file-list-container' });
-		this.fileListContainer.style.cssText = 'display:none; margin-bottom:16px;';
+		this.fileListContainer.setCssStyles({ 'display': 'none', 'marginBottom': '16px' });
 		this.renderFileList();
 
 		// Export Path Input with Folder Button
@@ -470,10 +470,10 @@ export class BatchExportModal extends Modal {
 
 	updateFileNameVisibility() {
 		if (this.fileNameSetting) {
-			this.fileNameSetting.settingEl.style.display = this.mergeFiles ? '' : 'none';
+			this.fileNameSetting.settingEl.setCssStyles({ display: this.mergeFiles ? '' : 'none' });
 		}
 		if (this.fileListContainer) {
-			this.fileListContainer.style.display = this.mergeFiles ? '' : 'none';
+			this.fileListContainer.setCssStyles({ display: this.mergeFiles ? '' : 'none' });
 		}
 	}
 
@@ -483,14 +483,14 @@ export class BatchExportModal extends Modal {
 
 		// Header for included files
 		const header = this.fileListContainer.createDiv({ cls: 'file-list-header' });
-		header.style.cssText = 'display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;';
-		header.createEl('span', { text: '포함할 파일 (드래그하여 정렬)' }).style.cssText = 'font-size:13px; color:var(--text-muted);';
+		header.setCssStyles({ 'display': 'flex', 'justifyContent': 'space-between', 'alignItems': 'center', 'marginBottom': '8px' });
+		header.createEl('span', { text: '포함할 파일 (드래그하여 정렬)' }).setCssStyles({ 'fontSize': '13px', 'color': 'var(--text-muted)' });
 		const countEl = header.createEl('span', { text: `${this.sortedFiles.length}개 파일` });
-		countEl.style.cssText = 'font-size:12px; color:var(--text-faint);';
+		countEl.setCssStyles({ 'fontSize': '12px', 'color': 'var(--text-faint)' });
 
 		// File list
 		const listEl = this.fileListContainer.createDiv({ cls: 'file-list' });
-		listEl.style.cssText = 'border:1px solid var(--background-modifier-border); border-radius:var(--radius-m); max-height:200px; overflow-y:auto;';
+		listEl.setCssStyles({ 'border': '1px solid var(--background-modifier-border)', 'borderRadius': 'var(--radius-m)', 'maxHeight': '200px', 'overflowY': 'auto' });
 
 		// Drag state
 		let draggedIndex: number | null = null;
@@ -510,11 +510,11 @@ export class BatchExportModal extends Modal {
 			const itemEl = listEl.createDiv({ cls: 'file-list-item' });
 			itemEl.setAttribute('draggable', 'true');
 			itemEl.setAttribute('data-index', String(index));
-			itemEl.style.cssText = 'display:flex; align-items:center; padding:6px 12px; cursor:grab; border-bottom:1px solid var(--background-modifier-border); background:var(--background-primary); transition: background 0.1s;';
+			itemEl.setCssStyles({ 'display': 'flex', 'alignItems': 'center', 'padding': '6px 12px', 'cursor': 'grab', 'borderBottom': '1px solid var(--background-modifier-border)', 'background': 'var(--background-primary)', 'transition': 'background 0.1s' });
 
 			// Drag handle icon (Lucide grip-vertical)
 			const handleEl = itemEl.createDiv({ cls: 'drag-handle' });
-			handleEl.style.cssText = 'margin-right:8px; color:var(--text-faint); display:flex; align-items:center;';
+			handleEl.setCssStyles({ 'marginRight': '8px', 'color': 'var(--text-faint)', 'display': 'flex', 'alignItems': 'center' });
 			setIcon(handleEl, 'grip-vertical');
 			const iconSvg = handleEl.querySelector('svg');
 			if (iconSvg) {
@@ -524,15 +524,15 @@ export class BatchExportModal extends Modal {
 
 			// File number
 			const numEl = itemEl.createEl('span', { text: `${index + 1}.`, cls: 'file-num' });
-			numEl.style.cssText = 'margin-right:8px; color:var(--text-faint); font-size:12px; min-width:20px;';
+			numEl.setCssStyles({ 'marginRight': '8px', 'color': 'var(--text-faint)', 'fontSize': '12px', 'minWidth': '20px' });
 
 			// File name
 			const nameEl = itemEl.createEl('span', { text: file.basename });
-			nameEl.style.cssText = 'flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
+			nameEl.setCssStyles({ 'flex': '1', 'overflow': 'hidden', 'textOverflow': 'ellipsis', 'whiteSpace': 'nowrap' });
 
 			// Remove button
 			const removeBtn = itemEl.createDiv({ cls: 'file-remove-btn' });
-			removeBtn.style.cssText = 'margin-left:8px; color:var(--text-faint); cursor:pointer; display:flex; align-items:center; padding:2px;';
+			removeBtn.setCssStyles({ 'marginLeft': '8px', 'color': 'var(--text-faint)', 'cursor': 'pointer', 'display': 'flex', 'alignItems': 'center', 'padding': '2px' });
 			setIcon(removeBtn, 'x');
 			const removeSvg = removeBtn.querySelector('svg');
 			if (removeSvg) {
@@ -549,37 +549,37 @@ export class BatchExportModal extends Modal {
 				this.renderRemovedFiles();
 			});
 			removeBtn.addEventListener('mouseenter', () => {
-				removeBtn.style.color = 'var(--text-error)';
+				removeBtn.setCssStyles({ color: 'var(--text-error)' });
 			});
 			removeBtn.addEventListener('mouseleave', () => {
-				removeBtn.style.color = 'var(--text-faint)';
+				removeBtn.setCssStyles({ color: 'var(--text-faint)' });
 			});
 
 			// Hover effect
 			itemEl.addEventListener('mouseenter', () => {
-				if (draggedEl !== itemEl) itemEl.style.background = 'var(--background-secondary)';
+				if (draggedEl !== itemEl) itemEl.setCssStyles({ background: 'var(--background-secondary)' });
 			});
 			itemEl.addEventListener('mouseleave', () => {
-				if (draggedEl !== itemEl) itemEl.style.background = 'var(--background-primary)';
+				if (draggedEl !== itemEl) itemEl.setCssStyles({ background: 'var(--background-primary)' });
 			});
 
 			// Drag events - optimized without full re-render
 			itemEl.addEventListener('dragstart', (e) => {
 				draggedIndex = parseInt(itemEl.getAttribute('data-index') || '0');
 				draggedEl = itemEl;
-				itemEl.style.opacity = '0.5';
+				itemEl.setCssStyles({ opacity: '0.5' });
 				e.dataTransfer?.setData('text/plain', String(draggedIndex));
 				e.dataTransfer!.effectAllowed = 'move';
 			});
 
 			itemEl.addEventListener('dragend', () => {
-				itemEl.style.opacity = '1';
+				itemEl.setCssStyles({ opacity: '1' });
 				draggedEl = null;
 				draggedIndex = null;
 				// Clear all indicators
 				listEl.querySelectorAll('.file-list-item').forEach((el) => {
-					(el as HTMLElement).style.borderTop = '';
-					(el as HTMLElement).style.borderBottom = '';
+					(el as HTMLElement).setCssStyles({ borderTop: '' });
+					(el as HTMLElement).setCssStyles({ borderBottom: '' });
 				});
 			});
 
@@ -592,19 +592,19 @@ export class BatchExportModal extends Modal {
 				const midY = rect.top + rect.height / 2;
 
 				// Clear previous indicators on this item
-				itemEl.style.borderTop = '';
-				itemEl.style.borderBottom = '';
+				itemEl.setCssStyles({ borderTop: '' });
+				itemEl.setCssStyles({ borderBottom: '' });
 
 				if (e.clientY < midY) {
-					itemEl.style.borderTop = '2px solid var(--interactive-accent)';
+					itemEl.setCssStyles({ borderTop: '2px solid var(--interactive-accent)' });
 				} else {
-					itemEl.style.borderBottom = '2px solid var(--interactive-accent)';
+					itemEl.setCssStyles({ borderBottom: '2px solid var(--interactive-accent)' });
 				}
 			});
 
 			itemEl.addEventListener('dragleave', () => {
-				itemEl.style.borderTop = '';
-				itemEl.style.borderBottom = '';
+				itemEl.setCssStyles({ borderTop: '' });
+				itemEl.setCssStyles({ borderBottom: '' });
 			});
 
 			itemEl.addEventListener('drop', (e) => {
@@ -639,19 +639,19 @@ export class BatchExportModal extends Modal {
 				updateNumbers();
 
 				// Clear indicators
-				itemEl.style.borderTop = '';
-				itemEl.style.borderBottom = '';
+				itemEl.setCssStyles({ borderTop: '' });
+				itemEl.setCssStyles({ borderBottom: '' });
 			});
 		});
 
 		// Remove border from last item
 		const lastItem = listEl.querySelector('.file-list-item:last-child') as HTMLElement;
 		if (lastItem) {
-			lastItem.style.borderBottom = 'none';
+			lastItem.setCssStyles({ borderBottom: 'none' });
 		}
 
 		// Restore scroll position
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			listEl.scrollTop = this.listScrollTop;
 		});
 
@@ -671,26 +671,26 @@ export class BatchExportModal extends Modal {
 		const removedSection = this.fileListContainer.createDiv({ cls: 'removed-section' });
 
 		const removedHeader = removedSection.createDiv({ cls: 'removed-files-header' });
-		removedHeader.style.cssText = 'display:flex; justify-content:space-between; align-items:center; margin-top:12px; margin-bottom:8px;';
-		removedHeader.createEl('span', { text: '제외된 파일' }).style.cssText = 'font-size:13px; color:var(--text-muted);';
+		removedHeader.setCssStyles({ 'display': 'flex', 'justifyContent': 'space-between', 'alignItems': 'center', 'marginTop': '12px', 'marginBottom': '8px' });
+		removedHeader.createEl('span', { text: '제외된 파일' }).setCssStyles({ 'fontSize': '13px', 'color': 'var(--text-muted)' });
 		const removedCountEl = removedHeader.createEl('span', { text: `${this.removedFiles.length}개` });
-		removedCountEl.style.cssText = 'font-size:12px; color:var(--text-faint);';
+		removedCountEl.setCssStyles({ 'fontSize': '12px', 'color': 'var(--text-faint)' });
 
 		const removedListEl = removedSection.createDiv({ cls: 'removed-file-list' });
-		removedListEl.style.cssText = 'border:1px solid var(--background-modifier-border); border-radius:var(--radius-m); max-height:120px; overflow-y:auto; opacity:0.7;';
+		removedListEl.setCssStyles({ 'border': '1px solid var(--background-modifier-border)', 'borderRadius': 'var(--radius-m)', 'maxHeight': '120px', 'overflowY': 'auto', 'opacity': '0.7' });
 
 		this.removedFiles.forEach((file, index) => {
 			const itemEl = removedListEl.createDiv({ cls: 'removed-file-item' });
 			itemEl.setAttribute('data-index', String(index));
-			itemEl.style.cssText = 'display:flex; align-items:center; padding:6px 12px; border-bottom:1px solid var(--background-modifier-border); background:var(--background-primary); transition: background 0.1s;';
+			itemEl.setCssStyles({ 'display': 'flex', 'alignItems': 'center', 'padding': '6px 12px', 'borderBottom': '1px solid var(--background-modifier-border)', 'background': 'var(--background-primary)', 'transition': 'background 0.1s' });
 
 			// File name
 			const nameEl = itemEl.createEl('span', { text: file.basename });
-			nameEl.style.cssText = 'flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-muted);';
+			nameEl.setCssStyles({ 'flex': '1', 'overflow': 'hidden', 'textOverflow': 'ellipsis', 'whiteSpace': 'nowrap', 'color': 'var(--text-muted)' });
 
 			// Add back button
 			const addBtn = itemEl.createDiv({ cls: 'file-add-btn' });
-			addBtn.style.cssText = 'margin-left:8px; color:var(--text-faint); cursor:pointer; display:flex; align-items:center; padding:2px;';
+			addBtn.setCssStyles({ 'marginLeft': '8px', 'color': 'var(--text-faint)', 'cursor': 'pointer', 'display': 'flex', 'alignItems': 'center', 'padding': '2px' });
 			setIcon(addBtn, 'plus');
 			const addSvg = addBtn.querySelector('svg');
 			if (addSvg) {
@@ -706,25 +706,25 @@ export class BatchExportModal extends Modal {
 				this.renderFileList();
 			});
 			addBtn.addEventListener('mouseenter', () => {
-				addBtn.style.color = 'var(--text-success)';
+				addBtn.setCssStyles({ color: 'var(--text-success)' });
 			});
 			addBtn.addEventListener('mouseleave', () => {
-				addBtn.style.color = 'var(--text-faint)';
+				addBtn.setCssStyles({ color: 'var(--text-faint)' });
 			});
 
 			// Hover effect
 			itemEl.addEventListener('mouseenter', () => {
-				itemEl.style.background = 'var(--background-secondary)';
+				itemEl.setCssStyles({ background: 'var(--background-secondary)' });
 			});
 			itemEl.addEventListener('mouseleave', () => {
-				itemEl.style.background = 'var(--background-primary)';
+				itemEl.setCssStyles({ background: 'var(--background-primary)' });
 			});
 		});
 
 		// Remove border from last item
 		const lastRemovedItem = removedListEl.querySelector('.removed-file-item:last-child') as HTMLElement;
 		if (lastRemovedItem) {
-			lastRemovedItem.style.borderBottom = 'none';
+			lastRemovedItem.setCssStyles({ borderBottom: 'none' });
 		}
 	}
 

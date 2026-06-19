@@ -54,7 +54,7 @@ export class TimeTrackingView extends ItemView {
 
 	private renderUI(container: HTMLElement) {
 		const wrapper = container.createDiv('writing-menu-sidebar-wrapper');
-		wrapper.style.cssText = 'padding: 12px;';
+		wrapper.setCssStyles({ 'padding': '12px' });
 
 		if (this.plugin.stopwatchSeconds <= 0) {
 			this.plugin.initStopwatch();
@@ -62,15 +62,15 @@ export class TimeTrackingView extends ItemView {
 
 		// === Main row: 작업 시간 [토글] ===
 		const mainDiv = wrapper.createDiv('writing-menu-control');
-		mainDiv.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding: 8px 0;';
+		mainDiv.setCssStyles({ 'display': 'flex', 'justifyContent': 'space-between', 'alignItems': 'center', 'padding': '8px 0' });
 
 		const mainLabelGroup = mainDiv.createDiv();
-		mainLabelGroup.style.cssText = 'display:flex; align-items:center; gap:6px;';
+		mainLabelGroup.setCssStyles({ 'display': 'flex', 'alignItems': 'center', 'gap': '6px' });
 		const mainIcon = mainLabelGroup.createSpan();
-		mainIcon.style.cssText = 'display:flex; align-items:center; width:16px; height:16px;';
+		mainIcon.setCssStyles({ 'display': 'flex', 'alignItems': 'center', 'width': '16px', 'height': '16px' });
 		setIcon(mainIcon, 'clock');
 		const labelSpan = mainLabelGroup.createEl('span', { text: '작업 시간', cls: 'writing-menu-label' });
-		labelSpan.style.cssText = 'font-size:14px; height:16px; line-height:16px;';
+		labelSpan.setCssStyles({ 'fontSize': '14px', 'height': '16px', 'lineHeight': '16px' });
 
 		const mainToggle = mainDiv.createDiv(`writing-menu-toggle ${this.plugin.settings.enableTimeTracking ? 'is-enabled' : ''}`);
 		mainToggle.createDiv('writing-menu-toggle-thumb');
@@ -79,30 +79,30 @@ export class TimeTrackingView extends ItemView {
 			mainToggle.classList.toggle('is-enabled', newVal);
 			this.plugin.settings.enableTimeTracking = newVal;
 			await this.plugin.saveSettings();
-			stopwatchDiv.style.display = newVal ? 'flex' : 'none';
+			stopwatchDiv.setCssStyles({ display: newVal ? 'flex' : 'none' });
 		};
 
 		// === Sub row: └ 스톱워치 [countdown] [play/pause] [reset] ===
 		const stopwatchDiv = wrapper.createDiv('writing-menu-control');
-		stopwatchDiv.style.cssText = `display:${this.plugin.settings.enableTimeTracking ? 'flex' : 'none'}; justify-content:space-between; align-items:center; padding: 8px 0 8px 20px;`;
+		stopwatchDiv.setCssStyles({ 'display': this.plugin.settings.enableTimeTracking ? 'flex' : 'none', 'justifyContent': 'space-between', 'alignItems': 'center', 'padding': '8px 0 8px 20px' });
 
 		const stopwatchLabelGroup = stopwatchDiv.createDiv();
-		stopwatchLabelGroup.style.cssText = 'display:flex; align-items:center; gap:0;';
+		stopwatchLabelGroup.setCssStyles({ 'display': 'flex', 'alignItems': 'center', 'gap': '0' });
 		const cornerIcon1 = stopwatchLabelGroup.createSpan();
-		cornerIcon1.style.cssText = 'display:flex; align-items:center; width:16px; height:16px; opacity:0.5;';
+		cornerIcon1.setCssStyles({ 'display': 'flex', 'alignItems': 'center', 'width': '16px', 'height': '16px', 'opacity': '0.5' });
 		setIcon(cornerIcon1, 'corner-down-right');
 		const stopwatchLabel = stopwatchLabelGroup.createEl('span', { text: '스톱워치' });
-		stopwatchLabel.style.cssText = 'font-size:14px; margin-left:4px;';
+		stopwatchLabel.setCssStyles({ 'fontSize': '14px', 'marginLeft': '4px' });
 
 		const stopwatchRightGroup = stopwatchDiv.createDiv();
-		stopwatchRightGroup.style.cssText = 'display:flex; align-items:center; gap:8px;';
+		stopwatchRightGroup.setCssStyles({ 'display': 'flex', 'alignItems': 'center', 'gap': '8px' });
 
 		const stopwatchSpan = stopwatchRightGroup.createEl('span', { cls: 'writing-menu-stopwatch-display' });
-		stopwatchSpan.style.cssText = 'font-size:14px; color:var(--text-muted);';
+		stopwatchSpan.setCssStyles({ 'fontSize': '14px', 'color': 'var(--text-muted)' });
 		stopwatchSpan.textContent = this.plugin.formatTime(this.plugin.stopwatchSeconds);
 
 		const btnGroup = stopwatchRightGroup.createDiv();
-		btnGroup.style.cssText = 'display:flex; align-items:center; gap:0;';
+		btnGroup.setCssStyles({ 'display': 'flex', 'alignItems': 'center', 'gap': '0' });
 
 		const playPauseBtn = btnGroup.createDiv('clickable-icon');
 		setIcon(playPauseBtn, this.plugin.stopwatchInterval ? 'pause' : 'play');

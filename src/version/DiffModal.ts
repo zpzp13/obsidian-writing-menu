@@ -35,9 +35,9 @@ export class DiffModal extends Modal {
 		const { contentEl, modalEl } = this;
 		contentEl.empty();
 		contentEl.addClass('wm-diff-modal');
-		modalEl.style.width = 'min(1100px, 94vw)';
-		modalEl.style.maxWidth = '94vw';
-		modalEl.style.height = 'min(740px, 90vh)';
+		modalEl.setCssStyles({ width: 'min(1100px, 94vw)' });
+		modalEl.setCssStyles({ maxWidth: '94vw' });
+		modalEl.setCssStyles({ height: 'min(740px, 90vh)' });
 
 		const manifest = await this.manager.getManifest(this.file);
 		this.allVersions = manifest.versions;
@@ -186,7 +186,6 @@ export class DiffModal extends Modal {
 
 		if (!hasChanges) {
 			scroll.createDiv({ cls: 'wm-diff-no-change' });
-			const icon = scroll.querySelector('.wm-diff-no-change')!;
 			scroll.querySelector('.wm-diff-no-change')!.textContent = '두 버전이 동일합니다.';
 			return;
 		}

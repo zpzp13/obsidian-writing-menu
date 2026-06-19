@@ -1,4 +1,4 @@
-import { setIcon, MarkdownView } from 'obsidian';
+import { setIcon, MarkdownView, sanitizeHTMLToDom } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { TaskParser } from './data/TaskParser';
 import { TasksRenderer } from './TasksRenderer';
@@ -15,7 +15,6 @@ export class DashboardSection {
 
 	static render(container: HTMLElement, plugin: WritingMenuPlugin, sections?: DashSectionConfig[]) {
 		const wrap = container.createDiv({ cls: 'wm-dash' });
-		const store = plugin.charStore;
 
 		const cfg = sections ?? plugin.settings.dashboardSections ?? [
 			{ id: 'chars',  label: '글자수',   visible: true },
@@ -106,7 +105,7 @@ export class DashboardSection {
 				const setting = (plugin.app as any).setting;
 				setting.open();
 				setting.openTabById(plugin.manifest.id);
-				setTimeout(() => plugin.settingTab?.renderPage(settingsPage), 20);
+				window.setTimeout(() => plugin.settingTab?.renderPage(settingsPage), 20);
 			});
 		}
 
@@ -154,7 +153,7 @@ export class DashboardSection {
 		for (const plat of plats) {
 			const row = numStack.createDiv({ cls: 'wm-dash-today-num-row' });
 			const logoEl = row.createDiv({ cls: 'wm-dash-platform-logo' });
-			logoEl.innerHTML = plat === 'munpia' ? MUNPIA_SVG : NOVELPIA_SVG;
+			logoEl.appendChild(sanitizeHTMLToDom(plat === 'munpia' ? MUNPIA_SVG : NOVELPIA_SVG));
 			const n = currentCounts?.[plat] ?? null;
 			row.createDiv({ cls: 'wm-dash-stat-num wm-dash-today-num wm-dash-today-sum', text: n !== null ? `${n.toLocaleString()}자` : '—' });
 		}

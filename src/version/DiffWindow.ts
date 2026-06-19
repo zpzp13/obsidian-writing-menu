@@ -23,7 +23,7 @@ export class DiffWindow {
 	) {}
 
 	async open() {
-		document.querySelector('.wm-diff-window')?.remove();
+		activeDocument.querySelector('.wm-diff-window')?.remove();
 
 		const manager = new VersionManager(this.app, this.plugin);
 		const manifest = await manager.getManifest(this.file);
@@ -38,10 +38,10 @@ export class DiffWindow {
 		this.posX = (window.innerWidth - W) / 2;
 		this.posY = (window.innerHeight - H) / 2;
 
-		this.el = document.body.createDiv({ cls: 'wm-diff-window' });
-		this.el.style.transform = `translate(${this.posX}px, ${this.posY}px)`;
-		this.el.style.width = `${W}px`;
-		this.el.style.height = `${H}px`;
+		this.el = activeDocument.body.createDiv({ cls: 'wm-diff-window' });
+		this.el.setCssStyles({ transform: `translate(${this.posX}px, ${this.posY}px)` });
+		this.el.setCssStyles({ width: `${W}px` });
+		this.el.setCssStyles({ height: `${H}px` });
 
 		this.render();
 	}
@@ -109,7 +109,7 @@ export class DiffWindow {
 			} else {
 				this.renderUnifiedDiff(diffWrap, hunks, textA, textB);
 			}
-		} catch (err) {
+		} catch {
 			loadingEl.setText('diff 계산에 실패했습니다.');
 		}
 	}
@@ -127,12 +127,10 @@ export class DiffWindow {
 		const scroll = container.createDiv({ cls: 'wm-diff-scroll' });
 		const table = scroll.createDiv({ cls: 'wm-diff-table' });
 
-		let equalGroupLines: string[] = [];
 		let equalGroupFlush: (() => void) | null = null;
 
 		const flushEqual = () => {
 			if (equalGroupFlush) { equalGroupFlush(); equalGroupFlush = null; }
-			equalGroupLines = [];
 		};
 
 		for (const hunk of hunks) {
@@ -314,15 +312,15 @@ export class DiffWindow {
 			const onMove = (e: MouseEvent) => {
 				this.posX = Math.max(0, Math.min(window.innerWidth - 100, e.clientX - startX));
 				this.posY = Math.max(0, Math.min(window.innerHeight - 40, e.clientY - startY));
-				this.el.style.transform = `translate(${this.posX}px, ${this.posY}px)`;
+				this.el.setCssStyles({ transform: `translate(${this.posX}px, ${this.posY}px)` });
 			};
 			const onUp = () => {
 				this.el.removeClass('wm-diff-window-dragging');
-				document.removeEventListener('mousemove', onMove);
-				document.removeEventListener('mouseup', onUp);
+				activeDocument.removeEventListener('mousemove', onMove);
+				activeDocument.removeEventListener('mouseup', onUp);
 			};
-			document.addEventListener('mousemove', onMove);
-			document.addEventListener('mouseup', onUp);
+			activeDocument.addEventListener('mousemove', onMove);
+			activeDocument.addEventListener('mouseup', onUp);
 		});
 	}
 

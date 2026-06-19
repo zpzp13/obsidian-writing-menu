@@ -1,23 +1,17 @@
-﻿import { App, Plugin, Setting, MarkdownView, WorkspaceLeaf, setIcon, TFile, TFolder, TAbstractFile, Vault, PluginSettingTab, ItemView, Modal, Notice, Platform, MarkdownRenderer, FuzzySuggestModal, EventRef } from 'obsidian';
-import * as fs from 'fs';
-import * as path from 'path';
-import { spawn } from 'child_process';
-import { EditorView, ViewPlugin, Decoration, DecorationSet, WidgetType } from '@codemirror/view';
+﻿import { Plugin, MarkdownView, WorkspaceLeaf, setIcon, TFile, TFolder, TAbstractFile, Notice, Platform, EventRef, sanitizeHTMLToDom } from 'obsidian';
+import { EditorView, ViewPlugin, Decoration, DecorationSet } from '@codemirror/view';
 import { Extension, EditorState, ChangeSpec, RangeSetBuilder, Prec, Compartment } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
 import { SymbolSuggester } from './SymbolSuggester';
-import { SymbolOption, SymbolTrigger, TextSubstitution, PreviewTypography, WritingMenuSettings, DEFAULT_SETTINGS, IWritingMenuPlugin } from './src/types';
-import { FilePickerModal, MobilePreviewFloating } from './src/preview';
+import { WritingMenuSettings, DEFAULT_SETTINGS } from './src/types';
+import { MobilePreviewFloating } from './src/preview';
 import { HeadingRawWidget } from './src/editor/HeadingRawWidget';
 import { TimeTrackingView, TIME_TRACKING_VIEW_TYPE } from './src/views/TimeTrackingView';
 import { HwpExportModal, TxtExportModal, BatchExportModal } from './src/export';
 import { WritingMenuSettingTab } from './src/settings';
-import { CONVERTER_PY_CONTENT } from './src/export/converterScript';
-import { GLOBAL_STYLES_CSS } from './src/ui/globalStyles';
 import { ensureConverterScript, openFolderPicker, openTemplatePicker, runPicker, convertToHwp, getDefaultExportPath, cleanMarkdownFrontmatter, removeHeadings, copyWithOptions, applySpaceIndent, convertToTxt, convertFolderToTxt, convertFilesToTxt, convertFolderToHwp, convertFilesToHwp, convertFolderToTxtMerged, convertFilesToTxtMerged, convertFolderToHwpMerged, convertFilesToHwpMerged } from './src/export/converterMethods';
 import { addCompactControl, addCompactToggle, addCompactStepper, addCompactSlider, addDualColorControl } from './src/ui/controls';
 import { openDictionary } from './src/dictionary';
-import { SaveVersionModal } from './src/version/SaveVersionModal';
 import { CalendarView, VIEW_TYPE_CALENDAR } from './src/calendar/views/CalendarView';
 import { MUNPIA_SVG, NOVELPIA_SVG } from './src/assets/platformLogos';
 import { DailyCharStore } from './src/dashboard/data/DailyCharStore';
@@ -30,7 +24,6 @@ export default class WritingMenuPlugin extends Plugin {
 	settingTab: WritingMenuSettingTab | null = null;
 	wikiPanelRerender: (() => void) | null = null;
 	toolbarElements: Map<WorkspaceLeaf, HTMLElement> = new Map();
-	leafStyleElements: Map<WorkspaceLeaf, HTMLStyleElement> = new Map();
 	private leafIdCounter: number = 0;
 	charCountElements: Map<WorkspaceLeaf, HTMLElement> = new Map();
 	headerCharCountElements: Map<WorkspaceLeaf, HTMLElement> = new Map();
@@ -79,9 +72,6 @@ export default class WritingMenuPlugin extends Plugin {
 			await this.ensureConverterScript();
 		}
 
-		this.addGoogleFonts();
-		this.addGlobalStyles();
-
 		this.registerEvent(this.app.workspace.on('layout-change', () => {
 			this.updateAllToolbars();
 			// rAF ensures DOM (mod-visible class) is settled before checking preview mode
@@ -89,8 +79,8 @@ export default class WritingMenuPlugin extends Plugin {
 		}));
 
 		this.registerEvent(this.app.workspace.on('file-open', () => {
-			const activeLeaf = this.app.workspace.activeLeaf;
-			if (activeLeaf) this.updateLeafStyles(activeLeaf);
+			const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+			if (activeView?.leaf) this.updateLeafStyles(activeView.leaf);
 		}));
 
 		this.registerEvent(this.app.workspace.on('active-leaf-change', (leaf) => {
@@ -98,9 +88,9 @@ export default class WritingMenuPlugin extends Plugin {
 		}));
 
 		this.registerEvent(this.app.workspace.on('editor-change', () => {
-			const activeLeaf = this.app.workspace.activeLeaf;
-			if (activeLeaf) {
-				this.updateCharCountDebounced(activeLeaf);
+			const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+			if (activeView?.leaf) {
+				this.updateCharCountDebounced(activeView.leaf);
 			}
 		}));
 
@@ -110,14 +100,14 @@ export default class WritingMenuPlugin extends Plugin {
 		const themeObserver = new MutationObserver((mutations) => {
 			mutations.forEach((mutation) => {
 				if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-					if (mutation.target === document.body) {
+					if (mutation.target === activeDocument.body) {
 						this.regenerateCSSTemplate();
 						this.updateAllLeafStyles();
 					}
 				}
 			});
 		});
-		themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+		themeObserver.observe(activeDocument.body, { attributes: true, attributeFilter: ['class'] });
 		this.register(() => themeObserver.disconnect());
 
 		this.registerEditorExtension(this.createFocusExtension());
@@ -261,31 +251,27 @@ export default class WritingMenuPlugin extends Plugin {
 		this.addCommand({
 			id: 'copy-without-excluded',
 			name: '복사하기 (헤딩·각주 제외)',
-			hotkeys: [{ modifiers: ['Alt'], key: 'c' }],
 			callback: async () => {
-				const activeLeaf = this.app.workspace.activeLeaf;
-				if (activeLeaf) await this.copyWithOptions(activeLeaf);
+				const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+				if (activeView?.leaf) await this.copyWithOptions(activeView.leaf);
 			}
 		});
 
 		this.addCommand({
 			id: 'zen-mode',
 			name: '집중/길게 보기',
-			hotkeys: [{ modifiers: [], key: 'F4' }],
 			callback: () => { this.cycleZenMode(); },
 		});
 
 		this.addCommand({
 			id: 'hanja-convert',
 			name: '사전 / 한자 변환',
-			hotkeys: [{ modifiers: [], key: 'F3' }],
 			callback: () => openDictionary(this),
 		});
 
 		this.addCommand({
 			id: 'wiki-folder-picker',
 			name: '옵시위키: 폴더·노트 선택',
-			hotkeys: [{ modifiers: [], key: 'F6' }],
 			callback: async () => {
 				let leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CALENDAR);
 				if (leaves.length === 0) {
@@ -321,7 +307,7 @@ export default class WritingMenuPlugin extends Plugin {
 		// Status bar: stopwatch tag button
 		const statusBarItem = this.addStatusBarItem();
 		statusBarItem.addClass('wm-status-bar-item');
-		statusBarItem.style.display = 'none';
+		statusBarItem.setCssStyles({ display: 'none' });
 		this.statusBarItemEl = statusBarItem;
 		this.statusBarTimeEl = statusBarItem.createEl('span', { cls: 'wm-status-time' });
 		statusBarItem.addEventListener('click', (e) => {
@@ -330,14 +316,14 @@ export default class WritingMenuPlugin extends Plugin {
 		});
 		this.updateStatusBarDisplay();
 
-		document.addEventListener('fullscreenchange', () => {
-			if (document.fullscreenElement) {
+		activeDocument.addEventListener('fullscreenchange', () => {
+			if (activeDocument.fullscreenElement) {
 				// Fullscreen entered — apply focus CSS now (prevents pre-fullscreen flash)
 				if (this.zenState === 'focus') this.activateFocusMode();
 			} else {
 				// Fullscreen exited (F4 exit or Escape key)
 				// Check for wm-focus-mode class even if zenState is already 'off' (covers the F4 exit path)
-				if (document.body.classList.contains('wm-focus-mode') || this.zenState === 'focus') {
+				if (activeDocument.body.classList.contains('wm-focus-mode') || this.zenState === 'focus') {
 					this.zenState = 'off';
 					this.exitZenFocus();
 				}
@@ -442,7 +428,7 @@ export default class WritingMenuPlugin extends Plugin {
 		}
 	}
 
-	async onunload() {
+	onunload(): void {
 		this.musicPlayer?.destroy();
 		this.musicPlayer = null;
 
@@ -458,45 +444,24 @@ export default class WritingMenuPlugin extends Plugin {
 		this.headerCharCountElements.forEach((el) => el.remove());
 		this.headerCharCountElements.clear();
 		this.charCountElements.clear();
-		this.leafStyleElements.forEach((styleEl, leaf) => {
-			styleEl.remove();
-			leaf.view.containerEl.removeAttribute('data-writing-menu-id');
+		this.leafStyleVersions.forEach((_, leaf) => {
+			if (leaf.view instanceof MarkdownView) {
+				leaf.view.containerEl.removeAttribute('data-writing-menu-id');
+			}
 		});
-		this.leafStyleElements.clear();
+		this.leafStyleVersions.clear();
 
-		const fontLink = document.getElementById('writing-menu-fonts');
-		if (fontLink) fontLink.remove();
-
-		const globalStyles = document.getElementById('writing-menu-global-styles');
-		if (globalStyles) globalStyles.remove();
-
-		document.body.classList.remove('writing-menu-focus-enabled');
-		document.body.classList.remove('writing-menu-typewriter-active');
-		document.body.classList.remove('wm-focus-mode');
-		document.body.classList.remove('wm-wide-mode');
-		document.body.style.removeProperty('--writing-menu-focus-opacity');
+		activeDocument.body.classList.remove('writing-menu-focus-enabled');
+		activeDocument.body.classList.remove('writing-menu-typewriter-active');
+		activeDocument.body.classList.remove('wm-focus-mode');
+		activeDocument.body.classList.remove('wm-wide-mode');
+		activeDocument.body.style.removeProperty('--writing-menu-focus-opacity');
 		this.clearZenLeaf();
 		if (this.zenLeafEventRef) {
 			this.app.workspace.offref(this.zenLeafEventRef);
 			this.zenLeafEventRef = null;
 		}
 		this.mobilePreviewFloating.close();
-	}
-
-	addGoogleFonts() {
-		const link = document.createElement('link');
-		link.id = 'writing-menu-fonts';
-		link.rel = 'stylesheet';
-		link.href = 'https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Hahmlet:wght@100..900&family=Noto+Serif+KR:wght@200..900&family=Gowun+Batang:wght@400;700&display=swap';
-		document.head.appendChild(link);
-	}
-
-
-	addGlobalStyles() {
-		const style = document.createElement('style');
-		style.id = 'writing-menu-global-styles';
-		style.textContent = GLOBAL_STYLES_CSS;
-		document.head.appendChild(style);
 	}
 
 	formatTime(seconds: number, showHoursWhenNeeded: boolean = false): string {
@@ -605,7 +570,7 @@ export default class WritingMenuPlugin extends Plugin {
 				gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
 				oscillator.start(audioContext.currentTime);
 				oscillator.stop(audioContext.currentTime + 0.5);
-				setTimeout(() => {
+				window.setTimeout(() => {
 					const osc2 = audioContext.createOscillator();
 					const gain2 = audioContext.createGain();
 					osc2.connect(gain2);
@@ -624,7 +589,7 @@ export default class WritingMenuPlugin extends Plugin {
 				gainNode.gain.value = 0.1;
 				oscillator.start(audioContext.currentTime);
 				oscillator.stop(audioContext.currentTime + 0.2);
-				setTimeout(() => {
+				window.setTimeout(() => {
 					const osc2 = audioContext.createOscillator();
 					const gain2 = audioContext.createGain();
 					osc2.connect(gain2);
@@ -687,9 +652,6 @@ export default class WritingMenuPlugin extends Plugin {
 				const state = view.state;
 				const cursor = state.selection.main.head;
 				if (cursor === 0 || cursor >= state.doc.length) return false;
-
-				const prevChar = state.doc.sliceString(cursor - 1, cursor);
-				const nextChar = state.doc.sliceString(cursor, cursor + 1);
 
 				// Default pairs with proper unicode escapes
 				const defaultPairs = [
@@ -800,7 +762,6 @@ export default class WritingMenuPlugin extends Plugin {
 
 	getTypewriterExtension(): Extension {
 		if (!this.settings.enableTypewriterScrolling) return [];
-		const plugin = this;
 		return ViewPlugin.fromClass(class {
 			constructor(public view: EditorView) { }
 			update(update: any) {
@@ -842,7 +803,6 @@ export default class WritingMenuPlugin extends Plugin {
 	getTextSubstitutionExtension(): Extension {
 		if (!this.settings.enableSmartInput || !this.settings.enableTextSubstitution) return [];
 
-		const plugin = this;
 		const enabledSubs = this.settings.textSubstitutions.filter(s => s.enabled && s.from && s.to);
 		if (enabledSubs.length === 0) return [];
 
@@ -865,7 +825,7 @@ export default class WritingMenuPlugin extends Plugin {
 				selection: { anchor: replaceFrom + match.to.length }
 			});
 
-			plugin.lastSubstitution = {
+			this.lastSubstitution = {
 				from: match.from,
 				to: match.to,
 				endPos: replaceFrom + match.to.length
@@ -878,18 +838,17 @@ export default class WritingMenuPlugin extends Plugin {
 	getBackspaceUndoExtension(): Extension {
 		if (!this.settings.enableSmartInput || !this.settings.enableTextSubstitution) return [];
 
-		const plugin = this;
 		return EditorView.updateListener.of((update) => {
 			// Check for backspace
 			const isBackspace = update.transactions.some(tr => tr.isUserEvent("delete.backward"));
-			if (!isBackspace || !plugin.lastSubstitution) return;
+			if (!isBackspace || !this.lastSubstitution) return;
 
 			const cursor = update.state.selection.main.head;
-			const sub = plugin.lastSubstitution;
+			const sub = this.lastSubstitution;
 
 			// Only undo if cursor is at the end of substitution
 			if (cursor !== sub.endPos - 1) {
-				plugin.lastSubstitution = null;
+				this.lastSubstitution = null;
 				return;
 			}
 
@@ -902,7 +861,7 @@ export default class WritingMenuPlugin extends Plugin {
 				selection: { anchor: revertFrom + sub.from.length }
 			});
 
-			plugin.lastSubstitution = null;
+			this.lastSubstitution = null;
 		});
 	}
 
@@ -928,7 +887,7 @@ export default class WritingMenuPlugin extends Plugin {
 
 	private resolveThemeColor(color: string | { light: string; dark: string }): string {
 		if (typeof color === 'string') return color;
-		const theme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
+		const theme = activeDocument.body.classList.contains('theme-dark') ? 'dark' : 'light';
 		return color[theme] || color.light || 'inherit';
 	}
 
@@ -977,7 +936,7 @@ export default class WritingMenuPlugin extends Plugin {
 			if (charCountEl) charCountEl.textContent = displayText;
 			const headerCharCountEl = this.headerCharCountElements.get(leaf);
 			if (headerCharCountEl) headerCharCountEl.textContent = displayText;
-		} catch (e) {
+		} catch {
 			// Silently ignore errors during char count update
 		}
 	}
@@ -1027,41 +986,31 @@ export default class WritingMenuPlugin extends Plugin {
 	}
 
 	private createSelectionExtension() {
-		const plugin = this;
 		let lastSelectionLength = 0;
-		return ViewPlugin.fromClass(class {
-			constructor(view: EditorView) { }
-			update(update: any) {
-				// Only process if selection actually changed
-				if (!update.selectionSet) return;
-
-				const selection = update.state.selection.main;
-				const currentLength = selection.to - selection.from;
-
-				// Skip if selection length unchanged (avoid redundant updates)
-				if (currentLength === lastSelectionLength && currentLength === 0) return;
-				lastSelectionLength = currentLength;
-
-				// Update char count on selection change (both select and deselect)
-				if (currentLength > 0 || lastSelectionLength > 0) {
-					const activeLeaf = plugin.app.workspace.activeLeaf;
-					if (activeLeaf?.view instanceof MarkdownView) {
-						plugin.updateCharCountDebounced(activeLeaf);
-					}
+		return EditorView.updateListener.of((update) => {
+			if (!update.selectionSet) return;
+			const selection = update.state.selection.main;
+			const currentLength = selection.to - selection.from;
+			if (currentLength === lastSelectionLength && currentLength === 0) return;
+			lastSelectionLength = currentLength;
+			if (currentLength > 0 || lastSelectionLength > 0) {
+				const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+				if (activeView?.leaf) {
+					this.updateCharCountDebounced(activeView.leaf);
 				}
 			}
 		});
 	}
 
 	private createFocusExtension() {
-		const plugin = this;
+		const pluginSettings = this.settings;
 		return ViewPlugin.fromClass(class {
 			decorations: DecorationSet;
 			lastCursorLine: number = -1;
 			lastDocLength: number = 0;
-			constructor(view: EditorView) { this.decorations = Decoration.none; }
+			constructor(_view: EditorView) { this.decorations = Decoration.none; }
 			update(update: any) {
-				if (!plugin.settings.enableFocusMode) {
+				if (!pluginSettings.enableFocusMode) {
 					if (this.decorations !== Decoration.none) {
 						this.decorations = Decoration.none;
 						this.lastCursorLine = -1;
@@ -1089,7 +1038,7 @@ export default class WritingMenuPlugin extends Plugin {
 				}
 			}
 			buildDecorations(view: EditorView): DecorationSet {
-				if (!plugin.settings.enableFocusMode || !view.state.selection.main.empty) return Decoration.none;
+				if (!pluginSettings.enableFocusMode || !view.state.selection.main.empty) return Decoration.none;
 				const builder = new RangeSetBuilder<Decoration>();
 				const dimmedLine = Decoration.line({ class: 'writing-menu-dimmed-line' });
 				const cursorLine = view.state.doc.lineAt(view.state.selection.main.head);
@@ -1108,13 +1057,39 @@ export default class WritingMenuPlugin extends Plugin {
 	}
 
 	private updateDynamicStyles() {
-		document.body.classList.toggle('writing-menu-focus-enabled', this.settings.enableFocusMode);
-		document.body.style.setProperty('--writing-menu-focus-opacity', this.settings.focusOpacity.toString());
-		document.body.classList.toggle('writing-menu-typewriter-active', this.settings.enableTypewriterScrolling);
+		activeDocument.body.classList.toggle('writing-menu-focus-enabled', this.settings.enableFocusMode);
+		activeDocument.body.style.setProperty('--writing-menu-focus-opacity', this.settings.focusOpacity.toString());
+		activeDocument.body.classList.toggle('writing-menu-typewriter-active', this.settings.enableTypewriterScrolling);
 	}
 
-	// Regenerate CSS template only when settings change
+	// Increment version counter when settings change so leaves know to refresh
 	private regenerateCSSTemplate(): void {
+		this.cssSettingsVersion++;
+	}
+
+	private updateLeafStyles(leaf: WorkspaceLeaf, force: boolean = false): void {
+		const view = leaf.view;
+		if (!(view instanceof MarkdownView)) return;
+		const file = view.file;
+		const shouldApply = this.shouldApplyToFile(file);
+		const container = view.containerEl;
+
+		if (!shouldApply) {
+			container.removeAttribute('data-writing-menu-id');
+			this.leafStyleVersions.delete(leaf);
+			return;
+		}
+
+		const currentVersion = this.leafStyleVersions.get(leaf);
+		if (!force && currentVersion === this.cssSettingsVersion && container.hasAttribute('data-writing-menu-id')) return;
+
+		const leafId = this.getLeafId(leaf);
+		container.setAttribute('data-writing-menu-id', leafId);
+		this.applyLeafCssProps(container);
+		this.leafStyleVersions.set(leaf, this.cssSettingsVersion);
+	}
+
+	private applyLeafCssProps(container: HTMLElement): void {
 		const { fontFamily, fontSize, fontColor, lineHeight, paragraphSpacing, indentation, lineWidth, inlinePadding, backgroundColor, h1FontFamily, h1FontSize, h1LineHeight, h1Color, footnoteFontFamily, footnoteFontSize, footnoteLineHeight, footnoteColor, disableLinkColor } = this.settings;
 		const inlinePad = inlinePadding ?? 40;
 		const fontFamilyValue = fontFamily === 'inherit' ? 'inherit' : fontFamily.includes(' ') ? `"${fontFamily}", serif` : `${fontFamily}, serif`;
@@ -1124,113 +1099,40 @@ export default class WritingMenuPlugin extends Plugin {
 		const bgColorValue = resolvedBgColor === 'transparent' ? 'transparent' : resolvedBgColor;
 		const h1FontFamilyValue = h1FontFamily === 'inherit' ? 'inherit' : h1FontFamily.includes(' ') ? `"${h1FontFamily}", serif` : `${h1FontFamily}, serif`;
 		const h1ColorValue = (h1Color && h1Color !== 'inherit') ? h1Color : '';
-
 		const footnoteFontFamilyValue = footnoteFontFamily === 'inherit' ? 'inherit' : footnoteFontFamily.includes(' ') ? `"${footnoteFontFamily}", serif` : `${footnoteFontFamily}, serif`;
 		const footnoteColorValue = (footnoteColor && footnoteColor !== 'inherit') ? footnoteColor : '';
 
-		// Use __LEAF_ID__ as placeholder for quick string replacement per leaf
-		const linkColorCSS = disableLinkColor ? `
-[data-writing-menu-id="__LEAF_ID__"] .cm-content .cm-link,
-[data-writing-menu-id="__LEAF_ID__"] a { color: ${fontColorValue} !important; text-decoration: none !important; }` : '';
-
-		const h1ColorCSS = h1ColorValue ? `
-body [data-writing-menu-id="__LEAF_ID__"] .cm-line.HyperMD-header-1 { color: ${h1ColorValue} !important; }
-body [data-writing-menu-id="__LEAF_ID__"] .cm-line.HyperMD-header-1 * { color: ${h1ColorValue} !important; }
-body [data-writing-menu-id="__LEAF_ID__"] .cm-header-1 { color: ${h1ColorValue} !important; }
-body [data-writing-menu-id="__LEAF_ID__"] .markdown-reading-view h1 { color: ${h1ColorValue} !important; }
-body [data-writing-menu-id="__LEAF_ID__"] .markdown-reading-view h1 * { color: ${h1ColorValue} !important; }` : '';
-
-		const footnoteColorCSS = footnoteColorValue ? `
-body [data-writing-menu-id="__LEAF_ID__"] .cm-line.HyperMD-footnote { color: ${footnoteColorValue} !important; }
-body [data-writing-menu-id="__LEAF_ID__"] .cm-line.HyperMD-footnote * { color: ${footnoteColorValue} !important; }
-body [data-writing-menu-id="__LEAF_ID__"] .cm-footref { color: ${footnoteColorValue} !important; }
-body [data-writing-menu-id="__LEAF_ID__"] .markdown-reading-view .footnotes { color: ${footnoteColorValue} !important; }
-body [data-writing-menu-id="__LEAF_ID__"] .markdown-reading-view .footnotes * { color: ${footnoteColorValue} !important; }
-body [data-writing-menu-id="__LEAF_ID__"] .markdown-reading-view sup.footnote-ref a { color: ${footnoteColorValue} !important; }` : '';
-
-		const sel = `[data-writing-menu-id="__LEAF_ID__"]`;
-		this.cachedCSSTemplate = `
-${sel} .cm-scroller, ${sel} .cm-content, ${sel} .markdown-reading-view {
-	font-family: ${fontFamilyValue} !important; font-size: ${fontSize}px !important; line-height: ${lineHeight} !important; color: ${fontColorValue} !important; text-align: justify !important;
-}
-${sel} .cm-content { text-indent: ${indentation}px !important; caret-color: ${fontColorValue} !important; }
-${sel} .markdown-reading-view p { margin-bottom: ${paragraphSpacing}em !important; text-indent: ${indentation}px !important; }
-${sel} .cm-line { padding-bottom: ${paragraphSpacing}em !important; }
-${sel} .cm-sizer { max-width: ${lineWidth}px !important; margin: 0 auto !important; background-color: ${bgColorValue} !important; padding: 20px ${inlinePad}px !important; transition: max-width 0.3s ease !important; }
-${sel} .cm-cursor, ${sel} .cm-cursor-primary { border-left-color: ${fontColorValue} !important; }
-${linkColorCSS}
-${sel} .cm-highlight { color: ${fontColorValue} !important; }
-body ${sel} .obsidian-search-match-highlight { mix-blend-mode: normal !important; background: color-mix(in srgb, var(--text-accent) 45%, transparent) !important; background-color: color-mix(in srgb, var(--text-accent) 45%, transparent) !important; box-shadow: none !important; border-radius: 2px !important; }
-body ${sel} .cm-searchMatch { background: color-mix(in srgb, var(--text-accent) 55%, transparent) !important; background-color: color-mix(in srgb, var(--text-accent) 55%, transparent) !important; border-radius: 2px !important; }
-body ${sel} .cm-searchMatch-selected { background: color-mix(in srgb, var(--text-accent) 80%, transparent) !important; background-color: color-mix(in srgb, var(--text-accent) 80%, transparent) !important; border-radius: 2px !important; }
-body ${sel} .markdown-reading-view mark { background: color-mix(in srgb, var(--text-accent) 45%, transparent) !important; background-color: color-mix(in srgb, var(--text-accent) 45%, transparent) !important; }
-${sel} .cm-line.HyperMD-header-1 { font-family: ${h1FontFamilyValue} !important; font-size: ${h1FontSize}px !important; line-height: ${h1LineHeight} !important; }
-${sel} .cm-line.HyperMD-header-1 * { font-family: ${h1FontFamilyValue} !important; font-size: ${h1FontSize}px !important; }
-${sel} .markdown-reading-view h1 { font-family: ${h1FontFamilyValue} !important; font-size: ${h1FontSize}px !important; line-height: ${h1LineHeight} !important; }
-${h1ColorCSS}
-${sel} .cm-line.HyperMD-footnote { font-family: ${footnoteFontFamilyValue} !important; font-size: ${footnoteFontSize}px !important; line-height: ${footnoteLineHeight} !important; }
-${sel} .cm-line.HyperMD-footnote * { font-family: ${footnoteFontFamilyValue} !important; font-size: ${footnoteFontSize}px !important; }
-${sel} .cm-footref { font-family: ${footnoteFontFamilyValue} !important; font-size: ${footnoteFontSize}px !important; }
-${sel} .markdown-reading-view .footnotes { font-family: ${footnoteFontFamilyValue} !important; font-size: ${footnoteFontSize}px !important; line-height: ${footnoteLineHeight} !important; }
-${sel} .markdown-reading-view sup.footnote-ref { font-size: ${footnoteFontSize}px !important; }
-${footnoteColorCSS}
-${sel} .cm-line.HyperMD-header-1 .cm-link,
-${sel} .cm-line.HyperMD-header-1 .cm-hmd-internal-link { color: inherit !important; text-decoration: none !important; }
-${sel} .cm-line.HyperMD-header-1 a { color: inherit !important; text-decoration: none !important; pointer-events: none !important; cursor: text !important; }
-${sel} .markdown-reading-view h1 a { color: inherit !important; text-decoration: none !important; pointer-events: none !important; cursor: text !important; }
-${sel} .cm-line.HyperMD-header-2, ${sel} .cm-line.HyperMD-header-3, ${sel} .cm-line.HyperMD-header-4,
-${sel} .cm-line.HyperMD-header-5, ${sel} .cm-line.HyperMD-header-6,
-${sel} .cm-line.HyperMD-header-2 *, ${sel} .cm-line.HyperMD-header-3 *, ${sel} .cm-line.HyperMD-header-4 *,
-${sel} .cm-line.HyperMD-header-5 *, ${sel} .cm-line.HyperMD-header-6 * { color: unset !important; }
-${sel} .markdown-reading-view h2, ${sel} .markdown-reading-view h3, ${sel} .markdown-reading-view h4,
-${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unset !important; }
-`;
-		this.cssSettingsVersion++;
-	}
-
-	// Generate CSS for a specific leaf by replacing placeholder in cached template
-	private generateScopedCSS(leafId: string): string {
-		if (!this.cachedCSSTemplate) {
-			this.regenerateCSSTemplate();
-		}
-		return this.cachedCSSTemplate.replace(/__LEAF_ID__/g, leafId);
-	}
-
-	private updateLeafStyles(leaf: WorkspaceLeaf, force: boolean = false): void {
-		const view = leaf.view;
-		if (!(view instanceof MarkdownView)) return;
-		const file = view.file;
-		const shouldApply = this.shouldApplyToFile(file);
-		const leafId = this.getLeafId(leaf);
-
-		// Skip if already up-to-date (same version and same apply state)
-		const currentVersion = this.leafStyleVersions.get(leaf);
-		const styleEl = this.leafStyleElements.get(leaf);
-		if (!force && styleEl && currentVersion === this.cssSettingsVersion) {
-			const hasContent = styleEl.textContent !== '';
-			if (hasContent === shouldApply) return; // No change needed
-		}
-
-		let el = styleEl;
-		if (!el) {
-			el = document.createElement('style');
-			el.id = `writing-menu-styles-${leafId}`;
-			document.head.appendChild(el);
-			this.leafStyleElements.set(leaf, el);
-		}
-		el.textContent = shouldApply ? this.generateScopedCSS(leafId) : '';
-		this.leafStyleVersions.set(leaf, this.cssSettingsVersion);
-
+		container.setCssProps({
+			'--wm-font-family': fontFamilyValue,
+			'--wm-font-size': `${fontSize}px`,
+			'--wm-line-height': String(lineHeight),
+			'--wm-font-color': fontColorValue,
+			'--wm-text-indent': `${indentation}px`,
+			'--wm-paragraph-spacing': `${paragraphSpacing}em`,
+			'--wm-line-width': `${lineWidth}px`,
+			'--wm-inline-padding': `${inlinePad}px`,
+			'--wm-bg-color': bgColorValue,
+			'--wm-h1-font-family': h1FontFamilyValue,
+			'--wm-h1-font-size': `${h1FontSize}px`,
+			'--wm-h1-line-height': String(h1LineHeight),
+			'--wm-h1-color': h1ColorValue,
+			'--wm-footnote-font-family': footnoteFontFamilyValue,
+			'--wm-footnote-font-size': `${footnoteFontSize}px`,
+			'--wm-footnote-line-height': String(footnoteLineHeight),
+			'--wm-footnote-color': footnoteColorValue,
+		});
+		container.toggleClass('wm-disable-link-color', !!disableLinkColor);
 	}
 
 	updateAllLeafStyles(): void {
 		const markdownLeaves = this.app.workspace.getLeavesOfType('markdown');
-		const leafSet = new Set(markdownLeaves); // O(1) lookup instead of O(n)
+		const leafSet = new Set(markdownLeaves);
 		markdownLeaves.forEach(leaf => this.updateLeafStyles(leaf));
-		this.leafStyleElements.forEach((styleEl, leaf) => {
+		this.leafStyleVersions.forEach((_, leaf) => {
 			if (!leafSet.has(leaf)) {
-				styleEl.remove();
-				this.leafStyleElements.delete(leaf);
+				if (leaf.view instanceof MarkdownView) {
+					leaf.view.containerEl.removeAttribute('data-writing-menu-id');
+				}
 				this.leafStyleVersions.delete(leaf);
 			}
 		});
@@ -1241,9 +1143,9 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 		this.zenState = state;
 
 		if (state === 'off') {
-			if (prevState === 'focus' && document.fullscreenElement) {
+			if (prevState === 'focus' && activeDocument.fullscreenElement) {
 				// Defer CSS cleanup to fullscreenchange — avoids flash while still in fullscreen
-				document.exitFullscreen().catch(() => this.exitZenFocus());
+				activeDocument.exitFullscreen().catch(() => this.exitZenFocus());
 			} else {
 				this.exitZenFocus();
 			}
@@ -1253,31 +1155,31 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 		if (state === 'wide') {
 			// Clean up focus state if transitioning from focus
 			if (prevState === 'focus') {
-				document.body.classList.remove('wm-focus-mode');
+				activeDocument.body.classList.remove('wm-focus-mode');
 				this.clearZenLeaf();
 				if (this.zenLeafEventRef) { this.app.workspace.offref(this.zenLeafEventRef); this.zenLeafEventRef = null; }
-				if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+				if (activeDocument.fullscreenElement) activeDocument.exitFullscreen().catch(() => {});
 			}
-			document.body.classList.add('wm-wide-mode');
+			activeDocument.body.classList.add('wm-wide-mode');
 			return;
 		}
 
 		// state === 'focus':
 		// Keep wm-wide-mode active during fullscreen animation — prevents flash to unstyled view
-		if (document.fullscreenElement) {
-			document.body.classList.remove('wm-wide-mode');
+		if (activeDocument.fullscreenElement) {
+			activeDocument.body.classList.remove('wm-wide-mode');
 			this.activateFocusMode();
 		} else {
 			// wm-wide-mode (if active) stays until fullscreenchange fires → activateFocusMode removes it
-			document.documentElement.requestFullscreen().catch(() => {
+			activeDocument.documentElement.requestFullscreen().catch(() => {
 				this.zenState = 'off';
-				document.body.classList.remove('wm-wide-mode');
+				activeDocument.body.classList.remove('wm-wide-mode');
 			});
 		}
 	}
 
 	private exitZenFocus() {
-		document.body.classList.remove('wm-focus-mode', 'wm-wide-mode');
+		activeDocument.body.classList.remove('wm-focus-mode', 'wm-wide-mode');
 		this.clearZenLeaf();
 		if (this.zenLeafEventRef) {
 			this.app.workspace.offref(this.zenLeafEventRef);
@@ -1286,11 +1188,10 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 	}
 
 	private activateFocusMode() {
-		document.body.classList.remove('wm-wide-mode');
-		document.body.classList.add('wm-focus-mode');
+		activeDocument.body.classList.remove('wm-wide-mode');
+		activeDocument.body.classList.add('wm-focus-mode');
 		const activeLeaf =
 			this.app.workspace.getMostRecentLeaf() ??
-			(this.app.workspace as any).activeLeaf ??
 			this.app.workspace.getActiveViewOfType(MarkdownView)?.leaf ??
 			null;
 		if (activeLeaf) this.applyZenLeaf(activeLeaf);
@@ -1320,16 +1221,16 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 	private applyZenLeaf(leaf: WorkspaceLeaf) {
 		this.clearZenLeaf();
 		this.zenLeaf = leaf;
-		const el: HTMLElement | undefined = (leaf as any).containerEl;
+		const el: HTMLElement | undefined = (leaf as any).containerEl as HTMLElement | undefined;
 		if (el) {
 			el.classList.add('wm-zen-leaf');
-			document.body.classList.add('wm-has-zen-leaf');
+			activeDocument.body.classList.add('wm-has-zen-leaf');
 		}
 	}
 
 	private clearZenLeaf() {
-		document.querySelectorAll('.wm-zen-leaf').forEach(el => el.classList.remove('wm-zen-leaf'));
-		document.body.classList.remove('wm-has-zen-leaf');
+		activeDocument.querySelectorAll('.wm-zen-leaf').forEach((el: Element) => el.classList.remove('wm-zen-leaf'));
+		activeDocument.body.classList.remove('wm-has-zen-leaf');
 		this.zenLeaf = null;
 	}
 
@@ -1345,15 +1246,14 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 
 		this.buildStatusPopup(popup);
 
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			const r  = anchor.getBoundingClientRect();
 			const pr = popup.getBoundingClientRect();
 			let top  = r.bottom + 6;
 			let left = r.left;
 			if (top + pr.height > ownerWin.innerHeight - 8) top = r.top - pr.height - 6;
 			if (left + pr.width  > ownerWin.innerWidth  - 8) left = r.right - pr.width;
-			popup.style.top  = `${top}px`;
-			popup.style.left = `${left}px`;
+			popup.setCssStyles({ top: `${top}px`, left: `${left}px` });
 		});
 
 		const closePopup = (e: MouseEvent) => {
@@ -1363,51 +1263,51 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 				ownerDoc.removeEventListener('click', closePopup);
 			}
 		};
-		setTimeout(() => ownerDoc.addEventListener('click', closePopup), 10);
+		window.setTimeout(() => ownerDoc.addEventListener('click', closePopup), 10);
 	}
 
 	updateStatusBarDisplay() {
 		if (!this.statusBarTimeEl || !this.statusBarItemEl) return;
 		if (!this.settings.showTimeInStatusBar) {
-			this.statusBarItemEl.style.display = 'none';
+			this.statusBarItemEl.setCssStyles({ display: 'none' });
 			return;
 		}
-		this.statusBarItemEl.style.display = 'inline-flex';
+		this.statusBarItemEl.setCssStyles({ display: 'inline-flex' });
 		this.statusBarTimeEl.textContent = this.formatTime(this.stopwatchSeconds);
 	}
 
 	toggleStatusPopup(anchor: HTMLElement) {
-		const existing = document.querySelector('.wm-status-popup');
+		const existing = activeDocument.querySelector('.wm-status-popup');
 		if (existing) { existing.remove(); return; }
 
-		const popup = document.createElement('div');
+		const popup = activeDocument.createElement('div');
 		popup.className = 'wm-status-popup';
-		document.body.appendChild(popup);
+		activeDocument.body.appendChild(popup);
 
 		// Position above anchor
 		const rect = anchor.getBoundingClientRect();
-		popup.style.left = `${rect.left}px`;
+		popup.setCssStyles({ left: `${rect.left}px` });
 		// Adjust after render to handle overflow
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			const popupRect = popup.getBoundingClientRect();
-			popup.style.bottom = `${window.innerHeight - rect.top + 6}px`;
+			popup.setCssStyles({ bottom: `${window.innerHeight - rect.top + 6}px` });
 			if (rect.left + popupRect.width > window.innerWidth - 8) {
-				popup.style.left = `${window.innerWidth - popupRect.width - 8}px`;
+				popup.setCssStyles({ left: `${window.innerWidth - popupRect.width - 8}px` });
 			}
 		});
-		popup.style.bottom = `${window.innerHeight - rect.top + 6}px`;
+		popup.setCssStyles({ bottom: `${window.innerHeight - rect.top + 6}px` });
 
 		this.buildStatusPopup(popup);
 
 		const closePopup = (e: MouseEvent) => {
 			// If click target was removed from DOM (e.g. icon swap via setIcon), ignore
-			if (!document.contains(e.target as Node)) return;
+			if (!activeDocument.contains(e.target as Node)) return;
 			if (!popup.contains(e.target as Node) && !anchor.contains(e.target as Node)) {
 				popup.remove();
-				document.removeEventListener('click', closePopup);
+				activeDocument.removeEventListener('click', closePopup);
 			}
 		};
-		setTimeout(() => document.addEventListener('click', closePopup), 10);
+		window.setTimeout(() => activeDocument.addEventListener('click', closePopup), 10);
 	}
 
 	buildStatusPopup(container: HTMLElement) {
@@ -1416,17 +1316,16 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 		const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 		const timerWrap = container.createDiv('wm-popup-timer-wrap');
 		const svgNS = 'http://www.w3.org/2000/svg';
-		const svg = document.createElementNS(svgNS, 'svg') as SVGSVGElement;
+		const svg = activeDocument.createElementNS(svgNS, 'svg') as SVGSVGElement;
 		svg.setAttribute('viewBox', '0 0 156 156');
 		svg.setAttribute('class', 'wm-popup-circle');
-		const track = document.createElementNS(svgNS, 'circle') as SVGCircleElement;
+		const track = activeDocument.createElementNS(svgNS, 'circle') as SVGCircleElement;
 		track.setAttribute('cx', '78'); track.setAttribute('cy', '78'); track.setAttribute('r', String(RADIUS));
 		track.setAttribute('class', 'wm-popup-circle-track');
-		const circleFill = document.createElementNS(svgNS, 'circle') as SVGCircleElement;
+		const circleFill = activeDocument.createElementNS(svgNS, 'circle') as SVGCircleElement;
 		circleFill.setAttribute('cx', '78'); circleFill.setAttribute('cy', '78'); circleFill.setAttribute('r', String(RADIUS));
 		circleFill.setAttribute('class', 'wm-popup-circle-fill');
-		circleFill.style.strokeDasharray = String(CIRCUMFERENCE);
-		circleFill.style.strokeDashoffset = String(CIRCUMFERENCE);
+		circleFill.setCssStyles({ strokeDasharray: String(CIRCUMFERENCE), strokeDashoffset: String(CIRCUMFERENCE) });
 		svg.appendChild(track);
 		svg.appendChild(circleFill);
 		timerWrap.appendChild(svg);
@@ -1439,16 +1338,16 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 			if (totalSecs > 0) {
 				const elapsed = totalSecs - this.stopwatchSeconds;
 				const pct = Math.min(1, Math.max(0, elapsed / totalSecs));
-				circleFill.style.strokeDashoffset = String(CIRCUMFERENCE * (1 - pct));
+				circleFill.setCssStyles({ strokeDashoffset: String(CIRCUMFERENCE * (1 - pct)) });
 			} else {
-				circleFill.style.strokeDashoffset = String(CIRCUMFERENCE);
+				circleFill.setAttribute('stroke-dashoffset', String(CIRCUMFERENCE));
 			}
 		};
 		updateProgress();
 
 		// ── Row 3: play + reset (centered, below circle) ──
 		const playResetRow = container.createDiv('wm-popup-row');
-		playResetRow.style.cssText = 'justify-content:center; gap:20px; padding:2px 0 4px;';
+		playResetRow.setCssStyles({ justifyContent: 'center', gap: '20px', padding: '2px 0 4px' });
 
 		const playBtn = playResetRow.createDiv('wm-popup-icon-action');
 		setIcon(playBtn, this.stopwatchInterval ? 'pause' : 'play');
@@ -1473,7 +1372,7 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 
 		// ── Row 4: add-time buttons (+1/+5/+10/+25) ──
 		const addRow = container.createDiv('wm-popup-row');
-		addRow.style.cssText = 'justify-content:space-between; padding-bottom:2px;';
+		addRow.setCssStyles({ justifyContent: 'space-between', paddingBottom: '2px' });
 		[1, 5, 10, 25].forEach(mins => {
 			const btn = addRow.createEl('button', { text: `+${mins}`, cls: 'wm-popup-action-btn' });
 			btn.onclick = () => {
@@ -1486,7 +1385,7 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 
 		// ── Live update ──
 		const popupInterval = window.setInterval(() => {
-			if (!document.querySelector('.wm-status-popup')) {
+			if (!activeDocument.querySelector('.wm-status-popup')) {
 				window.clearInterval(popupInterval);
 				return;
 			}
@@ -1521,17 +1420,17 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 		const viewHeader = view.containerEl.querySelector('.view-header');
 		if (!viewHeader || viewHeader.querySelector('.writing-menu-button')) return;
 
-		const charCountEl = document.createElement('div');
+		const charCountEl = activeDocument.createElement('div');
 		charCountEl.className = 'writing-menu-char-count';
-		charCountEl.style.cssText = `font-size: 12px; color: var(--text-muted); padding: 0 8px; display: flex; align-items: center; white-space: nowrap;`;
+		charCountEl.setCssStyles({ fontSize: '12px', color: 'var(--text-muted)', padding: '0 8px', display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' });
 		this.headerCharCountElements.set(leaf, charCountEl);
 		this.updateCharCount(leaf);
 
-		const button = document.createElement('div');
+		const button = activeDocument.createElement('div');
 		button.className = 'clickable-icon writing-menu-button';
 		setIcon(button, 'settings');
-		button.style.cssText = `cursor: pointer; display: flex; align-items: center; justify-content: center;`;
-		button.addEventListener('click', (e) => { e.stopPropagation(); this.showDropdown(button, leaf); });
+		button.setCssStyles({ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' });
+		button.addEventListener('click', (e: MouseEvent) => { e.stopPropagation(); this.showDropdown(button, leaf); });
 
 		const viewActions = viewHeader.querySelector('.view-actions');
 		if (viewActions) {
@@ -1546,24 +1445,24 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 	}
 
 	showDropdown(button: HTMLElement, leaf: WorkspaceLeaf) {
-		const existingDropdown = document.querySelector('.writing-menu-dropdown');
+		const existingDropdown = activeDocument.querySelector('.writing-menu-dropdown');
 		if (existingDropdown) { existingDropdown.remove(); return; }
 
-		const dropdown = document.createElement('div');
+		const dropdown = activeDocument.createElement('div');
 		dropdown.className = 'writing-menu-dropdown';
 		const rect = button.getBoundingClientRect();
-		dropdown.style.cssText = `position: fixed; top: ${rect.bottom + 5}px; right: ${window.innerWidth - rect.right}px;`;
+		dropdown.setCssStyles({ position: 'fixed', top: `${rect.bottom + 5}px`, right: `${window.innerWidth - rect.right}px` });
 
 		this.buildDropdownMenu(dropdown, leaf);
 
-		document.body.appendChild(dropdown);
-		if (dropdown.getBoundingClientRect().right > window.innerWidth) dropdown.style.right = '10px';
+		activeDocument.body.appendChild(dropdown);
+		if (dropdown.getBoundingClientRect().right > window.innerWidth) dropdown.setCssStyles({ right: '10px' });
 		const closeDropdown = (e: MouseEvent) => {
 			if (!dropdown.contains(e.target as Node) && !button.contains(e.target as Node)) {
-				dropdown.remove(); document.removeEventListener('click', closeDropdown);
+				dropdown.remove(); activeDocument.removeEventListener('click', closeDropdown);
 			}
 		};
-		setTimeout(() => document.addEventListener('click', closeDropdown), 10);
+		window.setTimeout(() => activeDocument.addEventListener('click', closeDropdown), 10);
 	}
 
 	buildDropdownMenu(container: HTMLElement, leaf: WorkspaceLeaf) {
@@ -1610,12 +1509,13 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 			setIcon(copyLabelGroup.createSpan('writing-menu-icon'), 'copy');
 			copyLabelGroup.createEl('label', { text: '복사하기' });
 			const copyBtn = copyDiv.createDiv();
-			copyBtn.style.cssText = 'display:flex; align-items:center; cursor:pointer; color:var(--text-muted); font-size:12px;';
+			copyBtn.setCssStyles({ display: 'flex', alignItems: 'center', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '12px' });
 			copyBtn.setText('Alt + C');
-			copyBtn.onclick = async () => {
-				await this.copyWithOptions(leaf);
-				const dropdown = document.querySelector('.writing-menu-dropdown');
-				if (dropdown) dropdown.remove();
+			copyBtn.onclick = () => {
+				void this.copyWithOptions(leaf).then(() => {
+					const dropdown = activeDocument.querySelector('.writing-menu-dropdown');
+					if (dropdown) dropdown.remove();
+				});
 			};
 		}
 
@@ -1625,14 +1525,14 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 			setIcon(exportLabelGroup.createSpan('writing-menu-icon'), 'file-output');
 			exportLabelGroup.createEl('label', { text: '내보내기' });
 			const exportRightGroup = exportDiv.createDiv();
-			exportRightGroup.style.cssText = 'display:flex; align-items:center; gap:8px;';
+			exportRightGroup.setCssStyles({ display: 'flex', alignItems: 'center', gap: '8px' });
 			if (Platform.isWin) {
 				const hwpBtn = exportRightGroup.createDiv('writing-menu-text-btn');
 				hwpBtn.setText('HWP');
 				hwpBtn.onclick = () => {
 					const view = leaf.view;
 					if (view instanceof MarkdownView && view.file && view.file.extension === 'md') {
-						(document.querySelector('.writing-menu-dropdown') as HTMLElement)?.remove();
+						(activeDocument.querySelector('.writing-menu-dropdown') as HTMLElement)?.remove();
 						new HwpExportModal(this.app, this, view.file).open();
 					} else { new Notice('마크다운 파일을 열어주세요.', 3000); }
 				};
@@ -1642,7 +1542,7 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 			txtBtn.onclick = () => {
 				const view = leaf.view;
 				if (view instanceof MarkdownView && view.file && view.file.extension === 'md') {
-					(document.querySelector('.writing-menu-dropdown') as HTMLElement)?.remove();
+					(activeDocument.querySelector('.writing-menu-dropdown') as HTMLElement)?.remove();
 					new TxtExportModal(this.app, this, view.file).open();
 				} else { new Notice('마크다운 파일을 열어주세요.', 3000); }
 			};
@@ -1653,7 +1553,7 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 			if (view instanceof MarkdownView && view.editor) {
 				this.addCharCountWithModeSelector(container, this.calculateCharCount(view.editor.getValue()), leaf);
 			}
-		} catch (e) {}
+		} catch {}
 
 		this.addSeparator(container);
 
@@ -1666,15 +1566,15 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 		this.addSeparator(container);
 
 		const btnContainer = container.createDiv();
-		btnContainer.style.cssText = 'margin-top:4px; display:flex; justify-content:center; align-items:center;';
+		btnContainer.setCssStyles({ marginTop: '4px', display: 'flex', justifyContent: 'center', alignItems: 'center' });
 		const btn = btnContainer.createEl('a');
-		btn.style.cssText = 'cursor:pointer; color:var(--text-accent); font-size:13px; text-decoration:none; display:flex; align-items:center; gap:6px;';
+		btn.setCssStyles({ cursor: 'pointer', color: 'var(--text-accent)', fontSize: '13px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' });
 		const btnIcon = btn.createSpan();
 		setIcon(btnIcon, 'settings');
-		btnIcon.style.cssText = 'display:flex; align-items:center;';
+		btnIcon.setCssStyles({ display: 'flex', alignItems: 'center' });
 		btn.createSpan({ text: '플러그인 설정' });
 		btn.onclick = () => {
-			(document.querySelector('.writing-menu-dropdown') as HTMLElement)?.remove();
+			(activeDocument.querySelector('.writing-menu-dropdown') as HTMLElement)?.remove();
 			this.openSettings();
 		};
 	}
@@ -1686,11 +1586,10 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 		const fontLabelGroup = fontDiv.createDiv('writing-menu-control-label-group');
 		const hanIcon = fontLabelGroup.createSpan('writing-menu-icon');
 		hanIcon.setText('한');
-		hanIcon.style.cssText = 'font-weight:bold; display:inline-block; line-height:1; vertical-align:text-bottom;';
+		hanIcon.setCssStyles({ fontWeight: 'bold', display: 'inline-block', lineHeight: '1', verticalAlign: 'text-bottom' });
 		fontLabelGroup.createEl('label', { text: '글꼴' });
 		const fontInput = fontDiv.createEl('input', { type: 'text', value: this.settings.fontFamily });
-		fontInput.style.width = '100px';
-		fontInput.style.textAlign = 'right';
+		fontInput.setCssStyles({ width: '100px', textAlign: 'right' });
 		fontInput.onchange = async (e) => { this.settings.fontFamily = (e.target as HTMLInputElement).value; await this.saveSettings(); };
 
 		this.addCompactStepper(container, '글자 크기', this.settings.fontSize, 1, 1, async (v) => { this.settings.fontSize = v; await this.saveSettings(); }, 'type');
@@ -1728,7 +1627,7 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 		setIcon(shortcutLabel.createSpan('writing-menu-icon'), 'keyboard');
 		shortcutLabel.createEl('label', { text: '단축키' });
 		const f4Badge = shortcutRow.createDiv();
-		f4Badge.style.cssText = 'display:flex; align-items:center; cursor:default; color:var(--text-muted); font-size:12px;';
+		f4Badge.setCssStyles({ display: 'flex', alignItems: 'center', cursor: 'default', color: 'var(--text-muted)', fontSize: '12px' });
 		f4Badge.setText('F4');
 
 		// 길게 보기 토글 (zenWideEnabled)
@@ -1774,27 +1673,29 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 		setIcon(saveLabelGroup.createSpan('writing-menu-icon'), 'save');
 		saveLabelGroup.createEl('label', { text: '버전 저장' });
 		const saveHk = saveRow.createDiv();
-		saveHk.style.cssText = 'display:flex; align-items:center; cursor:pointer; color:var(--text-muted); font-size:12px;';
+		saveHk.setCssStyles({ display: 'flex', alignItems: 'center', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '12px' });
 		const saveHkStr = getHotkey('save-version');
 		saveHk.setText(saveHkStr || '단축키 없음');
-		saveRow.style.cursor = 'pointer';
-		saveRow.addEventListener('click', async (e) => {
+		saveRow.setCssStyles({ cursor: 'pointer' });
+		saveRow.addEventListener('click', (e) => {
 			e.stopPropagation();
-			const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-			const file = activeView?.file;
-			if (!file || !activeView) { new Notice('마크다운 파일을 먼저 열어주세요.'); return; }
-			(document.querySelector('.writing-menu-dropdown') as HTMLElement)?.remove();
-			const { VersionManager } = await import('./src/version/manager');
-			const manager = new VersionManager(this.app, this);
-			const now = new Date();
-			const name = `${now.getMonth() + 1}/${now.getDate()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-			await manager.saveVersion(file, name, activeView.editor.getValue());
-			new Notice(`버전 "${name}"이 저장되었습니다.`);
+			void (async () => {
+				const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+				const file = activeView?.file;
+				if (!file || !activeView) { new Notice('마크다운 파일을 먼저 열어주세요.'); return; }
+				(activeDocument.querySelector('.writing-menu-dropdown') as HTMLElement)?.remove();
+				const { VersionManager } = await import('./src/version/manager');
+				const manager = new VersionManager(this.app, this);
+				const now = new Date();
+				const name = `${now.getMonth() + 1}/${now.getDate()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+				await manager.saveVersion(file, name, activeView.editor.getValue());
+				new Notice(`버전 "${name}"이 저장되었습니다.`);
+			})();
 		});
 	}
 
 	addSeparator(container: HTMLElement) {
-		container.createDiv('writing-menu-separator').style.cssText = 'height:1px; background:var(--background-modifier-border); margin:8px 0; opacity:0.5;';
+		container.createDiv('writing-menu-separator').setCssStyles({ height: '1px', background: 'var(--background-modifier-border)', margin: '8px 0', opacity: '0.5' });
 	}
 
 	async loadSettings() {
@@ -1846,7 +1747,6 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 
 		// dashboardSections에 새 섹션 누락 시 추가 (마이그레이션)
 		if (this.settings.dashboardSections) {
-			const knownIds = ['chars', 'time', 'tasks', 'music'];
 			const existingIds = new Set(this.settings.dashboardSections.map((s: any) => s.id));
 			if (!existingIds.has('music')) {
 				this.settings.dashboardSections.push({ id: 'music', label: '음악', visible: true });
@@ -1866,9 +1766,9 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 
 	async refreshDashboardView() {
 		await this.charStore.reinitSnapshot().catch(() => {});
-		const { VIEW_TYPE_CALENDAR } = require('./src/calendar/views/CalendarView');
+		const { VIEW_TYPE_CALENDAR: VTC } = await import('./src/calendar/views/CalendarView');
 		this.app.workspace.iterateAllLeaves((leaf: any) => {
-			if ((leaf.view as any)?.getViewType?.() === VIEW_TYPE_CALENDAR) {
+			if ((leaf.view as any)?.getViewType?.() === VTC) {
 				(leaf.view as any).render?.();
 			}
 		});
@@ -1931,50 +1831,52 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 
 		// Right side: count + logo buttons
 		const rightGroup = div.createDiv();
-		rightGroup.style.cssText = 'display:flex; align-items:center; gap:8px;';
+		rightGroup.setCssStyles({ display: 'flex', alignItems: 'center', gap: '8px' });
 
 		// Count display
 		const valueSpan = rightGroup.createEl('span', { text: this.formatCharCount(count) });
-		valueSpan.style.cssText = 'color:var(--text-muted); font-size:12px;';
+		valueSpan.setCssStyles({ color: 'var(--text-muted)', fontSize: '12px' });
 
 		// Logo button container
 		const modeGroup = rightGroup.createDiv();
-		modeGroup.style.cssText = 'display:flex; gap:6px; align-items:center;';
+		modeGroup.setCssStyles({ display: 'flex', gap: '6px', alignItems: 'center' });
 
 		const isMunpia = this.settings.charCountMode === 'munpia';
 
 		// 문피아 로고 버튼
 		const mBtn = modeGroup.createDiv('writing-menu-logo-btn');
-		mBtn.innerHTML = MUNPIA_SVG;
+		mBtn.appendChild(sanitizeHTMLToDom(MUNPIA_SVG));
 		if (isMunpia) mBtn.addClass('is-active');
-		mBtn.onclick = async () => {
+		mBtn.onclick = () => {
 			this.settings.charCountMode = 'munpia';
-			await this.saveSettings();
-			this.updateAllCharCounts();
-			mBtn.addClass('is-active');
-			nBtn.removeClass('is-active');
-			const view = leaf.view;
-			if (view instanceof MarkdownView && view.editor) {
-				const newCount = this.calculateCharCount(view.editor.getValue());
-				valueSpan.textContent = this.formatCharCount(newCount);
-			}
+			void this.saveSettings().then(() => {
+				this.updateAllCharCounts();
+				mBtn.addClass('is-active');
+				nBtn.removeClass('is-active');
+				const view = leaf.view;
+				if (view instanceof MarkdownView && view.editor) {
+					const newCount = this.calculateCharCount(view.editor.getValue());
+					valueSpan.textContent = this.formatCharCount(newCount);
+				}
+			});
 		};
 
 		// 노벨피아 로고 버튼
 		const nBtn = modeGroup.createDiv('writing-menu-logo-btn');
-		nBtn.innerHTML = NOVELPIA_SVG;
+		nBtn.appendChild(sanitizeHTMLToDom(NOVELPIA_SVG));
 		if (!isMunpia) nBtn.addClass('is-active');
-		nBtn.onclick = async () => {
+		nBtn.onclick = () => {
 			this.settings.charCountMode = 'novelpia';
-			await this.saveSettings();
-			this.updateAllCharCounts();
-			nBtn.addClass('is-active');
-			mBtn.removeClass('is-active');
-			const view = leaf.view;
-			if (view instanceof MarkdownView && view.editor) {
-				const newCount = this.calculateCharCount(view.editor.getValue());
-				valueSpan.textContent = this.formatCharCount(newCount);
-			}
+			void this.saveSettings().then(() => {
+				this.updateAllCharCounts();
+				nBtn.addClass('is-active');
+				mBtn.removeClass('is-active');
+				const view = leaf.view;
+				if (view instanceof MarkdownView && view.editor) {
+					const newCount = this.calculateCharCount(view.editor.getValue());
+					valueSpan.textContent = this.formatCharCount(newCount);
+				}
+			});
 		};
 	}
 
@@ -1988,21 +1890,13 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 	// Time Tracking UI Section
 	// Helper to style icon buttons uniformly
 	styleIconButton(btn: HTMLElement, opacity: number = 1) {
-		btn.style.setProperty('width', '20px', 'important');
-		btn.style.setProperty('height', '20px', 'important');
-		btn.style.setProperty('min-width', '20px', 'important');
-		btn.style.setProperty('min-height', '20px', 'important');
-		btn.style.setProperty('padding', '0', 'important');
-		btn.style.setProperty('display', 'flex', 'important');
-		btn.style.setProperty('align-items', 'center', 'important');
-		btn.style.setProperty('justify-content', 'center', 'important');
-		btn.style.setProperty('margin', '0', 'important');
-		btn.style.cursor = 'pointer';
-		if (opacity < 1) btn.style.opacity = String(opacity);
+		btn.addClass('wm-icon-btn-20');
+		btn.setCssStyles({ cursor: 'pointer' });
+		if (opacity < 1) btn.setCssStyles({ opacity: String(opacity) });
 		const svg = btn.querySelector('svg');
 		if (svg) {
 			svg.setAttribute('width', '15'); svg.setAttribute('height', '15');
-			svg.style.width = '15px'; svg.style.height = '15px';
+			(svg as unknown as HTMLElement).setCssStyles({ width: '15px', height: '15px' });
 		}
 	}
 

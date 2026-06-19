@@ -54,14 +54,14 @@ export function showDatePickerPopup(
 	const pw   = 224;
 	let left   = rect.left;
 	if (left + pw > anchorWin.innerWidth - 8) left = anchorWin.innerWidth - pw - 8;
-	popup.style.cssText = `left:${left}px;top:${rect.bottom + 6}px;width:${pw}px;`;
+	popup.setCssStyles({ left: `${left}px`, top: `${rect.bottom + 6}px`, width: `${pw}px` });
 
 	const close = (e: MouseEvent) => {
 		if (anchor.contains(e.target as Node) || popup.contains(e.target as Node)) return;
 		popup.remove();
 		anchorDoc.removeEventListener('click', close, true);
 	};
-	setTimeout(() => anchorDoc.addEventListener('click', close, true), 0);
+	window.setTimeout(() => anchorDoc.addEventListener('click', close, true), 0);
 
 	return popup;
 }

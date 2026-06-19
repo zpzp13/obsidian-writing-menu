@@ -93,9 +93,9 @@ export class DateStrip {
 		// Initial dim + scroll
 		this.allCards.forEach(c => c.classList.toggle('wm-cal-dc-dim', parseInt(c.dataset.month ?? '0') !== lastMon));
 		let syncEnabled = false;
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			if (this.activeCard) snapToCard(this.activeCard, false);
-			requestAnimationFrame(() => { syncEnabled = true; });
+			window.requestAnimationFrame(() => { syncEnabled = true; });
 		});
 
 		strip.addEventListener('scroll', () => {
@@ -114,11 +114,11 @@ export class DateStrip {
 
 			const onMove = (me: MouseEvent) => {
 				const dx = me.pageX - startX;
-				if (!isDragging && Math.abs(dx) > 4) { isDragging = true; strip.style.cursor = 'grabbing'; }
+				if (!isDragging && Math.abs(dx) > 4) { isDragging = true; strip.setCssStyles({ cursor: 'grabbing' }); }
 				if (isDragging) { strip.scrollLeft = startScrollLeft - dx; hasMoved = true; }
 			};
 			const onUp = (ue: MouseEvent) => {
-				strip.style.cursor = '';
+				strip.setCssStyles({ cursor: '' });
 				stripDoc.removeEventListener('mousemove', onMove);
 				stripDoc.removeEventListener('mouseup',  onUp);
 				if (!hasMoved) {

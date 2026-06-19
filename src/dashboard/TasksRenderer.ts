@@ -41,7 +41,7 @@ export class TasksRenderer {
 		const wrap = container.createDiv({ cls: 'wm-tasks-wrap' });
 
 		// ── reload helpers ──
-		let reloadTimer: ReturnType<typeof setTimeout> | null = null;
+		let reloadTimer: number | null = null;
 
 		const reloadAndRender = async () => {
 			if (!wrap.isConnected) return;
@@ -52,8 +52,8 @@ export class TasksRenderer {
 		};
 
 		const scheduleReload = () => {
-			if (reloadTimer) clearTimeout(reloadTimer);
-			reloadTimer = setTimeout(reloadAndRender, 300);
+			if (reloadTimer) window.clearTimeout(reloadTimer);
+			reloadTimer = window.setTimeout(reloadAndRender, 300);
 		};
 
 		const modifyRef = plugin.app.vault.on('modify', () => {
@@ -123,8 +123,8 @@ export class TasksRenderer {
 				const sort = sectionSorts.get(cat)!;
 				const fpop = btnDoc.body.createDiv({ cls: 'wm-tasks-sort-popup wm-ver-popup' });
 				const r    = filterBtn.getBoundingClientRect();
-				fpop.style.top  = `${r.bottom + 4}px`;
-				fpop.style.left = `${r.left}px`;
+				fpop.setCssStyles({ top: `${r.bottom + 4}px` });
+				fpop.setCssStyles({ left: `${r.left}px` });
 
 				fpop.createDiv({ cls: 'wm-ver-popup-section-label', text: '정렬 기준' });
 				const FIELDS: { label: string; value: TaskSortField; icon: string }[] = [
@@ -167,10 +167,10 @@ export class TasksRenderer {
 					});
 				}
 
-				requestAnimationFrame(() => {
+				window.requestAnimationFrame(() => {
 					const pr = fpop.getBoundingClientRect();
-					if (pr.right  > btnWin.innerWidth  - 10) fpop.style.left = `${btnWin.innerWidth  - pr.width  - 10}px`;
-					if (pr.bottom > btnWin.innerHeight - 10) fpop.style.top  = `${r.top - pr.height - 4}px`;
+					if (pr.right  > btnWin.innerWidth  - 10) fpop.setCssStyles({ left: `${btnWin.innerWidth  - pr.width  - 10}px` });
+					if (pr.bottom > btnWin.innerHeight - 10) fpop.setCssStyles({ top: `${r.top - pr.height - 4}px` });
 				});
 				openPopupAutoClose(fpop);
 			});

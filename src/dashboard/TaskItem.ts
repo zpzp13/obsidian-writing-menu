@@ -18,7 +18,7 @@ export const EMOJI_TO_PRIORITY: Record<string, string> = {
 
 export function openPopupAutoClose(popup: HTMLElement) {
 	const doc = popup.ownerDocument;
-	setTimeout(() => {
+	window.setTimeout(() => {
 		const close = (ev: MouseEvent) => {
 			if (!popup.contains(ev.target as Node)) {
 				popup.remove();
@@ -64,7 +64,7 @@ export function renderTaskItem(
 		const leaf = plugin.app.workspace.getLeaf(false);
 		await leaf.openFile(file, lineIdx >= 0 ? { eState: { line: lineIdx, col: 0 } } : undefined);
 		if (lineIdx >= 0) {
-			setTimeout(() => {
+			window.setTimeout(() => {
 				const editor = (leaf.view as any)?.editor;
 				if (!editor) return;
 				editor.setCursor({ line: lineIdx, ch: 0 });
@@ -121,7 +121,7 @@ export function renderTaskItem(
 	const flagBtn = metaRow.createDiv({ cls: 'wm-task-item-flag-btn' });
 	const flagIconEl = flagBtn.createSpan({ cls: 'wm-task-item-flag-icon' });
 	setIcon(flagIconEl, 'flag');
-	flagIconEl.style.color = currentColor;
+	flagIconEl.setCssStyles({ color: currentColor });
 
 	flagBtn.addEventListener('click', (e) => {
 		e.stopPropagation();
@@ -131,13 +131,13 @@ export function renderTaskItem(
 
 		const ppop = btnDoc.body.createDiv({ cls: 'wm-task-priority-popup wm-ver-popup' });
 		const r    = flagBtn.getBoundingClientRect();
-		ppop.style.top  = `${r.bottom + 4}px`;
-		ppop.style.left = `${r.left}px`;
+		ppop.setCssStyles({ top: `${r.bottom + 4}px` });
+		ppop.setCssStyles({ left: `${r.left}px` });
 
 		for (const p of PRIORITY_MAP) {
 			const pitem = ppop.createDiv({ cls: 'wm-ver-popup-item' + (p.color === currentColor ? ' is-active' : '') });
 			const dot   = pitem.createDiv({ cls: 'wm-task-priority-dot' });
-			dot.style.background = p.color;
+			dot.setCssStyles({ background: p.color });
 			pitem.createSpan({ text: p.label });
 			pitem.addEventListener('click', async (e2) => {
 				e2.stopPropagation();
@@ -146,10 +146,10 @@ export function renderTaskItem(
 			});
 		}
 
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			const pr = ppop.getBoundingClientRect();
-			if (pr.right  > btnWin.innerWidth  - 10) ppop.style.left = `${btnWin.innerWidth  - pr.width  - 10}px`;
-			if (pr.bottom > btnWin.innerHeight - 10) ppop.style.top  = `${r.top - pr.height - 4}px`;
+			if (pr.right  > btnWin.innerWidth  - 10) ppop.setCssStyles({ left: `${btnWin.innerWidth  - pr.width  - 10}px` });
+			if (pr.bottom > btnWin.innerHeight - 10) ppop.setCssStyles({ top: `${r.top - pr.height - 4}px` });
 		});
 		openPopupAutoClose(ppop);
 	});

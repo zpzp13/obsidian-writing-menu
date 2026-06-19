@@ -52,10 +52,10 @@ export class MonthScroller {
 			onSelect(parseInt(pill.dataset.mon ?? '0'));
 		};
 
-		requestAnimationFrame(() => snapToPill(this.pills[currMon], false));
+		window.requestAnimationFrame(() => snapToPill(this.pills[currMon], false));
 
 		let syncEnabled = false;
-		requestAnimationFrame(() => requestAnimationFrame(() => { syncEnabled = true; }));
+		window.requestAnimationFrame(() => window.requestAnimationFrame(() => { syncEnabled = true; }));
 
 		scroller.addEventListener('scroll', () => {
 			if (!syncEnabled || Date.now() < this.monthScrollUntil) return;
@@ -63,9 +63,9 @@ export class MonthScroller {
 			if (!p) return;
 			this.pills.forEach(pp => pp.classList.toggle('wm-cal-ms-curr', pp === p));
 			if (isFullMode) {
-				clearTimeout(this.navTimer);
+				window.clearTimeout(this.navTimer);
 				const mon = parseInt(p.dataset.mon ?? '0');
-				this.navTimer = window.setTimeout(() => onSelect(mon), 220);
+				this.navTimer = window.window.setTimeout(() => onSelect(mon), 220);
 			}
 		}, { passive: true });
 
@@ -77,11 +77,11 @@ export class MonthScroller {
 
 			const onMove = (me: MouseEvent) => {
 				const dx = me.pageX - startX;
-				if (!isDragging && Math.abs(dx) > 4) { isDragging = true; scroller.style.cursor = 'grabbing'; }
+				if (!isDragging && Math.abs(dx) > 4) { isDragging = true; scroller.setCssStyles({ cursor: 'grabbing' }); }
 				if (isDragging) { scroller.scrollLeft = startL - dx; hasMoved = true; }
 			};
 			const onUp = (ue: MouseEvent) => {
-				scroller.style.cursor = '';
+				scroller.setCssStyles({ cursor: '' });
 				scrollerDoc.removeEventListener('mousemove', onMove);
 				scrollerDoc.removeEventListener('mouseup', onUp);
 				if (!hasMoved) {
