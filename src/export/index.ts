@@ -268,8 +268,8 @@ export class BatchExportModal extends Modal {
 		this.useSpaceIndent = plugin.settings.exportDefaultSpaceIndent;
 		this.excludeHeadings = plugin.settings.exportDefaultExcludeHeadings;
 		// Default merged file name
-		if (this.mode === 'folder') {
-			this.resultName = (this.target as TFolder).name;
+		if (this.target instanceof TFolder) {
+			this.resultName = this.target.name;
 		} else {
 			this.resultName = '병합된_문서';
 		}
@@ -327,14 +327,14 @@ export class BatchExportModal extends Modal {
 		const formatLabel = this.format === 'hwp' ? 'HWP' : 'TXT';
 		const fileExt = this.format === 'hwp' ? '.hwp' : '.txt';
 
-		if (this.mode === 'folder') {
+		if (this.target instanceof TFolder) {
 			contentEl.createEl('h2', { text: `폴더를 ${formatLabel}로 내보내기` });
 			contentEl.createEl('p', {
-				text: `"${(this.target as TFolder).name}" 폴더 내 모든 마크다운 파일이 변환됩니다.`,
+				text: `"${this.target.name}" 폴더 내 모든 마크다운 파일이 변환됩니다.`,
 				cls: 'setting-item-description'
 			});
 		} else {
-			contentEl.createEl('h2', { text: `${(this.target as TFile[]).length}개 파일을 ${formatLabel}로 내보내기` });
+			contentEl.createEl('h2', { text: `${this.target.length}개 파일을 ${formatLabel}로 내보내기` });
 		}
 
 		// Merge/Individual Toggle
@@ -450,17 +450,17 @@ export class BatchExportModal extends Modal {
 							}
 						} else {
 							// Individual export
-							if (this.mode === 'folder') {
+							if (this.target instanceof TFolder) {
 								if (this.format === 'hwp') {
-									void this.plugin.convertFolderToHwp((this.target as TFolder).path, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
+									void this.plugin.convertFolderToHwp(this.target.path, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
 								} else {
-									void this.plugin.convertFolderToTxt((this.target as TFolder).path, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
+									void this.plugin.convertFolderToTxt(this.target.path, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
 								}
 							} else {
 								if (this.format === 'hwp') {
-									void this.plugin.convertFilesToHwp(this.target as TFile[], this.resultPath, this.useSpaceIndent, this.excludeHeadings);
+									void this.plugin.convertFilesToHwp(this.target, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
 								} else {
-									void this.plugin.convertFilesToTxt(this.target as TFile[], this.resultPath, this.useSpaceIndent, this.excludeHeadings);
+									void this.plugin.convertFilesToTxt(this.target, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
 								}
 							}
 						}
