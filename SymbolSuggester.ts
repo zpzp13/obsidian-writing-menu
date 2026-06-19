@@ -28,10 +28,13 @@ export class SymbolSuggester extends EditorSuggest<SymbolSuggestion> {
 			return null;
 		}
 
-		const line = editor.getLine(cursor.line);
-		const sub = line.substring(0, cursor.ch);
+		const triggers = this.plugin.settings.symbolTriggers.filter(t => t.enabled !== false);
+		if (triggers.length === 0) return null;
 
-		const matches = this.plugin.settings.symbolTriggers.filter(t => t.enabled !== false && sub.endsWith(t.trigger));
+		const maxLen = Math.max(...triggers.map(t => t.trigger.length));
+		const sub = editor.getRange({ line: cursor.line, ch: Math.max(0, cursor.ch - maxLen) }, cursor);
+
+		const matches = triggers.filter(t => sub.endsWith(t.trigger));
 
 		if (matches.length === 0) return null;
 

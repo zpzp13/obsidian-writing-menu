@@ -958,8 +958,23 @@ export default class WritingMenuPlugin extends Plugin {
 			decorations: DecorationSet;
 			constructor(view: EditorView) { this.decorations = this.build(view); }
 			update(update: ViewUpdate) {
-				if (update.docChanged || update.viewportChanged) {
+				if (update.viewportChanged) {
 					this.decorations = this.build(update.view);
+				} else if (update.docChanged) {
+					// 변경된 범위 중 heading 줄이 없으면 재빌드 불필요
+					// .text 대신 sliceString으로 앞 8자만 읽어 O(n) 문자열 할당 방지
+					let hasHeadingChange = false;
+					update.changes.iterChangedRanges((_fa, _ta, fromB, toB) => {
+						if (hasHeadingChange) return;
+						const doc = update.state.doc;
+						const fl  = doc.lineAt(fromB);
+						const peek = (line: typeof fl) =>
+							/^#{1,6}\s/.test(doc.sliceString(line.from, Math.min(line.from + 8, line.to)));
+						if (peek(fl)) { hasHeadingChange = true; return; }
+						const tl = doc.lineAt(toB);
+						if (fl.number !== tl.number && peek(tl)) hasHeadingChange = true;
+					});
+					if (hasHeadingChange) this.decorations = this.build(update.view);
 				}
 			}
 			build(view: EditorView): DecorationSet {
@@ -1008,7 +1023,6 @@ export default class WritingMenuPlugin extends Plugin {
 		return ViewPlugin.fromClass(class {
 			decorations: DecorationSet;
 			lastCursorLine: number = -1;
-			lastDocLength: number = 0;
 			constructor(_view: EditorView) { this.decorations = Decoration.none; }
 			update(update: ViewUpdate) {
 				if (!pluginSettings.enableFocusMode) {
@@ -1025,14 +1039,12 @@ export default class WritingMenuPlugin extends Plugin {
 
 				if (isUserInput && update.docChanged) {
 					const cursorLine = update.view.state.doc.lineAt(update.view.state.selection.main.head).number;
-					const docLength = update.view.state.doc.length;
-					// Skip rebuild only if cursor on same line AND doc length unchanged
-					if (cursorLine === this.lastCursorLine && docLength === this.lastDocLength && this.decorations !== Decoration.none) {
+					// 같은 줄에서 타이핑 중이면 다른 줄 dim 상태가 바뀌지 않으므로 재빌드 불필요
+					if (cursorLine === this.lastCursorLine && this.decorations !== Decoration.none) {
 						return;
 					}
 					this.decorations = this.buildDecorations(update.view);
 					this.lastCursorLine = cursorLine;
-					this.lastDocLength = docLength;
 				} else if (update.selectionSet && !update.docChanged) {
 					this.decorations = Decoration.none;
 					this.lastCursorLine = -1;
