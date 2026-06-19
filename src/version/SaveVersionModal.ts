@@ -21,8 +21,8 @@ export class SaveVersionModal extends Modal {
 		const { contentEl, modalEl } = this;
 		contentEl.empty();
 		contentEl.addClass('wm-save-ver-modal');
-		modalEl.style.width = '400px';
-		modalEl.style.maxWidth = '90vw';
+		modalEl.setCssStyles({ width: '400px' });
+		modalEl.setCssStyles({ maxWidth: '90vw' });
 
 		contentEl.createEl('h3', { text: '버전 저장', cls: 'wm-save-ver-title' });
 
@@ -84,7 +84,7 @@ export class SaveVersionModal extends Modal {
 			else if (e.key === 'Escape') this.close();
 		});
 
-		setTimeout(() => { nameInput.focus(); nameInput.select(); }, 50);
+		window.setTimeout(() => { nameInput.focus(); nameInput.select(); }, 50);
 	}
 
 	onClose() {

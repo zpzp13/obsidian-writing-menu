@@ -54,11 +54,11 @@ export function renderWikiSettingsPage(containerEl: HTMLElement, plugin: Writing
 
 	new Setting(styleBox)
 		.setName('프로필 제목 폰트 크기')
-		.addSlider(s => s.setLimits(10, 30, 1).setValue(plugin.settings.wikiProfileHeaderSize ?? 18).setDynamicTooltip()
+		.addSlider(s => s.setLimits(10, 30, 1).setValue(plugin.settings.wikiProfileHeaderSize ?? 18)
 			.onChange(async v => { plugin.settings.wikiProfileHeaderSize = v; await plugin.saveSettings(); rerender(); }));
 
 	new Setting(styleBox)
 		.setName('프로필 속성 폰트 크기')
-		.addSlider(s => s.setLimits(8, 20, 1).setValue(plugin.settings.wikiProfileKeySize ?? 13).setDynamicTooltip()
+		.addSlider(s => s.setLimits(8, 20, 1).setValue(plugin.settings.wikiProfileKeySize ?? 13)
 			.onChange(async v => { plugin.settings.wikiProfileKeySize = v; await plugin.saveSettings(); rerender(); }));
 }

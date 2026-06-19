@@ -1,4 +1,4 @@
-import { Component, MarkdownRenderer, Notice, TFile, TFolder, setIcon } from 'obsidian';
+import { Component, MarkdownRenderer, Notice, TFile, TFolder, setIcon, sanitizeHTMLToDom } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { getToneColor } from './WikiTypes';
 import { FolderOrNoteSuggestModal, ImageSuggestModal } from './WikiModals';
@@ -69,8 +69,8 @@ export class WikiPanel {
 	}
 
 	private scheduleRerender() {
-		clearTimeout(this.rerenderTimer);
-		this.rerenderTimer = window.setTimeout(() => this.rerender(), 350);
+		window.clearTimeout(this.rerenderTimer);
+		this.rerenderTimer = window.window.setTimeout(() => this.rerender(), 350);
 	}
 
 	private registerEvents() {
@@ -176,8 +176,8 @@ export class WikiPanel {
 		// 기존 scrollArea 즉시 페이드아웃 (콘텐츠 빌드와 병렬 진행 → replaceWith 시 이미 투명)
 		const existingScrollAreaOld = outerContainer.querySelector<HTMLElement>('.wiki-scroll-area');
 		if (existingScrollAreaOld) {
-			existingScrollAreaOld.style.transition = 'opacity 0.12s ease';
-			existingScrollAreaOld.style.opacity = '0';
+			existingScrollAreaOld.setCssStyles({ transition: 'opacity 0.12s ease' });
+			existingScrollAreaOld.setCssStyles({ opacity: '0' });
 		}
 
 		// navBtns 재사용 (fixed 요소, 위치 안정)
@@ -209,7 +209,7 @@ export class WikiPanel {
 		(navBtns.lastElementChild as HTMLElement).onclick = () => scrollArea.scrollTo({ top: scrollArea.scrollHeight, behavior: 'smooth' });
 
 		// transitionActive 해제: DOM 변화 없으므로 즉시 해제해도 spurious scroll 없음
-		setTimeout(() => { if (this.renderSeq === mySeq) this.transitionActive = false; }, 50);
+		window.setTimeout(() => { if (this.renderSeq === mySeq) this.transitionActive = false; }, 50);
 
 		// TOC + 프로필 병렬 빌드 (detached 상태에서)
 		await Promise.all([
@@ -372,7 +372,7 @@ export class WikiPanel {
 		settingsBtn.onclick = () => {
 			(this.app as any).setting?.open();
 			(this.app as any).setting?.openTabById(this.plugin.manifest.id);
-			setTimeout(() => { this.plugin.settingTab?.renderPage('wiki'); }, 60);
+			window.setTimeout(() => { this.plugin.settingTab?.renderPage('wiki'); }, 60);
 		};
 	}
 
@@ -460,36 +460,36 @@ export class WikiPanel {
 			selectedIdx = newIdx;
 			previewSelect(newIdx);
 			strip.focus({ preventScroll: true });
-			clearTimeout(debounceTimer);
+			window.clearTimeout(debounceTimer);
 			const card = allCards[newIdx];
 			const target = Math.max(0, card.offsetLeft + card.offsetWidth / 2 - strip.clientWidth / 2);
 			// scrollTo 직후 scroll 이벤트에서 snapIdx()가 wrong index 반환하는 레이스 방지
 			suppressScrollHighlight = true;
 			strip.scrollTo({ left: target, behavior: 'instant' as ScrollBehavior });
-			requestAnimationFrame(() => { suppressScrollHighlight = false; });
+			window.requestAnimationFrame(() => { suppressScrollHighlight = false; });
 			commit(newIdx);
 		};
 
 		// 초기 scroll 위치 확정 전까지 숨김 → 플로팅 창에서 레이아웃이 늦게 잡힐 때 "scanning" 잔상 방지
-		strip.style.visibility = 'hidden';
+		strip.setCssStyles({ visibility: 'hidden' });
 		let initRetry = 0;
 		const initStripPosition = () => {
 			if (this.stripGen !== myStripGen) return;
-			if (strip.clientWidth === 0 && initRetry < 10) { initRetry++; requestAnimationFrame(initStripPosition); return; }
+			if (strip.clientWidth === 0 && initRetry < 10) { initRetry++; window.requestAnimationFrame(initStripPosition); return; }
 			const nonSel = allCards.find((_, i) => i !== selectedIdx) ?? allCards[0];
 			const cardW = nonSel?.offsetWidth ?? 56;
 			const halfPad = Math.max(10, Math.floor((strip.clientWidth - cardW) / 2));
-			strip.style.paddingLeft  = `${halfPad}px`;
-			strip.style.paddingRight = `${halfPad}px`;
+			strip.setCssStyles({ paddingLeft: `${halfPad}px` });
+			strip.setCssStyles({ paddingRight: `${halfPad}px` });
 			if (this.stripScrollLeft >= 0) {
 				strip.scrollLeft = this.stripScrollLeft;
 			} else {
 				const card = allCards[selectedIdx];
 				if (card) strip.scrollLeft = Math.max(0, card.offsetLeft + card.offsetWidth / 2 - strip.clientWidth / 2);
 			}
-			strip.style.visibility = '';
+			strip.setCssStyles({ visibility: '' });
 		};
-		requestAnimationFrame(initStripPosition);
+		window.requestAnimationFrame(initStripPosition);
 
 		// scroll: 직접 라이브 하이라이트 + 200ms 후 commit
 		// goCard() 직후 scroll 이벤트는 suppressScrollHighlight로 차단 → 잔상 방지
@@ -499,8 +499,8 @@ export class WikiPanel {
 				const liveIdx = snapIdx();
 				if (liveIdx !== selectedIdx) { selectedIdx = liveIdx; previewSelect(liveIdx); }
 			}
-			clearTimeout(debounceTimer);
-			debounceTimer = window.setTimeout(() => {
+			window.clearTimeout(debounceTimer);
+			debounceTimer = window.window.setTimeout(() => {
 				if (this.stripGen !== myStripGen) return;
 				commit(selectedIdx);
 			}, 200);
@@ -542,12 +542,12 @@ export class WikiPanel {
 
 			const onMove = (me: MouseEvent) => {
 				const dx = me.pageX - startX;
-				if (!hasMoved && Math.abs(dx) > 4) { hasMoved = true; strip.style.cursor = 'grabbing'; }
+				if (!hasMoved && Math.abs(dx) > 4) { hasMoved = true; strip.setCssStyles({ cursor: 'grabbing' }); }
 				if (hasMoved) strip.scrollLeft = startScrollLeft - dx;
 			};
 
 			const onUp = () => {
-				strip.style.cursor = '';
+				strip.setCssStyles({ cursor: '' });
 				stripDoc.removeEventListener('mousemove', onMove);
 				stripDoc.removeEventListener('mouseup', onUp);
 				if (this.stripGen !== myStripGen) return;
@@ -633,7 +633,7 @@ export class WikiPanel {
 		const wrap = outerContainer.createDiv({ cls: 'wiki-rel-list-wrap' + (this.stripCollapsed ? ' is-collapsed' : '') });
 		const list = wrap.createDiv({ cls: 'wiki-rel-list' });
 
-		requestAnimationFrame(() => { wrap.scrollTop = this.relListScrollTop; });
+		window.requestAnimationFrame(() => { wrap.scrollTop = this.relListScrollTop; });
 
 		groups.forEach(g => {
 			if (g.files.length === 0) return;
@@ -718,11 +718,11 @@ export class WikiPanel {
 			const numStr = counters.slice(0, h.level).join('.') + '.';
 
 			const item = list.createDiv({ cls: 'wiki-toc-item' });
-			item.style.paddingLeft = `${(h.level - 1) * 12}px`;
+			item.setCssStyles({ paddingLeft: `${(h.level - 1) * 12}px` });
 			const numSpan = item.createSpan({ cls: 'wiki-toc-number', text: numStr });
 			const textSpan = item.createSpan({ cls: 'wiki-toc-text' });
 			MarkdownRenderer.render(this.app, h.heading, textSpan, file.path, this.hostComponent).then(() => {
-				textSpan.querySelectorAll('p').forEach(p => { (p as HTMLElement).style.cssText = 'margin:0;display:inline;'; });
+				textSpan.querySelectorAll('p').forEach(p => { (p as HTMLElement).setCssStyles({ 'margin': '0', 'display': 'inline' }); });
 			});
 			// 번호만 클릭 시 본문으로 이동 (아이템 전체 클릭 제거)
 			numSpan.addEventListener('click', (e) => {
@@ -796,7 +796,7 @@ export class WikiPanel {
 			const row = props.createDiv({ cls: 'wiki-prop-row' });
 			row.createSpan({ cls: 'wiki-prop-key', text: k });
 			const valEl = row.createDiv({ cls: 'wiki-prop-val' });
-			if (coloredProps.includes(k)) { valEl.style.color = 'var(--wiki-accent-color)'; valEl.style.fontWeight = 'bold'; }
+			if (coloredProps.includes(k)) { valEl.setCssStyles({ color: 'var(--wiki-accent-color)', fontWeight: 'bold' }); }
 
 			if (k === 'tags') {
 				const tagList: string[] = Array.isArray(v) ? v : String(v).split(',').map(s => s.trim()).filter(Boolean);
@@ -884,13 +884,13 @@ export class WikiPanel {
 				if (!fnItem) return;
 				tooltip = createDiv({ cls: 'wiki-footnote-tooltip' });
 				const contentDiv = tooltip.createDiv();
-				contentDiv.innerHTML = fnItem.innerHTML;
+				contentDiv.appendChild(sanitizeHTMLToDom(fnItem.innerHTML));
 				contentDiv.querySelector('.footnote-backref')?.remove();
-				document.body.appendChild(tooltip);
+				activeDocument.body.appendChild(tooltip);
 				tooltip.addClass('visible');
 				const rect = (fn as HTMLElement).getBoundingClientRect();
-				tooltip.style.left = `${rect.left}px`;
-				tooltip.style.top = `${rect.bottom + 10}px`;
+				tooltip.setCssStyles({ left: `${rect.left}px` });
+				tooltip.setCssStyles({ top: `${rect.bottom + 10}px` });
 			});
 			fn.addEventListener('mouseleave', () => { tooltip?.remove(); tooltip = null; });
 			link.onclick = (e) => {
@@ -899,7 +899,7 @@ export class WikiPanel {
 				if (target) {
 					scrollTo(target);
 					(target as HTMLElement).addClass('wiki-highlight-flash');
-					setTimeout(() => (target as HTMLElement).removeClass('wiki-highlight-flash'), 1000);
+					window.setTimeout(() => (target as HTMLElement).removeClass('wiki-highlight-flash'), 1000);
 				}
 			};
 		});
@@ -912,7 +912,7 @@ export class WikiPanel {
 				if (target) {
 					scrollTo(target, 40);
 					(target as HTMLElement).addClass('wiki-highlight-flash');
-					setTimeout(() => (target as HTMLElement).removeClass('wiki-highlight-flash'), 1000);
+					window.setTimeout(() => (target as HTMLElement).removeClass('wiki-highlight-flash'), 1000);
 				}
 			});
 		});

@@ -3,7 +3,6 @@ import { showDayPreview, removeDayPreview } from '../components/DayPreviewPopup'
 import type WritingMenuPlugin from '../../../main';
 import { DashboardSection } from '../../dashboard/DashboardSection';
 import { TaskParser } from '../../dashboard/data/TaskParser';
-import type { ParsedTask } from '../../dashboard/data/TaskParser';
 import { TasksRenderer } from '../../dashboard/TasksRenderer';
 import { WritingTimeSection } from '../../dashboard/WritingTimeSection';
 import { VersionPanel } from '../../version/VersionPanel';
@@ -65,8 +64,8 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 		this.render();
 		// 태스크 파일 변경 시 배지 자동 갱신
 		this.registerEvent(this.app.vault.on('modify', () => {
-			clearTimeout(this.badgeDebounceTimer);
-			this.badgeDebounceTimer = window.setTimeout(() => this.loadAndApplyTasks().catch(() => {}), 300);
+			window.clearTimeout(this.badgeDebounceTimer);
+			this.badgeDebounceTimer = window.window.setTimeout(() => this.loadAndApplyTasks().catch(() => {}), 300);
 		}));
 	}
 
@@ -76,7 +75,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 		this.dashTab = 'wiki';
 		this.dashSubView = 'content';
 		this.render();
-		setTimeout(() => this.wikiPanel?.openFolderPicker(), 50);
+		window.setTimeout(() => this.wikiPanel?.openFolderPicker(), 50);
 	}
 
 	// ── Root render ─────────────────────────────────────────────────
@@ -192,7 +191,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 	// ── Month navigation ─────────────────────────────────────────────
 
 	private navigateToMonth(mon: number, year: number) {
-		clearTimeout(this.navDebounceTimer);
+		window.clearTimeout(this.navDebounceTimer);
 		this.navDebounceTimer = 0;
 		const maxDay = new Date(year, mon + 1, 0).getDate();
 		const day    = Math.min(this.selectedDate.getDate(), maxDay);
@@ -261,7 +260,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 				const dk = formatDateKey(this.selectedDate);
 				const hasTask = (this.taskCounts.get(dk) ?? 0) > 0;
 				this.render();
-				if (hasTask) requestAnimationFrame(() => this.scrollToTasksSection(dk));
+				if (hasTask) window.requestAnimationFrame(() => this.scrollToTasksSection(dk));
 			});
 		}
 	}
@@ -475,7 +474,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 			(groupBody.previousElementSibling as HTMLElement)?.click();
 			expandDelay = 200;
 		}
-		setTimeout(() => {
+		window.setTimeout(() => {
 			let section: HTMLElement | null = null;
 			if (dateKey) {
 				const targetItem = content.querySelector<HTMLElement>(`.wm-task-item[data-datekey="${dateKey}"]`);
@@ -488,12 +487,12 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 			}
 			section.scrollIntoView({ behavior: 'smooth', block: 'start' });
 			if (dateKey) {
-				setTimeout(() => {
+				window.setTimeout(() => {
 					content.querySelectorAll<HTMLElement>(`.wm-task-item[data-datekey="${dateKey}"]`).forEach(el => {
 						el.classList.remove('is-highlighted');
 						void el.offsetWidth;
 						el.classList.add('is-highlighted');
-						setTimeout(() => el.classList.remove('is-highlighted'), 1600);
+						window.setTimeout(() => el.classList.remove('is-highlighted'), 1600);
 					});
 				}, 350);
 			}

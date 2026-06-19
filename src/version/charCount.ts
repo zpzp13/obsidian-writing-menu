@@ -10,7 +10,7 @@ export function calcVersionCharCount(text: string, mode: 'munpia' | 'novelpia'):
 	const base = lines.join('');
 
 	if (mode === 'novelpia') {
-		return base.replace(/ /g, '').replace(/[.,!?"']/g, '').replace(/[\s ]/g, '').length;
+		return base.replace(/[.,!?"'']/g, '').replace(/\s/g, '').length;
 	} else {
 		const ellipsisCount = (base.match(/…/g) || []).length;
 		return base.length + (ellipsisCount * 2);

@@ -176,7 +176,7 @@ export class DailyCharStore {
 	}
 
 	private scheduleAvgRecompute() {
-		clearTimeout(this.avgTimer);
+		window.clearTimeout(this.avgTimer);
 		this.avgTimer = window.setTimeout(() => this.computeAvg(), 2000);
 	}
 
@@ -251,7 +251,7 @@ export class DailyCharStore {
 	}
 
 	private scheduleSave() {
-		clearTimeout(this.saveTimer);
+		window.clearTimeout(this.saveTimer);
 		this.saveTimer = window.setTimeout(async () => {
 			await this.save();
 			await this.writeTodayCharCount();

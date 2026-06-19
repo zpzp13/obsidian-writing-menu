@@ -12,8 +12,8 @@ let activePopup: HTMLElement | null = null;
 let removeTimer: number | null = null;
 
 export function removeDayPreview() {
-	if (removeTimer !== null) { window.clearTimeout(removeTimer); removeTimer = null; }
-	removeTimer = window.setTimeout(() => {
+	if (removeTimer !== null) { window.window.clearTimeout(removeTimer); removeTimer = null; }
+	removeTimer = window.window.setTimeout(() => {
 		activePopup?.remove();
 		activePopup = null;
 		removeTimer = null;
@@ -22,7 +22,7 @@ export function removeDayPreview() {
 
 export function showDayPreview(anchor: HTMLElement, date: Date, plugin: WritingMenuPlugin) {
 	// 대기 중인 제거 취소 후 기존 팝업 즉시 제거
-	if (removeTimer !== null) { clearTimeout(removeTimer); removeTimer = null; }
+	if (removeTimer !== null) { window.clearTimeout(removeTimer); removeTimer = null; }
 	activePopup?.remove();
 
 	const doc   = anchor.ownerDocument;
@@ -31,7 +31,7 @@ export function showDayPreview(anchor: HTMLElement, date: Date, plugin: WritingM
 
 	// 팝업 위에 마우스가 있는 동안 제거 방지
 	popup.addEventListener('mouseenter', () => {
-		if (removeTimer !== null) { window.clearTimeout(removeTimer); removeTimer = null; }
+		if (removeTimer !== null) { window.window.clearTimeout(removeTimer); removeTimer = null; }
 	});
 	popup.addEventListener('mouseleave', () => { removeDayPreview(); });
 
@@ -73,8 +73,8 @@ function positionPopup(popup: HTMLElement, anchor: HTMLElement) {
 	if (top < 8) top = rect.bottom + 8;
 	if (top + ph > vh - 8) top = vh - ph - 8;
 
-	popup.style.left = `${left}px`;
-	popup.style.top  = `${top}px`;
+	popup.setCssStyles({ left: `${left}px` });
+	popup.setCssStyles({ top: `${top}px` });
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -115,7 +115,6 @@ function escapeRe(s: string): string {
 
 
 async function loadDayData(date: Date, plugin: WritingMenuPlugin): Promise<DayData> {
-	const dateStr = formatDateKey(date);
 	const store   = plugin.charStore;
 	const today   = new Date(); today.setHours(0, 0, 0, 0);
 	const isToday = date.toDateString() === today.toDateString();

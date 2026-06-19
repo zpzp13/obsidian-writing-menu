@@ -88,7 +88,7 @@ export class EditVersionModal extends Modal {
 		descInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doSave(); } });
 		bodyInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); doSave(); } });
 
-		setTimeout(() => { nameInput.focus(); nameInput.select(); }, 50);
+		window.setTimeout(() => { nameInput.focus(); nameInput.select(); }, 50);
 	}
 
 	onClose() { this.contentEl.empty(); }

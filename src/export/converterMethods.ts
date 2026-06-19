@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
-import { TFile, TFolder, Notice, WorkspaceLeaf, MarkdownView } from 'obsidian';
+import { TFile, Notice, WorkspaceLeaf, MarkdownView } from 'obsidian';
 import { CONVERTER_PY_CONTENT } from './converterScript';
 import type WritingMenuPlugin from '../../main';
 

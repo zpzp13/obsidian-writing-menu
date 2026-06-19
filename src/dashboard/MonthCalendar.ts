@@ -5,14 +5,14 @@ import type { ParsedTask } from './data/TaskParser';
 const DOW_KO = ['일', '월', '화', '수', '목', '금', '토'];
 
 function openPopupAutoClose(popup: HTMLElement) {
-	setTimeout(() => {
+	window.setTimeout(() => {
 		const close = (ev: MouseEvent) => {
 			if (!popup.contains(ev.target as Node)) {
 				popup.remove();
-				document.removeEventListener('click', close);
+				activeDocument.removeEventListener('click', close);
 			}
 		};
-		document.addEventListener('click', close);
+		activeDocument.addEventListener('click', close);
 	}, 10);
 }
 
@@ -87,9 +87,9 @@ export class MonthCalendar {
 
 					dayEl.addEventListener('click', (e) => {
 						e.stopPropagation();
-						document.querySelector('.wm-month-task-preview')?.remove();
+						activeDocument.querySelector('.wm-month-task-preview')?.remove();
 
-						const ppop = document.body.createDiv({ cls: 'wm-month-task-preview wm-ver-popup' });
+						const ppop = activeDocument.body.createDiv({ cls: 'wm-month-task-preview wm-ver-popup' });
 						ppop.createDiv({ cls: 'wm-ver-popup-section-label', text: `${viewMonth + 1}월 ${day}일 할 일` });
 
 						for (const t of tasks) {
@@ -100,13 +100,13 @@ export class MonthCalendar {
 						}
 
 						const rect = dayEl.getBoundingClientRect();
-						ppop.style.top  = `${rect.bottom + 4}px`;
-						ppop.style.left = `${rect.left}px`;
+						ppop.setCssStyles({ top: `${rect.bottom + 4}px` });
+						ppop.setCssStyles({ left: `${rect.left}px` });
 
-						requestAnimationFrame(() => {
+						window.requestAnimationFrame(() => {
 							const pr = ppop.getBoundingClientRect();
-							if (pr.right  > window.innerWidth  - 10) ppop.style.left = `${window.innerWidth  - pr.width  - 10}px`;
-							if (pr.bottom > window.innerHeight - 10) ppop.style.top  = `${rect.top - pr.height - 4}px`;
+							if (pr.right  > window.innerWidth  - 10) ppop.setCssStyles({ left: `${window.innerWidth  - pr.width  - 10}px` });
+							if (pr.bottom > window.innerHeight - 10) ppop.setCssStyles({ top: `${rect.top - pr.height - 4}px` });
 						});
 						openPopupAutoClose(ppop);
 					});

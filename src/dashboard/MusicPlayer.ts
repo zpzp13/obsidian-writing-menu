@@ -167,7 +167,7 @@ export class MusicPlayer {
 		this.notifyCallbacks();
 	}
 
-	togglePlay() { this.isPlaying ? this.pause() : this.play(); }
+	togglePlay() { if (this.isPlaying) this.pause(); else this.play(); }
 
 	next() {
 		if (this.viewPlaylist.length === 0) return;

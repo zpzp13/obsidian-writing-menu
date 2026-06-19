@@ -120,7 +120,7 @@ export class WritingTimeSection {
 					}
 				});
 			}
-			finally { setTimeout(() => { isDailySaving = false; }, 200); }
+			finally { window.setTimeout(() => { isDailySaving = false; }, 200); }
 		};
 
 		// ── 현재 파일에 저장 + 데일리노트에도 기록 ──
@@ -147,7 +147,7 @@ export class WritingTimeSection {
 					if (totalDelta > 0)
 						fm2[totalKey] = toHMS(WritingTimeStore.parseTime(fm2[totalKey]) + totalDelta);
 				});
-			} finally { setTimeout(() => { isSaving = false; }, 200); }
+			} finally { window.setTimeout(() => { isSaving = false; }, 200); }
 
 			// 프로젝트 폴더 안 파일이면 데일리노트에도 기록
 			const proj = getProjectName(file);
@@ -355,7 +355,7 @@ export class WritingTimeSection {
 		});
 
 		const avgModifyHandler = app.vault.on('modify', () => {
-			clearTimeout(avgDebounceTimer);
+			window.clearTimeout(avgDebounceTimer);
 			avgDebounceTimer = window.setTimeout(async () => {
 				const f = trackingFile;
 				const proj = getProjectName(f);
@@ -370,7 +370,7 @@ export class WritingTimeSection {
 			app.workspace.offref(leafHandler);
 			app.workspace.offref(editorHandler);
 			app.vault.offref(avgModifyHandler);
-			clearTimeout(avgDebounceTimer);
+			window.clearTimeout(avgDebounceTimer);
 			window.clearInterval(uiInterval);
 			window.clearInterval(accumInterval);
 			if (trackingFile) savePending(trackingFile).catch(() => {});

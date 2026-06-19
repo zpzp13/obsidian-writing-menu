@@ -38,8 +38,8 @@ export class DictionaryModal extends Modal {
 		const { contentEl, modalEl } = this;
 		contentEl.empty();
 		contentEl.addClass('wm-dict-modal');
-		modalEl.style.width = '620px';
-		modalEl.style.maxWidth = '94vw';
+		modalEl.setCssStyles({ width: '620px' });
+		modalEl.setCssStyles({ maxWidth: '94vw' });
 
 		// ── 헤더 ───────────────────────────────────────────────────
 
@@ -61,11 +61,11 @@ export class DictionaryModal extends Modal {
 		setIcon(searchIconEl, 'search');
 
 		this.dropdownEl = searchContainer.createDiv({ cls: 'wm-dict-dropdown' });
-		this.dropdownEl.style.display = 'none';
+		this.dropdownEl.setCssStyles({ display: 'none' });
 
 		// ── 검색바 이벤트 ──────────────────────────────────────────
 
-		let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+		let debounceTimer: number | null = null;
 		let acPaused = false;
 
 		searchInput.addEventListener('focus', () => {
@@ -89,7 +89,7 @@ export class DictionaryModal extends Modal {
 				const q = searchInput.value.trim();
 				if (q) {
 					acPaused = true;
-					if (debounceTimer) { clearTimeout(debounceTimer); debounceTimer = null; }
+					if (debounceTimer) { window.clearTimeout(debounceTimer); debounceTimer = null; }
 					this.hideDropdown();
 					this.searchQuery = q;
 					await this.saveRecentSearch(q);
@@ -100,11 +100,11 @@ export class DictionaryModal extends Modal {
 
 		searchInput.addEventListener('input', () => {
 			acPaused = false;
-			if (debounceTimer) clearTimeout(debounceTimer);
+			if (debounceTimer) window.clearTimeout(debounceTimer);
 			const q = searchInput.value.trim();
 			if (!q) { this.showRecentDropdown(); return; }
 			if (!this.plugin.settings.stdictApiKey) { this.hideDropdown(); return; }
-			debounceTimer = setTimeout(async () => {
+			debounceTimer = window.setTimeout(async () => {
 				if (acPaused) return;
 				const current = searchInput.value.trim();
 				if (!current) return;
@@ -119,7 +119,7 @@ export class DictionaryModal extends Modal {
 		});
 
 		searchInput.addEventListener('blur', () => {
-			setTimeout(() => this.hideDropdown(), 160);
+			window.setTimeout(() => this.hideDropdown(), 160);
 		});
 
 		// ── 바디 ──────────────────────────────────────────────────
@@ -274,12 +274,12 @@ export class DictionaryModal extends Modal {
 	}
 
 	private openDropdown() {
-		this.dropdownEl.style.display = 'block';
+		this.dropdownEl.setCssStyles({ display: 'block' });
 		this.searchBoxEl.addClass('is-open');
 	}
 
 	private hideDropdown() {
-		this.dropdownEl.style.display = 'none';
+		this.dropdownEl.setCssStyles({ display: 'none' });
 		this.dropdownNavIdx = -1;
 		this.searchBoxEl?.removeClass('is-open');
 	}

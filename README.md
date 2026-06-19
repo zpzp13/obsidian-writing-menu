@@ -1,3 +1,25 @@
+# Writing Menu — Obsidian Writing Assistant Plugin
+
+A comprehensive writing environment plugin for Obsidian, tailored for novelists and writers. Integrates typography controls, focus mode, smart input, word counter, daily work time tracker, calendar dashboard, version control, and wiki view into one plugin.
+
+## Key Features
+- **Typography**: Font, size, line height, line width per note or folder
+- **Focus Mode & Typewriter Scroll**: Distraction-free writing
+- **Smart Input**: Auto quotes, symbol triggers, text substitution, smart enter
+- **Char Count**: Munpia/Novelpia format tracking with daily notes integration
+- **Work Time Tracker**: Per-mode (draft/writing/editing) time tracking saved to frontmatter
+- **Calendar Dashboard**: Date strip, monthly view, hover preview with tasks/char count/time
+- **Version Control**: Snapshot, side-by-side diff, partial revert
+- **Wiki View**: Card view for characters/settings with custom groups and relations
+- **Export**: TXT/HWP export, heading/footnote exclusion
+- **Music Player**: In-vault audio playback
+
+---
+
+(한국어 설명은 아래를 참조하세요 / Korean documentation below)
+
+---
+
 # Writing Menu — Obsidian 창작 보조 플러그인
 
 웹소설 집필에 특화된 Obsidian 플러그인입니다. 편집기 서식, 글자수 추적, 작업 시간 기록, 캘린더 대시보드, 버전 관리, 위키 기능을 하나로 통합합니다.

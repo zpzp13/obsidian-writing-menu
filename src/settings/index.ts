@@ -2,23 +2,6 @@ import { App, PluginSettingTab, Setting, setIcon, Platform } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { renderWikiSettingsPage } from '../wiki/WikiSettings';
 
-/** CSS --interactive-accent 값을 hex로 변환 (canvas 픽셀 읽기) */
-function accentColorToHex(): string {
-	try {
-		const raw = getComputedStyle(document.body).getPropertyValue('--interactive-accent').trim();
-		if (!raw) return '#4f9cf9';
-		const canvas = document.createElement('canvas');
-		canvas.width = canvas.height = 1;
-		const ctx = canvas.getContext('2d');
-		if (!ctx) return '#4f9cf9';
-		ctx.fillStyle = raw;
-		ctx.fillRect(0, 0, 1, 1);
-		const [r, g, b] = Array.from(ctx.getImageData(0, 0, 1, 1).data);
-		return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-	} catch {
-		return '#4f9cf9';
-	}
-}
 
 export class WritingMenuSettingTab extends PluginSettingTab {
 	plugin: WritingMenuPlugin;
@@ -505,7 +488,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				this.addGroupTitle(containerEl, 'HWP 변환');
 
 				const reqNote = containerEl.createDiv();
-				reqNote.style.cssText = 'font-size:12px; color:var(--text-muted); margin-bottom:8px; padding: 0 2px;';
+				reqNote.setCssStyles({ 'fontSize': '12px', 'color': 'var(--text-muted)', 'marginBottom': '8px', 'padding': '0 2px' });
 				reqNote.textContent = '한컴오피스 한글, Python, pywin32 필요';
 
 				const hwpBox = this.createGroupBox(containerEl);
@@ -678,24 +661,24 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					.setName(`모드 ${i + 1}`)
 					.addText(t => {
 						t.setPlaceholder('표시명').setValue(m.label);
-						t.inputEl.style.width = '65px';
+						t.inputEl.setCssStyles({ width: '65px' });
 						t.onChange(async v => { m.label = v; await this.plugin.saveSettings(); });
 					})
 					.addText(t => {
 						t.setPlaceholder('아이콘 (Lucide)').setValue(m.icon ?? '');
-						t.inputEl.style.width = '100px';
+						t.inputEl.setCssStyles({ width: '100px' });
 						t.onChange(async v => { m.icon = v.trim() || undefined; await this.plugin.saveSettings(); });
 					})
 					.addText(t => {
 						t.setPlaceholder('프론트매터 키').setValue(m.frontmatterKey);
-						t.inputEl.style.width = '110px';
+						t.inputEl.setCssStyles({ width: '110px' });
 						t.onChange(async v => { m.frontmatterKey = v.trim(); await this.plugin.saveSettings(); });
 					})
 					.addText(t => {
 						t.setPlaceholder('목표(분)').setValue(String(Math.round(m.goalSeconds / 60)));
 						t.inputEl.type = 'number';
 						t.inputEl.min  = '0';
-						t.inputEl.style.width = '65px';
+						t.inputEl.setCssStyles({ width: '65px' });
 						t.onChange(async v => {
 							m.goalSeconds = (parseInt(v) || 0) * 60;
 							await this.plugin.saveSettings();
@@ -710,7 +693,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 							await this.plugin.saveSettings();
 							renderModeList();
 						}));
-				setting.settingEl.style.flexWrap = 'wrap';
+				setting.settingEl.setCssStyles({ flexWrap: 'wrap' });
 			}
 		};
 		renderModeList();
@@ -742,7 +725,6 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			.setDesc('0 = 추적 노트의 직속 폴더, 1 = 한 단계 위 폴더, … (추적 노트 기준, 노트 없으면 히트맵 폴더 사용)')
 			.addSlider(s => s.setLimits(0, 5, 1)
 				.setValue(this.plugin.settings.timeAvgFolderLevel ?? 0)
-				.setDynamicTooltip()
 				.onChange(async v => { this.plugin.settings.timeAvgFolderLevel = v; await this.plugin.saveSettings(); }));
 
 	}
@@ -810,7 +792,6 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			.addSlider(sl => sl
 				.setLimits(1, 50, 1)
 				.setValue(this.plugin.settings.musicFavoritesMax ?? 10)
-				.setDynamicTooltip()
 				.onChange(async (v) => {
 					this.plugin.settings.musicFavoritesMax = v;
 					await this.plugin.saveSettings();
@@ -903,7 +884,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					.addText(text => {
 						text.setPlaceholder('상태 이름')
 							.setValue(s.name);
-						text.inputEl.style.cssText = 'width:167px; height:30px;';
+						text.inputEl.setCssStyles({ 'width': '167px', 'height': '30px' });
 						text.onChange(async (val) => {
 							stages[i].name = val.trim() || s.name;
 							await this.plugin.saveSettings();
@@ -970,7 +951,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 	displaySymbolPairs(container: HTMLElement) {
 		container.empty();
 		const addBtnRow = container.createDiv();
-		addBtnRow.style.cssText = 'display:flex; justify-content:flex-start; margin-bottom:12px;';
+		addBtnRow.setCssStyles({ 'display': 'flex', 'justifyContent': 'flex-start', 'marginBottom': '12px' });
 		addBtnRow.createEl('button', { text: '새 트리거 추가', cls: 'mod-cta' }).onclick = async () => {
 			this.plugin.settings.symbolTriggers.push({ trigger: '', options: [{ open: '', close: '' }], enabled: true });
 			await this.plugin.saveSettings();
@@ -978,20 +959,17 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		};
 
 		const kanban = container.createDiv('writing-menu-kanban');
-		kanban.style.cssText = 'display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:12px; list-style:none; width:60%;';
+		kanban.setCssStyles({ 'display': 'grid', 'gridTemplateColumns': 'repeat(auto-fill, minmax(200px, 1fr))', 'gap': '12px', 'listStyle': 'none', 'width': '60%' });
 
 		this.plugin.settings.symbolTriggers.forEach((trigger, tIndex) => {
 			const card = kanban.createDiv('writing-menu-card');
-			card.style.cssText = `border:1px solid var(--background-modifier-border); border-radius:10px;
-				background:var(--background-primary); padding:12px; direction:ltr;
-				box-shadow:0 1px 2px rgba(0,0,0,0.05); display:flex; flex-direction:column; gap:10px;
-				opacity:${trigger.enabled !== false ? '1' : '0.7'}; transition:opacity 0.2s;`;
+			card.setCssStyles({ 'border': '1px solid var(--background-modifier-border)', 'borderRadius': '10px', 'background': 'var(--background-primary)', 'padding': '12px', 'direction': 'ltr', 'boxShadow': '0 1px 2px rgba(0,0,0,0.05)', 'display': 'flex', 'flexDirection': 'column', 'gap': '10px', 'opacity': trigger.enabled !== false ? '1' : '0.7', 'transition': 'opacity 0.2s' });
 
 			const header = card.createDiv();
-			header.style.cssText = 'display:flex; align-items:center; gap:8px; margin-bottom:4px;';
+			header.setCssStyles({ 'display': 'flex', 'alignItems': 'center', 'gap': '8px', 'marginBottom': '4px' });
 
 			const toggleDiv = header.createDiv();
-			toggleDiv.style.cssText = 'display:flex; align-items:center;';
+			toggleDiv.setCssStyles({ 'display': 'flex', 'alignItems': 'center' });
 			new Setting(toggleDiv).addToggle(t => t.setValue(trigger.enabled !== false).onChange(async v => {
 				trigger.enabled = v; await this.plugin.saveSettings(); this.displaySymbolPairs(container);
 			})).setName('').setDesc('');
@@ -1000,42 +978,42 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			(toggleDiv.querySelector('.setting-item-control') as HTMLElement)?.setAttribute('style', 'padding:0;margin:0;');
 
 			const input = header.createEl('input', { type: 'text', value: trigger.trigger });
-			input.style.cssText = 'flex:1; text-align:center; font-weight:bold; border-radius:4px; border:1px solid var(--background-modifier-border); padding:4px; min-width:0;';
+			input.setCssStyles({ 'flex': '1', 'textAlign': 'center', 'fontWeight': 'bold', 'borderRadius': '4px', 'border': '1px solid var(--background-modifier-border)', 'padding': '4px', 'minWidth': '0' });
 			input.onchange = async () => { trigger.trigger = input.value; await this.plugin.saveSettings(); };
 
 			const del = header.createDiv('clickable-icon');
 			setIcon(del, 'trash-2');
-			del.style.cssText = 'color:var(--text-muted); cursor:pointer;';
+			del.setCssStyles({ 'color': 'var(--text-muted)', 'cursor': 'pointer' });
 			del.onclick = async () => { this.plugin.settings.symbolTriggers.splice(tIndex, 1); await this.plugin.saveSettings(); this.displaySymbolPairs(container); };
 
-			card.createDiv().style.cssText = 'height:1px; background:var(--background-modifier-border);';
+			card.createDiv().setCssStyles({ 'height': '1px', 'background': 'var(--background-modifier-border)' });
 
 			const pairs = card.createDiv();
-			pairs.style.cssText = 'display:flex; flex-direction:column; gap:6px;';
+			pairs.setCssStyles({ 'display': 'flex', 'flexDirection': 'column', 'gap': '6px' });
 			trigger.options.forEach((opt, oIndex) => {
 				const row = pairs.createDiv();
-				row.style.cssText = 'display:flex; align-items:center; gap:6px;';
+				row.setCssStyles({ 'display': 'flex', 'alignItems': 'center', 'gap': '6px' });
 				const inputStyle = 'flex:1; text-align:center; border:1px solid var(--background-modifier-border); border-radius:4px; padding:4px; background:var(--background-primary-alt); min-width:0;';
 
 				const open = row.createEl('input', { type: 'text', value: opt.open });
-				open.style.cssText = inputStyle;
+				open.setCssStyles({ cssText: inputStyle });
 				open.onchange = async () => { opt.open = open.value; await this.plugin.saveSettings(); };
 
-				row.createSpan({ text: '→' }).style.cssText = 'color:var(--text-muted); font-size:12px; flex-shrink:0;';
+				row.createSpan({ text: '→' }).setCssStyles({ 'color': 'var(--text-muted)', 'fontSize': '12px', 'flexShrink': '0' });
 
 				const close = row.createEl('input', { type: 'text', value: opt.close });
-				close.style.cssText = inputStyle;
+				close.setCssStyles({ cssText: inputStyle });
 				close.onchange = async () => { opt.close = close.value; await this.plugin.saveSettings(); };
 
 				const rm = row.createDiv('clickable-icon');
 				setIcon(rm, 'x');
-				rm.style.cssText = 'color:var(--text-muted); opacity:0.6; cursor:pointer; flex-shrink:0;';
+				rm.setCssStyles({ 'color': 'var(--text-muted)', 'opacity': '0.6', 'cursor': 'pointer', 'flexShrink': '0' });
 				rm.onclick = async () => { trigger.options.splice(oIndex, 1); await this.plugin.saveSettings(); this.displaySymbolPairs(container); };
 			});
 
 			const addP = card.createDiv();
 			addP.textContent = '+';
-			addP.style.cssText = 'text-align:center; color:var(--text-accent); cursor:pointer; font-size:16px;';
+			addP.setCssStyles({ 'textAlign': 'center', 'color': 'var(--text-accent)', 'cursor': 'pointer', 'fontSize': '16px' });
 			addP.onclick = async () => { trigger.options.push({ open: '', close: '' }); await this.plugin.saveSettings(); this.displaySymbolPairs(container); };
 		});
 	}
@@ -1046,7 +1024,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		container.empty();
 
 		const addBtnRow = container.createDiv();
-		addBtnRow.style.cssText = 'display:flex; justify-content:flex-start; margin-bottom:12px;';
+		addBtnRow.setCssStyles({ 'display': 'flex', 'justifyContent': 'flex-start', 'marginBottom': '12px' });
 		addBtnRow.createEl('button', { text: '새 치환 추가', cls: 'mod-cta' }).onclick = async () => {
 			this.plugin.settings.textSubstitutions.push({ from: '', to: '', enabled: true });
 			await this.plugin.saveSettings();
@@ -1054,16 +1032,14 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		};
 
 		const list = container.createDiv();
-		list.style.cssText = `display:flex; flex-direction:column; gap:8px; width:${Platform.isMobile ? '100%' : '60%'};`;
+		list.setCssStyles({ 'display': 'flex', 'flexDirection': 'column', 'gap': '8px', 'width': Platform.isMobile ? '100%' : '60%' });
 
 		this.plugin.settings.textSubstitutions.forEach((sub, index) => {
 			const row = list.createDiv();
-			row.style.cssText = `display:flex; align-items:center; gap:10px; padding:8px 12px;
-				border:1px solid var(--background-modifier-border); border-radius:8px;
-				background:var(--background-primary); opacity:${sub.enabled ? '1' : '0.6'}; transition:opacity 0.2s;`;
+			row.setCssStyles({ 'display': 'flex', 'alignItems': 'center', 'gap': '10px', 'padding': '8px 12px', 'border': '1px solid var(--background-modifier-border)', 'borderRadius': '8px', 'background': 'var(--background-primary)', 'opacity': sub.enabled ? '1' : '0.6', 'transition': 'opacity 0.2s' });
 
 			const toggleDiv = row.createDiv();
-			toggleDiv.style.cssText = 'display:flex; align-items:center;';
+			toggleDiv.setCssStyles({ 'display': 'flex', 'alignItems': 'center' });
 			new Setting(toggleDiv).addToggle(t => t.setValue(sub.enabled).onChange(async v => {
 				sub.enabled = v; await this.plugin.saveSettings(); this.displayTextSubstitutions(container);
 			})).setName('').setDesc('');
@@ -1072,20 +1048,20 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			(toggleDiv.querySelector('.setting-item-control') as HTMLElement)?.setAttribute('style', 'padding:0;margin:0;');
 
 			const fromInput = row.createEl('input', { type: 'text', value: sub.from });
-			fromInput.style.cssText = 'flex:1; text-align:center; border:1px solid var(--background-modifier-border); border-radius:4px; padding:6px; min-width:60px;';
+			fromInput.setCssStyles({ 'flex': '1', 'textAlign': 'center', 'border': '1px solid var(--background-modifier-border)', 'borderRadius': '4px', 'padding': '6px', 'minWidth': '60px' });
 			fromInput.placeholder = '입력';
 			fromInput.onchange = async () => { sub.from = fromInput.value; await this.plugin.saveSettings(); };
 
-			row.createSpan({ text: '→' }).style.cssText = 'color:var(--text-muted); font-size:14px;';
+			row.createSpan({ text: '→' }).setCssStyles({ 'color': 'var(--text-muted)', 'fontSize': '14px' });
 
 			const toInput = row.createEl('input', { type: 'text', value: sub.to });
-			toInput.style.cssText = 'flex:1; text-align:center; border:1px solid var(--background-modifier-border); border-radius:4px; padding:6px; min-width:60px;';
+			toInput.setCssStyles({ 'flex': '1', 'textAlign': 'center', 'border': '1px solid var(--background-modifier-border)', 'borderRadius': '4px', 'padding': '6px', 'minWidth': '60px' });
 			toInput.placeholder = '변환';
 			toInput.onchange = async () => { sub.to = toInput.value; await this.plugin.saveSettings(); };
 
 			const del = row.createDiv('clickable-icon');
 			setIcon(del, 'trash-2');
-			del.style.cssText = 'color:var(--text-muted); cursor:pointer;';
+			del.setCssStyles({ 'color': 'var(--text-muted)', 'cursor': 'pointer' });
 			del.onclick = async () => {
 				this.plugin.settings.textSubstitutions.splice(index, 1);
 				await this.plugin.saveSettings();

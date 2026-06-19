@@ -11,12 +11,12 @@ export function showTaskAddPopup(
 	plugin: WritingMenuPlugin,
 	scheduleReload: () => void,
 ): void {
-	document.querySelector('.wm-task-add-popup')?.remove();
+	activeDocument.querySelector('.wm-task-add-popup')?.remove();
 
-	const popup = document.body.createDiv({ cls: 'wm-task-add-popup wm-ver-popup' });
+	const popup = activeDocument.body.createDiv({ cls: 'wm-task-add-popup wm-ver-popup' });
 	const rect  = anchor.getBoundingClientRect();
-	popup.style.top   = `${rect.bottom + 6}px`;
-	popup.style.right = `${window.innerWidth - rect.right}px`;
+	popup.setCssStyles({ top: `${rect.bottom + 6}px` });
+	popup.setCssStyles({ right: `${window.innerWidth - rect.right}px` });
 
 	// ── 날짜 선택 ──
 	const todayStr = (window as any).moment().format('YYYY-MM-DD');
@@ -37,13 +37,13 @@ export function showTaskAddPopup(
 
 	calBtn.addEventListener('click', (e) => {
 		e.stopPropagation();
-		document.querySelector('.wm-mini-date-picker')?.remove();
+		activeDocument.querySelector('.wm-mini-date-picker')?.remove();
 
 		let py = parseInt(selectedDate.slice(0, 4));
 		let pm = parseInt(selectedDate.slice(5, 7)) - 1;
 		const today2 = new Date();
 
-		const dpop = document.body.createDiv({ cls: 'wm-mini-date-picker wm-ver-popup' });
+		const dpop = activeDocument.body.createDiv({ cls: 'wm-mini-date-picker wm-ver-popup' });
 		const dhdr = dpop.createDiv({ cls: 'wm-mini-picker-hdr' });
 		const dprev = dhdr.createDiv({ cls: 'wm-cal-icon-btn' });
 		setIcon(dprev, 'chevron-left');
@@ -80,18 +80,18 @@ export function showTaskAddPopup(
 		buildPicker();
 
 		const cr = calBtn.getBoundingClientRect();
-		dpop.style.top  = `${cr.bottom + 4}px`;
-		dpop.style.left = `${cr.left}px`;
-		requestAnimationFrame(() => {
+		dpop.setCssStyles({ top: `${cr.bottom + 4}px` });
+		dpop.setCssStyles({ left: `${cr.left}px` });
+		window.requestAnimationFrame(() => {
 			const pr = dpop.getBoundingClientRect();
-			if (pr.right > window.innerWidth - 10) dpop.style.left = `${window.innerWidth - pr.width - 10}px`;
-			if (pr.bottom > window.innerHeight - 10) dpop.style.top = `${cr.top - pr.height - 4}px`;
+			if (pr.right > window.innerWidth - 10) dpop.setCssStyles({ left: `${window.innerWidth - pr.width - 10}px` });
+			if (pr.bottom > window.innerHeight - 10) dpop.setCssStyles({ top: `${cr.top - pr.height - 4}px` });
 		});
-		setTimeout(() => {
+		window.setTimeout(() => {
 			const closePicker = (ev: MouseEvent) => {
-				if (!dpop.contains(ev.target as Node)) { dpop.remove(); document.removeEventListener('click', closePicker); }
+				if (!dpop.contains(ev.target as Node)) { dpop.remove(); activeDocument.removeEventListener('click', closePicker); }
 			};
-			document.addEventListener('click', closePicker);
+			activeDocument.addEventListener('click', closePicker);
 		}, 10);
 	});
 

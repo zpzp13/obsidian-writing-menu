@@ -37,18 +37,18 @@ export class MobilePreviewFloating {
 	}
 
 	isOpen(): boolean {
-		return !!this.floatEl && document.body.contains(this.floatEl);
+		return !!this.floatEl && activeDocument.body.contains(this.floatEl);
 	}
 
 	open() {
 		if (this.isOpen()) return;
 
-		const el = document.createElement('div') as HTMLElement;
+		const el = activeDocument.createElement('div') as HTMLElement;
 		el.className = 'wm-float-preview';
 		this.posX = Math.max(20, window.innerWidth - 340);
 		this.posY = 40;
-		el.style.left = `${this.posX}px`;
-		el.style.top = `${this.posY}px`;
+		el.setCssStyles({ left: `${this.posX}px` });
+		el.setCssStyles({ top: `${this.posY}px` });
 
 		// ── Top notch (44px) — hover reveals: [minimize | title | close] ──
 		const topNotch = el.createDiv('wm-float-top-notch');
@@ -70,7 +70,7 @@ export class MobilePreviewFloating {
 				this.renderContent();
 			}).open();
 		};
-		centerCol.style.cursor = 'pointer';
+		centerCol.setCssStyles({ cursor: 'pointer' });
 
 		const rightCol = topMenu.createDiv('wm-float-notch-col wm-float-notch-right');
 		const closeBtn = rightCol.createDiv('wm-float-notch-btn clickable-icon');
@@ -101,7 +101,7 @@ export class MobilePreviewFloating {
 		setIcon(nextBtn, 'chevron-right');
 		nextBtn.onclick = (e) => { e.stopPropagation(); this.navigateNote(1); };
 
-		document.body.appendChild(el);
+		activeDocument.body.appendChild(el);
 		this.floatEl = el;
 
 		// Drag from anywhere — threshold-based to preserve button clicks
@@ -124,8 +124,8 @@ export class MobilePreviewFloating {
 			if (hasDragged) {
 				this.posX = e.clientX - this.dragOffsetX;
 				this.posY = e.clientY - this.dragOffsetY;
-				el.style.left = `${this.posX}px`;
-				el.style.top = `${this.posY}px`;
+				el.setCssStyles({ left: `${this.posX}px` });
+				el.setCssStyles({ top: `${this.posY}px` });
 			}
 		};
 		const onUp = () => { this.isDragging = false; };
@@ -134,13 +134,13 @@ export class MobilePreviewFloating {
 
 		el.addEventListener('mousedown', onDown);
 		el.addEventListener('click', onClickCapture, true);
-		document.addEventListener('mousemove', onMove);
-		document.addEventListener('mouseup', onUp);
+		activeDocument.addEventListener('mousemove', onMove);
+		activeDocument.addEventListener('mouseup', onUp);
 		this.cleanupFns.push(
 			() => el.removeEventListener('mousedown', onDown),
 			() => el.removeEventListener('click', onClickCapture, true),
-			() => document.removeEventListener('mousemove', onMove),
-			() => document.removeEventListener('mouseup', onUp),
+			() => activeDocument.removeEventListener('mousemove', onMove),
+			() => activeDocument.removeEventListener('mouseup', onUp),
 		);
 
 		// Keyboard nav: arrow keys while hovering the preview window
@@ -148,14 +148,14 @@ export class MobilePreviewFloating {
 			if (e.key === 'ArrowLeft') { e.preventDefault(); this.navigateNote(-1); }
 			else if (e.key === 'ArrowRight') { e.preventDefault(); this.navigateNote(1); }
 		};
-		const onMouseEnter = () => document.addEventListener('keydown', onKeyDown);
-		const onMouseLeave = () => document.removeEventListener('keydown', onKeyDown);
+		const onMouseEnter = () => activeDocument.addEventListener('keydown', onKeyDown);
+		const onMouseLeave = () => activeDocument.removeEventListener('keydown', onKeyDown);
 		el.addEventListener('mouseenter', onMouseEnter);
 		el.addEventListener('mouseleave', onMouseLeave);
 		this.cleanupFns.push(
 			() => el.removeEventListener('mouseenter', onMouseEnter),
 			() => el.removeEventListener('mouseleave', onMouseLeave),
-			() => document.removeEventListener('keydown', onKeyDown),
+			() => activeDocument.removeEventListener('keydown', onKeyDown),
 		);
 
 		this.renderContent();
@@ -191,13 +191,13 @@ export class MobilePreviewFloating {
 	}
 
 	private showPreviewSettings(anchor: HTMLElement) {
-		const existing = document.querySelector('.wm-preview-dropdown');
+		const existing = activeDocument.querySelector('.wm-preview-dropdown');
 		if (existing) { existing.remove(); return; }
 
-		const dropdown = document.createElement('div') as HTMLElement;
+		const dropdown = activeDocument.createElement('div') as HTMLElement;
 		dropdown.className = 'wm-preview-dropdown writing-menu-dropdown';
-		dropdown.style.cssText = 'position:fixed; top:-9999px; left:-9999px; visibility:hidden;';
-		document.body.appendChild(dropdown);
+		dropdown.setCssStyles({ position: 'fixed', top: '-9999px', left: '-9999px', visibility: 'hidden' });
+		activeDocument.body.appendChild(dropdown);
 
 		this.buildPreviewSettingsMenu(dropdown);
 
@@ -208,15 +208,15 @@ export class MobilePreviewFloating {
 		let left = anchorRect.left + anchorRect.width / 2 - ddRect.width / 2;
 		top = Math.max(8, top);
 		left = Math.max(8, Math.min(window.innerWidth - ddRect.width - 8, left));
-		dropdown.style.cssText = `position:fixed; top:${top}px; left:${left}px; visibility:visible;`;
+		dropdown.setCssStyles({ position: 'fixed', top: `${top}px`, left: `${left}px`, visibility: 'visible' });
 
 		const closeDropdown = (e: MouseEvent) => {
 			if (!dropdown.contains(e.target as Node) && !anchor.contains(e.target as Node)) {
 				dropdown.remove();
-				document.removeEventListener('click', closeDropdown);
+				activeDocument.removeEventListener('click', closeDropdown);
 			}
 		};
-		setTimeout(() => document.addEventListener('click', closeDropdown), 10);
+		window.setTimeout(() => activeDocument.addEventListener('click', closeDropdown), 10);
 	}
 
 	private buildPreviewSettingsMenu(container: HTMLElement) {
@@ -228,10 +228,10 @@ export class MobilePreviewFloating {
 		const fontLG = fontDiv.createDiv('writing-menu-control-label-group');
 		const hanIcon = fontLG.createSpan('writing-menu-icon');
 		hanIcon.setText('한');
-		hanIcon.style.cssText = 'font-weight:bold; display:inline-block; line-height:1; vertical-align:text-bottom;';
+		hanIcon.setCssStyles({ fontWeight: 'bold', display: 'inline-block', lineHeight: '1', verticalAlign: 'text-bottom' });
 		fontLG.createEl('label', { text: '글꼴' });
 		const fontInput = fontDiv.createEl('input', { type: 'text', value: pt.fontFamily });
-		fontInput.style.cssText = 'width:100px; text-align:right;';
+		fontInput.setCssStyles({ width: '100px', textAlign: 'right' });
 		fontInput.onchange = async (e) => { pt.fontFamily = (e.target as HTMLInputElement).value; await save(); };
 
 		this.plugin.addCompactStepper(container, '글자 크기', pt.fontSize, 1, 1, async (v) => { pt.fontSize = v; await save(); }, 'type');
@@ -262,13 +262,13 @@ export class MobilePreviewFloating {
 		input.style.setProperty('margin', '0', 'important');
 		input.style.setProperty('border', 'none', 'important');
 		input.style.setProperty('outline', 'none', 'important');
-		input.style.cursor = 'pointer';
+		input.setCssStyles({ cursor: 'pointer' });
 		input.onchange = (e) => onChange((e.target as HTMLInputElement).value);
 	}
 
 	scheduleRefresh(delay = 400) {
-		if (this.refreshTimer) window.clearTimeout(this.refreshTimer);
-		this.refreshTimer = window.setTimeout(() => this.renderContent(), delay);
+		if (this.refreshTimer) window.window.clearTimeout(this.refreshTimer);
+		this.refreshTimer = window.window.setTimeout(() => this.renderContent(), delay);
 	}
 
 	async renderContent() {
@@ -277,11 +277,11 @@ export class MobilePreviewFloating {
 		el.empty();
 
 		const pt = this.plugin.settings.previewTypography;
-		el.style.fontFamily = pt.fontFamily === 'inherit' ? 'var(--font-text)' : pt.fontFamily;
-		el.style.fontSize = `${pt.fontSize}px`;
-		el.style.lineHeight = String(pt.lineHeight);
-		el.style.color = pt.textColor;
-		el.style.backgroundColor = pt.bgColor;
+		el.setCssStyles({ fontFamily: pt.fontFamily === 'inherit' ? 'var(--font-text)' : pt.fontFamily });
+		el.setCssStyles({ fontSize: `${pt.fontSize}px` });
+		el.setCssStyles({ lineHeight: String(pt.lineHeight) });
+		el.setCssStyles({ color: pt.textColor });
+		el.setCssStyles({ backgroundColor: pt.bgColor });
 		el.style.setProperty('--wm-preview-indent', pt.indentation > 0 ? `${pt.indentation}px` : '0');
 		el.style.setProperty('--wm-preview-para', `${pt.paragraphSpacing}em`);
 
@@ -379,7 +379,7 @@ export class MobilePreviewFloating {
 
 			// Highlight block in preview
 			block.addClass('wm-preview-highlight');
-			setTimeout(() => block.removeClass('wm-preview-highlight'), 1800);
+			window.setTimeout(() => block.removeClass('wm-preview-highlight'), 1800);
 
 			const leaf = this.plugin.app.workspace.getMostRecentLeaf();
 			if (!leaf) return;
@@ -399,15 +399,15 @@ export class MobilePreviewFloating {
 				view.editor.focus();
 			};
 			jumpToLine();
-			setTimeout(jumpToLine, 80);
+			window.setTimeout(jumpToLine, 80);
 		});
 	}
 
 	close() {
-		if (this.refreshTimer) window.clearTimeout(this.refreshTimer);
+		if (this.refreshTimer) window.window.clearTimeout(this.refreshTimer);
 		this.cleanupFns.forEach(fn => fn());
 		this.cleanupFns = [];
-		document.querySelector('.wm-preview-dropdown')?.remove();
+		activeDocument.querySelector('.wm-preview-dropdown')?.remove();
 		this.floatEl?.remove();
 		this.floatEl = null;
 		this.contentEl = null;

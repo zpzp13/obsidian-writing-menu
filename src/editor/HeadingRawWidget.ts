@@ -7,7 +7,7 @@ export class HeadingRawWidget extends WidgetType {
 	toDOM(): HTMLElement {
 		const span = document.createElement('span');
 		span.textContent = this.raw;
-		span.style.cssText = 'color: inherit; pointer-events: none; cursor: text;';
+		span.setCssStyles({ 'color': 'inherit', 'pointerEvents': 'none', 'cursor': 'text' });
 		return span;
 	}
 	eq(other: HeadingRawWidget): boolean { return other.raw === this.raw; }

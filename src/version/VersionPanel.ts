@@ -1,4 +1,4 @@
-import { setIcon, Notice, MarkdownView, MarkdownRenderer, TFile, normalizePath } from 'obsidian';
+import { setIcon, Notice, MarkdownView, MarkdownRenderer, TFile } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { VersionManager } from './manager';
 import type { VersionEntry } from './types';
@@ -62,7 +62,7 @@ export class VersionPanel {
 				observer.disconnect();
 			}
 		});
-		observer.observe(document.body, { childList: true, subtree: true });
+		observer.observe(activeDocument.body, { childList: true, subtree: true });
 
 		// ── 날짜 포맷 ──────────────────────────────────────────────────────────
 		const formatDate = (ts: number): string => {
@@ -168,20 +168,20 @@ export class VersionPanel {
 
 		// ── 팝업 유틸 ──────────────────────────────────────────────────────────
 		const setupPopupAutoClose = (popup: HTMLElement) => {
-			setTimeout(() => {
+			window.setTimeout(() => {
 				const close = (e: MouseEvent) => {
-					if (!popup.contains(e.target as Node)) { popup.remove(); document.removeEventListener('click', close); }
+					if (!popup.contains(e.target as Node)) { popup.remove(); activeDocument.removeEventListener('click', close); }
 				};
-				document.addEventListener('click', close);
+				activeDocument.addEventListener('click', close);
 			}, 10);
 		};
 
 		const showSortDropdown = (anchor: HTMLElement) => {
-			document.querySelector('.wm-ver-popup')?.remove();
-			const popup = document.body.createDiv({ cls: 'wm-ver-popup' });
+			activeDocument.querySelector('.wm-ver-popup')?.remove();
+			const popup = activeDocument.body.createDiv({ cls: 'wm-ver-popup' });
 			const rect = anchor.getBoundingClientRect();
-			popup.style.top = `${rect.bottom + 4}px`;
-			popup.style.left = `${rect.left}px`;
+			popup.setCssStyles({ top: `${rect.bottom + 4}px` });
+			popup.setCssStyles({ left: `${rect.left}px` });
 
 			const addSep = () => popup.createDiv({ cls: 'wm-ver-popup-separator' });
 			const addSectionLabel = (text: string, icon: string) => {
@@ -260,8 +260,8 @@ export class VersionPanel {
 				const isChecked = stageFilters.has(s.name);
 				const item = popup.createDiv({ cls: `wm-ver-popup-item${isChecked ? ' is-active' : ''}` });
 				const dot = item.createDiv({ cls: 'wm-ver-popup-stage-dot' });
-				dot.style.borderColor = s.color;
-				if (isChecked) dot.style.backgroundColor = s.color;
+				dot.setCssStyles({ borderColor: s.color });
+				if (isChecked) dot.setCssStyles({ backgroundColor: s.color });
 				item.createDiv({ cls: 'wm-ver-popup-label', text: s.name });
 				const checkEl = item.createDiv({ cls: 'wm-ver-popup-check' });
 				if (isChecked) setIcon(checkEl, 'check');
@@ -269,29 +269,29 @@ export class VersionPanel {
 					e.stopPropagation();
 					if (stageFilters.has(s.name)) {
 						stageFilters.delete(s.name);
-						item.removeClass('is-active'); dot.style.backgroundColor = ''; checkEl.empty();
+						item.removeClass('is-active'); dot.setCssStyles({ backgroundColor: '' }); checkEl.empty();
 					} else {
 						stageFilters.add(s.name);
-						item.addClass('is-active'); dot.style.backgroundColor = s.color; setIcon(checkEl, 'check');
+						item.addClass('is-active'); dot.setCssStyles({ backgroundColor: s.color }); setIcon(checkEl, 'check');
 					}
 					refreshListOnly();
 				});
 			}
 
-			requestAnimationFrame(() => {
+			window.requestAnimationFrame(() => {
 				const pr = popup.getBoundingClientRect();
-				if (pr.right > window.innerWidth - 10) popup.style.left = `${window.innerWidth - pr.width - 10}px`;
-				if (pr.bottom > window.innerHeight - 10) popup.style.top = `${rect.top - pr.height - 4}px`;
+				if (pr.right > window.innerWidth - 10) popup.setCssStyles({ left: `${window.innerWidth - pr.width - 10}px` });
+				if (pr.bottom > window.innerHeight - 10) popup.setCssStyles({ top: `${rect.top - pr.height - 4}px` });
 			});
 			setupPopupAutoClose(popup);
 		};
 
 		const showCharModeDropdown = (anchor: HTMLElement) => {
-			document.querySelector('.wm-ver-popup')?.remove();
-			const popup = document.body.createDiv({ cls: 'wm-ver-popup' });
+			activeDocument.querySelector('.wm-ver-popup')?.remove();
+			const popup = activeDocument.body.createDiv({ cls: 'wm-ver-popup' });
 			const rect = anchor.getBoundingClientRect();
-			popup.style.top = `${rect.bottom + 4}px`;
-			popup.style.left = `${rect.left}px`;
+			popup.setCssStyles({ top: `${rect.bottom + 4}px` });
+			popup.setCssStyles({ left: `${rect.left}px` });
 			const modes: Array<{ label: string; value: typeof charCountMode; desc: string }> = [
 				{ label: '문피아',   value: 'munpia',   desc: '공백 포함, 줄바꿈 제외' },
 				{ label: '노벨피아', value: 'novelpia', desc: '공백·줄바꿈 모두 제외' },
@@ -309,10 +309,10 @@ export class VersionPanel {
 					refreshListOnly();
 				});
 			}
-			requestAnimationFrame(() => {
+			window.requestAnimationFrame(() => {
 				const pr = popup.getBoundingClientRect();
-				if (pr.right > window.innerWidth - 10) popup.style.left = `${window.innerWidth - pr.width - 10}px`;
-				if (pr.bottom > window.innerHeight - 10) popup.style.top = `${rect.top - pr.height - 4}px`;
+				if (pr.right > window.innerWidth - 10) popup.setCssStyles({ left: `${window.innerWidth - pr.width - 10}px` });
+				if (pr.bottom > window.innerHeight - 10) popup.setCssStyles({ top: `${rect.top - pr.height - 4}px` });
 			});
 			setupPopupAutoClose(popup);
 		};
@@ -353,7 +353,7 @@ export class VersionPanel {
 			});
 			const searchBtn = searchWrap.createDiv({ cls: 'wm-cal-icon-btn', attr: { 'aria-label': '검색' } });
 			setIcon(searchBtn, 'search');
-			if (isSearching) { header.addClass('is-searching'); setTimeout(() => searchInput.focus(), 50); }
+			if (isSearching) { header.addClass('is-searching'); window.setTimeout(() => searchInput.focus(), 50); }
 			searchBtn.addEventListener('click', () => {
 				if (isSearching) {
 					isSearching = false; searchQuery = '';
@@ -363,7 +363,7 @@ export class VersionPanel {
 				} else {
 					isSearching = true;
 					header.addClass('is-searching');
-					setTimeout(() => searchInput.focus(), 50);
+					window.setTimeout(() => searchInput.focus(), 50);
 				}
 			});
 
@@ -375,7 +375,7 @@ export class VersionPanel {
 			filterBtnRef = filterBtn;
 			filterBtn.addEventListener('click', (e) => {
 				e.stopPropagation();
-				if (document.querySelector('.wm-ver-popup')) { document.querySelector('.wm-ver-popup')?.remove(); return; }
+				if (activeDocument.querySelector('.wm-ver-popup')) { activeDocument.querySelector('.wm-ver-popup')?.remove(); return; }
 				showSortDropdown(filterBtn);
 			});
 
@@ -383,7 +383,7 @@ export class VersionPanel {
 			setIcon(charBtn, 'type');
 			charBtn.addEventListener('click', (e) => {
 				e.stopPropagation();
-				if (document.querySelector('.wm-ver-popup')) { document.querySelector('.wm-ver-popup')?.remove(); return; }
+				if (activeDocument.querySelector('.wm-ver-popup')) { activeDocument.querySelector('.wm-ver-popup')?.remove(); return; }
 				showCharModeDropdown(charBtn);
 			});
 
@@ -402,7 +402,7 @@ export class VersionPanel {
 			settingsBtn.addEventListener('click', () => {
 				(plugin.app as any).setting?.open();
 				(plugin.app as any).setting?.openTabById(plugin.manifest.id);
-				setTimeout(() => { plugin.settingTab?.renderPage('version-control'); }, 60);
+				window.setTimeout(() => { plugin.settingTab?.renderPage('version-control'); }, 60);
 			});
 
 			// 목록
@@ -467,11 +467,11 @@ export class VersionPanel {
 			});
 
 			makeBtn('상태', 'circle-dashed', (e) => {
-				document.querySelector('.wm-ver-popup')?.remove();
-				const popup = document.body.createDiv({ cls: 'wm-ver-popup' });
+				activeDocument.querySelector('.wm-ver-popup')?.remove();
+				const popup = activeDocument.body.createDiv({ cls: 'wm-ver-popup' });
 				const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-				popup.style.top = `${rect.bottom + 4}px`;
-				popup.style.left = `${rect.left}px`;
+				popup.setCssStyles({ top: `${rect.bottom + 4}px` });
+				popup.setCssStyles({ left: `${rect.left}px` });
 				const configuredStages: Array<{ name: string; color: string }> =
 					(plugin.settings as any).versionStages ?? [
 						{ name: '초고', color: '#94a3b8' },
@@ -479,7 +479,7 @@ export class VersionPanel {
 						{ name: '퇴고', color: '#34d399' },
 					];
 				const noneItem = popup.createDiv({ cls: `wm-ver-popup-item${!entry.stage ? ' is-active' : ''}` });
-				const noneDot = noneItem.createDiv({ cls: 'wm-ver-popup-stage-dot wm-ver-popup-stage-dot-none' });
+				noneItem.createDiv({ cls: 'wm-ver-popup-stage-dot wm-ver-popup-stage-dot-none' });
 				noneItem.createDiv({ cls: 'wm-ver-popup-label', text: '없음' });
 				if (!entry.stage) setIcon(noneItem.createDiv({ cls: 'wm-ver-popup-check' }), 'check');
 				noneItem.addEventListener('click', async (ev) => {
@@ -494,8 +494,8 @@ export class VersionPanel {
 					const isActive = entry.stage === s.name;
 					const stageItem = popup.createDiv({ cls: `wm-ver-popup-item${isActive ? ' is-active' : ''}` });
 					const dot = stageItem.createDiv({ cls: 'wm-ver-popup-stage-dot' });
-					dot.style.borderColor = s.color;
-					if (isActive) dot.style.backgroundColor = s.color;
+					dot.setCssStyles({ borderColor: s.color });
+					if (isActive) dot.setCssStyles({ backgroundColor: s.color });
 					stageItem.createDiv({ cls: 'wm-ver-popup-label', text: s.name });
 					if (isActive) setIcon(stageItem.createDiv({ cls: 'wm-ver-popup-check' }), 'check');
 					stageItem.addEventListener('click', async (ev) => {
@@ -506,10 +506,10 @@ export class VersionPanel {
 						refresh().catch(() => {});
 					});
 				}
-				requestAnimationFrame(() => {
+				window.requestAnimationFrame(() => {
 					const pr = popup.getBoundingClientRect();
-					if (pr.right > window.innerWidth - 10) popup.style.left = `${window.innerWidth - pr.width - 10}px`;
-					if (pr.bottom > window.innerHeight - 10) popup.style.top = `${rect.top - pr.height - 4}px`;
+					if (pr.right > window.innerWidth - 10) popup.setCssStyles({ left: `${window.innerWidth - pr.width - 10}px` });
+					if (pr.bottom > window.innerHeight - 10) popup.setCssStyles({ top: `${rect.top - pr.height - 4}px` });
 				});
 				setupPopupAutoClose(popup);
 			});
