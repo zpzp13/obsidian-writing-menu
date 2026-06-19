@@ -145,10 +145,7 @@ export class WikiPanel {
 			const cfm = this.app.metadataCache.getFileCache(this.currentFile)?.frontmatter;
 			if (cfm?.['wikiColor']) wikiColor = cfm['wikiColor'];
 		}
-		outerContainer.style.setProperty('--wiki-accent-color', wikiColor);
-		outerContainer.style.setProperty('--wiki-accent-text', getToneColor(wikiColor));
-		outerContainer.style.setProperty('--wiki-profile-header-size', `${this.plugin.settings.wikiProfileHeaderSize ?? 18}px`);
-		outerContainer.style.setProperty('--wiki-profile-key-size', `${this.plugin.settings.wikiProfileKeySize ?? 13}px`);
+		outerContainer.setCssProps({ '--wiki-accent-color': wikiColor, '--wiki-accent-text': getToneColor(wikiColor), '--wiki-profile-header-size': `${this.plugin.settings.wikiProfileHeaderSize ?? 18}px`, '--wiki-profile-key-size': `${this.plugin.settings.wikiProfileKeySize ?? 13}px` });
 		this.stripGen++; // strip 세대 증가 — 이전 strip의 stale 콜백 차단용
 		this.renderToolbar(outerContainer);
 		this.renderCardStrip(outerContainer);
@@ -170,14 +167,12 @@ export class WikiPanel {
 		// 즉시 색상 업데이트
 		const fm0 = this.app.metadataCache.getFileCache(file)?.frontmatter;
 		const wc0 = String(fm0?.['wikiColor'] || this.plugin.settings.wikiColor || '#7025db');
-		outerContainer.style.setProperty('--wiki-accent-color', wc0);
-		outerContainer.style.setProperty('--wiki-accent-text', getToneColor(wc0));
+		outerContainer.setCssProps({ '--wiki-accent-color': wc0, '--wiki-accent-text': getToneColor(wc0) });
 
 		// 기존 scrollArea 즉시 페이드아웃 (콘텐츠 빌드와 병렬 진행 → replaceWith 시 이미 투명)
 		const existingScrollAreaOld = outerContainer.querySelector<HTMLElement>('.wiki-scroll-area');
 		if (existingScrollAreaOld) {
-			existingScrollAreaOld.setCssStyles({ transition: 'opacity 0.12s ease' });
-			existingScrollAreaOld.setCssStyles({ opacity: '0' });
+			existingScrollAreaOld.addClass('wm-fade-out');
 		}
 
 		// navBtns 재사용 (fixed 요소, 위치 안정)
@@ -416,8 +411,7 @@ export class WikiPanel {
 			if (idx >= 0 && idx < files.length) {
 				const fm = this.app.metadataCache.getFileCache(files[idx])?.frontmatter;
 				const wc = String(fm?.['wikiColor'] || this.plugin.settings.wikiColor || '#7025db');
-				outerContainer.style.setProperty('--wiki-accent-color', wc);
-				outerContainer.style.setProperty('--wiki-accent-text', getToneColor(wc));
+				outerContainer.setCssProps({ '--wiki-accent-color': wc, '--wiki-accent-text': getToneColor(wc) });
 			}
 		};
 		// 선택 확정 — scroll area만 교체, 툴바·카드스트립 유지 (깜빡임 방지)
@@ -471,7 +465,7 @@ export class WikiPanel {
 		};
 
 		// 초기 scroll 위치 확정 전까지 숨김 → 플로팅 창에서 레이아웃이 늦게 잡힐 때 "scanning" 잔상 방지
-		strip.setCssStyles({ visibility: 'hidden' });
+		strip.addClass('wm-invisible');
 		let initRetry = 0;
 		const initStripPosition = () => {
 			if (this.stripGen !== myStripGen) return;
@@ -479,15 +473,14 @@ export class WikiPanel {
 			const nonSel = allCards.find((_, i) => i !== selectedIdx) ?? allCards[0];
 			const cardW = nonSel?.offsetWidth ?? 56;
 			const halfPad = Math.max(10, Math.floor((strip.clientWidth - cardW) / 2));
-			strip.setCssStyles({ paddingLeft: `${halfPad}px` });
-			strip.setCssStyles({ paddingRight: `${halfPad}px` });
+			strip.setCssProps({ '--strip-pad': `${halfPad}px` });
 			if (this.stripScrollLeft >= 0) {
 				strip.scrollLeft = this.stripScrollLeft;
 			} else {
 				const card = allCards[selectedIdx];
 				if (card) strip.scrollLeft = Math.max(0, card.offsetLeft + card.offsetWidth / 2 - strip.clientWidth / 2);
 			}
-			strip.setCssStyles({ visibility: '' });
+			strip.removeClass('wm-invisible');
 		};
 		window.requestAnimationFrame(initStripPosition);
 
@@ -542,12 +535,12 @@ export class WikiPanel {
 
 			const onMove = (me: MouseEvent) => {
 				const dx = me.pageX - startX;
-				if (!hasMoved && Math.abs(dx) > 4) { hasMoved = true; strip.setCssStyles({ cursor: 'grabbing' }); }
+				if (!hasMoved && Math.abs(dx) > 4) { hasMoved = true; strip.addClass('is-grabbing'); }
 				if (hasMoved) strip.scrollLeft = startScrollLeft - dx;
 			};
 
 			const onUp = () => {
-				strip.setCssStyles({ cursor: '' });
+				strip.removeClass('is-grabbing');
 				stripDoc.removeEventListener('mousemove', onMove);
 				stripDoc.removeEventListener('mouseup', onUp);
 				if (this.stripGen !== myStripGen) return;
@@ -721,9 +714,7 @@ export class WikiPanel {
 			item.setCssStyles({ paddingLeft: `${(h.level - 1) * 12}px` });
 			const numSpan = item.createSpan({ cls: 'wiki-toc-number', text: numStr });
 			const textSpan = item.createSpan({ cls: 'wiki-toc-text' });
-			MarkdownRenderer.render(this.app, h.heading, textSpan, file.path, this.hostComponent).then(() => {
-				textSpan.querySelectorAll('p').forEach(p => { (p as HTMLElement).setCssStyles({ 'margin': '0', 'display': 'inline' }); });
-			});
+			MarkdownRenderer.render(this.app, h.heading, textSpan, file.path, this.hostComponent);
 			// 번호만 클릭 시 본문으로 이동 (아이템 전체 클릭 제거)
 			numSpan.addEventListener('click', (e) => {
 				e.stopPropagation();
@@ -748,8 +739,7 @@ export class WikiPanel {
 
 		const pCon = container.createDiv({ cls: 'wiki-profile-container' });
 		const wc = String(fm['wikiColor'] || this.plugin.settings.wikiColor || '#7025db');
-		pCon.style.setProperty('--wiki-accent-color', wc);
-		pCon.style.setProperty('--wiki-accent-text', getToneColor(wc));
+		pCon.setCssProps({ '--wiki-accent-color': wc, '--wiki-accent-text': getToneColor(wc) });
 
 		const displayName = this.getDisplayName(file);
 
@@ -796,7 +786,7 @@ export class WikiPanel {
 			const row = props.createDiv({ cls: 'wiki-prop-row' });
 			row.createSpan({ cls: 'wiki-prop-key', text: k });
 			const valEl = row.createDiv({ cls: 'wiki-prop-val' });
-			if (coloredProps.includes(k)) { valEl.setCssStyles({ color: 'var(--wiki-accent-color)', fontWeight: 'bold' }); }
+			if (coloredProps.includes(k)) { valEl.addClass('wm-wiki-accent-val'); }
 
 			if (k === 'tags') {
 				const tagList: string[] = Array.isArray(v) ? v : String(v).split(',').map(s => s.trim()).filter(Boolean);

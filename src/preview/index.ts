@@ -70,7 +70,7 @@ export class MobilePreviewFloating {
 				this.renderContent();
 			}).open();
 		};
-		centerCol.setCssStyles({ cursor: 'pointer' });
+		centerCol.addClass('wm-clickable');
 
 		const rightCol = topMenu.createDiv('wm-float-notch-col wm-float-notch-right');
 		const closeBtn = rightCol.createDiv('wm-float-notch-btn clickable-icon');
@@ -196,7 +196,7 @@ export class MobilePreviewFloating {
 
 		const dropdown = activeDocument.createElement('div') as HTMLElement;
 		dropdown.className = 'wm-preview-dropdown writing-menu-dropdown';
-		dropdown.setCssStyles({ position: 'fixed', top: '-9999px', left: '-9999px', visibility: 'hidden' });
+		dropdown.addClass('wm-measure-offscreen');
 		activeDocument.body.appendChild(dropdown);
 
 		this.buildPreviewSettingsMenu(dropdown);
@@ -208,7 +208,8 @@ export class MobilePreviewFloating {
 		let left = anchorRect.left + anchorRect.width / 2 - ddRect.width / 2;
 		top = Math.max(8, top);
 		left = Math.max(8, Math.min(window.innerWidth - ddRect.width - 8, left));
-		dropdown.setCssStyles({ position: 'fixed', top: `${top}px`, left: `${left}px`, visibility: 'visible' });
+		dropdown.removeClass('wm-measure-offscreen');
+		dropdown.setCssProps({ '--dd-top': `${top}px`, '--dd-left': `${left}px` });
 
 		const closeDropdown = (e: MouseEvent) => {
 			if (!dropdown.contains(e.target as Node) && !anchor.contains(e.target as Node)) {
@@ -228,10 +229,10 @@ export class MobilePreviewFloating {
 		const fontLG = fontDiv.createDiv('writing-menu-control-label-group');
 		const hanIcon = fontLG.createSpan('writing-menu-icon');
 		hanIcon.setText('한');
-		hanIcon.setCssStyles({ fontWeight: 'bold', display: 'inline-block', lineHeight: '1', verticalAlign: 'text-bottom' });
+		hanIcon.addClass('wm-han-icon-text');
 		fontLG.createEl('label', { text: '글꼴' });
 		const fontInput = fontDiv.createEl('input', { type: 'text', value: pt.fontFamily });
-		fontInput.setCssStyles({ width: '100px', textAlign: 'right' });
+		fontInput.addClass('wm-preview-text-input');
 		fontInput.onchange = async (e) => { pt.fontFamily = (e.target as HTMLInputElement).value; await save(); };
 
 		this.plugin.addCompactStepper(container, '글자 크기', pt.fontSize, 1, 1, async (v) => { pt.fontSize = v; await save(); }, 'type');
@@ -274,8 +275,7 @@ export class MobilePreviewFloating {
 		el.setCssStyles({ lineHeight: String(pt.lineHeight) });
 		el.setCssStyles({ color: pt.textColor });
 		el.setCssStyles({ backgroundColor: pt.bgColor });
-		el.style.setProperty('--wm-preview-indent', pt.indentation > 0 ? `${pt.indentation}px` : '0');
-		el.style.setProperty('--wm-preview-para', `${pt.paragraphSpacing}em`);
+		el.setCssProps({ '--wm-preview-indent': pt.indentation > 0 ? `${pt.indentation}px` : '0', '--wm-preview-para': `${pt.paragraphSpacing}em` });
 
 		const file = this.previewFile ?? this.plugin.app.workspace.getActiveFile();
 		if (this.titleEl) {

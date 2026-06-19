@@ -260,8 +260,8 @@ export class VersionPanel {
 				const isChecked = stageFilters.has(s.name);
 				const item = popup.createDiv({ cls: `wm-ver-popup-item${isChecked ? ' is-active' : ''}` });
 				const dot = item.createDiv({ cls: 'wm-ver-popup-stage-dot' });
-				dot.setCssStyles({ borderColor: s.color });
-				if (isChecked) dot.setCssStyles({ backgroundColor: s.color });
+				dot.setCssProps({ '--stage-color': s.color });
+				if (isChecked) dot.addClass('is-filled');
 				item.createDiv({ cls: 'wm-ver-popup-label', text: s.name });
 				const checkEl = item.createDiv({ cls: 'wm-ver-popup-check' });
 				if (isChecked) setIcon(checkEl, 'check');
@@ -269,10 +269,10 @@ export class VersionPanel {
 					e.stopPropagation();
 					if (stageFilters.has(s.name)) {
 						stageFilters.delete(s.name);
-						item.removeClass('is-active'); dot.setCssStyles({ backgroundColor: '' }); checkEl.empty();
+						item.removeClass('is-active'); dot.removeClass('is-filled'); checkEl.empty();
 					} else {
 						stageFilters.add(s.name);
-						item.addClass('is-active'); dot.setCssStyles({ backgroundColor: s.color }); setIcon(checkEl, 'check');
+						item.addClass('is-active'); dot.addClass('is-filled'); setIcon(checkEl, 'check');
 					}
 					refreshListOnly();
 				});
@@ -494,8 +494,8 @@ export class VersionPanel {
 					const isActive = entry.stage === s.name;
 					const stageItem = popup.createDiv({ cls: `wm-ver-popup-item${isActive ? ' is-active' : ''}` });
 					const dot = stageItem.createDiv({ cls: 'wm-ver-popup-stage-dot' });
-					dot.setCssStyles({ borderColor: s.color });
-					if (isActive) dot.setCssStyles({ backgroundColor: s.color });
+					dot.setCssProps({ '--stage-color': s.color });
+					if (isActive) dot.addClass('is-filled');
 					stageItem.createDiv({ cls: 'wm-ver-popup-label', text: s.name });
 					if (isActive) setIcon(stageItem.createDiv({ cls: 'wm-ver-popup-check' }), 'check');
 					stageItem.addEventListener('click', async (ev) => {

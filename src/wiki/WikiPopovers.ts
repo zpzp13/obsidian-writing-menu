@@ -19,11 +19,8 @@ export function attachSuggestions(
 		if (matches.length === 0) return;
 
 		list = activeDocument.body.createDiv({ cls: 'wiki-suggestion-container' });
-		list.setCssStyles({ position: 'fixed' });
-		list.setCssStyles({ zIndex: '2000' });
 		const rect = input.getBoundingClientRect();
-		list.setCssStyles({ top: `${rect.bottom + 2}px` });
-		list.setCssStyles({ left: `${rect.left}px` });
+		list.setCssProps({ '--suggest-top': `${rect.bottom + 2}px`, '--suggest-left': `${rect.left}px` });
 
 		matches.forEach(m => {
 			const item = list!.createDiv({ cls: 'wiki-suggestion-item', text: m });
@@ -47,22 +44,18 @@ export class WikiPopover {
 
 	constructor(_app: App, target: HTMLElement, cls: string = '') {
 		this.overlay = activeDocument.body.createDiv({ cls: 'wiki-popover-overlay' });
-		this.overlay.setCssStyles({ 'position': 'fixed', 'top': '0', 'left': '0', 'width': '100vw', 'height': '100vh', 'zIndex': '999', 'background': 'transparent' });
+		this.overlay.addClass('wm-wiki-popover-overlay');
 		this.overlay.addEventListener('click', (e) => { e.stopPropagation(); this.close(); });
 		this.overlay.addEventListener('contextmenu', (e) => { e.stopPropagation(); e.preventDefault(); this.close(); });
 
-		this.containerEl = activeDocument.body.createDiv({ cls: `menu ${cls}` });
-		this.containerEl.setCssStyles({ position: 'fixed' });
-		this.containerEl.setCssStyles({ zIndex: '1000' });
+		this.containerEl = activeDocument.body.createDiv({ cls: `menu wiki-popover-base ${cls}` });
 
 		const rect = target.getBoundingClientRect();
-		this.containerEl.setCssStyles({ top: `${rect.bottom + 6}px` });
-
+		const popupTop = `${rect.bottom + 6}px`;
 		if (rect.right > activeDocument.body.clientWidth - 300) {
-			this.containerEl.setCssStyles({ right: `${activeDocument.body.clientWidth - rect.right}px` });
-			this.containerEl.setCssStyles({ left: 'auto' });
+			this.containerEl.setCssProps({ '--popup-top': popupTop, '--popup-right': `${activeDocument.body.clientWidth - rect.right}px`, '--popup-left': 'auto' });
 		} else {
-			this.containerEl.setCssStyles({ left: `${rect.left}px` });
+			this.containerEl.setCssProps({ '--popup-top': popupTop, '--popup-left': `${rect.left}px`, '--popup-right': 'auto' });
 		}
 
 		this.containerEl.addEventListener('click', (e) => e.stopPropagation());
@@ -87,12 +80,10 @@ export class PropertyPopover extends WikiPopover {
 	) {
 		super(app, target);
 
-		const searchContainer = this.containerEl.createDiv({ cls: 'search-input-container' });
-		searchContainer.setCssStyles({ 'margin': '8px', 'width': '200px' });
+		const searchContainer = this.containerEl.createDiv({ cls: 'search-input-container wm-wiki-prop-search' });
 		const searchInput = searchContainer.createEl('input', { attr: { type: 'search', placeholder: '속성 검색...' } });
 
-		const scrollContainer = this.containerEl.createDiv({ cls: 'menu-scroll' });
-		scrollContainer.setCssStyles({ 'maxHeight': '300px', 'overflowY': 'auto' });
+		const scrollContainer = this.containerEl.createDiv({ cls: 'menu-scroll wm-wiki-prop-scroll' });
 
 		const renderList = (filterVal = '') => {
 			scrollContainer.empty();
@@ -130,7 +121,6 @@ export class ConfigPopover extends WikiPopover {
 		onToggleSub: (val: boolean) => void,
 	) {
 		super(app, target, 'wiki-config-popover');
-		this.containerEl.setCssStyles({ width: '270px' });
 
 		const createRow = (label: string) => {
 			const row = this.containerEl.createDiv({ cls: 'wiki-config-row' });
@@ -170,17 +160,14 @@ export class GroupPopover extends WikiPopover {
 			onUpdate(rules);
 		}
 
-		this.containerEl.setCssStyles({ width: '650px' });
 
-		const scrollContainer = this.containerEl.createDiv();
-		scrollContainer.setCssStyles({ 'maxHeight': '400px', 'overflowY': 'auto' });
+		const scrollContainer = this.containerEl.createDiv({ cls: 'wm-wiki-rule-scroll' });
 
 		const renderRules = () => {
 			scrollContainer.empty();
 
 			rules.forEach((rule, idx) => {
-				const item = scrollContainer.createDiv({ cls: 'menu-item' });
-				item.setCssStyles({ 'cursor': 'default', 'padding': '8px 12px', 'gap': '8px' });
+				const item = scrollContainer.createDiv({ cls: 'menu-item wm-wiki-rule-item' });
 				item.draggable = false;
 
 				item.ondragstart = (e) => { e.dataTransfer?.setData('text/plain', idx.toString()); e.dataTransfer!.effectAllowed = 'move'; item.addClass('dragging'); };
@@ -195,17 +182,15 @@ export class GroupPopover extends WikiPopover {
 
 				const handle = item.createDiv({ cls: 'menu-item-icon' });
 				setIcon(handle, 'grip-vertical');
-				handle.setCssStyles({ cursor: 'grab' });
+				handle.addClass('wm-grab-cursor');
 				handle.onmousedown = () => { item.draggable = true; };
 				handle.onmouseup = () => { item.draggable = false; };
 
-				const nameIn = item.createEl('input', { attr: { placeholder: '그룹명', value: rule.groupName || '' } });
-				nameIn.setCssStyles({ width: '120px' });
+				const nameIn = item.createEl('input', { cls: 'wm-group-name-input', attr: { placeholder: '그룹명', value: rule.groupName || '' } });
 				nameIn.onchange = () => { rule.groupName = nameIn.value; onUpdate(rules); };
 
 				const createInput = (val: string, placeholder: string, onChange: (v: string) => void) => {
-					const i = item.createEl('input', { attr: { value: val || '', placeholder } });
-					i.setCssStyles({ width: '85px' });
+					const i = item.createEl('input', { cls: 'wm-group-rule-input', attr: { value: val || '', placeholder } });
 					i.onchange = () => onChange(i.value);
 					return i;
 				};
@@ -216,8 +201,7 @@ export class GroupPopover extends WikiPopover {
 				const v1 = createInput(rule.value, '값', (v) => { rule.value = v; onUpdate(rules); });
 				attachSuggestions(v1, () => getValues(rule.field), (v) => { rule.value = v; v1.value = v; onUpdate(rules); });
 
-				const cond = item.createEl('select', { cls: 'wiki-logic-select' });
-				cond.setCssStyles({ width: '60px' });
+				const cond = item.createEl('select', { cls: 'wiki-logic-select wm-group-cond-select' });
 				cond.createEl('option', { value: 'and', text: 'AND' }).selected = (rule.condition === 'and');
 				cond.createEl('option', { value: 'or', text: 'OR' }).selected = (rule.condition === 'or');
 				cond.onchange = () => { rule.condition = cond.value as 'and' | 'or'; onUpdate(rules); };
@@ -228,15 +212,13 @@ export class GroupPopover extends WikiPopover {
 				const v2 = createInput(rule.value2 || '', '값2', (v) => { rule.value2 = v; onUpdate(rules); });
 				attachSuggestions(v2, () => getValues(rule.field2 || ''), (v) => { rule.value2 = v; v2.value = v; onUpdate(rules); });
 
-				const pin = item.createDiv({ cls: 'menu-item-icon' });
+				const pin = item.createDiv({ cls: 'menu-item-icon clickable-icon' });
 				setIcon(pin, 'pin');
-				if (rule.isPinned) pin.setCssStyles({ color: 'var(--text-accent)' });
-				pin.setCssStyles({ cursor: 'pointer' });
+				pin.toggleClass('is-pinned', !!rule.isPinned);
 				pin.onclick = () => { rule.isPinned = !rule.isPinned; onUpdate(rules); renderRules(); };
 
-				const del = item.createDiv({ cls: 'menu-item-icon' });
+				const del = item.createDiv({ cls: 'menu-item-icon clickable-icon' });
 				setIcon(del, 'trash-2');
-				del.setCssStyles({ cursor: 'pointer' });
 				del.onclick = () => { rules.splice(idx, 1); onUpdate(rules); renderRules(); };
 			});
 		};
@@ -279,7 +261,7 @@ export class SavedViewPopover extends WikiPopover {
 
 		if (views.length === 0) {
 			const empty = this.containerEl.createDiv({ cls: 'menu-item is-disabled' });
-			empty.createDiv({ cls: 'menu-item-title', text: '저장된 뷰가 없습니다.' }).setCssStyles({ color: 'var(--text-muted)' });
+			empty.createDiv({ cls: 'menu-item-title wm-text-muted', text: '저장된 뷰가 없습니다.' });
 		} else {
 			views.forEach((view, idx) => {
 				const item = this.containerEl.createDiv({ cls: 'menu-item' });

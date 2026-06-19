@@ -35,9 +35,7 @@ export class DiffModal extends Modal {
 		const { contentEl, modalEl } = this;
 		contentEl.empty();
 		contentEl.addClass('wm-diff-modal');
-		modalEl.setCssStyles({ width: 'min(1100px, 94vw)' });
-		modalEl.setCssStyles({ maxWidth: '94vw' });
-		modalEl.setCssStyles({ height: 'min(740px, 90vh)' });
+		modalEl.addClass('wm-diff-modal-container');
 
 		const manifest = await this.manager.getManifest(this.file);
 		this.allVersions = manifest.versions;

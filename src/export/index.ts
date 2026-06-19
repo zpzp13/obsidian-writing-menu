@@ -46,7 +46,7 @@ export class HwpExportModal extends Modal {
 			text: '.hwp',
 			cls: 'hwp-filename-extension'
 		});
-		extEl.setCssStyles({ 'marginLeft': '4px', 'color': 'var(--text-muted)', 'fontSize': '14px' });
+		extEl.addClass('wm-export-ext-label');
 
 		// Export Path Input with Folder Button
 		const pathSetting = new Setting(contentEl)
@@ -164,7 +164,7 @@ export class TxtExportModal extends Modal {
 			text: '.txt',
 			cls: 'txt-filename-extension'
 		});
-		extEl.setCssStyles({ 'marginLeft': '4px', 'color': 'var(--text-muted)', 'fontSize': '14px' });
+		extEl.addClass('wm-export-ext-label');
 
 		// Export Path Input with Folder Button
 		const pathSetting = new Setting(contentEl)
@@ -368,14 +368,14 @@ export class BatchExportModal extends Modal {
 			text: fileExt,
 			cls: 'export-filename-extension'
 		});
-		extEl.setCssStyles({ 'marginLeft': '4px', 'color': 'var(--text-muted)', 'fontSize': '14px' });
+		extEl.addClass('wm-export-ext-label');
 
 		// Initially hide file name setting
 		this.fileNameSetting.settingEl.setCssStyles({ display: 'none' });
 
 		// File list container (for drag-and-drop reordering)
 		this.fileListContainer = contentEl.createDiv({ cls: 'batch-export-file-list-container' });
-		this.fileListContainer.setCssStyles({ 'display': 'none', 'marginBottom': '16px' });
+		this.fileListContainer.setCssStyles({ display: 'none' });
 		this.renderFileList();
 
 		// Export Path Input with Folder Button
@@ -483,14 +483,13 @@ export class BatchExportModal extends Modal {
 
 		// Header for included files
 		const header = this.fileListContainer.createDiv({ cls: 'file-list-header' });
-		header.setCssStyles({ 'display': 'flex', 'justifyContent': 'space-between', 'alignItems': 'center', 'marginBottom': '8px' });
-		header.createEl('span', { text: '포함할 파일 (드래그하여 정렬)' }).setCssStyles({ 'fontSize': '13px', 'color': 'var(--text-muted)' });
-		const countEl = header.createEl('span', { text: `${this.sortedFiles.length}개 파일` });
-		countEl.setCssStyles({ 'fontSize': '12px', 'color': 'var(--text-faint)' });
+		
+		header.createEl('span', { text: '포함할 파일 (드래그하여 정렬)', cls: 'wm-file-list-title' });
+		const countEl = header.createEl('span', { text: `${this.sortedFiles.length}개 파일`, cls: 'wm-file-list-count' });
 
 		// File list
 		const listEl = this.fileListContainer.createDiv({ cls: 'file-list' });
-		listEl.setCssStyles({ 'border': '1px solid var(--background-modifier-border)', 'borderRadius': 'var(--radius-m)', 'maxHeight': '200px', 'overflowY': 'auto' });
+		
 
 		// Drag state
 		let draggedIndex: number | null = null;
@@ -510,11 +509,11 @@ export class BatchExportModal extends Modal {
 			const itemEl = listEl.createDiv({ cls: 'file-list-item' });
 			itemEl.setAttribute('draggable', 'true');
 			itemEl.setAttribute('data-index', String(index));
-			itemEl.setCssStyles({ 'display': 'flex', 'alignItems': 'center', 'padding': '6px 12px', 'cursor': 'grab', 'borderBottom': '1px solid var(--background-modifier-border)', 'background': 'var(--background-primary)', 'transition': 'background 0.1s' });
+			
 
 			// Drag handle icon (Lucide grip-vertical)
 			const handleEl = itemEl.createDiv({ cls: 'drag-handle' });
-			handleEl.setCssStyles({ 'marginRight': '8px', 'color': 'var(--text-faint)', 'display': 'flex', 'alignItems': 'center' });
+			
 			setIcon(handleEl, 'grip-vertical');
 			const iconSvg = handleEl.querySelector('svg');
 			if (iconSvg) {
@@ -524,15 +523,14 @@ export class BatchExportModal extends Modal {
 
 			// File number
 			const numEl = itemEl.createEl('span', { text: `${index + 1}.`, cls: 'file-num' });
-			numEl.setCssStyles({ 'marginRight': '8px', 'color': 'var(--text-faint)', 'fontSize': '12px', 'minWidth': '20px' });
+			
 
 			// File name
-			const nameEl = itemEl.createEl('span', { text: file.basename });
-			nameEl.setCssStyles({ 'flex': '1', 'overflow': 'hidden', 'textOverflow': 'ellipsis', 'whiteSpace': 'nowrap' });
+			const nameEl = itemEl.createEl('span', { text: file.basename, cls: 'wm-file-name-el' });
 
 			// Remove button
 			const removeBtn = itemEl.createDiv({ cls: 'file-remove-btn' });
-			removeBtn.setCssStyles({ 'marginLeft': '8px', 'color': 'var(--text-faint)', 'cursor': 'pointer', 'display': 'flex', 'alignItems': 'center', 'padding': '2px' });
+			
 			setIcon(removeBtn, 'x');
 			const removeSvg = removeBtn.querySelector('svg');
 			if (removeSvg) {
@@ -548,38 +546,23 @@ export class BatchExportModal extends Modal {
 				updateNumbers();
 				this.renderRemovedFiles();
 			});
-			removeBtn.addEventListener('mouseenter', () => {
-				removeBtn.setCssStyles({ color: 'var(--text-error)' });
-			});
-			removeBtn.addEventListener('mouseleave', () => {
-				removeBtn.setCssStyles({ color: 'var(--text-faint)' });
-			});
-
-			// Hover effect
-			itemEl.addEventListener('mouseenter', () => {
-				if (draggedEl !== itemEl) itemEl.setCssStyles({ background: 'var(--background-secondary)' });
-			});
-			itemEl.addEventListener('mouseleave', () => {
-				if (draggedEl !== itemEl) itemEl.setCssStyles({ background: 'var(--background-primary)' });
-			});
 
 			// Drag events - optimized without full re-render
 			itemEl.addEventListener('dragstart', (e) => {
 				draggedIndex = parseInt(itemEl.getAttribute('data-index') || '0');
 				draggedEl = itemEl;
-				itemEl.setCssStyles({ opacity: '0.5' });
+				itemEl.addClass('wm-dragging');
 				e.dataTransfer?.setData('text/plain', String(draggedIndex));
 				e.dataTransfer!.effectAllowed = 'move';
 			});
 
 			itemEl.addEventListener('dragend', () => {
-				itemEl.setCssStyles({ opacity: '1' });
+				itemEl.removeClass('wm-dragging');
 				draggedEl = null;
 				draggedIndex = null;
-				// Clear all indicators
 				listEl.querySelectorAll('.file-list-item').forEach((el) => {
-					(el as HTMLElement).setCssStyles({ borderTop: '' });
-					(el as HTMLElement).setCssStyles({ borderBottom: '' });
+					(el as HTMLElement).removeClass('wm-drop-above');
+					(el as HTMLElement).removeClass('wm-drop-below');
 				});
 			});
 
@@ -591,20 +574,13 @@ export class BatchExportModal extends Modal {
 				const rect = itemEl.getBoundingClientRect();
 				const midY = rect.top + rect.height / 2;
 
-				// Clear previous indicators on this item
-				itemEl.setCssStyles({ borderTop: '' });
-				itemEl.setCssStyles({ borderBottom: '' });
-
-				if (e.clientY < midY) {
-					itemEl.setCssStyles({ borderTop: '2px solid var(--interactive-accent)' });
-				} else {
-					itemEl.setCssStyles({ borderBottom: '2px solid var(--interactive-accent)' });
-				}
+				itemEl.toggleClass('wm-drop-above', e.clientY < midY);
+				itemEl.toggleClass('wm-drop-below', e.clientY >= midY);
 			});
 
 			itemEl.addEventListener('dragleave', () => {
-				itemEl.setCssStyles({ borderTop: '' });
-				itemEl.setCssStyles({ borderBottom: '' });
+				itemEl.removeClass('wm-drop-above');
+				itemEl.removeClass('wm-drop-below');
 			});
 
 			itemEl.addEventListener('drop', (e) => {
@@ -638,17 +614,10 @@ export class BatchExportModal extends Modal {
 				// Update numbers and data-index
 				updateNumbers();
 
-				// Clear indicators
-				itemEl.setCssStyles({ borderTop: '' });
-				itemEl.setCssStyles({ borderBottom: '' });
+				itemEl.removeClass('wm-drop-above');
+				itemEl.removeClass('wm-drop-below');
 			});
 		});
-
-		// Remove border from last item
-		const lastItem = listEl.querySelector('.file-list-item:last-child') as HTMLElement;
-		if (lastItem) {
-			lastItem.setCssStyles({ borderBottom: 'none' });
-		}
 
 		// Restore scroll position
 		window.requestAnimationFrame(() => {
@@ -671,26 +640,18 @@ export class BatchExportModal extends Modal {
 		const removedSection = this.fileListContainer.createDiv({ cls: 'removed-section' });
 
 		const removedHeader = removedSection.createDiv({ cls: 'removed-files-header' });
-		removedHeader.setCssStyles({ 'display': 'flex', 'justifyContent': 'space-between', 'alignItems': 'center', 'marginTop': '12px', 'marginBottom': '8px' });
-		removedHeader.createEl('span', { text: '제외된 파일' }).setCssStyles({ 'fontSize': '13px', 'color': 'var(--text-muted)' });
-		const removedCountEl = removedHeader.createEl('span', { text: `${this.removedFiles.length}개` });
-		removedCountEl.setCssStyles({ 'fontSize': '12px', 'color': 'var(--text-faint)' });
+		removedHeader.createEl('span', { text: '제외된 파일', cls: 'wm-removed-files-title' });
+		const removedCountEl = removedHeader.createEl('span', { text: `${this.removedFiles.length}개`, cls: 'wm-file-list-count' });
 
 		const removedListEl = removedSection.createDiv({ cls: 'removed-file-list' });
-		removedListEl.setCssStyles({ 'border': '1px solid var(--background-modifier-border)', 'borderRadius': 'var(--radius-m)', 'maxHeight': '120px', 'overflowY': 'auto', 'opacity': '0.7' });
 
 		this.removedFiles.forEach((file, index) => {
 			const itemEl = removedListEl.createDiv({ cls: 'removed-file-item' });
 			itemEl.setAttribute('data-index', String(index));
-			itemEl.setCssStyles({ 'display': 'flex', 'alignItems': 'center', 'padding': '6px 12px', 'borderBottom': '1px solid var(--background-modifier-border)', 'background': 'var(--background-primary)', 'transition': 'background 0.1s' });
 
-			// File name
-			const nameEl = itemEl.createEl('span', { text: file.basename });
-			nameEl.setCssStyles({ 'flex': '1', 'overflow': 'hidden', 'textOverflow': 'ellipsis', 'whiteSpace': 'nowrap', 'color': 'var(--text-muted)' });
+			const nameEl = itemEl.createEl('span', { text: file.basename, cls: 'wm-removed-file-name' });
 
-			// Add back button
 			const addBtn = itemEl.createDiv({ cls: 'file-add-btn' });
-			addBtn.setCssStyles({ 'marginLeft': '8px', 'color': 'var(--text-faint)', 'cursor': 'pointer', 'display': 'flex', 'alignItems': 'center', 'padding': '2px' });
 			setIcon(addBtn, 'plus');
 			const addSvg = addBtn.querySelector('svg');
 			if (addSvg) {
@@ -702,30 +663,10 @@ export class BatchExportModal extends Modal {
 				const idx = parseInt(itemEl.getAttribute('data-index') || '0');
 				const [restored] = this.removedFiles.splice(idx, 1);
 				this.sortedFiles.push(restored);
-				this.listScrollTop = 0; // Reset scroll when adding back
+				this.listScrollTop = 0;
 				this.renderFileList();
 			});
-			addBtn.addEventListener('mouseenter', () => {
-				addBtn.setCssStyles({ color: 'var(--text-success)' });
-			});
-			addBtn.addEventListener('mouseleave', () => {
-				addBtn.setCssStyles({ color: 'var(--text-faint)' });
-			});
-
-			// Hover effect
-			itemEl.addEventListener('mouseenter', () => {
-				itemEl.setCssStyles({ background: 'var(--background-secondary)' });
-			});
-			itemEl.addEventListener('mouseleave', () => {
-				itemEl.setCssStyles({ background: 'var(--background-primary)' });
-			});
 		});
-
-		// Remove border from last item
-		const lastRemovedItem = removedListEl.querySelector('.removed-file-item:last-child') as HTMLElement;
-		if (lastRemovedItem) {
-			lastRemovedItem.setCssStyles({ borderBottom: 'none' });
-		}
 	}
 
 	onClose() {
