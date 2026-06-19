@@ -507,7 +507,7 @@ export class WikiPanel {
 		}, { passive: true });
 
 		// 방향키 (플로팅 창에서는 비활성화)
-		const isFloating = strip.ownerDocument !== document;
+		const isFloating = strip.ownerDocument !== activeDocument;
 		if (!isFloating) {
 			strip.tabIndex = 0;
 			strip.addEventListener('keydown', (e) => {

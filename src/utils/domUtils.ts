@@ -5,5 +5,5 @@ export function watchDisconnect(el: HTMLElement, cleanup: () => void): void {
 			obs.disconnect();
 		}
 	});
-	obs.observe(document.body, { childList: true, subtree: true });
+	obs.observe(activeDocument.body, { childList: true, subtree: true });
 }
