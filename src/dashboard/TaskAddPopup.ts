@@ -133,18 +133,18 @@ export function showTaskAddPopup(
 	};
 
 	contentInput.addEventListener('keydown', (ev) => {
-		if (ev.altKey && ev.key === 'Enter') { ev.preventDefault(); submit(); return; }
+		if (ev.altKey && ev.key === 'Enter') { ev.preventDefault(); void submit(); return; }
 		if (ev.key === 'Enter')  { ev.preventDefault(); tagInput.focus(); }
 		if (ev.key === 'Escape') close();
 	});
 	tagInput.addEventListener('keydown', (ev) => {
-		if (ev.altKey && ev.key === 'Enter') { ev.preventDefault(); submit(); return; }
+		if (ev.altKey && ev.key === 'Enter') { ev.preventDefault(); void submit(); return; }
 		if (ev.key === 'Enter')  { ev.preventDefault(); subArea.focus(); }
 		if (ev.key === 'Escape') close();
 	});
 	subArea.addEventListener('keydown', (ev) => {
-		if (ev.altKey && ev.key === 'Enter') { ev.preventDefault(); submit(); return; }
-		if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); submit(); }
+		if (ev.altKey && ev.key === 'Enter') { ev.preventDefault(); void submit(); return; }
+		if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); void submit(); }
 		if (ev.key === 'Escape') close();
 	});
 
@@ -152,7 +152,7 @@ export function showTaskAddPopup(
 	const cancelBtn = footer.createEl('button', { cls: 'wm-task-add-cancel-btn', text: '취소' });
 	const submitBtn = footer.createEl('button', { cls: 'wm-task-add-submit-btn', text: '추가' });
 	cancelBtn.addEventListener('click', (e) => { e.stopPropagation(); close(); });
-	submitBtn.addEventListener('click', (e) => { e.stopPropagation(); submit(); });
+	submitBtn.addEventListener('click', (e) => { e.stopPropagation(); void submit(); });
 
 	openPopupAutoClose(popup);
 	contentInput.focus();

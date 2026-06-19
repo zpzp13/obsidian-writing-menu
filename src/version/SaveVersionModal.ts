@@ -30,7 +30,7 @@ export class SaveVersionModal extends Modal {
 
 		// 버전 이름
 		contentEl.createEl('label', { text: '버전 이름', cls: 'wm-save-ver-label' });
-		const nameInput = contentEl.createEl('input', { cls: 'wm-save-ver-input' }) as HTMLInputElement;
+		const nameInput = contentEl.createEl('input', { cls: 'wm-save-ver-input' });
 		nameInput.type = 'text';
 		nameInput.placeholder = '예: 초고 완성, 1장 수정';
 		nameInput.value = defaultName;
@@ -42,7 +42,7 @@ export class SaveVersionModal extends Modal {
 		const stages: VersionStage[] = ['초고', '집필', '퇴고'];
 		const stageBtns: HTMLButtonElement[] = [];
 		for (const s of stages) {
-			const btn = stageRow.createEl('button', { text: s, cls: 'wm-save-ver-stage-btn' }) as HTMLButtonElement;
+			const btn = stageRow.createEl('button', { text: s, cls: 'wm-save-ver-stage-btn' });
 			stageBtns.push(btn);
 			btn.addEventListener('click', () => {
 				if (selectedStage === s) {
@@ -58,7 +58,7 @@ export class SaveVersionModal extends Modal {
 
 		// 설명
 		contentEl.createEl('label', { text: '설명 (선택)', cls: 'wm-save-ver-label' });
-		const descInput = contentEl.createEl('textarea', { cls: 'wm-save-ver-desc' }) as HTMLTextAreaElement;
+		const descInput = contentEl.createEl('textarea', { cls: 'wm-save-ver-desc' });
 		descInput.placeholder = '이 버전에 대한 메모를 남겨보세요';
 		descInput.rows = 3;
 
@@ -70,16 +70,16 @@ export class SaveVersionModal extends Modal {
 			const name = nameInput.value.trim() || defaultName;
 			const description = descInput.value.trim() || undefined;
 			saveBtn.textContent = '저장 중…';
-			(saveBtn as HTMLButtonElement).disabled = true;
+			saveBtn.disabled = true;
 			await this.manager.saveVersion(this.file, name, this.editor.getValue(), description, selectedStage);
 			this.close();
 			this.onSaved?.();
 		};
 
-		saveBtn.addEventListener('click', doSave);
+		saveBtn.addEventListener('click', () => { void doSave(); });
 		cancelBtn.addEventListener('click', () => this.close());
 		nameInput.addEventListener('keydown', (e) => {
-			if (e.key === 'Enter') doSave();
+			if (e.key === 'Enter') void doSave();
 			else if (e.key === 'Escape') this.close();
 		});
 

@@ -50,7 +50,7 @@ export class WikiPanel {
 	}
 
 	rerender() {
-		if (this.container) this.render(this.container);
+		if (this.container) void this.render(this.container);
 	}
 
 	openFolderPicker() {
@@ -67,7 +67,7 @@ export class WikiPanel {
 				this.stripMode = 'relation';
 				this.stripCollapsed = this.plugin.settings.wikiStripCollapsedDefault ?? false;
 			}
-			this.saveState();
+			void this.saveState();
 			this.rerender();
 		}).open();
 	}
@@ -199,7 +199,7 @@ export class WikiPanel {
 		navBtns.createDiv({ cls: 'wiki-nav-btn', attr: { 'aria-label': '목차로' } });
 		setIcon(navBtns.lastElementChild as HTMLElement, 'list');
 		(navBtns.lastElementChild as HTMLElement).onclick = () => {
-			const toc = scrollArea.querySelector('.wiki-toc-container') as HTMLElement | null;
+			const toc = scrollArea.querySelector('.wiki-toc-container');
 			if (toc) toc.scrollIntoView({ behavior: 'smooth', block: 'start' });
 			else scrollArea.scrollTo({ top: 0, behavior: 'smooth' });
 		};
@@ -233,12 +233,12 @@ export class WikiPanel {
 		}
 
 		body.addEventListener('click', (e) => {
-			const link = (e.target as HTMLElement).closest('a.internal-link, a[data-href]') as HTMLElement | null;
+			const link = (e.target as HTMLElement).closest('a.internal-link, a[data-href]');
 			if (!link || !this.currentFile) return;
 			e.preventDefault();
 			e.stopPropagation();
 			const href = link.getAttribute('data-href') || link.getAttribute('href');
-			if (href) this.app.workspace.openLinkText(href, this.currentFile.path, true);
+			if (href) void this.app.workspace.openLinkText(href, this.currentFile.path, true);
 		}, true);
 
 		const headers = body.querySelectorAll('h1, h2, h3, h4, h5, h6');
@@ -281,7 +281,7 @@ export class WikiPanel {
 			this.stripCollapsed = !this.stripCollapsed;
 			setIcon(collapseBtn, this.stripCollapsed ? 'chevron-right' : 'chevron-down');
 			collapseBtn.setAttribute('aria-label', this.stripCollapsed ? '카드 목록 펼치기' : '카드 목록 접기');
-			const stripEl = outerContainer.querySelector('.wiki-card-strip-wrap, .wiki-rel-list-wrap') as HTMLElement | null;
+			const stripEl = outerContainer.querySelector('.wiki-card-strip-wrap, .wiki-rel-list-wrap');
 			if (stripEl) stripEl.classList.toggle('is-collapsed', this.stripCollapsed);
 		};
 
@@ -311,7 +311,7 @@ export class WikiPanel {
 					this.relationSource = item;
 					this.stripMode = 'relation';
 				}
-				this.saveState();
+				void this.saveState();
 				this.rerender();
 			}).open();
 		});
@@ -363,7 +363,7 @@ export class WikiPanel {
 		// 새 탭에서 열기
 		const tabBtn = right.createDiv({ cls: 'wm-cal-icon-btn' + (!this.currentFile ? ' wiki-btn-disabled' : ''), attr: { 'aria-label': '새 탭에서 열기' } });
 		setIcon(tabBtn, 'external-link');
-		tabBtn.onclick = () => { if (this.currentFile) this.app.workspace.getLeaf('tab').openFile(this.currentFile); };
+		tabBtn.onclick = () => { if (this.currentFile) void this.app.workspace.getLeaf('tab').openFile(this.currentFile); };
 
 		// 위키 설정 (맨 우측)
 		const settingsBtn = right.createDiv({ cls: 'wm-cal-icon-btn', attr: { 'aria-label': '위키 설정' } });
@@ -425,7 +425,7 @@ export class WikiPanel {
 			this.stripScrollLeft = strip.scrollLeft;
 			this.currentFile = files[idx];
 			this.targetFolder = files[idx].parent ?? this.targetFolder;
-			this.saveState();
+			void this.saveState();
 			previewSelect(idx);
 			this.renderSeq++;
 			const seq = this.renderSeq;
@@ -532,7 +532,7 @@ export class WikiPanel {
 		const stripDoc = strip.ownerDocument;
 		strip.addEventListener('mousedown', e => {
 			e.preventDefault();
-			const cardOnDown = (e.target as HTMLElement).closest('.wiki-card') as HTMLElement | null;
+			const cardOnDown = (e.target as HTMLElement).closest<HTMLElement>('.wiki-card');
 			const idxOnDown = cardOnDown ? allCards.indexOf(cardOnDown) : -1;
 			const startX = e.pageX, startScrollLeft = strip.scrollLeft;
 			let hasMoved = false;
@@ -682,7 +682,7 @@ export class WikiPanel {
 					this.relListScrollTop = wrap.scrollTop;
 					this.currentFile = f;
 					this.targetFolder = f.parent ?? this.targetFolder;
-					this.saveState();
+					void this.saveState();
 					this.rerender();
 				};
 			});
@@ -718,7 +718,7 @@ export class WikiPanel {
 			item.setCssStyles({ paddingLeft: `${(h.level - 1) * 12}px` });
 			const numSpan = item.createSpan({ cls: 'wiki-toc-number', text: numStr });
 			const textSpan = item.createSpan({ cls: 'wiki-toc-text' });
-			MarkdownRenderer.render(this.app, h.heading, textSpan, file.path, this.hostComponent);
+			void MarkdownRenderer.render(this.app, h.heading, textSpan, file.path, this.hostComponent);
 			// 번호만 클릭 시 본문으로 이동 (아이템 전체 클릭 제거)
 			numSpan.addEventListener('click', (e) => {
 				e.stopPropagation();
@@ -811,14 +811,14 @@ export class WikiPanel {
 				link.addEventListener('click', (e) => {
 					e.preventDefault();
 					const href = link.getAttribute('data-href') || link.getAttribute('href');
-					if (href) this.app.workspace.openLinkText(href, file.path, true);
+					if (href) void this.app.workspace.openLinkText(href, file.path, true);
 				});
 			});
 		}
 	}
 
 	private openImagePicker(file: TFile) {
-		new ImageSuggestModal(this.app, async (f) => {
+		new ImageSuggestModal(this.app, (f) => { void (async () => {
 			const key = this.plugin.settings.wikiImageFieldName;
 			if (!key) {
 				new Notice('플러그인 설정에서 이미지 필드를 먼저 지정하세요.');
@@ -838,14 +838,14 @@ export class WikiPanel {
 				console.error('[wiki] processFrontMatter 실패:', e);
 				new Notice('이미지 프론트매터 업데이트 실패. 콘솔을 확인하세요.');
 			}
-		}).open();
+		})(); }).open();
 	}
 
 	private findScrollableParent(el: HTMLElement): HTMLElement | null {
 		let cur = el.parentElement;
 		while (cur) {
 			if (cur.scrollHeight > cur.clientHeight + 1) return cur;
-			cur = cur.parentElement as HTMLElement | null;
+			cur = cur.parentElement;
 		}
 		return null;
 	}

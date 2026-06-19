@@ -179,7 +179,7 @@ export class DailyCharStore {
 
 	private scheduleAvgRecompute() {
 		window.clearTimeout(this.avgTimer);
-		this.avgTimer = window.setTimeout(() => this.computeAvg(), 2000);
+		this.avgTimer = window.setTimeout(() => { void this.computeAvg(); }, 2000);
 	}
 
 	private netForDay(start: Record<string, number>, current: Record<string, number>): number {
@@ -254,10 +254,10 @@ export class DailyCharStore {
 
 	private scheduleSave() {
 		window.clearTimeout(this.saveTimer);
-		this.saveTimer = window.setTimeout(async () => {
+		this.saveTimer = window.setTimeout(() => { void (async () => {
 			await this.save();
 			await this.writeTodayCharCount();
-		}, 3000);
+		})(); }, 3000);
 	}
 
 	private async writeTodayCharCount() {

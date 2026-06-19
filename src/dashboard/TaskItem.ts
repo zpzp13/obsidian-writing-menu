@@ -49,7 +49,7 @@ export function renderTaskItem(
 	setIcon(check, task.completed ? 'check-circle-2' : 'circle');
 	if (task.completed) check.classList.add('is-done');
 
-	titleEl.addEventListener('click', async () => {
+	titleEl.addEventListener('click', () => { void (async () => {
 		const file = plugin.app.vault.getAbstractFileByPath(task.sourcePath);
 		if (!(file instanceof TFile)) return;
 		const raw   = await plugin.app.vault.cachedRead(file);
@@ -74,7 +74,7 @@ export function renderTaskItem(
 				);
 			}, 150);
 		}
-	});
+	})(); });
 
 	// ── 하위 항목 ──
 	if (task.subItems?.length) {
@@ -85,14 +85,14 @@ export function renderTaskItem(
 			setIcon(subCheck, 'check');
 			if (sub.completed) { subCheck.classList.add('is-done'); subItem.classList.add('is-done'); }
 			subItem.createSpan({ cls: 'wm-task-sub-text', text: sub.text });
-			subCheck.addEventListener('click', async (e) => {
+			subCheck.addEventListener('click', (e) => { void (async () => {
 				e.stopPropagation();
 				const nowDone = !subCheck.classList.contains('is-done');
 				subCheck.classList.toggle('is-done', nowDone);
 				subItem.classList.toggle('is-done', nowDone);
 				sub.completed = nowDone;
 				try { await TaskParser.toggleSubTask(task, idx, nowDone, plugin); } catch { /* intentional */ }
-			});
+			})(); });
 		});
 	}
 
@@ -139,11 +139,11 @@ export function renderTaskItem(
 			const dot   = pitem.createDiv({ cls: 'wm-task-priority-dot' });
 			dot.setCssStyles({ background: p.color });
 			pitem.createSpan({ text: p.label });
-			pitem.addEventListener('click', async (e2) => {
+			pitem.addEventListener('click', (e2) => { void (async () => {
 				e2.stopPropagation();
 				ppop.remove();
 				try { await TaskParser.setTaskPriority(task, p.emoji, plugin); } catch { /* intentional */ }
-			});
+			})(); });
 		}
 
 		window.requestAnimationFrame(() => {
@@ -155,12 +155,12 @@ export function renderTaskItem(
 	});
 
 	// ── 체크 클릭 ──
-	check.addEventListener('click', async () => {
+	check.addEventListener('click', () => { void (async () => {
 		const nowDone = !check.classList.contains('is-done');
 		check.classList.toggle('is-done', nowDone);
 		titleEl.classList.toggle('is-done', nowDone);
 		setIcon(check, nowDone ? 'check-circle-2' : 'circle');
 		task.completed = nowDone || undefined;
 		try { await TaskParser.toggleTask(task, nowDone, plugin); } catch { /* intentional */ }
-	});
+	})(); });
 }

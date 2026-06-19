@@ -71,7 +71,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 		// 태스크 파일 변경 시 배지 자동 갱신
 		this.registerEvent(this.app.vault.on('modify', () => {
 			window.clearTimeout(this.badgeDebounceTimer);
-			this.badgeDebounceTimer = window.window.setTimeout(() => this.loadAndApplyTasks().catch(() => {}), 300);
+			this.badgeDebounceTimer = window.window.setTimeout(() => { void this.loadAndApplyTasks().catch(() => {}); }, 300);
 		}));
 	}
 
@@ -108,7 +108,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 				this.dateStrip = new DateStrip(wrap, year, this.selectedDate, {
 					onDateChange:  (d) => { this.selectedDate = d; this.updateDateDisplay(); },
 					onMonthChange: (m) => this.monthScroller?.sync(m),
-					openDailyNote: (d) => this.openOrCreateDailyNote(d),
+					openDailyNote: (d) => { void this.openOrCreateDailyNote(d); },
 					onHover:    (d, el) => showDayPreview(el, d, this.plugin),
 					onHoverEnd: ()     => removeDayPreview(),
 				});
@@ -259,7 +259,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 
 			cell.addEventListener('click', (e) => {
 				if (e.ctrlKey || e.metaKey) {
-					this.openOrCreateDailyNote(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
+					void this.openOrCreateDailyNote(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
 					return;
 				}
 				this.selectedDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -472,9 +472,9 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 
 	private scrollToTasksSection(dateKey?: string) {
 		const content = this.containerEl.children[1] as HTMLElement;
-		const tasksWrap = content.querySelector('.wm-tasks-wrap') as HTMLElement | null;
+		const tasksWrap = content.querySelector('.wm-tasks-wrap');
 		if (!tasksWrap) return;
-		const groupBody = tasksWrap.closest('.wm-dash-group-body') as HTMLElement | null;
+		const groupBody = tasksWrap.closest('.wm-dash-group-body');
 		let expandDelay = 0;
 		if (groupBody?.classList.contains('is-collapsed')) {
 			(groupBody.previousElementSibling as HTMLElement)?.click();

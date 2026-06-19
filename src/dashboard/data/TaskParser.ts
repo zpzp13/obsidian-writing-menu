@@ -239,7 +239,7 @@ export class TaskParser {
 		let file = plugin.app.vault.getAbstractFileByPath(path);
 		if (!(file instanceof TFile)) {
 			let initContent = '';
-			const templatePath = dnOpts?.template as string | undefined;
+			const templatePath = dnOpts?.template;
 			if (templatePath) {
 				const tp = templatePath.endsWith('.md') ? templatePath : `${templatePath}.md`;
 				const tf = plugin.app.vault.getAbstractFileByPath(tp);

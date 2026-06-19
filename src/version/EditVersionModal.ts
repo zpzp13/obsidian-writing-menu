@@ -25,7 +25,7 @@ export class EditVersionModal extends Modal {
 		const row1 = table.createDiv({ cls: 'wm-evm-row wm-evm-row-2col' });
 		row1.createDiv({ cls: 'wm-evm-cell-label', text: '표제' });
 		const nameCell = row1.createDiv({ cls: 'wm-evm-cell-field' });
-		const nameInput = nameCell.createEl('input', { cls: 'wm-evm-field' }) as HTMLInputElement;
+		const nameInput = nameCell.createEl('input', { cls: 'wm-evm-field' });
 		nameInput.type = 'text';
 		nameInput.value = this.entry.name;
 		nameInput.spellcheck = false;
@@ -34,7 +34,7 @@ export class EditVersionModal extends Modal {
 		const row2 = table.createDiv({ cls: 'wm-evm-row wm-evm-row-2col' });
 		row2.createDiv({ cls: 'wm-evm-cell-label', text: '설명' });
 		const descCell = row2.createDiv({ cls: 'wm-evm-cell-field' });
-		const descInput = descCell.createEl('input', { cls: 'wm-evm-field' }) as HTMLInputElement;
+		const descInput = descCell.createEl('input', { cls: 'wm-evm-field' });
 		descInput.type = 'text';
 		descInput.value = this.entry.description ?? '';
 		descInput.placeholder = '메모';
@@ -49,7 +49,7 @@ export class EditVersionModal extends Modal {
 		try { originalContent = await this.manager.readVersion(this.file, this.entry); } catch { /* intentional */ }
 		skeleton.remove();
 
-		const bodyInput = row3.createEl('textarea', { cls: 'wm-evm-field wm-evm-field-body' }) as HTMLTextAreaElement;
+		const bodyInput = row3.createEl('textarea', { cls: 'wm-evm-field wm-evm-field-body' });
 		bodyInput.value = originalContent;
 		bodyInput.spellcheck = false;
 
@@ -83,10 +83,10 @@ export class EditVersionModal extends Modal {
 		};
 
 		cancelBtn.addEventListener('click', () => this.close());
-		saveBtn.addEventListener('click', doSave);
-		nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doSave(); } });
-		descInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doSave(); } });
-		bodyInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); doSave(); } });
+		saveBtn.addEventListener('click', () => { void doSave(); });
+		nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); void doSave(); } });
+		descInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); void doSave(); } });
+		bodyInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); void doSave(); } });
 
 		window.setTimeout(() => { nameInput.focus(); nameInput.select(); }, 50);
 	}

@@ -67,7 +67,7 @@ export class MobilePreviewFloating {
 			e.stopPropagation();
 			new FilePickerModal(this.plugin.app, (file) => {
 				this.previewFile = file;
-				this.renderContent();
+				void this.renderContent();
 			}).open();
 		};
 		centerCol.addClass('wm-clickable');
@@ -158,7 +158,7 @@ export class MobilePreviewFloating {
 			() => activeDocument.removeEventListener('keydown', onKeyDown),
 		);
 
-		this.renderContent();
+		void this.renderContent();
 	}
 
 	private toggleMinimize() {
@@ -182,12 +182,12 @@ export class MobilePreviewFloating {
 		const siblings = this.getSiblingFiles();
 		if (siblings.length === 0) return;
 		const current = this.previewFile ?? this.plugin.app.workspace.getActiveFile();
-		if (!current) { this.previewFile = siblings[0]; this.renderContent(); return; }
+		if (!current) { this.previewFile = siblings[0]; void this.renderContent(); return; }
 		const idx = siblings.findIndex(f => f.path === current.path);
 		const nextIdx = idx === -1 ? 0 : idx + direction;
 		if (nextIdx < 0 || nextIdx >= siblings.length) return;
 		this.previewFile = siblings[nextIdx];
-		this.renderContent();
+		void this.renderContent();
 	}
 
 	private showPreviewSettings(anchor: HTMLElement) {
@@ -233,12 +233,12 @@ export class MobilePreviewFloating {
 		fontLG.createEl('label', { text: '글꼴' });
 		const fontInput = fontDiv.createEl('input', { type: 'text', value: pt.fontFamily });
 		fontInput.addClass('wm-preview-text-input');
-		fontInput.onchange = async (e) => { pt.fontFamily = (e.target as HTMLInputElement).value; await save(); };
+		fontInput.onchange = (e) => { pt.fontFamily = (e.target as HTMLInputElement).value; void save(); };
 
-		this.plugin.addCompactStepper(container, '글자 크기', pt.fontSize, 1, 1, async (v) => { pt.fontSize = v; await save(); }, 'type');
-		this.plugin.addCompactStepper(container, '줄간격', pt.lineHeight, 0.1, 0, async (v) => { pt.lineHeight = v; await save(); }, 'align-justify');
-		this.plugin.addCompactStepper(container, '문단간격', pt.paragraphSpacing, 0.5, 0, async (v) => { pt.paragraphSpacing = v; await save(); }, 'pilcrow');
-		this.plugin.addCompactStepper(container, '들여쓰기', pt.indentation, 5, 0, async (v) => { pt.indentation = v; await save(); }, 'indent');
+		void this.plugin.addCompactStepper(container, '글자 크기', pt.fontSize, 1, 1, async (v) => { pt.fontSize = v; await save(); }, 'type');
+		void this.plugin.addCompactStepper(container, '줄간격', pt.lineHeight, 0.1, 0, async (v) => { pt.lineHeight = v; await save(); }, 'align-justify');
+		void this.plugin.addCompactStepper(container, '문단간격', pt.paragraphSpacing, 0.5, 0, async (v) => { pt.paragraphSpacing = v; await save(); }, 'pilcrow');
+		void this.plugin.addCompactStepper(container, '들여쓰기', pt.indentation, 5, 0, async (v) => { pt.indentation = v; await save(); }, 'indent');
 
 		this.plugin.addSeparator(container);
 
@@ -246,7 +246,7 @@ export class MobilePreviewFloating {
 		this.buildSingleColorRow(container, '배경색', 'droplet', pt.bgColor, async (v) => { pt.bgColor = v; await save(); });
 	}
 
-	private buildSingleColorRow(container: HTMLElement, label: string, icon: string, value: string, onChange: (v: string) => void) {
+	private buildSingleColorRow(container: HTMLElement, label: string, icon: string, value: string, onChange: (v: string) => void | Promise<void>) {
 		const div = container.createDiv('writing-menu-control');
 		const lg = div.createDiv('writing-menu-control-label-group');
 		const iconSpan = lg.createSpan('writing-menu-icon');
@@ -256,12 +256,12 @@ export class MobilePreviewFloating {
 		const hex = value.startsWith('#') ? value : '#000000';
 		input.value = hex;
 		input.addClass('wm-compact-color-input');
-		input.onchange = (e) => onChange((e.target as HTMLInputElement).value);
+		input.onchange = (e) => { void onChange((e.target as HTMLInputElement).value); };
 	}
 
 	scheduleRefresh(delay = 400) {
 		if (this.refreshTimer) window.window.clearTimeout(this.refreshTimer);
-		this.refreshTimer = window.window.setTimeout(() => this.renderContent(), delay);
+		this.refreshTimer = window.window.setTimeout(() => { void this.renderContent(); }, delay);
 	}
 
 	async renderContent() {
@@ -296,9 +296,9 @@ export class MobilePreviewFloating {
 		await MarkdownRenderer.render(this.plugin.app, content, el, file.path, this.plugin);
 
 		// Double-click: jump to source line in editor
-		el.addEventListener('dblclick', async (e) => {
+		el.addEventListener('dblclick', (e) => { void (async () => {
 			const target = e.target as HTMLElement;
-			const block = target.closest('p, h1, h2, h3, h4, h5, h6, li, blockquote') as HTMLElement | null;
+			const block = target.closest('p, h1, h2, h3, h4, h5, h6, li, blockquote');
 			if (!block) return;
 			const text = block.textContent?.trim() ?? '';
 			if (text.length < 3) return;
@@ -392,7 +392,7 @@ export class MobilePreviewFloating {
 			};
 			jumpToLine();
 			window.setTimeout(jumpToLine, 80);
-		});
+		})(); });
 	}
 
 	close() {
