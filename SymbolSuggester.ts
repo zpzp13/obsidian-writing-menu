@@ -81,7 +81,7 @@ export class SymbolSuggester extends EditorSuggest<any> {
             evt.stopPropagation();
             // Blur to end any active IME composition
             editor.blur();
-            setTimeout(() => {
+            window.setTimeout(() => {
                 editor.focus();
                 doReplace();
             }, 50);

@@ -1,5 +1,5 @@
 import { App, FuzzySuggestModal, TFile, setIcon, MarkdownRenderer, MarkdownView } from 'obsidian';
-import { IWritingMenuPlugin, PreviewTypography } from '../types';
+import { IWritingMenuPlugin } from '../types';
 
 // ─── Mobile Preview Floating Window ──────────────────────────────────────────
 

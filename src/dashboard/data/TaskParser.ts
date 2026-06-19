@@ -138,11 +138,11 @@ export class TaskParser {
 		});
 
 		// 태그 추출
-		const tagRe = /#[a-zA-Z0-9가-힣一-龥_\-\/]+/g;
+		const tagRe = /#[a-zA-Z0-9가-힣一-龥_\-/]+/g;
 		const tags: string[] = [];
 		let tm: RegExpExecArray | null;
 		while ((tm = tagRe.exec(text)) !== null) tags.push(tm[0]);
-		text = text.replace(/#[a-zA-Z0-9가-힣一-龥_\-\/]+/g, '').replace(/\s{2,}/g, ' ');
+		text = text.replace(/#[a-zA-Z0-9가-힣一-龥_\-/]+/g, '').replace(/\s{2,}/g, ' ');
 
 		return { cleanText: text.trim(), meta, tags, completedDate };
 	}

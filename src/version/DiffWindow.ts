@@ -127,12 +127,6 @@ export class DiffWindow {
 		const scroll = container.createDiv({ cls: 'wm-diff-scroll' });
 		const table = scroll.createDiv({ cls: 'wm-diff-table' });
 
-		let equalGroupFlush: (() => void) | null = null;
-
-		const flushEqual = () => {
-			if (equalGroupFlush) { equalGroupFlush(); equalGroupFlush = null; }
-		};
-
 		for (const hunk of hunks) {
 			if (hunk.type === 'equal') {
 				const lines = linesA.slice(hunk.aStart, hunk.aStart + hunk.aLines.length);
