@@ -75,7 +75,7 @@ export class TasksRenderer {
 		const addBtn = header.createDiv({ cls: 'wm-tasks-add-btn' });
 		const addIcon = addBtn.createSpan({ cls: 'wm-tasks-add-icon' });
 		setIcon(addIcon, 'plus');
-		addBtn.createSpan({ cls: 'wm-tasks-add-label', text: '할 일 추가하기' });
+		addBtn.createSpan({ cls: 'wm-tasks-add-label', text: '할 일' });
 		addBtn.addEventListener('click', (e) => {
 			e.stopPropagation();
 			showTaskAddPopup(addBtn, plugin, scheduleReload);

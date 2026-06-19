@@ -30,6 +30,7 @@ export interface PreviewTypography {
 export interface TimeModeConfig {
 	id: string;
 	label: string;
+	icon?: string;
 	frontmatterKey: string;
 	goalSeconds: number;
 }
@@ -89,17 +90,17 @@ export interface WritingMenuSettings {
 	versionStoragePath: string;
 	versionMaxCount: number;
 	versionStages: { name: string; color: string }[];
-	calendarHeatmapSource: 'files' | 'daily-notes' | 'time' | 'tasks';
-	heatmapColor: string;
-	heatmapFolder: string;
-	heatmapLevels: [number, number, number, number];
+	trackingFolder: string;
 	dailyNotesFolder: string;
 	dailyNotesFormat: string;
 	taskAddHeader: string;
 	writingGoalChars: number;
+	dailyCharCountKey: string;
 	timeModes: TimeModeConfig[];
 	timeTotalKey: string;
 	timeAvgFolderLevel: number;
+	timeExcludeFolders?: string[];
+	timeCardPalette?: 'accent' | 'solid' | 'pastel' | 'mono';
 	// 마이그레이션용 (deprecated)
 	timeKeys?: { draft: string; writing: string; editing: string; total: string };
 	timeGoals?: { draft: number; writing: number; editing: number };
@@ -136,6 +137,13 @@ export interface WritingMenuSettings {
 	wikiStripCollapsedDefault: boolean;
 	wikiLastFilePath: string;
 	wikiLastFolderPath: string;
+	calendarPreviewItems: {
+		tasks: boolean;
+		charCount: boolean;
+		avgCharCount: boolean;
+		timeModes: boolean;
+		totalTime: boolean;
+	};
 }
 
 export interface DashSectionConfig {
@@ -232,21 +240,20 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 		bgColor: 'var(--background-primary)',
 		textColor: 'var(--text-normal)',
 	},
-	calendarHeatmapSource: 'files',
-	heatmapColor: '#4f9cf9',
-	heatmapFolder: '',
-	heatmapLevels: [2000, 4000, 6000, 8000],
+	trackingFolder: '',
 	dailyNotesFolder: '',
 	dailyNotesFormat: 'YYYY-MM-DD',
 	taskAddHeader: '할 일',
 	writingGoalChars: 0,
+	dailyCharCountKey: '글자수',
 	timeModes: [
-		{ id: 'draft',   label: '초고', frontmatterKey: '초고_시간', goalSeconds: 7200 },
-		{ id: 'writing', label: '집필', frontmatterKey: '집필_시간', goalSeconds: 7200 },
-		{ id: 'editing', label: '퇴고', frontmatterKey: '퇴고_시간', goalSeconds: 7200 },
+		{ id: 'draft',   label: '기획', icon: 'lightbulb',   frontmatterKey: '초고_시간', goalSeconds: 7200 },
+		{ id: 'writing', label: '초고', icon: 'pencil',       frontmatterKey: '집필_시간', goalSeconds: 7200 },
+		{ id: 'editing', label: '퇴고', icon: 'spell-check',  frontmatterKey: '퇴고_시간', goalSeconds: 7200 },
 	],
 	timeTotalKey: '총_시간',
 	timeAvgFolderLevel: 0,
+	timeExcludeFolders: [],
 	dashboardSections: [
 		{ id: 'chars',  label: '글자수',   visible: true },
 		{ id: 'time',   label: '작업시간', visible: true },
@@ -283,6 +290,13 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	wikiStripCollapsedDefault: false,
 	wikiLastFilePath: '',
 	wikiLastFolderPath: '',
+	calendarPreviewItems: {
+		tasks: true,
+		charCount: true,
+		avgCharCount: true,
+		timeModes: true,
+		totalTime: true,
+	},
 };
 import type { Component } from 'obsidian';
 

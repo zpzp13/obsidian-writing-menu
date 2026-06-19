@@ -1,4 +1,5 @@
 import { ItemView, WorkspaceLeaf, setIcon, TFile, Notice } from 'obsidian';
+import { showDayPreview, removeDayPreview } from '../components/DayPreviewPopup';
 import type WritingMenuPlugin from '../../../main';
 import { DashboardSection } from '../../dashboard/DashboardSection';
 import { TaskParser } from '../../dashboard/data/TaskParser';
@@ -24,7 +25,7 @@ const TABS: Array<{ id: DashTab; icon: string; label: string }> = [
 	{ id: 'tasks',   icon: 'list-todo',         label: '할 일' },
 	{ id: 'chars',   icon: 'square-chart-gantt', label: '글자수' },
 	{ id: 'time',    icon: 'clock-fading',      label: '작업시간' },
-	{ id: 'wiki',    icon: 'git-graph',         label: '옵시위키' },
+	{ id: 'wiki',    icon: 'git-graph',         label: '위키' },
 	{ id: 'version', icon: 'history',           label: '버전관리' },
 ];
 
@@ -103,6 +104,8 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 					onDateChange:  (d) => { this.selectedDate = d; this.updateDateDisplay(); },
 					onMonthChange: (m) => this.monthScroller?.sync(m),
 					openDailyNote: (d) => this.openOrCreateDailyNote(d),
+					onHover:    (d, el) => showDayPreview(el, d, this.plugin),
+					onHoverEnd: ()     => removeDayPreview(),
 				});
 			} else {
 				this.renderFullGrid(wrap);
@@ -243,6 +246,11 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 			if (isCurr)    cell.dataset.datekey = formatDateKey(d);
 
 			cell.createDiv({ cls: 'wm-cal-num', text: String(d.getDate()) });
+
+			if (isCurr) {
+				cell.addEventListener('mouseenter', () => showDayPreview(cell, new Date(d.getFullYear(), d.getMonth(), d.getDate()), this.plugin));
+				cell.addEventListener('mouseleave', () => removeDayPreview());
+			}
 
 			cell.addEventListener('click', (e) => {
 				if (e.ctrlKey || e.metaKey) {

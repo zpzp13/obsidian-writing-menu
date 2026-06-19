@@ -40,6 +40,11 @@
 .wm-settings-group-box .setting-item { background: transparent !important; border-radius: 0 !important; border-top: 1px solid var(--background-modifier-border) !important; border-bottom: none !important; padding-top: 14px !important; padding-bottom: 14px !important; margin: 0 !important; }
 .wm-settings-group-box .setting-item:first-child { border-top: none !important; }
 .wm-settings-group-box .setting-item-description { display: none !important; }
+.wm-settings-group-box .setting-item select {
+    background: var(--background-secondary, var(--background-primary));
+    color: var(--text-normal);
+    border-color: var(--background-modifier-border);
+}
 
 /* ── Settings Navigation Cards (standalone, outside group box) ── */
 .wm-settings-nav-card { display: flex; align-items: center; padding: 14px 16px; cursor: pointer; border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m, 8px); background: var(--background-primary); margin-bottom: 8px; gap: 14px; transition: background 0.1s, border-color 0.1s; }
@@ -55,6 +60,7 @@
 /* ── Settings Group Title ── */
 .wm-settings-group-title { font-size: 13px; font-weight: 600; color: var(--text-muted); letter-spacing: 0; margin: 20px 0 8px 4px; }
 .wm-settings-group-title:first-child { margin-top: 4px; }
+.wm-settings-subgroup-title { font-size: 12px; font-weight: 600; color: var(--text-muted); margin: 12px 0 4px 8px; opacity: 0.75; }
 
 /* ── Settings Sub-page Back Button ── */
 .wm-settings-back-btn { display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text-muted); font-size: 14px; font-weight: 600; margin-bottom: 16px; padding: 4px 0; }
@@ -953,8 +959,8 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     padding: 6px 4px 4px;
 }
 .wm-dash-tab-btn {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -963,7 +969,7 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     color: var(--text-muted);
     flex-shrink: 0;
 }
-.wm-dash-tab-btn svg { width: 16px; height: 16px; }
+.wm-dash-tab-btn svg { width: 18px; height: 18px; }
 .wm-dash-tab-btn:hover {
     background: var(--background-modifier-hover);
     color: var(--text-normal);
@@ -1182,7 +1188,7 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 }
 .wm-dash-group-hdr:hover .wm-dash-group-label { color: var(--text-normal); }
 .wm-dash-group-label {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: var(--font-semibold, 600);
     color: var(--text-muted);
     text-transform: uppercase;
@@ -1199,7 +1205,7 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 }
 .wm-dash-group-hdr:hover .wm-dash-group-cog { opacity: 0.55; }
 .wm-dash-group-cog:hover { opacity: 1 !important; background: var(--background-modifier-hover); }
-.wm-dash-group-cog svg { width: 13px; height: 13px; }
+.wm-dash-group-cog svg { width: 14px; height: 14px; }
 /* Group body: no extra wrapper padding — items carry their own horizontal padding */
 .wm-dash-group-body { }
 .wm-dash-group-body.is-collapsed { display: none; }
@@ -1234,17 +1240,19 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     grid-row: 1 / 3;
     padding: 0;
     gap: 4px;   /* 외부 grid gap과 동일 → top/bot이 목표/일평균 카드 높이와 매핑 */
+    background: transparent;
 }
 /* 상단 영역: TODAY 좌측 상단 + 숫자 좌측 센터 */
 .wm-dash-today-top {
     flex: 1;
     display: flex;
     flex-direction: column;
-    padding: 10px 12px 0;
+    padding: 0 12px 15px;
     gap: 6px;
+    background: color-mix(in srgb, color-mix(in srgb, var(--interactive-accent) 15%, var(--background-primary)) 80%, transparent);
 }
 .wm-dash-today-label {
-    font-size: 28px;
+    font-size: 36px;
     font-weight: 600;
     color: var(--text-muted);
     text-align: left;
@@ -1259,15 +1267,15 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 .wm-dash-today-num-row {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     flex: 0 0 auto;
 }
 .wm-dash-today-num-stack .wm-dash-stat-num { font-size: 16px; }
 .wm-dash-platform-logo {
     display: inline-flex;
     align-items: center;
-    width: 20px;
-    height: 20px;
+    width: 25px;
+    height: 25px;
     flex-shrink: 0;
 }
 .wm-dash-platform-logo svg {
@@ -1285,15 +1293,27 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     flex: 1;
     display: flex;
     align-items: center;
-    justify-content: flex-start;
-    padding: 8px 12px 10px;
+    justify-content: flex-end;
+    padding: 0 4px;
 }
 .wm-dash-today-remain {
-    font-size: 13px;
+    font-size: 14px;
     color: var(--text-faint);
-    text-align: left;
+    text-align: right;
     line-height: 1.4;
 }
+/* 목표 달성 glow pulse */
+@keyframes wm-goal-glow {
+    0%, 100% { text-shadow: 0 0 4px rgba(3, 199, 90, 0.3); }
+    50%       { text-shadow: 0 0 10px rgba(3, 199, 90, 0.5), 0 0 20px rgba(3, 199, 90, 0.3); }
+}
+.wm-dash-today-remain.is-achieved {
+    color: color-mix(in srgb, #03C75A 60%, var(--text-muted));
+    font-weight: 600;
+    text-align: right;
+    animation: wm-goal-glow 2s ease-in-out infinite;
+}
+
 /* N자 — 테마 강조색 하이라이트 */
 .wm-dash-today-remain-num {
     color: var(--interactive-accent);
@@ -1302,21 +1322,53 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     padding: 0 3px;
 }
 
-/* ── 목표/일평균 카드: 숫자 위, 레이블 아래, 우측 정렬 ── */
+/* ── 목표/일평균 카드: 숫자 위, 레이블 아래, 좌측 정렬 ── */
 .wm-dash-stat-row {
     display: flex;
     flex-direction: column-reverse;
-    align-items: flex-end;
-    gap: 2px;
+    align-items: flex-start;
+    gap: 4px;
     width: 100%;
 }
-.wm-dash-stat-lbl {
-    font-size: 11px;
+.wm-dash-stat-card .wm-dash-stat-lbl {
+    font-size: 14px;
     color: var(--text-muted);
     letter-spacing: 0.02em;
 }
 
-/* ── 그라데이션 숫자 ── */
+/* ── 목표 카드 ── */
+.wm-dash-stat-card.is-goal {
+    background: transparent;
+    border: 2px solid color-mix(in srgb, var(--interactive-accent) 40%, transparent);
+    border-radius: 0;
+}
+.wm-dash-stat-card.is-goal .wm-dash-stat-row { align-items: center; }
+.wm-dash-stat-card.is-goal .wm-dash-stat-lbl { color: var(--text-faint); }
+.wm-dash-stat-card.is-goal .wm-dash-stat-num {
+    background: none;
+    -webkit-background-clip: unset;
+    -webkit-text-fill-color: var(--interactive-accent);
+    background-clip: unset;
+    color: var(--interactive-accent);
+}
+
+/* ── 일평균 카드 ── */
+.wm-dash-stat-card.is-avg {
+    background: radial-gradient(circle at top right, color-mix(in srgb, var(--interactive-accent) 18%, transparent) 0%, transparent 70%);
+    border: none;
+    border-radius: 0;
+}
+.wm-dash-stat-card.is-avg .wm-dash-stat-row { align-items: center; }
+.wm-dash-stat-card.is-avg .wm-dash-stat-lbl { color: var(--text-faint); }
+.wm-dash-stat-card.is-avg .wm-dash-stat-num {
+    background: none;
+    -webkit-background-clip: unset;
+    -webkit-text-fill-color: var(--interactive-accent);
+    background-clip: unset;
+    color: var(--interactive-accent);
+}
+
+/* ── 그라데이션 숫자 (TODAY 카드) ── */
 .wm-dash-stat-num {
     font-weight: 700;
     font-size: 18px;
@@ -1333,6 +1385,7 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     background-clip: text;
 }
 .wm-dash-today-num.wm-dash-stat-num { font-size: 20px; line-height: 1; }
+.wm-dash-today-sum.wm-dash-stat-num { font-size: 22px; line-height: 1; }
 
 /* 설정 아이콘: 목표 카드 좌측 하단, 호버 시 표시 */
 .wm-dash-stat-cog {
@@ -1484,6 +1537,58 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 .wm-hm-popup-count { color: var(--interactive-accent); font-variant-numeric: tabular-nums; }
 .wm-hm-popup-empty { opacity: 0.55; }
 
+/* ── Day Preview Popup ── */
+.wm-day-preview { min-width: 220px; max-width: 280px; padding: 6px 0; }
+.wm-day-preview-header { font-size: var(--font-ui-small); font-weight: 600; color: var(--text-normal); padding: 4px 12px 6px; }
+.wm-day-preview-body { display: flex; flex-direction: column; }
+.wm-day-preview-section-label { display: flex; align-items: center; gap: 5px; font-size: var(--font-ui-smaller); color: var(--text-muted); opacity: 0.65; padding: 5px 12px 2px; user-select: none; }
+.wm-day-preview-section-icon { display: flex; align-items: center; flex-shrink: 0; }
+.wm-day-preview-section-icon svg { width: 11px; height: 11px; }
+.wm-day-preview-loading { font-size: var(--font-ui-small); color: var(--text-faint); padding: 6px 12px; }
+.wm-day-preview-empty { font-size: var(--font-ui-small); color: var(--text-faint); padding: 3px 12px 5px; }
+.wm-day-preview-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 12px; font-size: var(--font-ui-small); }
+.wm-day-preview-row.is-total {
+    background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+    border-radius: 4px;
+    margin-top: 2px;
+}
+.wm-day-preview-lbl { color: var(--text-muted); }
+.wm-day-preview-val { color: var(--text-normal); font-variant-numeric: tabular-nums; }
+/* 할 일 태스크 행 */
+.wm-day-preview-task-row { display: flex; align-items: center; gap: 6px; padding: 3px 10px 3px 12px; font-size: var(--font-ui-small); }
+.wm-day-preview-task-badge {
+    font-size: 10px; font-weight: 600; line-height: 1;
+    min-width: 26px; height: 15px;
+    border-radius: 4px; padding: 0 4px; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+}
+.wm-day-preview-task-badge.is-today   { background: color-mix(in srgb, var(--color-blue)  15%, transparent); color: var(--color-blue); }
+.wm-day-preview-task-badge.is-upcoming{ background: color-mix(in srgb, var(--color-green) 15%, transparent); color: var(--color-green); }
+.wm-day-preview-task-badge.is-overdue { background: color-mix(in srgb, var(--color-red)   15%, transparent); color: var(--color-red); }
+.wm-day-preview-task-text { flex: 1; color: var(--text-normal); line-height: 1.4; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wm-day-preview-task-text.is-done { text-decoration: line-through; color: var(--text-faint); }
+/* 네모 체크박스 */
+.wm-day-preview-task-check {
+    flex-shrink: 0;
+    width: 13px; height: 13px;
+    border-radius: 3px;
+    border: 1.5px solid var(--text-muted);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: transparent;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    background: transparent;
+}
+.wm-day-preview-task-check svg { width: 9px; height: 9px; stroke-width: 3; }
+.wm-day-preview-task-check:hover:not(.is-done) { border-color: var(--interactive-accent); }
+.wm-day-preview-task-check.is-done {
+    background: var(--interactive-accent);
+    border-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+}
+/* 얇은 구분선 (작업시간 내부) */
+.wm-day-preview-sep-thin { opacity: 0.5; margin: 2px 2px; }
+
 /* (old stats row removed — replaced by .wm-dash-stats-card) */
 
 /* ── Tasks section ── */
@@ -1503,14 +1608,14 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     gap: 2px;
     align-items: flex-start;
 }
-.wm-tasks-title { font-size: 16px; font-weight: 700; color: #5C5C5C; }
-.wm-tasks-date  { font-size: 12px; color: var(--text-muted); font-weight: 400; }
+.wm-tasks-title { font-size: 18px; font-weight: 700; color: #5C5C5C; }
+.wm-tasks-date  { font-size: 13px; color: var(--text-muted); font-weight: 400; }
 /* "할 일 추가하기" 라운드 버튼 */
 .wm-tasks-add-btn {
     display: flex;
     align-items: center;
     gap: 4px;
-    font-size: 12px;
+    font-size: 13px;
     padding: 10px 14px;
     border-radius: 12px;
     cursor: pointer;
@@ -1523,14 +1628,14 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     background: color-mix(in srgb, var(--interactive-accent) 22%, var(--background-primary));
 }
 .wm-tasks-add-icon { display: flex; align-items: center; }
-.wm-tasks-add-icon svg { width: 12px; height: 12px; }
+.wm-tasks-add-icon svg { width: 14px; height: 14px; }
 
 /* ── 섹션 헤더 ── */
 .wm-tasks-section + .wm-tasks-section { margin-top: 4px; }
 .wm-tasks-section-header {
     display: flex;
     align-items: center;
-    padding: 10px 32px;
+    padding: 12px 32px;
 }
 .wm-tasks-section-header-left {
     display: flex;
@@ -1542,18 +1647,18 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     min-width: 0;
 }
 .wm-tasks-section-toggle { display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform 0.2s; }
-.wm-tasks-section-toggle svg { width: 14px; height: 14px; color: var(--text-muted); }
+.wm-tasks-section-toggle svg { width: 16px; height: 16px; color: var(--text-muted); }
 .wm-tasks-section.is-collapsed .wm-tasks-section-toggle { transform: rotate(-90deg); }
 .wm-tasks-section-icon { display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.wm-tasks-section-icon svg { width: 14px; height: 14px; color: var(--text-muted); }
-.wm-tasks-section-label { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.wm-tasks-section-icon svg { width: 16px; height: 16px; color: var(--text-muted); }
+.wm-tasks-section-label { font-size: 14px; font-weight: 600; color: var(--text-muted); }
 .wm-tasks-section[data-cat="today"]    { --section-color: var(--color-blue); }
 .wm-tasks-section[data-cat="upcoming"] { --section-color: var(--color-green); }
 .wm-tasks-section[data-cat="overdue"]  { --section-color: var(--color-red); }
 .wm-tasks-section-count {
-    font-size: 10px;
-    min-width: 16px;
-    height: 16px;
+    font-size: 11px;
+    min-width: 18px;
+    height: 18px;
     border-radius: 5px;
     padding: 0 4px;
     display: inline-flex;
@@ -1609,16 +1714,16 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     padding: 2px 0;
 }
 .wm-task-sub-check {
-    width: 11px; height: 11px; flex-shrink: 0; margin-top: 1.8px;
+    width: 13px; height: 13px; flex-shrink: 0; margin-top: 1.8px;
     border-radius: 4px; border: 1.5px solid var(--text-muted);
     cursor: pointer; display: flex; align-items: center; justify-content: center;
     color: transparent;
     transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
-.wm-task-sub-check svg { width: 7px; height: 7px; }
+.wm-task-sub-check svg { width: 8px; height: 8px; }
 .wm-task-sub-check:hover:not(.is-done) { border-color: var(--interactive-accent); color: var(--interactive-accent); }
 .wm-task-sub-check.is-done { background: var(--interactive-accent); border-color: var(--interactive-accent); color: var(--text-on-accent); }
-.wm-task-sub-text { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+.wm-task-sub-text { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
 .wm-task-sub-item.is-done .wm-task-sub-text { text-decoration: line-through; color: var(--text-faint); }
 .wm-task-item-content {
     flex: 1;
@@ -1627,7 +1732,7 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     border-bottom: 1px solid var(--background-modifier-border);
 }
 .wm-task-item-title {
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     color: var(--text-muted);
     white-space: nowrap;
@@ -1655,7 +1760,7 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 .wm-task-item-meta { display: flex; align-items: center; justify-content: space-between; }
 .wm-task-item-meta-left { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; flex: 1; min-width: 0; }
 .wm-task-item-tag {
-    font-size: 11px; padding: 2px 6px; border-radius: 10px;
+    font-size: 12px; padding: 2px 6px; border-radius: 10px;
     background: color-mix(in srgb, var(--interactive-accent) 10%, transparent);
     color: var(--interactive-accent);
     flex-shrink: 0; white-space: nowrap;
@@ -1669,7 +1774,7 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 }
 .wm-tasks-section-filter-btn:hover,
 .wm-tasks-section-filter-btn.is-active { color: var(--interactive-accent); }
-.wm-tasks-section-filter-btn svg { width: 13px; height: 13px; }
+.wm-tasks-section-filter-btn svg { width: 15px; height: 15px; }
 
 /* ── 우선순위 flag 버튼 ── */
 .wm-task-item-flag-btn {
@@ -1677,7 +1782,7 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     opacity: 0.45; transition: opacity 0.15s; flex-shrink: 0;
 }
 .wm-task-item-flag-btn:hover { opacity: 1; }
-.wm-task-item-flag-icon svg { width: 11px; height: 11px; }
+.wm-task-item-flag-icon svg { width: 13px; height: 13px; }
 .wm-task-priority-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
 
 /* 할 일 추가 팝업 */
@@ -1812,7 +1917,7 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 /* 헤더 */
 .wm-dash-music-header { display: flex; align-items: center; gap: 4px; }
 .wm-dash-music-list-btn { color: var(--interactive-accent); }
-.wm-dash-music-folder { flex: 1; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-faint); padding: 0 4px; }
+.wm-dash-music-folder { flex: 1; font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-faint); padding: 0 4px; }
 .wm-dash-music-mode-btn { flex-shrink: 0; }
 
 /* 앨범아트 스트립 */
@@ -1962,11 +2067,11 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 
 /* ── 집필 시간 섹션 ── */
 .wm-wt-card {
-    margin: 0 10px;
+    margin: 0 4px;
     background: transparent;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
 }
 .wm-wt-empty {
     font-size: 11px;
@@ -1984,131 +2089,174 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     border-radius: 4px;
 }
 
-/* 모드 행: 히트맵 고정 블록 */
-.wm-wt-mode-row {
-    display: block;
+/* ── 모드 카드 그리드: 190px 고정 열 auto-fill, 전체 중앙 정렬 ── */
+.wm-wt-mode-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 6px;
+    max-width: calc(3 * 120px + 2 * 6px);
+    width: 100%;
+    margin: 0 auto;
 }
-.wm-wt-mode-row[data-mode="draft"]   { --mode-color: oklch(from var(--interactive-accent) 0.88 0.09 h); }
-.wm-wt-mode-row[data-mode="writing"] { --mode-color: oklch(from var(--interactive-accent) 0.88 0.09 calc(h + 120)); }
-.wm-wt-mode-row[data-mode="editing"] { --mode-color: oklch(from var(--interactive-accent) 0.88 0.09 calc(h + 240)); }
 
-.wm-wt-mode {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
+/* ── 개별 모드 카드 ── */
+.wm-wt-mode-card {
+    min-height: 90px;
+    background: transparent;
+    border: 2px solid color-mix(in srgb, var(--interactive-accent) 15%, transparent);
+    border-radius: 9px;
     cursor: pointer;
-    width: max-content;
-}
-
-/* 비교 타일 블록 (hmArea 내부, 히트맵 우측) */
-.wm-wt-stat-block {
-    --hm-color: var(--mode-color);
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    gap: 3px;
-    padding: 0 10px;
+    padding: 4px 4px 0;
+    transition: opacity 0.12s;
 }
-.wm-wt-cmp-row {
+.wm-wt-mode-card:hover { opacity: 0.85; }
+.wm-wt-mode-card.is-selected {
+    border-color: var(--interactive-accent);
+}
+
+/* ── 팔레트 색상 (flat 단색, 뱃지 배경 수준의 옅은 파스텔) ── */
+
+/* ── 모드 카드 칩 색상: 디폴트 강조색 기반 단계별 농도 ── */
+/* 1번(옅음) → 6번(진함), 히트맵 레벨과 동일한 방식 */
+.wm-wt-mode-card:nth-child(1) { --wm-mc-bg: color-mix(in srgb, var(--interactive-accent) 15%, var(--background-primary)); --wm-mc-text: var(--text-accent); }
+.wm-wt-mode-card:nth-child(2) { --wm-mc-bg: color-mix(in srgb, var(--interactive-accent) 30%, var(--background-primary)); --wm-mc-text: var(--text-accent); }
+.wm-wt-mode-card:nth-child(3) { --wm-mc-bg: color-mix(in srgb, var(--interactive-accent) 47%, var(--background-primary)); --wm-mc-text: var(--text-accent); }
+.wm-wt-mode-card:nth-child(4) { --wm-mc-bg: color-mix(in srgb, var(--interactive-accent) 63%, var(--background-primary)); --wm-mc-text: oklch(from var(--interactive-accent) 0.9 calc(c * 0.45) h); }
+.wm-wt-mode-card:nth-child(5) { --wm-mc-bg: color-mix(in srgb, var(--interactive-accent) 80%, var(--background-primary)); --wm-mc-text: oklch(from var(--interactive-accent) 0.9 calc(c * 0.45) h); }
+.wm-wt-mode-card:nth-child(6) { --wm-mc-bg: var(--interactive-accent);                                                    --wm-mc-text: oklch(from var(--interactive-accent) 0.9 calc(c * 0.45) h); }
+
+/* ── 칩 헤더 (아이콘 + 모드명) ── */
+.wm-wt-mc-chip-wrap {
     display: flex;
     align-items: center;
     gap: 4px;
-}
-.wm-wt-cmp-op {
-    color: var(--text-faint);
+    padding: 5px 6px;
+    border-radius: 5px;
+    background: color-mix(in srgb, color-mix(in srgb, var(--interactive-accent) 15%, var(--background-primary)) 80%, transparent);
+    color: var(--wm-mc-text, var(--text-on-accent));
     flex-shrink: 0;
-    width: 11px;
+}
+.wm-wt-mc-chip-icon {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+.wm-wt-mc-chip-icon svg { width: 18px; height: 18px; }
+.wm-wt-mc-chip-label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── 카드 바디 ── */
+.wm-wt-mc-body {
+    padding: 6px 6px 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+}
+
+/* ── 시간 표시 ── */
+.wm-wt-mc-time {
+    font-size: 14px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── 비교 배지 영역 ── */
+.wm-wt-mc-comparisons {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.wm-wt-mc-cmp-row {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
+    gap: 4px;
 }
-.wm-wt-cmp-op svg { width: 11px; height: 11px; }
-.wm-wt-cmp-diff {
+.wm-wt-mc-cmp-lbl {
     font-size: 11px;
+    color: var(--text-faint);
+    font-weight: 400;
+    flex-shrink: 0;
+}
+/* 배지: Obsidian 태그 스타일 */
+.wm-wt-mc-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 10px;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
+    padding: 1px 4px;
+    border-radius: 4px;
     white-space: nowrap;
-    flex: 1;
-    text-align: right;
+    line-height: 1.6;
+}
+.wm-wt-mc-badge.is-neutral {
     color: var(--text-faint);
+    background: color-mix(in srgb, var(--text-faint) 10%, transparent);
 }
-.wm-wt-cmp-diff.is-above { color: var(--color-red); }
-.wm-wt-cmp-diff.is-below { color: var(--color-green); }
-
-/* 비교 타일 */
-.wm-wt-tile {
-    width: 11px; height: 11px;
-    border-radius: 3px;
+.wm-wt-mc-badge.is-above {
+    color: var(--color-green);
+    background: color-mix(in srgb, var(--color-green) 14%, transparent);
+}
+.wm-wt-mc-badge.is-below {
+    color: var(--color-red);
+    background: color-mix(in srgb, var(--color-red) 14%, transparent);
+}
+.wm-wt-badge-icon {
+    display: inline-flex;
+    align-items: center;
     flex-shrink: 0;
-    background: rgba(128, 128, 128, 0.15);
 }
-.wm-wt-tile.level-1 { background: color-mix(in srgb, var(--hm-color, var(--interactive-accent)) 18%, transparent); }
-.wm-wt-tile.level-2 { background: color-mix(in srgb, var(--hm-color, var(--interactive-accent)) 45%, transparent); }
-.wm-wt-tile.level-3 { background: color-mix(in srgb, var(--hm-color, var(--interactive-accent)) 75%, transparent); }
-.wm-wt-tile.level-4 { background: var(--hm-color, var(--interactive-accent)); }
-.wm-wt-tile-goal { background: oklch(0.82 0.10 138) !important; }
-.wm-wt-tile-avg  { background: oklch(0.78 0.11 28)  !important; }
+.wm-wt-badge-icon svg { width: 9px; height: 9px; }
 
-/* 헤더: label(좌) | val(우), 히트맵 위 */
-.wm-wt-mode-header {
+/* ── 작업 시간 목표/일평균 통합 카드 ── */
+.wm-wt-stat-combined {
+    cursor: default;
+}
+.wm-wt-stat-combined .wm-wt-mc-chip-wrap {
+    color: var(--text-accent);
+}
+.wm-wt-stat-combined .wm-wt-mc-body {
     display: flex;
-    align-items: baseline;
-    gap: 177px;
+    flex-direction: column;
+    gap: 8px;
 }
-.wm-wt-lbl {
-    width: 28px;
-    flex-shrink: 0;
-    text-align: center;
-    font-size: 11px;
-    color: var(--text-muted);
-    letter-spacing: 0.02em;
-}
-.wm-wt-val {
-    flex: none;
-    font-size: 11px;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-    color: var(--text-muted);
-}
-
-/* 히트맵 + 진행 2×2 가로 배열 */
-.wm-wt-hm-area {
+.wm-wt-sc-col {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 3px;
+    overflow: hidden;
 }
-
-/* 작업시간 히트맵: 모드 색상 연동 */
-.wm-wt-heatmap { --hm-color: var(--mode-color); }
-
-/* 2행 × 15열, column-first */
-.wm-wt-heatmap {
-    display: grid;
-    grid-template-rows: repeat(2, 13px);
-    grid-auto-flow: column;
-    gap: 2px;
+.wm-wt-sc-col .wm-wt-mc-time {
+    flex: 1;
+    min-width: 0;
+}
+.wm-wt-sc-badge-goal {
+    color: var(--color-purple);
+    background: color-mix(in srgb, var(--color-purple) 14%, transparent);
     flex-shrink: 0;
 }
-
-/* 평균/목표 마커 */
-.wm-wt-heatmap .wm-wt-cell-avg  { background: oklch(0.78 0.11 28)  !important; }
-.wm-wt-heatmap .wm-wt-cell-goal { background: oklch(0.82 0.10 138) !important; }
-
-/* ── 모드 선택 버튼: 2×2 정적 버튼 (좌측 배치) ── */
-.wm-wt-jinhaeng-grid {
-    display: grid;
-    grid-template-rows: repeat(2, 13px);
-    grid-auto-flow: column;
-    gap: 2px;
+.wm-wt-sc-badge-avg {
+    color: var(--color-yellow);
+    background: color-mix(in srgb, var(--color-yellow) 14%, transparent);
     flex-shrink: 0;
-}
-.wm-wt-jinhaeng-cell {
-    width: 13px;
-    height: 13px;
-    border-radius: 3px;
-    background: var(--mode-color, oklch(0.90 0.12 85));
-    opacity: 0.15;
-    transition: opacity 0.15s ease;
 }
 
 /* ObsiWiki Sidebar Styles - v6.11 (Refined Borders, Center Alignment) */
@@ -3220,8 +3368,8 @@ button[aria-label="규칙 추가"] {
 }
 .wiki-empty-state:hover { opacity: 0.9; }
 .wiki-empty-icon .svg-icon { width: 28px; height: 28px; color: var(--text-muted); }
-.wiki-empty-text { font-size: 13px; font-weight: 600; color: var(--text-muted); }
-.wiki-empty-sub { font-size: 11px; color: var(--text-faint); text-align: center; }
+.wiki-empty-text { font-size: 14px; font-weight: 600; color: var(--text-muted); }
+.wiki-empty-sub { font-size: 12px; color: var(--text-faint); text-align: center; }
 
 /* ── 인포 행 (TOC 좌측 + 프로필 우측) ── */
 .wiki-info-row {
@@ -3247,7 +3395,7 @@ button[aria-label="규칙 추가"] {
     border-radius: 0;
     padding: 4px 6px 15px !important;
     margin-bottom: 0;
-    font-size: 12px !important;
+    font-size: 13px !important;
     overflow: hidden;
 }
 /* 타이틀 행: 목차 라벨 + 접기 아이콘 */
@@ -3424,7 +3572,7 @@ button[aria-label="규칙 추가"] {
 .wiki-prop-tags .tag:hover { opacity: 0.8; }
 
 /* ── 본문 ── */
-.obsiwiki-rendered-body { font-size: 13px; line-height: 1.65; }
+.obsiwiki-rendered-body { font-size: 15px; line-height: 1.65; }
 .obsiwiki-rendered-body p { text-align: justify; }
 .obsiwiki-rendered-body h1 { font-size: 1.3em; color: var(--text-normal) !important; }
 .obsiwiki-rendered-body h2 { font-size: 1.15em; color: var(--text-normal) !important; }
@@ -3436,7 +3584,7 @@ button[aria-label="규칙 추가"] {
 .obsiwiki-rendered-body a.internal-link:hover { text-decoration: underline; }
 .obsiwiki-rendered-body .heading-collapse-indicator,
 .obsiwiki-rendered-body a.heading-link { display: none !important; }
-.obsiwiki-rendered-body table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 12.5px; }
+.obsiwiki-rendered-body table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 14.5px; }
 .obsiwiki-rendered-body th,
 .obsiwiki-rendered-body td { border: 1px solid var(--background-modifier-border); padding: 5px 10px; text-align: left; }
 .obsiwiki-rendered-body th { background: var(--background-secondary); font-weight: 600; color: var(--text-normal); }
@@ -3596,6 +3744,7 @@ button[aria-label="규칙 추가"] {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    align-self: center;
 }
 
 /* ── 폴더/노트 선택 팝업 lucide 아이콘 ── */

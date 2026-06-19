@@ -778,12 +778,13 @@ export class WikiPanel {
 
 		// 속성 (div 기반)
 		const props = pCon.createDiv({ cls: 'wiki-props' });
-		const timeKeyValues = Object.values(this.plugin.settings.timeKeys || {});
+		const timeFmKeys = (this.plugin.settings.timeModes ?? []).map(m => m.frontmatterKey);
 		const excluded = [
 			this.plugin.settings.wikiImageFieldName,
 			this.plugin.settings.wikiNameFieldName,
+			this.plugin.settings.timeTotalKey ?? '총_시간',
 			'wikiColor', 'position', 'cssclasses',
-			...timeKeyValues,
+			...timeFmKeys,
 		];
 		const coloredProps = (this.plugin.settings.wikiColoredProperties || '').split(',').map(s => s.trim()).filter(Boolean);
 

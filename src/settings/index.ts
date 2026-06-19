@@ -42,13 +42,14 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			case 'typography':       this.renderTypographyPage(containerEl); break;
 			case 'input':            this.renderInputPage(containerEl); break;
 			case 'copy-export':      this.renderCopyExportPage(containerEl); break;
-			case 'time':             this.renderTimePage(containerEl); break;
+			case 'writing-stats':    this.renderWritingStatsPage(containerEl); break;
+			case 'time':             this.renderWritingStatsPage(containerEl); break;
+			case 'calendar-chars':   this.renderWritingStatsPage(containerEl); break;
 			case 'dictionary':       this.renderDictionaryPage(containerEl); break;
 			case 'version-control':  this.renderVersionPage(containerEl); break;
 			case 'stopwatch':         this.renderStopwatchPage(containerEl); break;
 			case 'music':             this.renderMusicPage(containerEl); break;
 			case 'calendar':         this.renderCalendarPage(containerEl); break;
-			case 'calendar-chars':   this.renderCalendarCharsPage(containerEl); break;
 			case 'wiki':             this.renderWikiPage(containerEl); break;
 		}
 	}
@@ -88,17 +89,16 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 	private renderMainPage(containerEl: HTMLElement) {
 		this.addGroupTitle(containerEl, '편집기');
 		const editorBox = this.createGroupBox(containerEl);
-		this.addNavCard(editorBox, '타이포그래피', 'H1, 각주 글꼴 · 크기 · 행간 · 색상', 'type', 'typography');
-		this.addNavCard(editorBox, '입력 보조', '자동완성 기호, 텍스트 치환', 'keyboard', 'input');
+		this.addNavCard(editorBox, '서식', '글꼴 · 크기 · 행간 · 색상 · 헤딩 · 각주', 'type', 'typography');
+		this.addNavCard(editorBox, '입력 보조', '스마트 입력, 자동완성 기호, 텍스트 치환', 'keyboard', 'input');
 		this.addNavCard(editorBox, '복사 및 내보내기', '복사 옵션, TXT · HWP 내보내기', 'file-output', 'copy-export');
 
 		this.addGroupTitle(containerEl, '대시보드');
 		const calBox = this.createGroupBox(containerEl);
-		this.addNavCard(calBox, '캘린더 & 일정 관리', '히트맵 기준, 할 일 헤더 설정', 'calendar', 'calendar');
-		this.addNavCard(calBox, '글자수', '추적 폴더, 목표 글자수, 히트맵 색상', 'square-chart-gantt', 'calendar-chars');
-		this.addNavCard(calBox, '작업 시간', '시간 추적 키, 목표, 메뉴 표시 설정', 'clock', 'time');
+		this.addNavCard(calBox, '캘린더 & 일정 관리', '할 일 헤더 설정', 'calendar', 'calendar');
+		this.addNavCard(calBox, '글자수 & 작업 시간', '추적 폴더, 목표 글자수, 작업 모드 설정', 'activity', 'writing-stats');
 		this.addNavCard(calBox, '버전 관리', '스냅샷 저장 위치 및 최대 보관 개수', 'history', 'version-control');
-		this.addNavCard(calBox, '위키 뷰', '나무위키 스타일 캐릭터 카드 뷰 설정', 'git-graph', 'wiki');
+		this.addNavCard(calBox, '위키 뷰', '위키 스타일 캐릭터 카드 뷰 설정', 'git-graph', 'wiki');
 
 		this.addGroupTitle(containerEl, '기타');
 		const etcBox = this.createGroupBox(containerEl);
@@ -107,12 +107,236 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		this.addNavCard(etcBox, '음악 플레이어', '음악 폴더 · 볼륨 · 재생 모드', 'music', 'music');
 	}
 
-	// ── 타이포그래피 ────────────────────────────────────────────────────
+	// ── 서식 ────────────────────────────────────────────────────────────
 
 	private renderTypographyPage(containerEl: HTMLElement) {
-		this.addBackButton(containerEl, '타이포그래피');
+		this.addBackButton(containerEl, '서식');
 
-		this.addGroupTitle(containerEl, '헤딩(H1) 스타일');
+		// ── 인라인 ──────────────────────────────────────────────────
+		this.addGroupTitle(containerEl, '인라인');
+		const inlineBox = this.createGroupBox(containerEl);
+
+		new Setting(inlineBox)
+			.setName('글꼴')
+			.setDesc('비워두면 Obsidian 기본 글꼴 사용')
+			.addText(text => text
+				.setPlaceholder('inherit')
+				.setValue(this.plugin.settings.fontFamily === 'inherit' ? '' : this.plugin.settings.fontFamily)
+				.onChange(async value => {
+					this.plugin.settings.fontFamily = value.trim() || 'inherit';
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(inlineBox)
+			.setName('글자 크기 (px)')
+			.addText(text => {
+				text.setPlaceholder('16')
+					.setValue(String(this.plugin.settings.fontSize))
+					.onChange(async value => {
+						const num = parseInt(value);
+						if (!isNaN(num) && num > 0) { this.plugin.settings.fontSize = num; await this.plugin.saveSettings(); }
+					});
+				text.inputEl.type = 'number';
+				text.inputEl.min = '1';
+			});
+
+		new Setting(inlineBox)
+			.setName('줄간격')
+			.addText(text => {
+				text.setPlaceholder('1.5')
+					.setValue(String(this.plugin.settings.lineHeight))
+					.onChange(async value => {
+						const num = parseFloat(value);
+						if (!isNaN(num) && num > 0) { this.plugin.settings.lineHeight = num; await this.plugin.saveSettings(); }
+					});
+				text.inputEl.type = 'number';
+				text.inputEl.step = '0.1';
+				text.inputEl.min = '0';
+			});
+
+		new Setting(inlineBox)
+			.setName('문단간격')
+			.addText(text => {
+				text.setPlaceholder('1')
+					.setValue(String(this.plugin.settings.paragraphSpacing))
+					.onChange(async value => {
+						const num = parseFloat(value);
+						if (!isNaN(num) && num >= 0) { this.plugin.settings.paragraphSpacing = num; await this.plugin.saveSettings(); }
+					});
+				text.inputEl.type = 'number';
+				text.inputEl.step = '0.5';
+				text.inputEl.min = '0';
+			});
+
+		new Setting(inlineBox)
+			.setName('너비 (px)')
+			.addText(text => {
+				text.setPlaceholder('700')
+					.setValue(String(this.plugin.settings.lineWidth))
+					.onChange(async value => {
+						const num = parseInt(value);
+						if (!isNaN(num) && num > 0) { this.plugin.settings.lineWidth = num; await this.plugin.saveSettings(); }
+					});
+				text.inputEl.type = 'number';
+				text.inputEl.min = '1';
+			});
+
+		new Setting(inlineBox)
+			.setName('좌우 여백 (px)')
+			.addText(text => {
+				text.setPlaceholder('40')
+					.setValue(String(this.plugin.settings.inlinePadding ?? 40))
+					.onChange(async value => {
+						const num = parseInt(value);
+						if (!isNaN(num) && num >= 0) { this.plugin.settings.inlinePadding = num; await this.plugin.saveSettings(); }
+					});
+				text.inputEl.type = 'number';
+				text.inputEl.min = '0';
+			});
+
+		new Setting(inlineBox)
+			.setName('들여쓰기 (px)')
+			.addText(text => {
+				text.setPlaceholder('0')
+					.setValue(String(this.plugin.settings.indentation))
+					.onChange(async value => {
+						const num = parseInt(value);
+						if (!isNaN(num) && num >= 0) { this.plugin.settings.indentation = num; await this.plugin.saveSettings(); }
+					});
+				text.inputEl.type = 'number';
+				text.inputEl.min = '0';
+			});
+
+		// 글자색
+		const fontColorVal = this.plugin.settings.fontColor;
+		const fontColorLight = typeof fontColorVal === 'string' ? fontColorVal : fontColorVal.light;
+		const fontColorDark  = typeof fontColorVal === 'string' ? fontColorVal : fontColorVal.dark;
+
+		if (!Platform.isMobile) {
+			new Setting(inlineBox)
+				.setName('글자색 (라이트)')
+				.addColorPicker(cp => cp
+					.setValue(fontColorLight === 'inherit' || !fontColorLight ? '#000000' : fontColorLight)
+					.onChange(async value => {
+						const dark = typeof this.plugin.settings.fontColor === 'string' ? this.plugin.settings.fontColor : this.plugin.settings.fontColor.dark;
+						this.plugin.settings.fontColor = { light: value, dark };
+						await this.plugin.saveSettings();
+					}))
+				.addExtraButton(btn => btn.setIcon('reset').setTooltip('기본값으로 초기화')
+					.onClick(async () => {
+						const dark = typeof this.plugin.settings.fontColor === 'string' ? this.plugin.settings.fontColor : this.plugin.settings.fontColor.dark;
+						this.plugin.settings.fontColor = { light: 'inherit', dark };
+						await this.plugin.saveSettings();
+						this.renderPage('typography');
+					}));
+
+			new Setting(inlineBox)
+				.setName('글자색 (다크)')
+				.addColorPicker(cp => cp
+					.setValue(fontColorDark === 'inherit' || !fontColorDark ? '#ffffff' : fontColorDark)
+					.onChange(async value => {
+						const light = typeof this.plugin.settings.fontColor === 'string' ? this.plugin.settings.fontColor : this.plugin.settings.fontColor.light;
+						this.plugin.settings.fontColor = { light, dark: value };
+						await this.plugin.saveSettings();
+					}))
+				.addExtraButton(btn => btn.setIcon('reset').setTooltip('기본값으로 초기화')
+					.onClick(async () => {
+						const light = typeof this.plugin.settings.fontColor === 'string' ? this.plugin.settings.fontColor : this.plugin.settings.fontColor.light;
+						this.plugin.settings.fontColor = { light, dark: 'inherit' };
+						await this.plugin.saveSettings();
+						this.renderPage('typography');
+					}));
+		} else {
+			new Setting(inlineBox).setName('글자색 (라이트)')
+				.addText(text => text.setPlaceholder('#000000 또는 inherit').setValue(fontColorLight)
+					.onChange(async value => {
+						const dark = typeof this.plugin.settings.fontColor === 'string' ? this.plugin.settings.fontColor : this.plugin.settings.fontColor.dark;
+						this.plugin.settings.fontColor = { light: value || 'inherit', dark };
+						await this.plugin.saveSettings();
+					}));
+			new Setting(inlineBox).setName('글자색 (다크)')
+				.addText(text => text.setPlaceholder('#ffffff 또는 inherit').setValue(fontColorDark)
+					.onChange(async value => {
+						const light = typeof this.plugin.settings.fontColor === 'string' ? this.plugin.settings.fontColor : this.plugin.settings.fontColor.light;
+						this.plugin.settings.fontColor = { light, dark: value || 'inherit' };
+						await this.plugin.saveSettings();
+					}));
+		}
+
+		// 배경색
+		const bgColorVal = this.plugin.settings.backgroundColor;
+		const bgColorLight = typeof bgColorVal === 'string' ? bgColorVal : bgColorVal.light;
+		const bgColorDark  = typeof bgColorVal === 'string' ? bgColorVal : bgColorVal.dark;
+
+		if (!Platform.isMobile) {
+			new Setting(inlineBox)
+				.setName('배경색 (라이트)')
+				.addColorPicker(cp => cp
+					.setValue(bgColorLight === 'transparent' || bgColorLight === 'inherit' || !bgColorLight ? '#ffffff' : bgColorLight)
+					.onChange(async value => {
+						const dark = typeof this.plugin.settings.backgroundColor === 'string' ? this.plugin.settings.backgroundColor : this.plugin.settings.backgroundColor.dark;
+						this.plugin.settings.backgroundColor = { light: value, dark };
+						await this.plugin.saveSettings();
+					}))
+				.addExtraButton(btn => btn.setIcon('reset').setTooltip('기본값으로 초기화')
+					.onClick(async () => {
+						const dark = typeof this.plugin.settings.backgroundColor === 'string' ? this.plugin.settings.backgroundColor : this.plugin.settings.backgroundColor.dark;
+						this.plugin.settings.backgroundColor = { light: 'transparent', dark };
+						await this.plugin.saveSettings();
+						this.renderPage('typography');
+					}));
+
+			new Setting(inlineBox)
+				.setName('배경색 (다크)')
+				.addColorPicker(cp => cp
+					.setValue(bgColorDark === 'transparent' || bgColorDark === 'inherit' || !bgColorDark ? '#000000' : bgColorDark)
+					.onChange(async value => {
+						const light = typeof this.plugin.settings.backgroundColor === 'string' ? this.plugin.settings.backgroundColor : this.plugin.settings.backgroundColor.light;
+						this.plugin.settings.backgroundColor = { light, dark: value };
+						await this.plugin.saveSettings();
+					}))
+				.addExtraButton(btn => btn.setIcon('reset').setTooltip('기본값으로 초기화')
+					.onClick(async () => {
+						const light = typeof this.plugin.settings.backgroundColor === 'string' ? this.plugin.settings.backgroundColor : this.plugin.settings.backgroundColor.light;
+						this.plugin.settings.backgroundColor = { light, dark: 'transparent' };
+						await this.plugin.saveSettings();
+						this.renderPage('typography');
+					}));
+		} else {
+			new Setting(inlineBox).setName('배경색 (라이트)')
+				.addText(text => text.setPlaceholder('#ffffff 또는 transparent').setValue(bgColorLight)
+					.onChange(async value => {
+						const dark = typeof this.plugin.settings.backgroundColor === 'string' ? this.plugin.settings.backgroundColor : this.plugin.settings.backgroundColor.dark;
+						this.plugin.settings.backgroundColor = { light: value || 'transparent', dark };
+						await this.plugin.saveSettings();
+					}));
+			new Setting(inlineBox).setName('배경색 (다크)')
+				.addText(text => text.setPlaceholder('#000000 또는 transparent').setValue(bgColorDark)
+					.onChange(async value => {
+						const light = typeof this.plugin.settings.backgroundColor === 'string' ? this.plugin.settings.backgroundColor : this.plugin.settings.backgroundColor.light;
+						this.plugin.settings.backgroundColor = { light, dark: value || 'transparent' };
+						await this.plugin.saveSettings();
+					}));
+		}
+
+		new Setting(inlineBox)
+			.setName('링크 색상')
+			.setDesc('비활성화 시 링크 색상을 일반 텍스트 색상으로 표시')
+			.addToggle(toggle => toggle
+				.setValue(!this.plugin.settings.disableLinkColor)
+				.onChange(async value => { this.plugin.settings.disableLinkColor = !value; await this.plugin.saveSettings(); }));
+
+		new Setting(inlineBox)
+			.setName('폴더별 적용')
+			.setDesc('지정한 폴더의 노트에만 서식을 적용합니다. 비워두면 전체 적용.')
+			.addText(text => text
+				.setPlaceholder('예: 소설/집필')
+				.setValue(this.plugin.settings.applyToFolder)
+				.onChange(async value => { this.plugin.settings.applyToFolder = value.trim(); await this.plugin.saveSettings(); }));
+
+		// ── 헤딩 ────────────────────────────────────────────────────
+		this.addGroupTitle(containerEl, '헤딩');
+		containerEl.createDiv({ cls: 'wm-settings-subgroup-title', text: 'H1' });
 		const h1Box = this.createGroupBox(containerEl);
 
 		new Setting(h1Box)
@@ -158,7 +382,8 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					this.renderPage('typography');
 				}));
 
-		this.addGroupTitle(containerEl, '각주 스타일');
+		// ── 각주 ────────────────────────────────────────────────────
+		this.addGroupTitle(containerEl, '각주');
 		const fnBox = this.createGroupBox(containerEl);
 
 		new Setting(fnBox)
@@ -203,49 +428,6 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 					this.renderPage('typography');
 				}));
-
-		if (Platform.isMobile) {
-			this.addGroupTitle(containerEl, '색상 설정 (HEX)');
-			const hexBox = this.createGroupBox(containerEl);
-
-			const fontColorVal = this.plugin.settings.fontColor;
-			const fontColorLight = typeof fontColorVal === 'string' ? fontColorVal : fontColorVal.light;
-			const fontColorDark  = typeof fontColorVal === 'string' ? fontColorVal : fontColorVal.dark;
-
-			new Setting(hexBox).setName('글자색 (라이트 모드)')
-				.addText(text => text.setPlaceholder('#000000 또는 inherit').setValue(fontColorLight)
-					.onChange(async value => {
-						this.plugin.settings.fontColor = { light: value || 'inherit', dark: fontColorDark };
-						await this.plugin.saveSettings();
-					}));
-
-			new Setting(hexBox).setName('글자색 (다크 모드)')
-				.addText(text => text.setPlaceholder('#ffffff 또는 inherit').setValue(fontColorDark)
-					.onChange(async value => {
-						const light = typeof this.plugin.settings.fontColor === 'string' ? this.plugin.settings.fontColor : this.plugin.settings.fontColor.light;
-						this.plugin.settings.fontColor = { light, dark: value || 'inherit' };
-						await this.plugin.saveSettings();
-					}));
-
-			const bgColorVal = this.plugin.settings.backgroundColor;
-			const bgColorLight = typeof bgColorVal === 'string' ? bgColorVal : bgColorVal.light;
-			const bgColorDark  = typeof bgColorVal === 'string' ? bgColorVal : bgColorVal.dark;
-
-			new Setting(hexBox).setName('배경색 (라이트 모드)')
-				.addText(text => text.setPlaceholder('#ffffff 또는 transparent').setValue(bgColorLight)
-					.onChange(async value => {
-						this.plugin.settings.backgroundColor = { light: value || 'transparent', dark: bgColorDark };
-						await this.plugin.saveSettings();
-					}));
-
-			new Setting(hexBox).setName('배경색 (다크 모드)')
-				.addText(text => text.setPlaceholder('#000000 또는 transparent').setValue(bgColorDark)
-					.onChange(async value => {
-						const light = typeof this.plugin.settings.backgroundColor === 'string' ? this.plugin.settings.backgroundColor : this.plugin.settings.backgroundColor.light;
-						this.plugin.settings.backgroundColor = { light, dark: value || 'transparent' };
-						await this.plugin.saveSettings();
-					}));
-		}
 	}
 
 	// ── 입력 보조 ───────────────────────────────────────────────────────
@@ -253,7 +435,38 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 	private renderInputPage(containerEl: HTMLElement) {
 		this.addBackButton(containerEl, '입력 보조');
 
-		this.addGroupTitle(containerEl, '자동완성');
+		this.addGroupTitle(containerEl, '스마트 입력');
+		const smartBox = this.createGroupBox(containerEl);
+
+		new Setting(smartBox)
+			.setName('스마트 따옴표')
+			.setDesc('곧은 따옴표("")를 둥근 따옴표(“”)로 자동 변환')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.enableSmartQuotes)
+				.onChange(async value => { this.plugin.settings.enableSmartQuotes = value; await this.plugin.saveSettings(); }));
+
+		new Setting(smartBox)
+			.setName('스마트 엔터')
+			.setDesc('괄호 안에서 엔터 입력 시 닫는 괄호 아래로 커서 이동')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.enableSmartEnter)
+				.onChange(async value => { this.plugin.settings.enableSmartEnter = value; await this.plugin.saveSettings(); }));
+
+		new Setting(smartBox)
+			.setName('자동완성')
+			.setDesc('트리거 키 입력 시 기호 쌍 팝업 표시')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.enableSmartInput)
+				.onChange(async value => { this.plugin.settings.enableSmartInput = value; await this.plugin.saveSettings(); }));
+
+		new Setting(smartBox)
+			.setName('텍스트 치환')
+			.setDesc('특정 텍스트를 다른 문자로 자동 변환')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.enableTextSubstitution)
+				.onChange(async value => { this.plugin.settings.enableTextSubstitution = value; await this.plugin.saveSettings(); }));
+
+		this.addGroupTitle(containerEl, '자동완성 기호');
 		this.displaySymbolPairs(containerEl.createDiv({ cls: 'wm-settings-input-section' }));
 
 		this.addGroupTitle(containerEl, '텍스트 치환');
@@ -364,18 +577,94 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				}));
 	}
 
-	private renderTimePage(containerEl: HTMLElement) {
-		this.addBackButton(containerEl, '작업 시간');
+	private renderWritingStatsPage(containerEl: HTMLElement) {
+		this.addBackButton(containerEl, '글자수 & 작업 시간');
 
+		// ── 공통 ──
+		this.addGroupTitle(containerEl, '공통');
+		const commonBox = this.createGroupBox(containerEl);
+		new Setting(commonBox)
+			.setName('추적 폴더')
+			.setDesc('글자수 히트맵·작업시간 추적에 사용할 폴더. 비워 두면 전체 노트를 집계합니다.')
+			.addText(t => t
+				.setPlaceholder('예: 소설/집필')
+				.setValue(this.plugin.settings.trackingFolder ?? '')
+				.onChange(async v => {
+					this.plugin.settings.trackingFolder = v.trim();
+					await this.plugin.saveSettings();
+				}));
+		new Setting(commonBox)
+			.setName('시간 추적 제외 폴더')
+			.setDesc('작업시간 기록에서 제외할 폴더 경로. 한 줄에 하나씩 입력.')
+			.addTextArea(t => t
+				.setPlaceholder('예:\n소설작품/임시\n소설작품/참고자료')
+				.setValue((this.plugin.settings.timeExcludeFolders ?? []).join('\n'))
+				.onChange(async v => {
+					this.plugin.settings.timeExcludeFolders = v.split('\n').map(s => s.trim()).filter(Boolean);
+					await this.plugin.saveSettings();
+				}));
+
+		// ── 글자수 ──
+		this.addGroupTitle(containerEl, '글자수');
+		const charsBox = this.createGroupBox(containerEl);
+		new Setting(charsBox)
+			.setName('글자수 플랫폼')
+			.setDesc('히트맵·일평균·목표 비교에 사용할 글자수 기준을 선택합니다.')
+			.addDropdown(dd => dd
+				.addOption('munpia', '문피아 기준')
+				.addOption('novelpia', '노벨피아 기준')
+				.setValue(this.plugin.settings.charCountMode ?? 'munpia')
+				.onChange(async v => {
+					this.plugin.settings.charCountMode = v as 'munpia' | 'novelpia';
+					await this.plugin.saveSettings();
+				}));
+		new Setting(charsBox)
+			.setName('스탯카드 표시')
+			.setDesc('stat 카드에 표시할 플랫폼을 선택합니다.')
+			.addDropdown(dd => dd
+				.addOption('both', '문피아 + 노벨피아')
+				.addOption('munpia', '문피아만')
+				.addOption('novelpia', '노벨피아만')
+				.setValue(this.plugin.settings.statCardDisplay ?? 'both')
+				.onChange(async v => {
+					this.plugin.settings.statCardDisplay = v as 'munpia' | 'novelpia' | 'both';
+					await this.plugin.saveSettings();
+				}));
+		new Setting(charsBox)
+			.setName('목표 글자수')
+			.setDesc('일일 목표 글자수 (0 = 비활성)')
+			.addText(t => {
+				t.setPlaceholder('예: 2000')
+				 .setValue(String(this.plugin.settings.writingGoalChars ?? 0))
+				 .onChange(async v => {
+					const n = parseInt(v) || 0;
+					this.plugin.settings.writingGoalChars = n;
+					await this.plugin.saveSettings();
+				 });
+				t.inputEl.type = 'number';
+				t.inputEl.min = '0';
+			});
+		new Setting(charsBox)
+			.setName('데일리노트 글자수 키')
+			.setDesc('하루가 끝나면 당일 데일리노트 프론트매터에 기록할 키 이름.')
+			.addText(t => t
+				.setPlaceholder('글자수')
+				.setValue(this.plugin.settings.dailyCharCountKey ?? '글자수')
+				.onChange(async v => {
+					this.plugin.settings.dailyCharCountKey = v.trim() || '글자수';
+					await this.plugin.saveSettings();
+				}));
+
+		// ── 작업 시간 ──
 		this.addGroupTitle(containerEl, '작업 모드');
 		const modeBox = this.createGroupBox(containerEl);
 
 		const ensureModes = () => {
 			if (!this.plugin.settings.timeModes?.length) {
 				this.plugin.settings.timeModes = [
-					{ id: 'draft',   label: '초고', frontmatterKey: '초고_시간', goalSeconds: 7200 },
-					{ id: 'writing', label: '집필', frontmatterKey: '집필_시간', goalSeconds: 7200 },
-					{ id: 'editing', label: '퇴고', frontmatterKey: '퇴고_시간', goalSeconds: 7200 },
+					{ id: 'draft',   label: '기획', icon: 'lightbulb',  frontmatterKey: '초고_시간', goalSeconds: 7200 },
+					{ id: 'writing', label: '초고', icon: 'pencil',      frontmatterKey: '집필_시간', goalSeconds: 7200 },
+					{ id: 'editing', label: '퇴고', icon: 'spell-check', frontmatterKey: '퇴고_시간', goalSeconds: 7200 },
 				];
 			}
 			return this.plugin.settings.timeModes;
@@ -389,19 +678,24 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					.setName(`모드 ${i + 1}`)
 					.addText(t => {
 						t.setPlaceholder('표시명').setValue(m.label);
-						t.inputEl.style.width = '70px';
+						t.inputEl.style.width = '65px';
 						t.onChange(async v => { m.label = v; await this.plugin.saveSettings(); });
 					})
 					.addText(t => {
+						t.setPlaceholder('아이콘 (Lucide)').setValue(m.icon ?? '');
+						t.inputEl.style.width = '100px';
+						t.onChange(async v => { m.icon = v.trim() || undefined; await this.plugin.saveSettings(); });
+					})
+					.addText(t => {
 						t.setPlaceholder('프론트매터 키').setValue(m.frontmatterKey);
-						t.inputEl.style.width = '120px';
+						t.inputEl.style.width = '110px';
 						t.onChange(async v => { m.frontmatterKey = v.trim(); await this.plugin.saveSettings(); });
 					})
 					.addText(t => {
 						t.setPlaceholder('목표(분)').setValue(String(Math.round(m.goalSeconds / 60)));
 						t.inputEl.type = 'number';
 						t.inputEl.min  = '0';
-						t.inputEl.style.width = '70px';
+						t.inputEl.style.width = '65px';
 						t.onChange(async v => {
 							m.goalSeconds = (parseInt(v) || 0) * 60;
 							await this.plugin.saveSettings();
@@ -450,6 +744,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.timeAvgFolderLevel ?? 0)
 				.setDynamicTooltip()
 				.onChange(async v => { this.plugin.settings.timeAvgFolderLevel = v; await this.plugin.saveSettings(); }));
+
 	}
 
 	// ── 음악 플레이어 ────────────────────────────────────────────────────
@@ -536,6 +831,15 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				.setPlaceholder('API 키 입력')
 				.setValue(this.plugin.settings.stdictApiKey)
 				.onChange(async value => { this.plugin.settings.stdictApiKey = value.trim(); await this.plugin.saveSettings(); }));
+
+		this.addGroupTitle(containerEl, '한자 변환');
+		const hanjaBox = this.createGroupBox(containerEl);
+		new Setting(hanjaBox)
+			.setName('괄호 병기')
+			.setDesc('한자 변환 시 원문 한글을 괄호 안에 병기합니다. 예: 漢字(한자)')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.hanjaBracketMode ?? false)
+				.onChange(async value => { this.plugin.settings.hanjaBracketMode = value; await this.plugin.saveSettings(); }));
 	}
 
 	// ── 버전 관리 ─────────────────────────────────────────────────────────
@@ -624,22 +928,20 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 	private renderCalendarPage(containerEl: HTMLElement) {
 		this.addBackButton(containerEl, '캘린더 & 일정 관리');
 
-		this.addGroupTitle(containerEl, '히트맵');
-		const heatBox = this.createGroupBox(containerEl);
+		this.addGroupTitle(containerEl, '날짜 미리보기');
+		const previewBox = this.createGroupBox(containerEl);
+		const pref = this.plugin.settings.calendarPreviewItems;
 
-		new Setting(heatBox)
-			.setName('히트맵 기준')
-			.setDesc('달력 각 날짜의 색상 강도를 결정하는 데이터 기준')
-			.addDropdown(dd => dd
-				.addOption('files', '전체 파일 — 수정된 파일 수')
-				.addOption('daily-notes', '데일리 노트 — YYYY-MM-DD 형식 파일')
-				.addOption('time', '작업 시간 — 시간 추적 데이터')
-				.addOption('tasks', '완료 태스크 — 체크박스 완료 수')
-				.setValue(this.plugin.settings.calendarHeatmapSource)
-				.onChange(async v => {
-					this.plugin.settings.calendarHeatmapSource = v as 'files' | 'daily-notes' | 'time' | 'tasks';
-					await this.plugin.saveSettings();
-				}));
+		new Setting(previewBox).setName('할 일').addToggle(t => t.setValue(pref.tasks)
+			.onChange(async v => { pref.tasks = v; await this.plugin.saveSettings(); }));
+		new Setting(previewBox).setName('오늘 글자수').addToggle(t => t.setValue(pref.charCount)
+			.onChange(async v => { pref.charCount = v; await this.plugin.saveSettings(); }));
+		new Setting(previewBox).setName('일평균 글자수').addToggle(t => t.setValue(pref.avgCharCount)
+			.onChange(async v => { pref.avgCharCount = v; await this.plugin.saveSettings(); }));
+		new Setting(previewBox).setName('작업 모드별 시간').addToggle(t => t.setValue(pref.timeModes)
+			.onChange(async v => { pref.timeModes = v; await this.plugin.saveSettings(); }));
+		new Setting(previewBox).setName('총 작업 시간').addToggle(t => t.setValue(pref.totalTime)
+			.onChange(async v => { pref.totalTime = v; await this.plugin.saveSettings(); }));
 
 		this.addGroupTitle(containerEl, '할 일');
 		const taskBox = this.createGroupBox(containerEl);
@@ -654,118 +956,6 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-	}
-
-	private renderCalendarCharsPage(containerEl: HTMLElement) {
-		this.addBackButton(containerEl, '글자수 설정');
-
-		this.addGroupTitle(containerEl, '오늘 글자수');
-		const todayBox = this.createGroupBox(containerEl);
-
-		new Setting(todayBox)
-			.setName('글자수 플랫폼')
-			.setDesc('히트맵·일평균·목표 비교에 사용할 글자수 기준을 선택합니다.')
-			.addDropdown(dd => dd
-				.addOption('munpia', '문피아 기준')
-				.addOption('novelpia', '노벨피아 기준')
-				.setValue(this.plugin.settings.charCountMode ?? 'munpia')
-				.onChange(async v => {
-					this.plugin.settings.charCountMode = v as 'munpia' | 'novelpia';
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(todayBox)
-			.setName('스탯카드 표시')
-			.setDesc('stat 카드에 표시할 플랫폼을 선택합니다.')
-			.addDropdown(dd => dd
-				.addOption('both', '문피아 + 노벨피아')
-				.addOption('munpia', '문피아만')
-				.addOption('novelpia', '노벨피아만')
-				.setValue(this.plugin.settings.statCardDisplay ?? 'both')
-				.onChange(async v => {
-					this.plugin.settings.statCardDisplay = v as 'munpia' | 'novelpia' | 'both';
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(todayBox)
-			.setName('추적 폴더')
-			.setDesc('이 폴더 안의 파일만 히트맵에 집계합니다. 비워 두면 전체 노트를 집계합니다.')
-			.addText(t => t
-				.setPlaceholder('예: 소설/집필')
-				.setValue(this.plugin.settings.heatmapFolder ?? '')
-				.onChange(async v => {
-					this.plugin.settings.heatmapFolder = v.trim();
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(todayBox)
-			.setName('목표 글자수')
-			.setDesc('일일 목표 글자수 (0 = 비활성)')
-			.addText(t => {
-				t.setPlaceholder('예: 2000')
-				 .setValue(String(this.plugin.settings.writingGoalChars ?? 0))
-				 .onChange(async v => {
-					const n = parseInt(v) || 0;
-					this.plugin.settings.writingGoalChars = n;
-					await this.plugin.saveSettings();
-				 });
-				t.inputEl.type = 'number';
-				t.inputEl.min = '0';
-			});
-
-		this.addGroupTitle(containerEl, '히트맵');
-		const hmBox = this.createGroupBox(containerEl);
-
-		let colorPickerRef: any = null;
-		new Setting(hmBox)
-			.setName('히트맵 색상')
-			.setDesc('강조 색상 베이스 (레벨 4 기준)')
-			.addExtraButton(btn => btn
-				.setIcon('rotate-ccw')
-				.setTooltip('테마 강조색으로 되돌리기')
-				.onClick(async () => {
-					const hex = accentColorToHex();
-					this.plugin.settings.heatmapColor = hex;
-					await this.plugin.saveSettings();
-					colorPickerRef?.setValue(hex);
-				}))
-			.addColorPicker(cp => {
-				colorPickerRef = cp;
-				cp.setValue(this.plugin.settings.heatmapColor ?? '#4f9cf9')
-					.onChange(async v => {
-						this.plugin.settings.heatmapColor = v;
-						await this.plugin.saveSettings();
-					});
-			});
-
-		const levelLabels = ['레벨 1', '레벨 2', '레벨 3', '레벨 4'];
-		const levelDescs  = ['가장 연한 색', '중간 연한 색', '중간 진한 색', '가장 진한 색'];
-		const defaultLevels: [number, number, number, number] = [2000, 4000, 6000, 8000];
-
-		new Setting(hmBox)
-			.setName('레벨 기준 (글자수)')
-			.setDesc('각 색상 레벨의 최소 글자수 기준. 레벨 4 이상은 모두 동일 색상.');
-
-		levelLabels.forEach((label, i) => {
-			new Setting(hmBox)
-				.setName(label)
-				.setDesc(levelDescs[i])
-				.addText(t => {
-					const levels = this.plugin.settings.heatmapLevels ?? defaultLevels;
-					t.setPlaceholder(String(defaultLevels[i]))
-					 .setValue(String(levels[i]))
-					 .onChange(async v => {
-						const n = parseInt(v);
-						if (isNaN(n) || n < 0) return;
-						const cur = [...(this.plugin.settings.heatmapLevels ?? defaultLevels)] as [number, number, number, number];
-						cur[i] = n;
-						this.plugin.settings.heatmapLevels = cur;
-						await this.plugin.saveSettings();
-					 });
-					t.inputEl.type = 'number';
-					t.inputEl.min = '0';
-				});
-		});
 	}
 
 	// ── 위키 ────────────────────────────────────────────────────────────

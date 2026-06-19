@@ -20,13 +20,13 @@ import { openDictionary } from './src/dictionary';
 import { SaveVersionModal } from './src/version/SaveVersionModal';
 import { CalendarView, VIEW_TYPE_CALENDAR } from './src/calendar/views/CalendarView';
 import { MUNPIA_SVG, NOVELPIA_SVG } from './src/assets/platformLogos';
-import { HeatmapStore } from './src/dashboard/data/HeatmapStore';
+import { DailyCharStore } from './src/dashboard/data/DailyCharStore';
 import { MusicPlayer } from './src/dashboard/MusicPlayer';
 
 export default class WritingMenuPlugin extends Plugin {
 	settings: WritingMenuSettings;
 	mobilePreviewFloating: MobilePreviewFloating;
-	heatmapStore: HeatmapStore;
+	charStore: DailyCharStore;
 	settingTab: WritingMenuSettingTab | null = null;
 	wikiPanelRerender: (() => void) | null = null;
 	toolbarElements: Map<WorkspaceLeaf, HTMLElement> = new Map();
@@ -62,8 +62,8 @@ export default class WritingMenuPlugin extends Plugin {
 		this.initStopwatch();
 		this.mobilePreviewFloating = new MobilePreviewFloating(this);
 
-		this.heatmapStore = new HeatmapStore(this);
-		this.heatmapStore.init().catch(() => {});
+		this.charStore = new DailyCharStore(this);
+		this.charStore.init().catch(() => {});
 
 		this.musicPlayer = new MusicPlayer(this);
 		this.app.workspace.onLayoutReady(() => {
@@ -72,7 +72,7 @@ export default class WritingMenuPlugin extends Plugin {
 				.catch(() => {});
 		});
 		this.registerEvent(this.app.vault.on('modify', file => {
-			if (file instanceof TFile) this.heatmapStore.onFileModify(file);
+			if (file instanceof TFile) this.charStore.onFileModify(file);
 		}));
 
 		if (Platform.isWin) {
@@ -1657,7 +1657,7 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 
 		this.addSeparator(container);
 
-		this.addMenuNavCard(container, '타이포그래피', '', 'type', () => this.renderMenuPage(container, 'typography', leaf));
+		this.addMenuNavCard(container, '서식', '', 'type', () => this.renderMenuPage(container, 'typography', leaf));
 		this.addMenuNavCard(container, '색상', '', 'palette', () => this.renderMenuPage(container, 'color', leaf));
 		this.addMenuNavCard(container, '입력 보조', '', 'keyboard', () => this.renderMenuPage(container, 'input', leaf));
 		this.addMenuNavCard(container, '스톱워치', '', 'clock', () => this.renderMenuPage(container, 'time-tracking', leaf));
@@ -1680,7 +1680,7 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 	}
 
 	renderTypographyPage(container: HTMLElement, leaf: WorkspaceLeaf) {
-		this.addMenuBackButton(container, '타이포그래피', () => this.renderMenuPage(container, 'main', leaf));
+		this.addMenuBackButton(container, '서식', () => this.renderMenuPage(container, 'main', leaf));
 
 		const fontDiv = container.createDiv('writing-menu-control');
 		const fontLabelGroup = fontDiv.createDiv('writing-menu-control-label-group');
@@ -1817,6 +1817,20 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 		}
 		if (!this.settings.customFonts) this.settings.customFonts = [];
 
+		// trackingFolder 마이그레이션: heatmapFolder + timeTrackingFolder → trackingFolder
+		if (!this.settings.trackingFolder) {
+			// @ts-ignore
+			const tf = this.settings.timeTrackingFolder as string | undefined;
+			// @ts-ignore
+			const hf = this.settings.heatmapFolder as string | undefined;
+			this.settings.trackingFolder = tf || hf || '';
+			// @ts-ignore
+			delete this.settings.timeTrackingFolder;
+			// @ts-ignore
+			delete this.settings.heatmapFolder;
+			this.saveSettings();
+		}
+
 		// timeModes 마이그레이션: 구버전 timeKeys/timeGoals → timeModes
 		if (!this.settings.timeModes?.length && this.settings.timeKeys) {
 			const tk = this.settings.timeKeys;
@@ -1851,7 +1865,7 @@ ${sel} .markdown-reading-view h5, ${sel} .markdown-reading-view h6 { color: unse
 	}
 
 	async refreshDashboardView() {
-		await this.heatmapStore.reinitSnapshot().catch(() => {});
+		await this.charStore.reinitSnapshot().catch(() => {});
 		const { VIEW_TYPE_CALENDAR } = require('./src/calendar/views/CalendarView');
 		this.app.workspace.iterateAllLeaves((leaf: any) => {
 			if ((leaf.view as any)?.getViewType?.() === VIEW_TYPE_CALENDAR) {
