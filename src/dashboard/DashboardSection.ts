@@ -10,7 +10,7 @@ import { WritingTimeSection } from './WritingTimeSection';
 import { MusicPlayerSection } from './MusicPlayerSection';
 import type { DailyCharStore } from './data/DailyCharStore';
 import type { DashSectionConfig } from '../types';
-import { calcVersionCharCount } from '../version/charCount';
+import { calcAllCharCounts } from '../version/charCount';
 import { MUNPIA_SVG, NOVELPIA_SVG } from '../assets/platformLogos';
 import { watchDisconnect } from '../utils/domUtils';
 
@@ -70,15 +70,10 @@ export class DashboardSection {
 		// DOM 구조 한 번 생성, SVG 재파싱 없이 text node만 갱신하는 함수 반환
 		const { updateChars, updateAvg } = this.buildStatsCardLive(statsItem, store, plugin);
 
-		// 노트 글자수: 키 입력 즉시 반영 (디바운스 없음, DOM 재생성 없음)
 		const refreshChars = () => {
 			const view = plugin.app.workspace.getActiveViewOfType(MarkdownView);
 			if (!view?.file) { updateChars(null); return; }
-			const content = view.editor.getValue();
-			updateChars({
-				munpia:   calcVersionCharCount(content, 'munpia'),
-				novelpia: calcVersionCharCount(content, 'novelpia'),
-			});
+			updateChars(calcAllCharCounts(view.editor.getValue()));
 		};
 
 		refreshChars();
@@ -87,8 +82,11 @@ export class DashboardSection {
 		const leafHandler   = plugin.app.workspace.on('active-leaf-change', () => { refreshChars(); updateAvg(); });
 		// 일평균은 자동저장 시점에만 갱신
 		const modifyHandler = plugin.app.vault.on('modify', updateAvg);
+		// computeAvg 완료 직후에도 갱신
+		store.onAvgUpdated = updateAvg;
 
 		watchDisconnect(root, () => {
+			if (store.onAvgUpdated === updateAvg) store.onAvgUpdated = undefined;
 			plugin.app.vault.offref(modifyHandler);
 			plugin.app.workspace.offref(editorHandler);
 			plugin.app.workspace.offref(leafHandler);
