@@ -148,6 +148,8 @@ export interface WritingMenuSettings {
 	specialCharCloseOnInsert: boolean;
 	specialCharFavorites: string[];
 	specialCharCustom: { char: string; desc: string }[];
+	// ── Update ────────────────────────────────────────────────────────────────
+	lastSeenVersion?: string;
 }
 
 export interface DashSectionConfig {

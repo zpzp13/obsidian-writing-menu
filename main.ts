@@ -1,4 +1,5 @@
 import { App, Plugin, MarkdownView, WorkspaceLeaf, TFile, TFolder, TAbstractFile, Notice, Platform, EventRef, MenuItem } from 'obsidian';
+import { WhatsNewModal, getLatestReleaseNote, shouldShowWhatsNew } from './src/ui/WhatsNewModal';
 import { Compartment } from '@codemirror/state';
 import { SymbolSuggester } from './SymbolSuggester';
 import { WritingMenuSettings, DEFAULT_SETTINGS } from './src/types';
@@ -142,6 +143,16 @@ export default class WritingMenuPlugin extends Plugin {
 
 		this.settingTab = new WritingMenuSettingTab(this.app, this);
 		this.addSettingTab(this.settingTab);
+
+		this.app.workspace.onLayoutReady(() => {
+			const note = getLatestReleaseNote();
+			if (note && shouldShowWhatsNew(this.settings.lastSeenVersion, note.version)) {
+				new WhatsNewModal(this.app, note, async () => {
+					this.settings.lastSeenVersion = note.version;
+					await this.saveSettings();
+				}).open();
+			}
+		});
 
 		this.registerEvent(
 			this.app.workspace.on('file-menu', (menu, file) => {
