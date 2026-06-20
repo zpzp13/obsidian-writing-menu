@@ -27,6 +27,7 @@ export class DailyCharStore {
 	private modifyTimers = new Map<string, number>();
 	private _avgCharCount = 0;
 	private ready = false;
+	onAvgUpdated?: () => void;
 
 	constructor(private plugin: WritingMenuPlugin) {}
 
@@ -183,11 +184,18 @@ export class DailyCharStore {
 		this._avgCharCount = values.length > 0
 			? Math.round(values.reduce((a, b) => a + b, 0) / values.length)
 			: 0;
+		this.onAvgUpdated?.();
 	}
 
 	private scheduleAvgRecompute() {
 		window.clearTimeout(this.avgTimer);
-		this.avgTimer = window.setTimeout(() => { void this.computeAvg(); }, 2000);
+		this.avgTimer = window.setTimeout(() => {
+			if (Date.now() - this.plugin.lastTypedAt < 2000) {
+				this.scheduleAvgRecompute();
+				return;
+			}
+			void this.computeAvg();
+		}, 3000);
 	}
 
 	private netForDay(start: Record<string, number>, current: Record<string, number>): number {

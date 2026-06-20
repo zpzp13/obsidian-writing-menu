@@ -1,8 +1,4 @@
-import { ItemView, WorkspaceLeaf, setIcon, TFile, Notice, App } from 'obsidian';
-
-interface AppWithInternalPlugins extends App {
-	internalPlugins?: { plugins?: Record<string, { enabled?: boolean; instance?: { options?: { folder?: string; format?: string; template?: string } } }> };
-}
+import { ItemView, WorkspaceLeaf, setIcon, TFile, Notice } from 'obsidian';
 
 declare const moment: (date?: unknown, fmt?: string) => { format(f: string): string };
 import { showDayPreview, removeDayPreview } from '../components/DayPreviewPopup';
@@ -18,6 +14,7 @@ import { showDatePickerPopup } from '../components/DatePickerPopup';
 import type { DashSectionConfig } from '../../types';
 import { WikiPanel } from '../../wiki/WikiPanel';
 import { formatDateKey } from '../../utils/dateUtils';
+import { getDnConfig, ensureDailyNote } from '../../utils/dailyNoteUtils';
 
 export const VIEW_TYPE_CALENDAR = 'writing-menu-calendar';
 
@@ -511,11 +508,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 	// ── Daily note ───────────────────────────────────────────────────
 
 	private async openOrCreateDailyNote(date: Date) {
-		const dnPlugin = (this.app as AppWithInternalPlugins).internalPlugins?.plugins?.['daily-notes'];
-		const options  = dnPlugin?.enabled ? dnPlugin?.instance?.options : null;
-		const format   = options?.format || this.plugin.settings.dailyNotesFormat || 'YYYY-MM-DD';
-		const folder   = options?.folder  || this.plugin.settings.dailyNotesFolder || '';
-
+		const { folder, format } = getDnConfig(this.plugin);
 		const filename = moment(date).format(format);
 		const filePath = folder ? `${folder}/${filename}.md` : `${filename}.md`;
 
@@ -525,17 +518,9 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 			return;
 		}
 		try {
-			if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
-				await this.app.vault.createFolder(folder);
-			}
-			let content = '';
-			if (options?.template) {
-				const tp   = options.template.endsWith('.md') ? options.template : options.template + '.md';
-				const tmpl = this.app.vault.getAbstractFileByPath(tp);
-				if (tmpl instanceof TFile) content = await this.app.vault.read(tmpl);
-			}
-			const newFile = await this.app.vault.create(filePath, content);
-			await this.app.workspace.getLeaf(false).openFile(newFile);
+			const file = await ensureDailyNote(this.plugin, date);
+			if (file) await this.app.workspace.getLeaf(false).openFile(file);
+			else new Notice('데일리 노트를 생성할 수 없습니다.');
 		} catch {
 			new Notice('데일리 노트를 생성할 수 없습니다.');
 		}

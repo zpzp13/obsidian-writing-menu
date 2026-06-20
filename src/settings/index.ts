@@ -34,6 +34,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			case 'music':             this.renderMusicPage(containerEl); break;
 			case 'calendar':         this.renderCalendarPage(containerEl); break;
 			case 'wiki':             this.renderWikiPage(containerEl); break;
+			case 'special-chars':    this.renderSpecialCharsPage(containerEl); break;
 		}
 	}
 
@@ -88,6 +89,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		this.addNavCard(etcBox, '스톱워치', '카운트다운 시간 · 알람 설정', 'timer', 'stopwatch');
 		this.addNavCard(etcBox, '사전', '표준국어대사전 API 키', 'book-open', 'dictionary');
 		this.addNavCard(etcBox, '음악 플레이어', '음악 폴더 · 볼륨 · 재생 모드', 'music', 'music');
+		this.addNavCard(etcBox, '특수문자', '삽입 후 닫기 · 즐겨찾기 관리', 'omega', 'special-chars');
 	}
 
 	// ── 서식 ────────────────────────────────────────────────────────────
@@ -638,7 +640,14 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				}));
 
 		// ── 작업 시간 ──
-		this.addGroupTitle(containerEl, '작업 모드');
+		const modeTitleRow = containerEl.createDiv({ cls: 'wm-settings-section-hdr' });
+		const modeTitleLeft = modeTitleRow.createDiv({ cls: 'wm-settings-section-hdr-label' });
+		modeTitleLeft.createSpan({ cls: 'wm-settings-group-title', text: '작업 모드' });
+		modeTitleLeft.createSpan({ cls: 'wm-settings-group-title-desc', text: '모드명 · 아이콘 · 프론트매터 키 · 목표(분)' });
+		const modeTitleBtns = modeTitleRow.createDiv({ cls: 'wm-settings-section-hdr-btns' });
+		const deleteAllModesBtn = modeTitleBtns.createDiv({ cls: 'clickable-icon wm-muted-icon' });
+		setIcon(deleteAllModesBtn, 'trash');
+		deleteAllModesBtn.setAttribute('aria-label', '전체 삭제');
 		const modeBox = this.createGroupBox(containerEl);
 
 		const ensureModes = () => {
@@ -683,7 +692,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 							await this.plugin.saveSettings();
 						});
 					})
-					.addExtraButton(btn => btn.setIcon('trash').setTooltip('삭제')
+					.addExtraButton(btn => btn.setIcon('x').setTooltip('삭제')
 						.onClick(async () => {
 							if (modes.length <= 1) return;
 							modes.splice(i, 1);
@@ -695,16 +704,21 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				setting.settingEl.addClass('wm-mode-setting-row');
 			}
 		};
+		deleteAllModesBtn.addEventListener('click', async () => {
+			this.plugin.settings.timeModes = [];
+			await this.plugin.saveSettings();
+			renderModeList();
+		});
 		renderModeList();
 
-		new Setting(containerEl)
-			.addButton(btn => btn.setButtonText('+ 모드 추가')
-				.onClick(async () => {
-					const newId = `mode_${Date.now()}`;
-					ensureModes().push({ id: newId, label: '', frontmatterKey: '', goalSeconds: 0 });
-					await this.plugin.saveSettings();
-					renderModeList();
-				}));
+		const addModeRow = containerEl.createDiv({ cls: 'wm-settings-add-btn-row wm-settings-add-btn-right' });
+		const addModeBtn = addModeRow.createEl('button', { text: '+ 모드 추가' });
+		addModeBtn.addEventListener('click', async () => {
+			const newId = `mode_${Date.now()}`;
+			ensureModes().push({ id: newId, label: '', frontmatterKey: '', goalSeconds: 0 });
+			await this.plugin.saveSettings();
+			renderModeList();
+		});
 
 		this.addGroupTitle(containerEl, '총 시간 키');
 		const totalBox = this.createGroupBox(containerEl);
@@ -761,12 +775,12 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 							renderFolderList();
 						}));
 			});
-			new Setting(folderBox)
-				.addButton(btn => btn
-					.setButtonText('+ 폴더 추가')
-					.onClick(() => { paths.push(''); renderFolderList(); }));
 		};
 		renderFolderList();
+
+		const addFolderRow = containerEl.createDiv({ cls: 'wm-settings-add-btn-row wm-settings-add-btn-right' });
+		const addFolderBtn = addFolderRow.createEl('button', { text: '+ 폴더 추가' });
+		addFolderBtn.addEventListener('click', () => { paths.push(''); renderFolderList(); });
 
 		this.addGroupTitle(containerEl, '재생 설정');
 		const playBox = this.createGroupBox(containerEl);
@@ -943,6 +957,135 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 	private renderWikiPage(containerEl: HTMLElement) {
 		this.addBackButton(containerEl, '위키 뷰');
 		renderWikiSettingsPage(containerEl, this.plugin, () => this.renderPage('wiki'));
+	}
+
+	// ── 특수문자 ─────────────────────────────────────────────────────────
+
+	private renderSpecialCharsPage(containerEl: HTMLElement) {
+		this.addBackButton(containerEl, '특수문자');
+
+		this.addGroupTitle(containerEl, '동작');
+		const box = this.createGroupBox(containerEl);
+
+		new Setting(box)
+			.setName('삽입 후 모달 닫기')
+			.setDesc('특수문자를 삽입한 뒤 모달을 자동으로 닫습니다.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.specialCharCloseOnInsert ?? true)
+				.onChange(async value => {
+					this.plugin.settings.specialCharCloseOnInsert = value;
+					await this.plugin.saveSettings();
+				}));
+
+		// 즐겨찾기 섹션
+		const favs = this.plugin.settings.specialCharFavorites ?? [];
+		const favHdr = containerEl.createDiv({ cls: 'wm-settings-section-hdr' });
+		favHdr.createDiv({ cls: 'wm-settings-group-title', text: '즐겨찾기' });
+		const favHdrBtns = favHdr.createDiv({ cls: 'wm-settings-section-hdr-btns' });
+		if (favs.length > 0) {
+			const trashFavs = favHdrBtns.createDiv({ cls: 'clickable-icon wm-muted-icon' });
+			setIcon(trashFavs, 'trash-2');
+			trashFavs.setAttribute('aria-label', '전체 삭제');
+			trashFavs.addEventListener('click', async () => {
+				this.plugin.settings.specialCharFavorites = [];
+				await this.plugin.saveSettings();
+				this.renderPage('special-chars');
+			});
+		}
+		const favBox = this.createGroupBox(containerEl);
+		if (favs.length === 0) {
+			favBox.createDiv({ cls: 'wm-settings-hint', text: '특수문자 모달에서 ★를 클릭해 즐겨찾기를 추가하세요.' });
+		} else {
+			for (const ch of favs) {
+				new Setting(favBox)
+					.setName(ch)
+					.addExtraButton(btn => btn
+						.setIcon('x')
+						.setTooltip('제거')
+						.onClick(async () => {
+							const idx = this.plugin.settings.specialCharFavorites.indexOf(ch);
+							if (idx >= 0) this.plugin.settings.specialCharFavorites.splice(idx, 1);
+							await this.plugin.saveSettings();
+							this.renderPage('special-chars');
+						}));
+			}
+		}
+
+		// 사용자 지정 섹션
+		const customs = this.plugin.settings.specialCharCustom ?? [];
+		const customHdr = containerEl.createDiv({ cls: 'wm-settings-section-hdr' });
+		customHdr.createDiv({ cls: 'wm-settings-group-title', text: '사용자 지정 특수문자' });
+		const customHdrBtns = customHdr.createDiv({ cls: 'wm-settings-section-hdr-btns' });
+
+		// + 버튼 + inline popup
+		const addWrap = customHdrBtns.createDiv({ cls: 'wm-sc-add-wrap' });
+		const addBtn = addWrap.createDiv({ cls: 'clickable-icon wm-muted-icon' });
+		setIcon(addBtn, 'plus');
+
+		const popup = addWrap.createDiv({ cls: 'wm-sc-add-popup wm-sc-add-popup-right is-hidden' });
+		const charRow = popup.createDiv({ cls: 'wm-sc-add-row' });
+		const charInput = charRow.createEl('input', { attr: { type: 'text', placeholder: '특수문자', maxlength: '4' } });
+		const descRow = popup.createDiv({ cls: 'wm-sc-add-row' });
+		const descInput = descRow.createEl('input', { attr: { type: 'text', placeholder: '이름 또는 설명' } });
+		const submitBtn = popup.createEl('button', { cls: 'wm-sc-add-submit', text: '추가' });
+
+		let popupOpen = false;
+		const showPopup = () => { popup.removeClass('is-hidden'); popupOpen = true; charInput.focus(); };
+		const hidePopup = () => { popup.addClass('is-hidden'); popupOpen = false; };
+
+		const doAdd = async () => {
+			const char = charInput.value.trim();
+			const desc = descInput.value.trim();
+			if (!char) { charInput.focus(); return; }
+			const list = this.plugin.settings.specialCharCustom ?? [];
+			if (!list.some(c => c.char === char)) {
+				list.push({ char, desc });
+				this.plugin.settings.specialCharCustom = list;
+				await this.plugin.saveSettings();
+			}
+			charInput.value = '';
+			descInput.value = '';
+			hidePopup();
+			this.renderPage('special-chars');
+		};
+
+		submitBtn.addEventListener('click', doAdd);
+		descInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doAdd(); });
+		charInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') descInput.focus(); });
+		addBtn.addEventListener('click', (e) => { e.stopPropagation(); popupOpen ? hidePopup() : showPopup(); });
+		document.addEventListener('mousedown', (e) => {
+			if (popupOpen && !addWrap.contains(e.target as Node)) hidePopup();
+		});
+
+		if (customs.length > 0) {
+			const trashCustoms = customHdrBtns.createDiv({ cls: 'clickable-icon wm-muted-icon' });
+			setIcon(trashCustoms, 'trash-2');
+			trashCustoms.setAttribute('aria-label', '전체 삭제');
+			trashCustoms.addEventListener('click', async () => {
+				this.plugin.settings.specialCharCustom = [];
+				await this.plugin.saveSettings();
+				this.renderPage('special-chars');
+			});
+		}
+		const customBox = this.createGroupBox(containerEl);
+		if (customs.length === 0) {
+			customBox.createDiv({ cls: 'wm-settings-hint', text: '+ 버튼을 눌러 특수문자를 지정하세요.' });
+		} else {
+			for (let i = 0; i < customs.length; i++) {
+				const item = customs[i];
+				new Setting(customBox)
+					.setName(item.char)
+					.setDesc(item.desc ?? '')
+					.addExtraButton(btn => btn
+						.setIcon('x')
+						.setTooltip('제거')
+						.onClick(async () => {
+							this.plugin.settings.specialCharCustom.splice(i, 1);
+							await this.plugin.saveSettings();
+							this.renderPage('special-chars');
+						}));
+			}
+		}
 	}
 
 	// ── 자동완성 심볼 ────────────────────────────────────────────────────

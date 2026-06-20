@@ -97,6 +97,13 @@ export class DateStrip {
 			if (this.activeCard) snapToCard(this.activeCard, false);
 			window.requestAnimationFrame(() => { syncEnabled = true; });
 		});
+		// 레이아웃이 아직 미완성일 수 있으므로 200ms 후 재시도 (플러그인 업데이트/복원 시 대응)
+		window.setTimeout(() => {
+			if (this.activeCard) {
+				this.programmaticScrollUntil = Date.now() + 600;
+				snapToCard(this.activeCard, false);
+			}
+		}, 200);
 
 		strip.addEventListener('scroll', () => {
 			if (!syncEnabled || Date.now() < this.programmaticScrollUntil) return;

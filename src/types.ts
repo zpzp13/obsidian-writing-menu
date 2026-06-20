@@ -144,6 +144,10 @@ export interface WritingMenuSettings {
 		timeModes: boolean;
 		totalTime: boolean;
 	};
+	// ── Special Chars ──────────────────────────────────────────────────────────
+	specialCharCloseOnInsert: boolean;
+	specialCharFavorites: string[];
+	specialCharCustom: { char: string; desc: string }[];
 }
 
 export interface DashSectionConfig {
@@ -297,6 +301,9 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 		timeModes: true,
 		totalTime: true,
 	},
+	specialCharCloseOnInsert: true,
+	specialCharFavorites: [],
+	specialCharCustom: [],
 };
 import type { Component } from 'obsidian';
 

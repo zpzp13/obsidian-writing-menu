@@ -17,9 +17,9 @@ const getModeIcon = (mode: TimeModeConfig): string => {
 };
 
 interface ModeCardEls {
-	timeEl:      HTMLElement;
-	avgBadgeEl:  HTMLElement;
-	goalBadgeEl: HTMLElement;
+	timeEl:       HTMLElement;
+	avgBadgeUpd:  (cur: number, ref: number) => void;
+	goalBadgeUpd: (cur: number, ref: number) => void;
 }
 
 export class WritingTimeSection {
@@ -195,30 +195,41 @@ export class WritingTimeSection {
 			dnSaved.clear();
 		};
 
-		// ── 배지 (퍼센트 + 아이콘) ──
-		const updateBadge = (el: HTMLElement, cur: number, ref: number, invertColors = false) => {
-			el.empty();
-			if (ref <= 0 || cur < 60) {
-				el.textContent = '—';
-				el.className = 'wm-wt-mc-badge is-neutral';
-				return;
-			}
-			const rawPct  = ((cur - ref) / ref) * 100;
-			const pct     = rawPct > 0 ? Math.round(rawPct) : Math.max(-99, Math.round(rawPct));
-			const isAbove = pct > 0;
-			const isBelow = pct < 0;
-			if (pct === 0) {
-				el.textContent = '0%';
-				el.className = 'wm-wt-mc-badge is-neutral';
-				return;
-			}
-			let cls = 'is-neutral';
-			if (isAbove) cls = invertColors ? 'is-below' : 'is-above';
-			if (isBelow) cls = invertColors ? 'is-above' : 'is-below';
-			el.className  = `wm-wt-mc-badge ${cls}`;
-			const iconEl  = el.createSpan({ cls: 'wm-wt-badge-icon' });
-			setIcon(iconEl, isAbove ? 'trending-up' : 'trending-down');
-			el.createSpan({ text: ` ${Math.abs(pct)}%` });
+		// ── 배지 (퍼센트 + 아이콘) — DOM은 최초 1회 생성, 값 변경 시에만 갱신 ──
+		const makeBadge = (el: HTMLElement, invertColors: boolean): ((cur: number, ref: number) => void) => {
+			const iconEl = el.createSpan({ cls: 'wm-wt-badge-icon' });
+			const textEl = el.createSpan();
+			iconEl.setCssStyles({ display: 'none' });
+			let lastIconName = '';
+
+			return (cur: number, ref: number) => {
+				if (ref <= 0 || cur < 60) {
+					el.className = 'wm-wt-mc-badge is-neutral';
+					iconEl.setCssStyles({ display: 'none' });
+					textEl.textContent = '—';
+					return;
+				}
+				const rawPct = ((cur - ref) / ref) * 100;
+				const pct    = rawPct > 0 ? Math.round(rawPct) : Math.max(-99, Math.round(rawPct));
+				if (pct === 0) {
+					el.className = 'wm-wt-mc-badge is-neutral';
+					iconEl.setCssStyles({ display: 'none' });
+					textEl.textContent = '0%';
+					return;
+				}
+				const isAbove = pct > 0;
+				const cls = isAbove
+					? (invertColors ? 'is-below' : 'is-above')
+					: (invertColors ? 'is-above' : 'is-below');
+				el.className = `wm-wt-mc-badge ${cls}`;
+				const iconName = isAbove ? 'trending-up' : 'trending-down';
+				if (iconName !== lastIconName) {
+					setIcon(iconEl, iconName);
+					lastIconName = iconName;
+				}
+				iconEl.setCssStyles({ display: '' });
+				textEl.textContent = ` ${Math.abs(pct)}%`;
+			};
 		};
 
 		const updateCardEls = (modeId: string, cur: number) => {
@@ -226,8 +237,8 @@ export class WritingTimeSection {
 			const mode = modes.find(m => m.id === modeId);
 			if (!els || !mode) return;
 			els.timeEl.textContent = fmtTime(cur);
-			updateBadge(els.avgBadgeEl,  cur, stat.avg[modeId]  ?? 0, true);
-			updateBadge(els.goalBadgeEl, cur, mode.goalSeconds   ?? 0, true);
+			els.avgBadgeUpd(cur,  stat.avg[modeId] ?? 0);
+			els.goalBadgeUpd(cur, mode.goalSeconds  ?? 0);
 		};
 
 		const getTimeFile = (): TFile | null => trackingFile ?? app.workspace.getActiveFile();
@@ -269,7 +280,11 @@ export class WritingTimeSection {
 				avgRow.createSpan({ cls: 'wm-wt-mc-cmp-lbl', text: '평균 대비' });
 				const avgBadgeEl = avgRow.createSpan({ cls: 'wm-wt-mc-badge is-neutral' });
 
-				modeCardEls.set(mode.id, { timeEl, avgBadgeEl, goalBadgeEl });
+				modeCardEls.set(mode.id, {
+					timeEl,
+					avgBadgeUpd:  makeBadge(avgBadgeEl,  true),
+					goalBadgeUpd: makeBadge(goalBadgeEl, true),
+				});
 				updateCardEls(mode.id, cur);
 
 				modeCard.addEventListener('click', () => {
@@ -352,11 +367,14 @@ export class WritingTimeSection {
 
 		// ── 1초 누적 ──
 		const accumInterval = window.setInterval(() => {
+			if (!container.isConnected) { window.clearInterval(accumInterval); return; }
 			if (!plugin.settings.enableTimeTracking) return;
 			if (Date.now() - lastTyped > 1000) { isTyping = false; return; }
 			if (!isTyping) return;
 			const target = trackingFile;
 			if (!target) return;
+			// 추적 폴더가 지정된 경우, 해당 폴더 안 파일만 시간 누적
+			if (settings.trackingFolder && !getProjectName(target)) return;
 			const mKey = `${target.path}:${selectedMode}`;
 			const tKey = `${target.path}:total`;
 			const me = plugin.pendingTimeUpdates.get(mKey) ?? { file: target, mode: selectedMode, seconds: 0 };
@@ -369,7 +387,7 @@ export class WritingTimeSection {
 
 		// ── UI 갱신 + 30초마다 자동 저장 ──
 		const uiInterval = window.setInterval(() => { void (async () => {
-			if (!container.isConnected) { window.clearInterval(uiInterval); return; }
+			if (!container.isConnected) { window.clearInterval(uiInterval); window.clearInterval(accumInterval); return; }
 			saveTickCount++;
 			if (saveTickCount >= 30 && trackingFile) {
 				saveTickCount = 0;
@@ -396,13 +414,15 @@ export class WritingTimeSection {
 			if (dnFolder && modFile instanceof TFile && !modFile.path.startsWith(normalizePath(dnFolder) + '/')) return;
 			window.clearTimeout(avgDebounceTimer);
 			avgDebounceTimer = window.setTimeout(() => { void (async () => {
+				// 타이핑 직후 2초 내에는 갱신 생략 (다음 자동저장 후 재시도)
+				if (Date.now() - lastTyped < 2000) return;
 				const f = trackingFile;
 				const proj = getProjectName(f);
 				stat = proj
 					? await WritingTimeStore.averageDailyNotes(app, getDnConfig(plugin).folder, proj, modes)
 					: await WritingTimeStore.averageFolder(app, getAvgFolder(f), modes);
 				if (modeCardEls.size > 0) updateDisplay();
-			})(); }, 500);
+			})(); }, 3000);
 		});
 
 		watchDisconnect(container, () => {

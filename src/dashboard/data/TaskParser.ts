@@ -1,10 +1,7 @@
-﻿import { TFile, App } from 'obsidian';
+﻿import { TFile } from 'obsidian';
 import type WritingMenuPlugin from '../../../main';
 import { formatDateKey } from '../../utils/dateUtils';
-
-interface AppWithInternalPlugins extends App {
-	internalPlugins?: { plugins?: Record<string, { enabled?: boolean; instance?: { options?: { folder?: string; format?: string; template?: string } } }> };
-}
+import { getDnConfig, ensureDailyNote } from '../../utils/dailyNoteUtils';
 
 declare const moment: (date?: unknown, fmt?: string) => { format(f: string): string };
 
@@ -35,10 +32,7 @@ export interface ParsedTask {
 
 export class TaskParser {
 	static async loadTasks(plugin: WritingMenuPlugin): Promise<ParsedTask[]> {
-		const dnPlugin = (plugin.app as AppWithInternalPlugins).internalPlugins?.plugins?.['daily-notes'];
-		const dnOpts   = dnPlugin?.enabled ? dnPlugin?.instance?.options : null;
-		const folder   = dnOpts?.folder  ?? plugin.settings.dailyNotesFolder ?? '';
-		const format   = dnOpts?.format  ?? plugin.settings.dailyNotesFormat ?? 'YYYY-MM-DD';
+		const { folder, format } = getDnConfig(plugin);
 
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
@@ -229,33 +223,7 @@ export class TaskParser {
 	}
 
 	static async addTaskToDailyNote(text: string, plugin: WritingMenuPlugin, subItems: string[] = []): Promise<void> {
-		const dnPlugin = (plugin.app as AppWithInternalPlugins).internalPlugins?.plugins?.['daily-notes'];
-		const dnOpts   = dnPlugin?.enabled ? dnPlugin?.instance?.options : null;
-		const folder   = dnOpts?.folder  ?? plugin.settings.dailyNotesFolder ?? '';
-		const format   = dnOpts?.format  ?? plugin.settings.dailyNotesFormat ?? 'YYYY-MM-DD';
-		const name     = moment().format(format);
-		const path     = folder ? `${folder}/${name}.md` : `${name}.md`;
-
-		let file = plugin.app.vault.getAbstractFileByPath(path);
-		if (!(file instanceof TFile)) {
-			let initContent = '';
-			const templatePath = dnOpts?.template;
-			if (templatePath) {
-				const tp = templatePath.endsWith('.md') ? templatePath : `${templatePath}.md`;
-				const tf = plugin.app.vault.getAbstractFileByPath(tp);
-				if (tf instanceof TFile) {
-					try {
-						initContent = await plugin.app.vault.read(tf);
-						initContent = initContent
-							.replace(/\{\{date\}\}/gi, moment().format('YYYY-MM-DD'))
-							.replace(/\{\{date:([^}]+)\}\}/gi, (_: string, fmt: string) => moment().format(fmt))
-							.replace(/\{\{time\}\}/gi, moment().format('HH:mm'))
-							.replace(/\{\{title\}\}/gi, name);
-					} catch { /* intentional */ }
-				}
-			}
-			try { file = await plugin.app.vault.create(path, initContent); } catch { /* intentional */ }
-		}
+		const file = await ensureDailyNote(plugin, new Date());
 		if (!(file instanceof TFile)) return;
 
 		const content  = await plugin.app.vault.read(file);
