@@ -319,6 +319,94 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.applyToFolder)
 				.onChange(async value => { this.plugin.settings.applyToFolder = value.trim(); await this.plugin.saveSettings(); }));
 
+		// ── 구분선 ──────────────────────────────────────────────────
+		this.addGroupTitle(containerEl, '구분선');
+		const hrBox = this.createGroupBox(containerEl);
+
+		new Setting(hrBox)
+			.setName('커스텀 구분선')
+			.setDesc('활성화 시 ***, --- 등을 아래 설정대로 렌더링')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.hrEnabled)
+				.onChange(async value => {
+					this.plugin.settings.hrEnabled = value;
+					await this.plugin.saveSettings();
+					this.plugin.leafStyleManager.updateDynamicStyles();
+				}));
+
+		new Setting(hrBox)
+			.setName('종류')
+			.addDropdown(dd => {
+				dd.addOption('text', '텍스트')
+				  .addOption('svg', 'SVG')
+				  .setValue(this.plugin.settings.hrType)
+				  .onChange(async value => {
+					this.plugin.settings.hrType = value as 'text' | 'svg';
+					await this.plugin.saveSettings();
+					this.plugin.leafStyleManager.updateDynamicStyles();
+				  });
+				});
+
+		new Setting(hrBox)
+			.setName('텍스트 내용')
+			.setDesc('텍스트 모드에서 구분선 대신 표시할 내용')
+			.addText(text => text
+				.setPlaceholder('✦ ✦ ✦')
+				.setValue(this.plugin.settings.hrContent)
+				.onChange(async value => {
+					this.plugin.settings.hrContent = value;
+					await this.plugin.saveSettings();
+					this.plugin.leafStyleManager.updateDynamicStyles();
+				}));
+
+		new Setting(hrBox)
+			.setName('색상')
+			.setDesc('텍스트 모드 색상. 비워두면 기본 텍스트 색상 사용.')
+			.addColorPicker(cp => cp
+				.setValue(this.plugin.settings.hrColor || '#888888')
+				.onChange(async value => {
+					this.plugin.settings.hrColor = value;
+					await this.plugin.saveSettings();
+					this.plugin.leafStyleManager.updateDynamicStyles();
+				}))
+			.addExtraButton(btn => btn.setIcon('reset').setTooltip('색상 초기화 (기본값)')
+				.onClick(async () => {
+					this.plugin.settings.hrColor = '';
+					await this.plugin.saveSettings();
+					this.plugin.leafStyleManager.updateDynamicStyles();
+					this.renderPage('typography');
+				}));
+
+		// 정렬 버튼 (좌/중앙/우)
+		const hrAlignSetting = new Setting(hrBox).setName('정렬');
+		const hrAlignBtnContainer = hrAlignSetting.controlEl.createDiv({ cls: 'wm-align-btn-group' });
+		(['left', 'center', 'right'] as const).forEach(align => {
+			const iconMap = { left: 'align-left', center: 'align-center', right: 'align-right' } as const;
+			const labelMap = { left: '좌', center: '중앙', right: '우' } as const;
+			const btn = hrAlignBtnContainer.createEl('button', { cls: 'wm-align-btn' + (this.plugin.settings.hrAlign === align ? ' is-active' : '') });
+			setIcon(btn, iconMap[align]);
+			btn.title = labelMap[align];
+			btn.onclick = async () => {
+				this.plugin.settings.hrAlign = align;
+				await this.plugin.saveSettings();
+				this.plugin.leafStyleManager.updateDynamicStyles();
+				hrAlignBtnContainer.querySelectorAll('.wm-align-btn').forEach(b => b.removeClass('is-active'));
+				btn.addClass('is-active');
+			};
+		});
+
+		new Setting(hrBox)
+			.setName('SVG 코드')
+			.setDesc('SVG 모드에서 사용할 SVG 코드를 붙여넣으세요')
+			.addTextArea(ta => ta
+				.setPlaceholder('<svg xmlns="http://www.w3.org/2000/svg" ...>...</svg>')
+				.setValue(this.plugin.settings.hrSvg)
+				.onChange(async value => {
+					this.plugin.settings.hrSvg = value;
+					await this.plugin.saveSettings();
+					this.plugin.leafStyleManager.updateDynamicStyles();
+				}));
+
 		// ── 헤딩 ────────────────────────────────────────────────────
 		this.addGroupTitle(containerEl, '헤딩');
 		containerEl.createDiv({ cls: 'wm-settings-subgroup-title', text: 'H1' });

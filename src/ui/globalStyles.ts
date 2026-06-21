@@ -37,6 +37,11 @@ export const GLOBAL_STYLES_CSS = `
 			body.wm-focus-mode .view-header { display: none !important; }
 			body.wm-focus-mode .workspace-split.mod-root { width: 100vw !important; }
 
+			/* 구분선 비활성화 */
+			body.wm-hr-disabled .markdown-preview-view hr,
+			body.wm-hr-disabled .markdown-rendered hr { display: none !important; }
+			body.wm-hr-disabled .cm-line.HyperMD-hr { display: none !important; }
+
 			/* 길게 보기 (hide vertical chrome, keep sidebars) */
 			body.wm-wide-mode { --titlebar-height: 0px !important; }
 			body.wm-wide-mode .titlebar,

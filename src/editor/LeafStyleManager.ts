@@ -94,6 +94,16 @@ export class LeafStyleManager {
 		activeDocument.body.classList.toggle('writing-menu-focus-enabled', this.plugin.settings.enableFocusMode);
 		activeDocument.body.style.setProperty('--writing-menu-focus-opacity', this.plugin.settings.focusOpacity.toString());
 		activeDocument.body.classList.toggle('writing-menu-typewriter-active', this.plugin.settings.enableTypewriterScrolling);
+
+		const { hrEnabled, hrType, hrContent, hrColor, hrAlign, hrSvg } = this.plugin.settings;
+		activeDocument.body.classList.toggle('wm-hr-custom', hrEnabled);
+		activeDocument.body.classList.toggle('wm-hr-svg', hrEnabled && hrType === 'svg');
+		activeDocument.body.style.setProperty('--wm-hr-content', `"${(hrContent || '✦ ✦ ✦').replace(/"/g, '\\"')}"`);
+		activeDocument.body.style.setProperty('--wm-hr-color', hrColor || 'var(--text-muted)');
+		activeDocument.body.style.setProperty('--wm-hr-align', hrAlign || 'center');
+		if (hrType === 'svg' && hrSvg) {
+			activeDocument.body.style.setProperty('--wm-hr-svg-url', `url("data:image/svg+xml,${encodeURIComponent(hrSvg)}")`);
+		}
 	}
 
 	regenerateCSSTemplate(): void {

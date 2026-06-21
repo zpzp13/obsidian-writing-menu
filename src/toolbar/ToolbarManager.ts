@@ -230,6 +230,11 @@ export class ToolbarManager {
 		if (this.plugin.settings.enableFocusMode) {
 			void this.plugin.addCompactSlider(container, '투명도', this.plugin.settings.focusOpacity, 0, 1, 0.05, async (v) => { this.plugin.settings.focusOpacity = v; await this.plugin.saveSettings(); }, 'sun');
 		}
+		void this.plugin.addCompactToggle(container, '커스텀 구분선', this.plugin.settings.hrEnabled, async (v) => {
+			this.plugin.settings.hrEnabled = v;
+			await this.plugin.saveSettings();
+			this.plugin.leafStyleManager.updateDynamicStyles();
+		}, 'minus');
 
 		this.addSeparator(container);
 
