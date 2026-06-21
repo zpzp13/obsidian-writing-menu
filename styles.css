@@ -4382,6 +4382,16 @@ button[aria-label="규칙 추가"] {
 [data-writing-menu-id] .cm-cursor-primary { border-left-color: var(--wm-font-color, inherit) !important; }
 [data-writing-menu-id] .cm-highlight { color: var(--wm-font-color, inherit) !important; }
 
+/* Properties (frontmatter) 글자색 — Obsidian 내부 변수만 재정의 */
+[data-writing-menu-id] .metadata-container {
+    --text-normal: var(--wm-font-color, var(--text-normal));
+    --text-muted: var(--wm-font-color, var(--text-muted));
+    --text-faint: var(--wm-font-color, var(--text-faint));
+    --icon-color: var(--wm-font-color, var(--icon-color));
+    --metadata-label-text-color: var(--wm-font-color, var(--metadata-label-text-color));
+    --metadata-input-text-color: var(--wm-font-color, var(--metadata-input-text-color));
+}
+
 /* Link color override */
 [data-writing-menu-id].wm-disable-link-color .cm-content .cm-link,
 [data-writing-menu-id].wm-disable-link-color a {
