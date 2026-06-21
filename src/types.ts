@@ -48,6 +48,12 @@ export interface WritingMenuSettings {
 	backgroundColor: string | { light: string; dark: string };
 	applyToFolder: string;
 	disableLinkColor: boolean;
+	hrEnabled: boolean;
+	hrType: 'text' | 'svg';
+	hrContent: string;
+	hrColor: string;
+	hrAlign: 'left' | 'center' | 'right';
+	hrSvg: string;
 	enableFocusMode: boolean;
 	focusOpacity: number;
 	enableTypewriterScrolling: boolean;
@@ -171,6 +177,12 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	backgroundColor: 'transparent',
 	applyToFolder: '',
 	disableLinkColor: false,
+	hrEnabled: false,
+	hrType: 'text',
+	hrContent: '✦ ✦ ✦',
+	hrColor: '',
+	hrAlign: 'center',
+	hrSvg: '',
 	enableFocusMode: false,
 	focusOpacity: 0.25,
 	enableTypewriterScrolling: false,

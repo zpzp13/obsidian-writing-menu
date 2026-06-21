@@ -138,7 +138,6 @@ export default class WritingMenuPlugin extends Plugin {
 			getTextSubstitutionExtension(this),
 			getBackspaceUndoExtension(this)
 		]));
-
 		this.updateDynamicStyles();
 
 		this.settingTab = new WritingMenuSettingTab(this.app, this);
@@ -485,6 +484,7 @@ export default class WritingMenuPlugin extends Plugin {
 		activeDocument.body.classList.remove('writing-menu-typewriter-active');
 		activeDocument.body.classList.remove('wm-focus-mode');
 		activeDocument.body.classList.remove('wm-wide-mode');
+		activeDocument.body.classList.remove('wm-hr-custom', 'wm-hr-svg');
 		activeDocument.body.style.removeProperty('--writing-menu-focus-opacity');
 		this.clearZenLeaf();
 		if (this.zenLeafEventRef) {
