@@ -154,6 +154,8 @@ export interface WritingMenuSettings {
 	specialCharCloseOnInsert: boolean;
 	specialCharFavorites: string[];
 	specialCharCustom: { char: string; desc: string }[];
+	// ── Spell Check ────────────────────────────────────────────────────────────
+	spellCheckIgnoredWords: string[];
 	// ── Update ────────────────────────────────────────────────────────────────
 	lastSeenVersion?: string;
 }
@@ -318,6 +320,8 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	specialCharCloseOnInsert: true,
 	specialCharFavorites: [],
 	specialCharCustom: [],
+	spellCheckEngine: 'daum',
+	spellCheckIgnoredWords: [],
 };
 import type { Component } from 'obsidian';
 

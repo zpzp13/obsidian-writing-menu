@@ -30,6 +30,7 @@ export class MusicPlayer {
 	private callbacks = new Set<() => void>();
 	private boundEnded: () => void;
 	private boundTimeUpdate: () => void;
+	private viewScopeFingerprint: string = '';
 
 	constructor(private plugin: WritingMenuPlugin) {
 		this.audio = new Audio();
@@ -104,7 +105,14 @@ export class MusicPlayer {
 		}
 	}
 
+	private computeFingerprint(tracks: Track[]): string {
+		return tracks.map(t => t.path).sort().join('|');
+	}
+
 	private buildViewPlaylistFrom(tracks: Track[]) {
+		const newFp = this.computeFingerprint(tracks);
+		if (this.mode === 'shuffle' && newFp === this.viewScopeFingerprint) return;
+		this.viewScopeFingerprint = newFp;
 		if (this.mode === 'shuffle') {
 			this.viewPlaylist = [...tracks].sort(() => Math.random() - 0.5);
 		} else {
@@ -206,6 +214,7 @@ export class MusicPlayer {
 
 	setMode(m: PlaybackMode) {
 		const wasTrack = this.currentTrack;
+		if (m === 'shuffle' && this.mode !== 'shuffle') this.viewScopeFingerprint = '';
 		this.mode = m;
 		this.plugin.settings.musicPlaybackMode = m;
 		void this.plugin.saveSettings();
