@@ -35,7 +35,7 @@ export function renderWikiSettingsPage(containerEl: HTMLElement, plugin: Writing
 
 	new Setting(propBox)
 		.setName('관계 필드')
-		.addText(t => t.setValue(plugin.settings.wikiRelationFields || '')
+		.addTextArea(t => t.setValue(plugin.settings.wikiRelationFields || '')
 			.onChange(async v => { plugin.settings.wikiRelationFields = v; await plugin.saveSettings(); }));
 	propBox.createDiv({ cls: 'wm-settings-item-desc', text: '프론트매터와 링크를 활용해 해당 노트의 관계성을 시각화해줍니다. 소설 집필의 예로 들면, \'대적자\'를 관계 필드로 등록하면 해당 프론트매터에 링크된 노트를 시각적으로 배열해줍니다.' });
 
