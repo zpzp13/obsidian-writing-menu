@@ -144,8 +144,8 @@ export class CorrectionModal extends Modal {
 		this.config = config;
 		this.keyboardScope = new Scope();
 
-		this.modalEl.style.width = '64vw';
-		this.modalEl.style.maxWidth = '1100px';
+		this.modalEl.style.width = '60vw';
+		this.modalEl.style.maxWidth = '980px';
 		this.modalEl.style.height = '80vh';
 
 		this.buildOccurrences();
