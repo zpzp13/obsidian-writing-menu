@@ -58,9 +58,11 @@
 .wm-settings-nav-card-chevron svg { width: 16px; height: 16px; }
 
 /* ── Settings Group Title ── */
-.wm-settings-group-title { font-size: 17px; font-weight: 600; color: var(--interactive-accent); letter-spacing: 0; margin: 20px 0 8px 4px; }
+.wm-settings-group-title { font-size: 16px; font-weight: 600; color: var(--interactive-accent); letter-spacing: 0; margin: 20px 0 8px 0; }
 .wm-settings-group-title:first-child { margin-top: 4px; }
-.wm-settings-subgroup-title { font-size: 16px; font-weight: 600; color: var(--text-muted); margin: 8px 0 8px 4px; opacity: 0.65; }
+.wm-settings-subgroup-title { font-size: 14px; font-weight: 600; color: var(--text-muted); margin: 8px 0 8px 0; opacity: 0.65; }
+.wm-settings-subgroup-title-row { display: flex; align-items: center; justify-content: space-between; margin-right: 11px; }
+.wm-settings-subgroup-title-row .wm-settings-subgroup-title { margin: 8px 0; }
 .wm-settings-subgroup-desc { font-size: 13px; color: var(--text-muted); margin: 8px 0 8px 4px; line-height: 2; }
 
 /* ── Settings Sub-page Back Button ── */
@@ -3125,8 +3127,8 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 /* Unified Width for Inputs & Textareas */
 .wiki-settings-image-field input[type="text"],
 .wiki-settings-textarea textarea {
-    width: 150px !important;
-    /* Reduced to 150px */
+    width: 140px !important;
+    height: 79.99px !important;
     box-sizing: border-box !important;
 }
 
@@ -4595,6 +4597,8 @@ button[aria-label="규칙 추가"] {
 .wm-mode-icon-input { width: 100px; }
 .wm-mode-key-input { width: 110px; }
 .wm-mode-goal-input { width: 65px; }
+.wm-mode-goal-wrap { display: inline-flex; align-items: center; }
+.wm-mode-goal-unit { color: var(--text-muted); padding: 4px 8px; font-size: 13px; }
 .wm-mode-setting-row { flex-wrap: wrap !important; }
 
 /* ── Time Tracking View ────────────────────────────────────────────────────── */
@@ -4692,6 +4696,11 @@ button[aria-label="규칙 추가"] {
 .wm-settings-section-hdr-btns { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .wm-settings-section-hdr-btns .clickable-icon { width: 28px; height: 28px; }
 .wm-settings-section-hdr-btns .clickable-icon .svg-icon { width: 16px; height: 16px; }
+.wm-settings-tab .clickable-icon.extra-setting-button { padding: 0; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; }
+.wm-settings-tab .clickable-icon.extra-setting-button .svg-icon { width: 14px; height: 14px; }
+.wm-settings-group-add-row { display: flex; justify-content: center; }
+.wm-settings-group-add-row .clickable-icon { width: 20px; height: 20px; padding: 1px; }
+.wm-settings-group-add-row .clickable-icon .svg-icon { width: 20px; height: 20px; }
 /* 타이틀 + 설명 함께 한 줄 (작업 모드 등) */
 .wm-settings-section-hdr-label { display: flex; align-items: center; gap: 8px; flex: 1; }
 .wm-settings-section-hdr-label .wm-settings-group-title { margin: 0; flex: none; }
@@ -4701,9 +4710,9 @@ button[aria-label="규칙 추가"] {
 .wm-sc-add-popup-right { left: auto; right: 0; }
 
 /* 즐겨찾기/사용자지정 Setting 항목 글자 크기 */
-.wm-settings-tab .setting-item-name { font-size: 16px; font-weight: 600; }
+.wm-settings-tab .setting-item-name { font-size: 15px; font-weight: 600; }
 
-.wm-settings-hint { font-size: 12px; color: var(--text-muted); padding: 14px 16px; }
+.wm-settings-hint { font-size: 13px; color: var(--text-muted); padding: 14px 16px; }
 
 /* ── WhatsNew Modal ─────────────────────────────────────────────────────────── */
 .wm-whats-new-modal { width: min(520px, 92vw); }
@@ -4843,7 +4852,7 @@ button[aria-label="규칙 추가"] {
 .wm-spell-edit-confirm { padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 500; background: var(--interactive-accent); color: var(--text-on-accent); }
 
 /* 설정 페이지 알림 / 항목 개별 설명 */
-.wm-settings-item-desc { padding: 0 16px 10px; margin-right: 300px; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+.wm-settings-item-desc { padding: 0 16px 10px; margin-right: 150px; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
 .wm-settings-item-desc p { font-size: 13px; color: var(--text-muted); margin: 0 0 4px; line-height: 1.5; }
 
 /* 설정 페이지 추가 행 */

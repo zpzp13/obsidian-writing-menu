@@ -87,7 +87,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 
 		this.addGroupTitle(containerEl, '기타');
 		const etcBox = this.createGroupBox(containerEl);
-		this.addNavCard(etcBox, '스톱워치', '카운트다운 시간 · 알람 설정', 'timer', 'stopwatch');
+		this.addNavCard(etcBox, '타이머', '카운트다운 시간 · 알람 설정', 'timer', 'stopwatch');
 		this.addNavCard(etcBox, '사전', '표준국어대사전 API 키', 'book-open', 'dictionary');
 		this.addNavCard(etcBox, '맞춤법 검사', '한국어 맞춤법 검사 엔진 · 무시 단어', 'spell-check', 'spellcheck');
 		this.addNavCard(etcBox, '음악 플레이어', '음악 폴더 · 볼륨 · 재생 모드', 'music', 'music');
@@ -354,7 +354,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					this.plugin.leafStyleManager.updateDynamicStyles();
 				  });
 				});
-		hrBox.createDiv({ cls: 'wm-settings-item-desc', text: '구분선을 대체할 수 있습니다. 구분선을 구성하는 텍스트를 직접 입력하거나 SVG 파일을 등록하세요.' });
+		hrBox.createDiv({ cls: 'wm-settings-item-desc', text: '구분선을 구성하는 텍스트 혹은 SVG 소스코드를 입력하세요.' });
 
 		new Setting(hrBox)
 			.setName('텍스트 내용')
@@ -630,7 +630,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 	// ── 작업 시간 ───────────────────────────────────────────────────────
 
 	private renderStopwatchPage(containerEl: HTMLElement) {
-		this.addBackButton(containerEl, '스톱워치');
+		this.addBackButton(containerEl, '타이머');
 
 		this.addGroupTitle(containerEl, '스톱워치');
 		const swBox = this.createGroupBox(containerEl);
@@ -745,17 +745,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		charsBox.createDiv({ cls: 'wm-settings-item-desc', text: '일일 노트에 해당 날짜의 누적 글자수를 기록합니다.' });
 
 		// ── 작업 시간 ──
-		const modeTitleRow = containerEl.createDiv({ cls: 'wm-settings-section-hdr' });
-		const modeTitleLeft = modeTitleRow.createDiv({ cls: 'wm-settings-section-hdr-label' });
-		modeTitleLeft.createSpan({ cls: 'wm-settings-group-title', text: '작업 모드' });
-		const modeTitleBtns = modeTitleRow.createDiv({ cls: 'wm-settings-section-hdr-btns' });
-		const deleteAllModesBtn = modeTitleBtns.createDiv({ cls: 'clickable-icon wm-muted-icon' });
-		setIcon(deleteAllModesBtn, 'trash');
-		deleteAllModesBtn.setAttribute('aria-label', '전체 삭제');
-		const modeDesc = containerEl.createDiv({ cls: 'wm-settings-subgroup-desc' });
-		modeDesc.createEl('span', { text: '사용자의 작업 환경에 맞는 모드를 구축할 수 있습니다.' });
-		modeDesc.createEl('br');
-		modeDesc.createEl('span', { text: '입력값은 모드명-아이콘(Lucid)-프론트매터 키-목표 시간(분)순입니다.' });
+		containerEl.createDiv({ cls: 'wm-settings-group-title', text: '작업 시간' });
 		const modeBox = this.createGroupBox(containerEl);
 
 		const ensureModes = () => {
@@ -799,6 +789,10 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 							m.goalSeconds = (parseInt(v) || 0) * 60;
 							await this.plugin.saveSettings();
 						});
+						const wrap = createEl('div', { cls: 'wm-mode-goal-wrap' });
+						t.inputEl.parentElement?.insertBefore(wrap, t.inputEl);
+						wrap.appendChild(t.inputEl);
+						wrap.createSpan({ cls: 'wm-mode-goal-unit', text: '분' });
 					})
 					.addExtraButton(btn => btn.setIcon('x').setTooltip('삭제')
 						.onClick(async () => {
@@ -812,25 +806,21 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				setting.settingEl.addClass('wm-mode-setting-row');
 			}
 		};
-		deleteAllModesBtn.addEventListener('click', async () => {
-			this.plugin.settings.timeModes = [];
-			await this.plugin.saveSettings();
-			renderModeList();
-		});
 		renderModeList();
-
-		const addModeRow = containerEl.createDiv({ cls: 'wm-settings-add-btn-row wm-settings-add-btn-right' });
-		const addModeBtn = addModeRow.createEl('button', { text: '+ 모드 추가' });
-		addModeBtn.addEventListener('click', async () => {
+		const addModeRow = containerEl.createDiv({ cls: 'wm-settings-group-add-row' });
+		const addModeIcon = addModeRow.createDiv({ cls: 'clickable-icon wm-muted-icon' });
+		setIcon(addModeIcon, 'plus');
+		addModeIcon.setAttribute('aria-label', '모드 추가');
+		addModeIcon.addEventListener('click', async () => {
 			const newId = `mode_${Date.now()}`;
 			ensureModes().push({ id: newId, label: '', frontmatterKey: '', goalSeconds: 0 });
 			await this.plugin.saveSettings();
 			renderModeList();
 		});
 
-		containerEl.createDiv({ cls: 'wm-settings-subgroup-title', text: '총 시간 키' });
+		containerEl.createDiv({ cls: 'wm-settings-subgroup-title', text: '총 시간' });
 		const totalBox = this.createGroupBox(containerEl);
-		new Setting(totalBox).setName('총 시간 프론트매터 키')
+		new Setting(totalBox).setName('프론트매터 키')
 			.addText(t => t
 				.setPlaceholder('총_시간')
 				.setValue(this.plugin.settings.timeTotalKey ?? '총_시간')
@@ -886,10 +876,11 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			});
 		};
 		renderFolderList();
-
-		const addFolderRow = containerEl.createDiv({ cls: 'wm-settings-add-btn-row wm-settings-add-btn-right' });
-		const addFolderBtn = addFolderRow.createEl('button', { text: '+ 폴더 추가' });
-		addFolderBtn.addEventListener('click', () => { paths.push(''); renderFolderList(); });
+		const addFolderIconRow = containerEl.createDiv({ cls: 'wm-settings-group-add-row' });
+		const addFolderIcon = addFolderIconRow.createDiv({ cls: 'clickable-icon wm-muted-icon' });
+		setIcon(addFolderIcon, 'plus');
+		addFolderIcon.setAttribute('aria-label', '폴더 추가');
+		addFolderIcon.addEventListener('click', () => { paths.push(''); renderFolderList(); });
 
 		this.addGroupTitle(containerEl, '재생 설정');
 		const playBox = this.createGroupBox(containerEl);
@@ -990,16 +981,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			for (let i = 0; i < stages.length; i++) {
 				const s = stages[i];
 				new Setting(stageBox)
-					.addButton(btn => {
-						btn.setIcon('trash-2')
-							.setClass('wm-stage-del-btn')
-							.setTooltip('삭제')
-							.onClick(async () => {
-								stages.splice(i, 1);
-								await this.plugin.saveSettings();
-								renderStageList();
-							});
-					})
+					.setName(`상태 ${i + 1}`)
 					.addColorPicker(cp => {
 						cp.setValue(s.color)
 							.onChange(async (val) => {
@@ -1015,19 +997,25 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 							stages[i].name = val.trim() || s.name;
 							await this.plugin.saveSettings();
 						});
-					});
+					})
+					.addExtraButton(btn => btn.setIcon('x').setTooltip('삭제')
+						.onClick(async () => {
+							stages.splice(i, 1);
+							await this.plugin.saveSettings();
+							renderStageList();
+						}));
 			}
-			new Setting(stageBox)
-				.addButton(btn => btn
-					.setButtonText('+ 상태 추가')
-					.setCta()
-					.onClick(async () => {
-						(this.plugin.settings.versionStages ?? []).push({ name: '새 상태', color: '#6366f1' });
-						await this.plugin.saveSettings();
-						renderStageList();
-					}));
 		};
 		renderStageList();
+		const addStageIconRow = containerEl.createDiv({ cls: 'wm-settings-group-add-row' });
+		const addStageIcon = addStageIconRow.createDiv({ cls: 'clickable-icon wm-muted-icon' });
+		setIcon(addStageIcon, 'plus');
+		addStageIcon.setAttribute('aria-label', '상태 추가');
+		addStageIcon.addEventListener('click', async () => {
+			(this.plugin.settings.versionStages ?? []).push({ name: '새 상태', color: '#6366f1' });
+			await this.plugin.saveSettings();
+			renderStageList();
+		});
 	}
 
 	// ── 캘린더 설정 ─────────────────────────────────────────────────────
@@ -1222,9 +1210,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-		const notice = engineBox.createDiv({ cls: 'wm-settings-item-desc' });
-		notice.createEl('p', { text: '본 맞춤법 검사 기능은 개인에 한해 비상업적 용도로만 이용할 수 있습니다.' });
-		notice.createEl('p', { text: '검사 엔진은 비공식 API를 사용하므로 서비스 제공자의 정책 변경에 따라 사전 예고 없이 사용이 제한될 수 있습니다.' });
+		engineBox.createDiv({ cls: 'wm-settings-item-desc', text: '본 맞춤법 검사 기능은 개인에 한해 비상업적 용도로만 이용할 수 있습니다. 검사 엔진은 비공식 API를 사용하므로 서비스 제공자의 정책 변경에 따라 사전 예고 없이 사용이 제한될 수 있습니다.' });
 
 		// 고유명사 사전
 		const ignoredHdr = containerEl.createDiv({ cls: 'wm-settings-section-hdr' });
