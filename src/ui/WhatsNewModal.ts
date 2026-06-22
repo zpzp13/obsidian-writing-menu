@@ -6,12 +6,28 @@ interface ReleaseNote {
 	version: string;
 	date: string;
 	bannerUrl?: string;
+	bannerUrls?: string[];
 	new?: string[];
 	improved?: string[];
 	fixed?: string[];
 }
 
 const RELEASE_NOTES: ReleaseNote[] = [
+	{
+		version: '3.0.16',
+		date: '2026-06-22',
+		bannerUrls: [
+			`${BASE_URL}/images/커스텀 구분선.png`,
+			`${BASE_URL}/images/맞춤법 검사기.png`,
+		],
+		new: [
+			'커스텀 구분선: --- 구분선을 이미지·SVG·CSS 스타일로 꾸밀 수 있습니다 (폴더 조건 적용 가능)',
+			'맞춤법 검사기 (F9): Daum / 부산대 나라맞춤법 검사기 중 선택, 고유명사 사전 등록, 교정 제안 적용 지원 (비상업적 개인 이용 한정)',
+		],
+		improved: [
+			'설정 UI 전면 재설계: 페이지별 그룹화, 항목별 설명 추가, 입력 컨트롤 크기 통일',
+		],
+	},
 	{
 		version: '3.0.15',
 		date: '2026-06-21',
@@ -50,9 +66,12 @@ export class WhatsNewModal extends Modal {
 		modalEl.addClass('wm-whats-new-modal');
 		contentEl.empty();
 
-		if (this.note.bannerUrl) {
+		const urls = this.note.bannerUrls ?? (this.note.bannerUrl ? [this.note.bannerUrl] : []);
+		if (urls.length) {
 			const banner = contentEl.createDiv({ cls: 'wm-wn-banner' });
-			banner.createEl('img', { attr: { src: this.note.bannerUrl, alt: `v${this.note.version} 업데이트` } });
+			for (const url of urls) {
+				banner.createEl('img', { attr: { src: url, alt: `v${this.note.version} 업데이트` } });
+			}
 		}
 
 		const body = contentEl.createDiv({ cls: 'wm-wn-body' });
