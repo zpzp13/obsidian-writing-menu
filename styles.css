@@ -4623,14 +4623,14 @@ button[aria-label="규칙 추가"] {
 .wm-dict-modal-container { width: 620px; max-width: 94vw; }
 
 /* ── Special Chars Modal ────────────────────────────────────────────────────── */
-.wm-sc-modal-container { width: 560px; max-width: 94vw; }
+.wm-sc-modal-container { width: 560px; max-width: 94vw; padding: 16px 16px 30px; }
 .wm-sc-modal { padding: 0; overflow: hidden; }
 .wm-sc-modal .modal-content { padding: 0; overflow: hidden; }
 
 /* 헤더: 타이틀 + 검색창 + 추가버튼 (Obsidian X 버튼 공간 확보를 위해 padding-right) */
 .wm-sc-header { display: flex; align-items: center; gap: 8px; padding: 10px 44px 10px 14px; border-bottom: 1px solid var(--background-modifier-border); }
 .wm-sc-title { font-size: 14px; font-weight: 600; color: var(--text-normal); flex-shrink: 0; }
-.wm-sc-search-wrap { display: flex; align-items: center; border: 2px solid var(--background-modifier-border); border-radius: 6px; background: var(--background-primary); transition: border-color 0.15s; width: 200px; flex-shrink: 0; margin-left: 40px; }
+.wm-sc-search-wrap { display: flex; align-items: center; border: 2px solid var(--background-modifier-border); border-radius: 6px; background: var(--background-primary); transition: border-color 0.15s; width: 200px; flex-shrink: 0; margin-left: 47px; }
 .wm-sc-search-wrap:focus-within { border-color: var(--interactive-accent); }
 .wm-sc-search-icon { display: flex; align-items: center; padding: 0 6px 0 10px; color: var(--text-faint); flex-shrink: 0; pointer-events: none; transition: color 0.15s; }
 .wm-sc-search-icon .svg-icon { width: 14px; height: 14px; }
