@@ -211,7 +211,6 @@ main.ts            Plugin entry point
 MIT
 
 ---
----
 
 # Writing Menu — Obsidian 창작 보조 플러그인
 
