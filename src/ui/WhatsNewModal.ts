@@ -2,36 +2,31 @@ import { App, Modal, setIcon } from 'obsidian';
 
 const BASE_URL = 'https://raw.githubusercontent.com/zpzp13/obsidian-writing-menu/main';
 
+type ReleaseItem = string | { text: string; bannerUrl: string };
+
 interface ReleaseNote {
 	version: string;
 	date: string;
-	bannerUrl?: string;
-	bannerUrls?: string[];
-	new?: string[];
-	improved?: string[];
-	fixed?: string[];
+	new?: ReleaseItem[];
+	improved?: ReleaseItem[];
+	fixed?: ReleaseItem[];
 }
 
 const RELEASE_NOTES: ReleaseNote[] = [
 	{
 		version: '3.0.16',
-		date: '2026-06-22',
-		bannerUrls: [
-			`${BASE_URL}/images/커스텀 구분선.png`,
-			`${BASE_URL}/images/맞춤법 검사기.png`,
-		],
+		date: '2026-06-23',
 		new: [
-			'커스텀 구분선: --- 구분선을 이미지·SVG·CSS 스타일로 꾸밀 수 있습니다 (폴더 조건 적용 가능)',
-			'맞춤법 검사기 (F9): Daum / 부산대 나라맞춤법 검사기 중 선택, 고유명사 사전 등록, 교정 제안 적용 지원 (비상업적 개인 이용 한정)',
+			{ text: '커스텀 구분선: --- 구분선을 이미지·SVG·CSS 스타일로 꾸밀 수 있습니다 (폴더 조건 적용 가능)', bannerUrl: `${BASE_URL}/images/커스텀 구분선.png` },
+			{ text: '맞춤법 검사기 (F8): Daum / 부산대 나라맞춤법 검사기 중 선택, 고유명사 사전 등록, 교정 제안 적용 지원 (비상업적 개인 이용 한정)', bannerUrl: `${BASE_URL}/images/맞춤법 검사기.png` },
 		],
 		improved: [
-			'설정 UI 전면 재설계: 페이지별 그룹화, 항목별 설명 추가, 입력 컨트롤 크기 통일',
+			'설정 UI 전면 재설계: 기능별 페이지 그룹화, 항목별 설명 추가, 입력 컨트롤 크기 통일',
 		],
 	},
 	{
 		version: '3.0.15',
 		date: '2026-06-21',
-		bannerUrl: `${BASE_URL}/images/특수문자.png`,
 		new: [
 			'특수문자 모달 (F10): 즐겨찾기 등록/관리, 사용자 지정 특수문자 추가 지원',
 		],
@@ -66,14 +61,6 @@ export class WhatsNewModal extends Modal {
 		modalEl.addClass('wm-whats-new-modal');
 		contentEl.empty();
 
-		const urls = this.note.bannerUrls ?? (this.note.bannerUrl ? [this.note.bannerUrl] : []);
-		if (urls.length) {
-			const banner = contentEl.createDiv({ cls: 'wm-wn-banner' });
-			for (const url of urls) {
-				banner.createEl('img', { attr: { src: url, alt: `v${this.note.version} 업데이트` } });
-			}
-		}
-
 		const body = contentEl.createDiv({ cls: 'wm-wn-body' });
 
 		const header = body.createDiv({ cls: 'wm-wn-header' });
@@ -81,13 +68,13 @@ export class WhatsNewModal extends Modal {
 		header.createEl('span', { cls: 'wm-wn-date', text: this.note.date });
 
 		const sections: { key: keyof ReleaseNote; label: string; icon: string }[] = [
-			{ key: 'new',      label: '새 기능',  icon: 'sparkles' },
-			{ key: 'improved', label: '개선',     icon: 'arrow-up-circle' },
-			{ key: 'fixed',    label: '버그 수정', icon: 'wrench' },
+			{ key: 'new',      label: '새 기능',   icon: 'sparkles' },
+			{ key: 'improved', label: '개선',      icon: 'arrow-up-circle' },
+			{ key: 'fixed',    label: '버그 수정',  icon: 'wrench' },
 		];
 
 		for (const { key, label, icon } of sections) {
-			const items = this.note[key] as string[] | undefined;
+			const items = this.note[key] as ReleaseItem[] | undefined;
 			if (!items?.length) continue;
 
 			const section = body.createDiv({ cls: 'wm-wn-section' });
@@ -96,9 +83,15 @@ export class WhatsNewModal extends Modal {
 			setIcon(iconEl, icon);
 			sectionHeader.createEl('span', { cls: 'wm-wn-section-label', text: label });
 
-			const list = section.createEl('ul', { cls: 'wm-wn-list' });
+			const itemsEl = section.createDiv({ cls: 'wm-wn-items' });
 			for (const item of items) {
-				list.createEl('li', { text: item });
+				const text = typeof item === 'string' ? item : item.text;
+				const bannerUrl = typeof item === 'object' ? item.bannerUrl : undefined;
+				if (bannerUrl) {
+					itemsEl.createDiv({ cls: 'wm-wn-item-banner' })
+						.createEl('img', { attr: { src: bannerUrl, alt: text } });
+				}
+				itemsEl.createDiv({ cls: 'wm-wn-item' }).createEl('span', { text });
 			}
 		}
 
