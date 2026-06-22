@@ -934,7 +934,10 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				.setPlaceholder('API 키 입력')
 				.setValue(this.plugin.settings.stdictApiKey)
 				.onChange(async value => { this.plugin.settings.stdictApiKey = value.trim(); await this.plugin.saveSettings(); }));
-		dictBox.createDiv({ cls: 'wm-settings-item-desc', text: 'stdict.korean.go.kr 개발 지원 탭에서 무료 API를 발급받으세요.' });
+		const dictDesc = dictBox.createDiv({ cls: 'wm-settings-item-desc' });
+		dictDesc.appendText('무료 API 발급: ');
+		dictDesc.createEl('a', { text: 'stdict.korean.go.kr', href: 'https://stdict.korean.go.kr', attr: { target: '_blank', rel: 'noopener' } });
+		dictDesc.appendText(' 개발 지원 탭에서 신청하세요.');
 
 		this.addGroupTitle(containerEl, '한자 변환');
 		const hanjaBox = this.createGroupBox(containerEl);

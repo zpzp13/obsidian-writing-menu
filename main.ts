@@ -282,6 +282,7 @@ export default class WritingMenuPlugin extends Plugin {
 		this.addCommand({
 			id: 'copy-without-excluded',
 			name: '복사하기 (헤딩·각주 제외)',
+			hotkeys: [{ modifiers: ['Alt'], key: 'c' }],
 			callback: async () => {
 				const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
 				if (activeView?.leaf) await this.copyWithOptions(activeView.leaf);
@@ -291,6 +292,7 @@ export default class WritingMenuPlugin extends Plugin {
 		this.addCommand({
 			id: 'run-spell-check',
 			name: '맞춤법 검사',
+			hotkeys: [{ modifiers: [], key: 'F8' }],
 			editorCallback: (editor) => {
 				new SpellCheckerService().run(editor, this).catch(() => {});
 			}
@@ -305,6 +307,7 @@ export default class WritingMenuPlugin extends Plugin {
 		this.addCommand({
 			id: 'hanja-convert',
 			name: '사전 / 한자 변환',
+			hotkeys: [{ modifiers: [], key: 'F3' }],
 			callback: () => openDictionary(this),
 		});
 

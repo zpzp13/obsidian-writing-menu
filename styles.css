@@ -4707,8 +4707,6 @@ button[aria-label="규칙 추가"] {
 
 /* ── WhatsNew Modal ─────────────────────────────────────────────────────────── */
 .wm-whats-new-modal { width: min(520px, 92vw); }
-.wm-wn-banner { width: 100%; }
-.wm-wn-banner img { width: 100%; display: block; border-radius: var(--radius-m, 8px) var(--radius-m, 8px) 0 0; }
 .wm-wn-body { padding: 20px 24px 16px; }
 .wm-wn-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px; }
 .wm-wn-title { margin: 0; font-size: 20px; font-weight: 700; }
@@ -4718,8 +4716,11 @@ button[aria-label="규칙 추가"] {
 .wm-wn-section-icon { color: var(--text-accent); display: flex; }
 .wm-wn-section-icon .svg-icon { width: 15px; height: 15px; }
 .wm-wn-section-label { font-size: 13px; font-weight: 600; color: var(--text-accent); }
-.wm-wn-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
-.wm-wn-list li { font-size: 13px; color: var(--text-normal); line-height: 1.5; }
+.wm-wn-items { display: flex; flex-direction: column; gap: 4px; }
+.wm-wn-item-banner { width: 100%; margin-bottom: 4px; }
+.wm-wn-item-banner img { width: 100%; display: block; border-radius: var(--radius-m, 8px); }
+.wm-wn-item { font-size: 13px; color: var(--text-normal); line-height: 1.5; padding-left: 2px; }
+.wm-wn-item::before { content: "•"; margin-right: 6px; color: var(--text-muted); }
 .wm-wn-footer { display: flex; justify-content: flex-end; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--background-modifier-border); }
 
 /* ── Version ───────────────────────────────────────────────────────────────── */
