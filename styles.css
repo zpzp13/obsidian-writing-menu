@@ -37,7 +37,7 @@
 .wm-settings-group-box .wm-settings-nav-card:hover { border-color: var(--background-modifier-border); background: var(--background-modifier-hover); }
 
 /* Setting items inside group box — uniform height matching nav cards, no radius, dividers only */
-.wm-settings-group-box .setting-item { background: transparent !important; border-radius: 0 !important; border-top: 1px solid var(--background-modifier-border) !important; border-bottom: none !important; padding-top: 14px !important; padding-bottom: 14px !important; margin: 0 !important; }
+.wm-settings-group-box .setting-item { background: transparent !important; border-radius: 0 !important; border-top: 1px solid var(--background-modifier-border) !important; border-bottom: none !important; padding-top: 10px !important; padding-bottom: 10px !important; margin: 0 !important; min-height: 50px; box-sizing: border-box; }
 .wm-settings-group-box .setting-item:first-child { border-top: none !important; }
 .wm-settings-group-box .setting-item-description { display: none !important; }
 .wm-settings-group-box .setting-item select {
@@ -49,18 +49,19 @@
 /* ── Settings Navigation Cards (standalone, outside group box) ── */
 .wm-settings-nav-card { display: flex; align-items: center; padding: 14px 16px; cursor: pointer; border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m, 8px); background: var(--background-primary); margin-bottom: 8px; gap: 14px; transition: background 0.1s, border-color 0.1s; }
 .wm-settings-nav-card:hover { background: var(--background-modifier-hover); border-color: var(--interactive-accent); }
-.wm-settings-nav-card-icon { display: flex; align-items: center; justify-content: center; color: var(--interactive-accent); flex-shrink: 0; width: 24px; height: 24px; }
-.wm-settings-nav-card-icon svg { width: 18px; height: 18px; }
+.wm-settings-nav-card-icon { display: flex; align-items: center; justify-content: center; color: var(--text-normal); flex-shrink: 0; width: 24px; height: 24px; }
+.wm-settings-nav-card-icon svg { width: 16px; height: 16px; }
 .wm-settings-nav-card-body { flex: 1; min-width: 0; }
-.wm-settings-nav-card-title { font-size: 14px; font-weight: 600; color: var(--interactive-accent); line-height: 1.3; }
+.wm-settings-nav-card-title { font-size: 16px; font-weight: 600; color: var(--text-normal); line-height: 1.3; }
 .wm-settings-nav-card-desc { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
 .wm-settings-nav-card-chevron { display: flex; align-items: center; color: var(--text-faint); flex-shrink: 0; }
 .wm-settings-nav-card-chevron svg { width: 16px; height: 16px; }
 
 /* ── Settings Group Title ── */
-.wm-settings-group-title { font-size: 13px; font-weight: 600; color: var(--text-muted); letter-spacing: 0; margin: 20px 0 8px 4px; }
+.wm-settings-group-title { font-size: 17px; font-weight: 600; color: var(--interactive-accent); letter-spacing: 0; margin: 20px 0 8px 4px; }
 .wm-settings-group-title:first-child { margin-top: 4px; }
-.wm-settings-subgroup-title { font-size: 12px; font-weight: 600; color: var(--text-muted); margin: 12px 0 4px 8px; opacity: 0.75; }
+.wm-settings-subgroup-title { font-size: 16px; font-weight: 600; color: var(--text-muted); margin: 8px 0 8px 4px; opacity: 0.65; }
+.wm-settings-subgroup-desc { font-size: 13px; color: var(--text-muted); margin: 8px 0 8px 4px; line-height: 2; }
 
 /* ── Settings Sub-page Back Button ── */
 .wm-settings-back-btn { display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text-muted); font-size: 14px; font-weight: 600; margin-bottom: 16px; padding: 4px 0; }
@@ -574,7 +575,7 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 }
 .wm-float-content::-webkit-scrollbar { display: none; }
 .wm-float-content p { margin-bottom: var(--wm-preview-para, 1em); text-align: justify; }
-.wm-float-content p + p { padding-inline-start: var(--wm-preview-indent, 0); }
+.wm-float-content p + p { text-indent: var(--wm-preview-indent, 0); }
 .wm-float-content h1, .wm-float-content h2, .wm-float-content h3,
 .wm-float-content h4, .wm-float-content h5, .wm-float-content h6 { text-align: left; }
 
@@ -3840,9 +3841,9 @@ button[aria-label="규칙 추가"] {
 			body.wm-focus-mode .workspace-split.mod-root { width: 100vw !important; }
 
 			/* 커스텀 구분선 — 텍스트 모드 */
-			body.wm-hr-custom:not(.wm-hr-svg) .cm-content hr,
-			body.wm-hr-custom:not(.wm-hr-svg) .markdown-preview-view hr,
-			body.wm-hr-custom:not(.wm-hr-svg) .markdown-rendered hr {
+			.wm-hr-custom:not(.wm-hr-svg) .cm-content hr,
+			.wm-hr-custom:not(.wm-hr-svg) .markdown-preview-view hr,
+			.wm-hr-custom:not(.wm-hr-svg) .markdown-rendered hr {
 				border: none !important;
 				border-top: none !important;
 				background: none !important;
@@ -3850,9 +3851,9 @@ button[aria-label="규칙 추가"] {
 				height: 1.5em !important;
 				margin: 0.5em 0 !important;
 			}
-			body.wm-hr-custom:not(.wm-hr-svg) .cm-content hr::before,
-			body.wm-hr-custom:not(.wm-hr-svg) .markdown-preview-view hr::before,
-			body.wm-hr-custom:not(.wm-hr-svg) .markdown-rendered hr::before {
+			.wm-hr-custom:not(.wm-hr-svg) .cm-content hr::before,
+			.wm-hr-custom:not(.wm-hr-svg) .markdown-preview-view hr::before,
+			.wm-hr-custom:not(.wm-hr-svg) .markdown-rendered hr::before {
 				content: var(--wm-hr-content, '✦ ✦ ✦') !important;
 				display: block !important;
 				text-align: var(--wm-hr-align, center) !important;
@@ -3862,9 +3863,9 @@ button[aria-label="규칙 추가"] {
 			}
 
 			/* 커스텀 구분선 — SVG 모드 */
-			body.wm-hr-svg .cm-content hr,
-			body.wm-hr-svg .markdown-preview-view hr,
-			body.wm-hr-svg .markdown-rendered hr {
+			.wm-hr-svg .cm-content hr,
+			.wm-hr-svg .markdown-preview-view hr,
+			.wm-hr-svg .markdown-rendered hr {
 				border: none !important;
 				border-top: none !important;
 				background: none !important;
@@ -4556,12 +4557,15 @@ button[aria-label="규칙 추가"] {
 .wm-wiki-accent-val { color: var(--wiki-accent-color); font-weight: bold; }
 
 /* ── Settings ──────────────────────────────────────────────────────────────── */
-.wm-settings-req-note {
-    font-size: 12px;
-    color: var(--text-muted);
-    margin: 4px 0 8px 0;
-    padding: 0 4px;
-}
+.setting-item input[type=text], .setting-item input[type=number], .setting-item select.dropdown { width: 140px; height: 30px; }
+.setting-item textarea { width: 140px; height: 80px; }
+
+/* ── 고유명사 사전 태그 ── */
+.wm-settings-dict-tags { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-start; padding: 0 16px 12px; }
+.wm-settings-dict-empty { font-size: 13px; color: var(--text-faint); }
+.wm-settings-dict-tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; background: var(--background-secondary); border-radius: 12px; font-size: 13px; }
+.wm-settings-dict-tag-remove { cursor: pointer; color: var(--text-muted); font-size: 15px; line-height: 1; margin-left: 2px; }
+.wm-settings-dict-tag-remove:hover { color: var(--text-normal); }
 .wm-stage-name-input { width: 160px; }
 .writing-menu-kanban { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0; }
 .writing-menu-card { border: 2px solid var(--background-modifier-border); border-radius: var(--radius-m, 8px); overflow: hidden; }
@@ -4691,13 +4695,13 @@ button[aria-label="규칙 추가"] {
 /* 타이틀 + 설명 함께 한 줄 (작업 모드 등) */
 .wm-settings-section-hdr-label { display: flex; align-items: center; gap: 8px; flex: 1; }
 .wm-settings-section-hdr-label .wm-settings-group-title { margin: 0; flex: none; }
-.wm-settings-group-title-desc { font-size: 13px; color: var(--text-faint); }
+.wm-settings-group-title-desc { color: var(--text-faint); }
 
 /* 설정 팝업은 오른쪽 기준 정렬 */
 .wm-sc-add-popup-right { left: auto; right: 0; }
 
 /* 즐겨찾기/사용자지정 Setting 항목 글자 크기 */
-.wm-settings-group-box .setting-item-name { font-size: 16px; }
+.wm-settings-tab .setting-item-name { font-size: 16px; font-weight: 600; }
 
 .wm-settings-hint { font-size: 12px; color: var(--text-muted); padding: 14px 16px; }
 
@@ -4757,3 +4761,89 @@ button[aria-label="규칙 추가"] {
 .wm-removed-file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
 .file-add-btn { margin-left: 8px; color: var(--text-faint); cursor: pointer; display: flex; align-items: center; padding: 2px; }
 .file-add-btn:hover { color: var(--text-success); }
+
+/* ── 맞춤법 검사 모달 ──────────────────────────────────────────────────── */
+.wm-spell-modal { display: flex; flex-direction: column; overflow: hidden; }
+.wm-spell-modal .modal-content { display: flex; flex-direction: column; height: 100%; padding: 0; overflow: hidden; }
+
+.wm-spell-header { display: flex; align-items: center; gap: 10px; padding: 14px 14px; border-bottom: 1px solid var(--background-modifier-border); flex-shrink: 0; }
+.wm-spell-header-title { font-size: 16px; font-weight: 600; color: var(--text-normal); }
+.wm-spell-header-counts { display: flex; gap: 6px; align-items: center; }
+.wm-spell-header-count { font-size: 12px; color: var(--text-muted); background: var(--background-secondary); padding: 2px 8px; border-radius: 10px; }
+
+.wm-spell-split { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+.wm-spell-panel-title { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; padding: 8px 14px; flex-shrink: 0; border-bottom: 1px solid var(--background-modifier-border); }
+
+/* 1열: 오류 목록 패널 */
+.wm-spell-list-panel { width: 29%; min-width: 170px; border-right: 1px solid var(--background-modifier-border); display: flex; flex-direction: column; overflow: hidden; }
+.wm-spell-list { flex: 1; overflow-y: auto; padding: 6px 0; }
+.wm-spell-list-item { display: flex; align-items: center; gap: 8px; padding: 9px 12px; cursor: pointer; transition: background 0.1s; }
+.wm-spell-list-item:hover { background: var(--background-secondary); }
+.wm-spell-list-item.is-focused { background: var(--background-modifier-hover); border-radius: var(--radius-s, 6px); }
+.wm-spell-num-tag { font-size: 11px; min-width: 20px; height: 20px; border-radius: 5px; padding: 0 4px; display: inline-flex; align-items: center; justify-content: center; background: var(--background-secondary); color: var(--text-muted); font-weight: 600; flex-shrink: 0; }
+.wm-spell-list-text { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.wm-spell-type-tag { font-size: 11px; font-weight: 600; height: 20px; padding: 0 6px; border-radius: 4px; border: 1.5px solid currentColor; flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; opacity: 0.85; }
+
+/* 2열: 미리보기 패널 */
+.wm-spell-preview-panel { width: 40%; min-width: 220px; border-right: 1px solid var(--background-modifier-border); display: flex; flex-direction: column; overflow: hidden; }
+.wm-spell-preview-content { flex: 1; overflow-y: auto; padding: 14px 16px; font-size: 15px; line-height: 1.9; color: var(--text-normal); white-space: pre-wrap; word-break: break-word; }
+.wm-spell-error-span { cursor: pointer; border-radius: 2px; transition: opacity 0.1s; }
+.wm-spell-error-span:hover { opacity: 0.75; }
+.wm-spell-error-span.is-focused { outline: 2px solid currentColor; outline-offset: 1px; border-radius: 2px; font-weight: 700; }
+
+/* 3열: 상세 패널 */
+.wm-spell-detail { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.wm-spell-detail-fixed { flex-shrink: 0; }
+.wm-spell-detail-scroll { flex: 1; overflow-y: auto; min-height: 0; }
+.wm-spell-section { padding: 8px 16px; }
+.wm-spell-section-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+
+/* 원문/수정 비교 카드 (클릭 가능) */
+.wm-spell-orig-card { margin: 10px 16px 4px; border: 1.5px solid var(--background-modifier-border); border-radius: 8px; overflow: hidden; }
+.wm-spell-orig-card-row { display: flex; align-items: center; gap: 10px; padding: 9px 14px; cursor: pointer; transition: background 0.1s; }
+.wm-spell-orig-card-row + .wm-spell-orig-card-row { border-top: 1px solid var(--background-modifier-border); }
+.wm-spell-orig-card-row:hover { background: var(--background-secondary); }
+.wm-spell-orig-card-label { font-size: 11px; font-weight: 600; color: var(--text-muted); border: 1.5px solid var(--background-modifier-border); border-radius: 4px; padding: 2px 6px; min-width: 28px; text-align: center; flex-shrink: 0; }
+.wm-spell-orig-card-value { font-size: 15px; font-weight: 600; flex: 1; }
+.wm-spell-orig-card-value--error { color: var(--text-muted); }
+.wm-spell-orig-type-tag { margin-left: auto; flex-shrink: 0; }
+
+/* 라벨 구분선 (사전 용례 스타일) */
+.wm-spell-labeled-divider { display: flex; align-items: center; gap: 8px; padding: 8px 16px; font-size: 11px; font-weight: 600; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.05em; }
+.wm-spell-labeled-divider::before, .wm-spell-labeled-divider::after { content: ''; flex: 1; height: 1px; background: var(--background-modifier-border); }
+
+/* 제안 목록 */
+.wm-spell-sug-list { display: flex; flex-direction: column; }
+.wm-spell-sug-item { display: flex; align-items: center; gap: 8px; padding: 7px 0; cursor: pointer; font-size: 14px; color: var(--text-normal); transition: color 0.1s; }
+.wm-spell-sug-item:hover { color: var(--interactive-accent); }
+.wm-spell-sug-item.is-active { color: var(--interactive-accent); font-weight: 500; }
+.wm-spell-sug-num { font-size: 11px; width: 20px; height: 20px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; background: var(--background-secondary); color: var(--text-muted); font-weight: 600; flex-shrink: 0; }
+.wm-spell-sug-item.is-active .wm-spell-sug-num { color: var(--text-muted); }
+.wm-spell-help-section { flex: 1; }
+.wm-spell-help { font-size: 13px; color: var(--text-muted); line-height: 1.7; white-space: pre-wrap; word-break: keep-all; text-align: justify; }
+
+/* 하단 푸터 */
+.wm-spell-footer { display: flex; align-items: center; gap: 12px; padding: 14px; border-top: 1px solid var(--background-modifier-border); flex-shrink: 0; background: var(--background-primary); }
+.wm-spell-footer-hint { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 11px; color: var(--text-faint); flex: 1; }
+.wm-spell-hint-group { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
+.wm-spell-hint-plus { font-size: 10px; color: var(--text-faint); }
+.wm-spell-key { display: inline-block; border: 1.5px solid var(--background-modifier-border); border-radius: 3px; padding: 1px 4px; font-size: 10px; line-height: 1.4; color: var(--text-faint); }
+.wm-spell-apply-btn { display: flex; align-items: center; gap: 6px; padding: 6px 14px; background: var(--interactive-accent); color: var(--text-on-accent); border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; flex-shrink: 0; }
+.wm-spell-apply-btn:hover { background: var(--interactive-accent-hover); }
+.wm-spell-apply-btn > span { display: flex; align-items: center; justify-content: center; }
+
+/* 직접 입력 팝업 */
+.wm-spell-edit-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 100; border-radius: var(--modal-border-radius); }
+.wm-spell-edit-popup { background: var(--background-primary); border-radius: 8px; padding: 20px; width: 320px; display: flex; flex-direction: column; gap: 12px; box-shadow: var(--shadow-l); }
+.wm-spell-edit-label { font-size: 13px; font-weight: 600; color: var(--text-normal); }
+.wm-spell-edit-input { width: 100%; padding: 6px 10px; background: var(--background-modifier-form-field); border: 1px solid var(--background-modifier-border); border-radius: 4px; color: var(--text-normal); font-size: 14px; box-sizing: border-box; }
+.wm-spell-edit-btns { display: flex; gap: 8px; justify-content: flex-end; }
+.wm-spell-edit-cancel { padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; color: var(--text-muted); background: var(--background-secondary); }
+.wm-spell-edit-confirm { padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 500; background: var(--interactive-accent); color: var(--text-on-accent); }
+
+/* 설정 페이지 알림 / 항목 개별 설명 */
+.wm-settings-item-desc { padding: 0 16px 10px; margin-right: 300px; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+.wm-settings-item-desc p { font-size: 13px; color: var(--text-muted); margin: 0 0 4px; line-height: 1.5; }
+
+/* 설정 페이지 추가 행 */
+.wm-settings-add-row { display: flex; align-items: center; padding: 8px 12px; }

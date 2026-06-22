@@ -23,31 +23,31 @@ export function renderWikiSettingsPage(containerEl: HTMLElement, plugin: Writing
 
 	new Setting(propBox)
 		.setName('이미지 필드')
-		.setDesc('프로필 이미지로 사용할 프론트매터 키')
 		.addText(t => t.setValue(plugin.settings.wikiImageFieldName)
 			.onChange(async v => { plugin.settings.wikiImageFieldName = v; await plugin.saveSettings(); }));
+	propBox.createDiv({ cls: 'wm-settings-item-desc', text: '위키 프로필의 이미지를 결정하는 프론트매터 키입니다.' });
 
 	new Setting(propBox)
 		.setName('이름 필드')
-		.setDesc('프로필 헤더에 표시할 프론트매터 키')
 		.addText(t => t.setValue(plugin.settings.wikiNameFieldName)
 			.onChange(async v => { plugin.settings.wikiNameFieldName = v; await plugin.saveSettings(); }));
+	propBox.createDiv({ cls: 'wm-settings-item-desc', text: '위키 프로필의 제목을 결정하는 프론트매터 키입니다. 값이 없는 경우 노트명이 프로필 제목이 됩니다.' });
 
 	new Setting(propBox)
 		.setName('관계 필드')
-		.setDesc('관계 스트립에 표시할 프론트매터 키 (쉼표 구분, 예: 조력자, 적대자)')
 		.addText(t => t.setValue(plugin.settings.wikiRelationFields || '')
 			.onChange(async v => { plugin.settings.wikiRelationFields = v; await plugin.saveSettings(); }));
+	propBox.createDiv({ cls: 'wm-settings-item-desc', text: '프론트매터와 링크를 활용해 해당 노트의 관계성을 시각화해줍니다. 소설 집필의 예로 들면, \'대적자\'를 관계 필드로 등록하면 해당 프론트매터에 링크된 노트를 시각적으로 배열해줍니다.' });
 
 	new Setting(propBox)
 		.setName('숨길 속성')
-		.setDesc('프로필 테이블에서 숨길 프론트매터 키 (쉼표 구분)')
 		.setClass('wiki-settings-textarea')
 		.addTextArea(t => t.setValue((plugin.settings.wikiHiddenProperties || []).join(', '))
 			.onChange(async v => {
 				plugin.settings.wikiHiddenProperties = v.split(',').map(s => s.trim()).filter(s => s.length > 0);
 				await plugin.saveSettings();
 			}));
+	propBox.createDiv({ cls: 'wm-settings-item-desc', text: '위키 프로필상에서 숨기고 싶은 속성을 입력하세요.' });
 
 	groupTitle(containerEl, '스타일');
 	const styleBox = groupBox(containerEl);

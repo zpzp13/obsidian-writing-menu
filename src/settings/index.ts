@@ -12,6 +12,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 	}
 
 	display(): void {
+		this.containerEl.addClass('wm-settings-tab');
 		this.renderPage('main');
 	}
 
@@ -35,6 +36,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			case 'calendar':         this.renderCalendarPage(containerEl); break;
 			case 'wiki':             this.renderWikiPage(containerEl); break;
 			case 'special-chars':    this.renderSpecialCharsPage(containerEl); break;
+			case 'spellcheck':       this.renderSpellCheckPage(containerEl); break;
 		}
 	}
 
@@ -46,7 +48,6 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		setIcon(iconEl, icon);
 		const body = card.createDiv({ cls: 'wm-settings-nav-card-body' });
 		body.createEl('div', { cls: 'wm-settings-nav-card-title', text: title });
-		body.createEl('div', { cls: 'wm-settings-nav-card-desc', text: desc });
 		const chevron = card.createDiv({ cls: 'wm-settings-nav-card-chevron' });
 		setIcon(chevron, 'chevron-right');
 		card.addEventListener('click', () => this.renderPage(page));
@@ -88,6 +89,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		const etcBox = this.createGroupBox(containerEl);
 		this.addNavCard(etcBox, '스톱워치', '카운트다운 시간 · 알람 설정', 'timer', 'stopwatch');
 		this.addNavCard(etcBox, '사전', '표준국어대사전 API 키', 'book-open', 'dictionary');
+		this.addNavCard(etcBox, '맞춤법 검사', '한국어 맞춤법 검사 엔진 · 무시 단어', 'spell-check', 'spellcheck');
 		this.addNavCard(etcBox, '음악 플레이어', '음악 폴더 · 볼륨 · 재생 모드', 'music', 'music');
 		this.addNavCard(etcBox, '특수문자', '삽입 후 닫기 · 즐겨찾기 관리', 'omega', 'special-chars');
 	}
@@ -102,8 +104,15 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		const inlineBox = this.createGroupBox(containerEl);
 
 		new Setting(inlineBox)
+			.setName('폴더')
+			.addText(text => text
+				.setPlaceholder('예: 소설/집필')
+				.setValue(this.plugin.settings.applyToFolder)
+				.onChange(async value => { this.plugin.settings.applyToFolder = value.trim(); await this.plugin.saveSettings(); }));
+		inlineBox.createDiv({ cls: 'wm-settings-item-desc', text: '폴더를 지정하세요. 해당 폴더의 하위 노트에 서식이 적용됩니다.' });
+
+		new Setting(inlineBox)
 			.setName('글꼴')
-			.setDesc('비워두면 Obsidian 기본 글꼴 사용')
 			.addText(text => text
 				.setPlaceholder('inherit')
 				.setValue(this.plugin.settings.fontFamily === 'inherit' ? '' : this.plugin.settings.fontFamily)
@@ -111,6 +120,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					this.plugin.settings.fontFamily = value.trim() || 'inherit';
 					await this.plugin.saveSettings();
 				}));
+		inlineBox.createDiv({ cls: 'wm-settings-item-desc', text: '시스템 폰트를 입력하세요. 저장된 모든 폰트를 사용할 수 있습니다.' });
 
 		new Setting(inlineBox)
 			.setName('글자 크기 (px)')
@@ -124,6 +134,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				text.inputEl.type = 'number';
 				text.inputEl.min = '1';
 			});
+		inlineBox.createDiv({ cls: 'wm-settings-item-desc', text: '에디터 본문의 글자 크기입니다. 기본값 16px.' });
 
 		new Setting(inlineBox)
 			.setName('줄간격')
@@ -138,6 +149,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				text.inputEl.step = '0.1';
 				text.inputEl.min = '0';
 			});
+		inlineBox.createDiv({ cls: 'wm-settings-item-desc', text: '줄과 줄 사이의 간격입니다. 1.5~2.0 권장.' });
 
 		new Setting(inlineBox)
 			.setName('문단간격')
@@ -152,6 +164,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				text.inputEl.step = '0.5';
 				text.inputEl.min = '0';
 			});
+		inlineBox.createDiv({ cls: 'wm-settings-item-desc', text: '문단(단락) 사이의 여백 배수입니다. 0이면 줄간격만 적용.' });
 
 		new Setting(inlineBox)
 			.setName('너비 (px)')
@@ -165,6 +178,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				text.inputEl.type = 'number';
 				text.inputEl.min = '1';
 			});
+		inlineBox.createDiv({ cls: 'wm-settings-item-desc', text: '에디터 본문의 최대 너비입니다. 기본값 700px.' });
 
 		new Setting(inlineBox)
 			.setName('좌우 여백 (px)')
@@ -178,6 +192,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				text.inputEl.type = 'number';
 				text.inputEl.min = '0';
 			});
+		inlineBox.createDiv({ cls: 'wm-settings-item-desc', text: '에디터 좌우 패딩입니다. 화면이 좁을 때 줄여 사용.' });
 
 		new Setting(inlineBox)
 			.setName('들여쓰기 (px)')
@@ -191,6 +206,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				text.inputEl.type = 'number';
 				text.inputEl.min = '0';
 			});
+		inlineBox.createDiv({ cls: 'wm-settings-item-desc', text: '두 번째 문단부터 첫 줄 들여쓰기 크기입니다. 0이면 비활성.' });
 
 		// 글자색
 		const fontColorVal = this.plugin.settings.fontColor;
@@ -306,18 +322,10 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 
 		new Setting(inlineBox)
 			.setName('링크 색상')
-			.setDesc('비활성화 시 링크 색상을 일반 텍스트 색상으로 표시')
 			.addToggle(toggle => toggle
 				.setValue(!this.plugin.settings.disableLinkColor)
 				.onChange(async value => { this.plugin.settings.disableLinkColor = !value; await this.plugin.saveSettings(); }));
-
-		new Setting(inlineBox)
-			.setName('폴더별 적용')
-			.setDesc('지정한 폴더의 노트에만 서식을 적용합니다. 비워두면 전체 적용.')
-			.addText(text => text
-				.setPlaceholder('예: 소설/집필')
-				.setValue(this.plugin.settings.applyToFolder)
-				.onChange(async value => { this.plugin.settings.applyToFolder = value.trim(); await this.plugin.saveSettings(); }));
+		inlineBox.createDiv({ cls: 'wm-settings-item-desc', text: '비활성화 시 링크 구문의 자동 색상 보정을 무시합니다.' });
 
 		// ── 구분선 ──────────────────────────────────────────────────
 		this.addGroupTitle(containerEl, '구분선');
@@ -346,6 +354,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					this.plugin.leafStyleManager.updateDynamicStyles();
 				  });
 				});
+		hrBox.createDiv({ cls: 'wm-settings-item-desc', text: '구분선을 대체할 수 있습니다. 구분선을 구성하는 텍스트를 직접 입력하거나 SVG 파일을 등록하세요.' });
 
 		new Setting(hrBox)
 			.setName('텍스트 내용')
@@ -394,6 +403,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				btn.addClass('is-active');
 			};
 		});
+		hrBox.createDiv({ cls: 'wm-settings-item-desc', text: '구분선의 가로 정렬 위치입니다. 텍스트 모드에서 적용됩니다.' });
 
 		new Setting(hrBox)
 			.setName('SVG 코드')
@@ -421,6 +431,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					this.plugin.settings.h1FontFamily = value || 'inherit';
 					await this.plugin.saveSettings();
 				}));
+		h1Box.createDiv({ cls: 'wm-settings-item-desc', text: 'H1 헤딩에만 적용되는 별도 글꼴입니다. 비워두면 본문 글꼴 사용.' });
 
 		new Setting(h1Box)
 			.setName('크기 (px)')
@@ -431,6 +442,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					const num = parseInt(value);
 					if (!isNaN(num) && num > 0) { this.plugin.settings.h1FontSize = num; await this.plugin.saveSettings(); }
 				}));
+		h1Box.createDiv({ cls: 'wm-settings-item-desc', text: 'H1 헤딩의 글자 크기입니다.' });
 
 		new Setting(h1Box)
 			.setName('행간')
@@ -441,6 +453,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					const num = parseFloat(value);
 					if (!isNaN(num) && num > 0) { this.plugin.settings.h1LineHeight = num; await this.plugin.saveSettings(); }
 				}));
+		h1Box.createDiv({ cls: 'wm-settings-item-desc', text: 'H1 헤딩의 줄간격입니다.' });
 
 		new Setting(h1Box)
 			.setName('색상')
@@ -468,6 +481,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					this.plugin.settings.footnoteFontFamily = value || 'inherit';
 					await this.plugin.saveSettings();
 				}));
+		fnBox.createDiv({ cls: 'wm-settings-item-desc', text: '각주 텍스트에만 적용되는 별도 글꼴입니다. 비워두면 본문 글꼴 사용.' });
 
 		new Setting(fnBox)
 			.setName('크기 (px)')
@@ -478,6 +492,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					const num = parseInt(value);
 					if (!isNaN(num) && num > 0) { this.plugin.settings.footnoteFontSize = num; await this.plugin.saveSettings(); }
 				}));
+		fnBox.createDiv({ cls: 'wm-settings-item-desc', text: '각주 글자 크기입니다. 기본값 13px.' });
 
 		new Setting(fnBox)
 			.setName('행간')
@@ -488,6 +503,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					const num = parseFloat(value);
 					if (!isNaN(num) && num > 0) { this.plugin.settings.footnoteLineHeight = num; await this.plugin.saveSettings(); }
 				}));
+		fnBox.createDiv({ cls: 'wm-settings-item-desc', text: '각주 줄간격입니다.' });
 
 		new Setting(fnBox)
 			.setName('색상')
@@ -513,31 +529,31 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 
 		new Setting(smartBox)
 			.setName('스마트 따옴표')
-			.setDesc('곧은 따옴표("")를 둥근 따옴표(“”)로 자동 변환')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.enableSmartQuotes)
 				.onChange(async value => { this.plugin.settings.enableSmartQuotes = value; await this.plugin.saveSettings(); }));
+		smartBox.createDiv({ cls: 'wm-settings-item-desc', text: '곧은 따옴표를 둥근 따옴표로 치환합니다.' });
 
 		new Setting(smartBox)
 			.setName('스마트 엔터')
-			.setDesc('괄호 안에서 엔터 입력 시 닫는 괄호 아래로 커서 이동')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.enableSmartEnter)
 				.onChange(async value => { this.plugin.settings.enableSmartEnter = value; await this.plugin.saveSettings(); }));
+		smartBox.createDiv({ cls: 'wm-settings-item-desc', text: '따옴표와 괄호, 트리거에 등록된 기호쌍 안에서 엔터를 입력하면 커서가 다음 문단으로 이동합니다.' });
 
 		new Setting(smartBox)
 			.setName('자동완성')
-			.setDesc('트리거 키 입력 시 기호 쌍 팝업 표시')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.enableSmartInput)
 				.onChange(async value => { this.plugin.settings.enableSmartInput = value; await this.plugin.saveSettings(); }));
+		smartBox.createDiv({ cls: 'wm-settings-item-desc', text: '트리거를 입력하면 자동완성 팝업창이 나타납니다. 자주 쓰는 기호를 트리거로 입력 후 쉽게 적용하세요.' });
 
 		new Setting(smartBox)
 			.setName('텍스트 치환')
-			.setDesc('특정 텍스트를 다른 문자로 자동 변환')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.enableTextSubstitution)
 				.onChange(async value => { this.plugin.settings.enableTextSubstitution = value; await this.plugin.saveSettings(); }));
+		smartBox.createDiv({ cls: 'wm-settings-item-desc', text: '대치어를 등록하면 자동으로 치환합니다.' });
 
 		this.addGroupTitle(containerEl, '자동완성 기호');
 		this.displaySymbolPairs(containerEl.createDiv({ cls: 'wm-settings-input-section' }));
@@ -577,8 +593,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			if (Platform.isWin) {
 				this.addGroupTitle(containerEl, 'HWP 변환');
 
-				const reqNote = containerEl.createDiv('wm-settings-req-note');
-				reqNote.textContent = '한컴오피스 한글, Python, pywin32 필요';
+				containerEl.createDiv({ cls: 'wm-settings-subgroup-title', text: '한컴오피스 한글, Python, pywin32 필요' });
 
 				const hwpBox = this.createGroupBox(containerEl);
 
@@ -607,6 +622,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 							const picked = await this.plugin.openTemplatePicker();
 							if (picked) { this.plugin.settings.hwpTemplatePath = picked; await this.plugin.saveSettings(); this.renderPage('copy-export'); }
 						}));
+				hwpBox.createDiv({ cls: 'wm-settings-item-desc', text: '원하는 양식이 적용된 HWP 문서를 템플릿으로 등록하세요. 변환 시 해당 문서의 양식이 적용됩니다.' });
 			}
 		}
 	}
@@ -647,6 +663,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 					this.plugin.playAlarm();
 				}));
+		swBox.createDiv({ cls: 'wm-settings-item-desc', text: '알람이 울릴 때 재생할 효과음을 선택합니다. 선택 즉시 미리 들을 수 있습니다.' });
 	}
 
 	private renderWritingStatsPage(containerEl: HTMLElement) {
@@ -657,7 +674,6 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		const commonBox = this.createGroupBox(containerEl);
 		new Setting(commonBox)
 			.setName('추적 폴더')
-			.setDesc('글자수 히트맵·작업시간 추적에 사용할 폴더. 비워 두면 전체 노트를 집계합니다.')
 			.addText(t => t
 				.setPlaceholder('예: 소설/집필')
 				.setValue(this.plugin.settings.trackingFolder ?? '')
@@ -665,6 +681,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					this.plugin.settings.trackingFolder = v.trim();
 					await this.plugin.saveSettings();
 				}));
+		commonBox.createDiv({ cls: 'wm-settings-item-desc', text: '추적 범위를 지정된 폴더로 제한합니다. 글자수와 작업 시간은 해당 폴더의 하위 노트에서만 누적 계산됩니다.' });
 		new Setting(commonBox)
 			.setName('시간 추적 제외 폴더')
 			.setDesc('작업시간 기록에서 제외할 폴더 경로. 한 줄에 하나씩 입력.')
@@ -718,7 +735,6 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			});
 		new Setting(charsBox)
 			.setName('데일리노트 글자수 키')
-			.setDesc('하루가 끝나면 당일 데일리노트 프론트매터에 기록할 키 이름.')
 			.addText(t => t
 				.setPlaceholder('글자수')
 				.setValue(this.plugin.settings.dailyCharCountKey ?? '글자수')
@@ -726,16 +742,20 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					this.plugin.settings.dailyCharCountKey = v.trim() || '글자수';
 					await this.plugin.saveSettings();
 				}));
+		charsBox.createDiv({ cls: 'wm-settings-item-desc', text: '일일 노트에 해당 날짜의 누적 글자수를 기록합니다.' });
 
 		// ── 작업 시간 ──
 		const modeTitleRow = containerEl.createDiv({ cls: 'wm-settings-section-hdr' });
 		const modeTitleLeft = modeTitleRow.createDiv({ cls: 'wm-settings-section-hdr-label' });
 		modeTitleLeft.createSpan({ cls: 'wm-settings-group-title', text: '작업 모드' });
-		modeTitleLeft.createSpan({ cls: 'wm-settings-group-title-desc', text: '모드명 · 아이콘 · 프론트매터 키 · 목표(분)' });
 		const modeTitleBtns = modeTitleRow.createDiv({ cls: 'wm-settings-section-hdr-btns' });
 		const deleteAllModesBtn = modeTitleBtns.createDiv({ cls: 'clickable-icon wm-muted-icon' });
 		setIcon(deleteAllModesBtn, 'trash');
 		deleteAllModesBtn.setAttribute('aria-label', '전체 삭제');
+		const modeDesc = containerEl.createDiv({ cls: 'wm-settings-subgroup-desc' });
+		modeDesc.createEl('span', { text: '사용자의 작업 환경에 맞는 모드를 구축할 수 있습니다.' });
+		modeDesc.createEl('br');
+		modeDesc.createEl('span', { text: '입력값은 모드명-아이콘(Lucid)-프론트매터 키-목표 시간(분)순입니다.' });
 		const modeBox = this.createGroupBox(containerEl);
 
 		const ensureModes = () => {
@@ -808,7 +828,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			renderModeList();
 		});
 
-		this.addGroupTitle(containerEl, '총 시간 키');
+		containerEl.createDiv({ cls: 'wm-settings-subgroup-title', text: '총 시간 키' });
 		const totalBox = this.createGroupBox(containerEl);
 		new Setting(totalBox).setName('총 시간 프론트매터 키')
 			.addText(t => t
@@ -818,8 +838,9 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					this.plugin.settings.timeTotalKey = v.trim() || '총_시간';
 					await this.plugin.saveSettings();
 				}));
+		totalBox.createDiv({ cls: 'wm-settings-item-desc', text: '모든 작업 모드 시간의 합계를 기록할 프론트매터 키 이름입니다.' });
 
-		this.addGroupTitle(containerEl, '평균 기준 폴더');
+		containerEl.createDiv({ cls: 'wm-settings-subgroup-title', text: '평균 기준 폴더' });
 		const avgBox = this.createGroupBox(containerEl);
 		new Setting(avgBox)
 			.setName('평균 기준 상위 폴더 단계')
@@ -886,6 +907,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 					this.plugin.musicPlayer?.setMode(m);
 				}));
+		playBox.createDiv({ cls: 'wm-settings-item-desc', text: '재생 모드(순환/한 곡 듣기/셔플)를 변경할 수 있습니다. 목록 범위는 현재 재생 중인 곡의 루트 폴더입니다.' });
 
 		new Setting(playBox)
 			.setName('즐겨찾기 최대 표시 수')
@@ -908,11 +930,11 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		const dictBox = this.createGroupBox(containerEl);
 		new Setting(dictBox)
 			.setName('표준국어대사전 API 키')
-			.setDesc('stdict.korean.go.kr에서 발급받은 API 키')
 			.addText(text => text
 				.setPlaceholder('API 키 입력')
 				.setValue(this.plugin.settings.stdictApiKey)
 				.onChange(async value => { this.plugin.settings.stdictApiKey = value.trim(); await this.plugin.saveSettings(); }));
+		dictBox.createDiv({ cls: 'wm-settings-item-desc', text: 'stdict.korean.go.kr 개발 지원 탭에서 무료 API를 발급받으세요.' });
 
 		this.addGroupTitle(containerEl, '한자 변환');
 		const hanjaBox = this.createGroupBox(containerEl);
@@ -1016,6 +1038,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 
 		new Setting(previewBox).setName('할 일').addToggle(t => t.setValue(pref.tasks)
 			.onChange(async v => { pref.tasks = v; await this.plugin.saveSettings(); }));
+		previewBox.createDiv({ cls: 'wm-settings-item-desc', text: '캘린더 날짜 셀에 마우스를 올리면 해당 항목을 미리 표시합니다.' });
 		new Setting(previewBox).setName('오늘 글자수').addToggle(t => t.setValue(pref.charCount)
 			.onChange(async v => { pref.charCount = v; await this.plugin.saveSettings(); }));
 		new Setting(previewBox).setName('일평균 글자수').addToggle(t => t.setValue(pref.avgCharCount)
@@ -1028,8 +1051,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		this.addGroupTitle(containerEl, '할 일');
 		const taskBox = this.createGroupBox(containerEl);
 		new Setting(taskBox)
-			.setName('할 일 추가 헤더')
-			.setDesc('오늘 노트에서 할 일이 추가될 헤더 이름 (예: 할 일, Tasks)')
+			.setName('일일 노트 경로')
 			.addText(t => t
 				.setPlaceholder('할 일')
 				.setValue(this.plugin.settings.taskAddHeader ?? '할 일')
@@ -1037,6 +1059,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					this.plugin.settings.taskAddHeader = v.trim() || '할 일';
 					await this.plugin.saveSettings();
 				}));
+		taskBox.createDiv({ cls: 'wm-settings-item-desc', text: '일일 노트의 경로(헤더 이름)를 지정하세요. 대시보드에서 추가한 할 일이 해당 경로에 기록됩니다.' });
 
 	}
 
@@ -1172,6 +1195,89 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 							await this.plugin.saveSettings();
 							this.renderPage('special-chars');
 						}));
+			}
+		}
+	}
+
+	// ── 맞춤법 검사 ─────────────────────────────────────────────────────────
+
+	private renderSpellCheckPage(containerEl: HTMLElement) {
+		this.addBackButton(containerEl, '맞춤법 검사');
+
+		this.addGroupTitle(containerEl, '검사 설정');
+		const engineBox = this.createGroupBox(containerEl);
+
+		new Setting(engineBox)
+			.setName('검사 엔진')
+			.setDesc('Daum은 빠른 교정을, 부산대는 더 정밀한 교정을 제공합니다. 두 엔진 모두 무료 웹 API를 활용합니다.')
+			.addDropdown(dd => dd
+				.addOption('daum', 'Daum (권장)')
+				.addOption('pnu', '부산대')
+				.setValue(this.plugin.settings.spellCheckEngine ?? 'daum')
+				.onChange(async v => {
+					this.plugin.settings.spellCheckEngine = v as 'daum' | 'pnu';
+					await this.plugin.saveSettings();
+				}));
+
+		const notice = engineBox.createDiv({ cls: 'wm-settings-item-desc' });
+		notice.createEl('p', { text: '본 맞춤법 검사 기능은 개인에 한해 비상업적 용도로만 이용할 수 있습니다.' });
+		notice.createEl('p', { text: '검사 엔진은 비공식 API를 사용하므로 서비스 제공자의 정책 변경에 따라 사전 예고 없이 사용이 제한될 수 있습니다.' });
+
+		// 고유명사 사전
+		const ignoredHdr = containerEl.createDiv({ cls: 'wm-settings-section-hdr' });
+		ignoredHdr.createDiv({ cls: 'wm-settings-group-title', text: '고유명사 사전' });
+		const ignoredHdrBtns = ignoredHdr.createDiv({ cls: 'wm-settings-section-hdr-btns' });
+
+		const ignoredWords: string[] = this.plugin.settings.spellCheckIgnoredWords ?? [];
+
+		if (ignoredWords.length > 0) {
+			const trashBtn = ignoredHdrBtns.createDiv({ cls: 'clickable-icon wm-muted-icon' });
+			setIcon(trashBtn, 'trash-2');
+			trashBtn.setAttribute('aria-label', '전체 삭제');
+			trashBtn.addEventListener('click', async () => {
+				this.plugin.settings.spellCheckIgnoredWords = [];
+				await this.plugin.saveSettings();
+				this.renderPage('spellcheck');
+			});
+		}
+
+		const ignoredBox = this.createGroupBox(containerEl);
+
+		// 1행: 고유명사 추가 (Setting 구조 재사용)
+		new Setting(ignoredBox).setName('고유명사 추가').addText(text => {
+			text.setPlaceholder('단어 입력 후 Enter');
+			const doAdd = async () => {
+				const word = text.getValue().trim();
+				if (!word) return;
+				const list = this.plugin.settings.spellCheckIgnoredWords ?? [];
+				if (!list.includes(word)) {
+					list.push(word);
+					this.plugin.settings.spellCheckIgnoredWords = list;
+					await this.plugin.saveSettings();
+				}
+				text.setValue('');
+				this.renderPage('spellcheck');
+			};
+			text.inputEl.addEventListener('keydown', e => { if (e.key === 'Enter') void doAdd(); });
+		});
+		ignoredBox.createDiv({ cls: 'wm-settings-item-desc', text: '맞춤법 검사에서 오류로 표시하지 않을 단어를 등록합니다. 조사를 제거한 어근 형태로 입력하세요. 예: 김정식' });
+
+		// 2행: 목록 (태그 스타일, 전체 너비 별도 div)
+		new Setting(ignoredBox).setName('목록');
+		const tagsEl = ignoredBox.createDiv({ cls: 'wm-settings-dict-tags' });
+		if (ignoredWords.length === 0) {
+			tagsEl.createSpan({ cls: 'wm-settings-dict-empty', text: '등록된 단어가 없습니다.' });
+		} else {
+			for (const word of ignoredWords) {
+				const tag = tagsEl.createSpan({ cls: 'wm-settings-dict-tag' });
+				tag.createSpan({ text: word });
+				tag.createSpan({ cls: 'wm-settings-dict-tag-remove', text: '×' })
+					.addEventListener('click', async () => {
+						const idx = this.plugin.settings.spellCheckIgnoredWords.indexOf(word);
+						if (idx >= 0) this.plugin.settings.spellCheckIgnoredWords.splice(idx, 1);
+						await this.plugin.saveSettings();
+						this.renderPage('spellcheck');
+					});
 			}
 		}
 	}

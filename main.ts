@@ -18,6 +18,7 @@ import { LeafStyleManager } from './src/editor/LeafStyleManager';
 import { ToolbarManager } from './src/toolbar/ToolbarManager';
 import { StopwatchManager } from './src/dashboard/StopwatchManager';
 import { StatusBarManager } from './src/ui/StatusBarManager';
+import { SpellCheckerService } from './src/spellcheck/index';
 import { getSmartEnterExtension, getSmartQuoteExtension, getTypewriterExtension, getTextSubstitutionExtension, getBackspaceUndoExtension, createHeadingLinkFixExtension, createSelectionExtension, createFocusExtension, updateEditorExtensions } from './src/editor/extensions';
 
 export default class WritingMenuPlugin extends Plugin {
@@ -95,11 +96,17 @@ export default class WritingMenuPlugin extends Plugin {
 
 		this.registerEvent(this.app.workspace.on('file-open', () => {
 			const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-			if (activeView?.leaf) this.updateLeafStyles(activeView.leaf);
+			if (activeView?.leaf) {
+				this.updateLeafStyles(activeView.leaf);
+				this.updateHrClasses(activeView.leaf);
+			}
 		}));
 
 		this.registerEvent(this.app.workspace.on('active-leaf-change', (leaf) => {
-			if (leaf) this.updateLeafStyles(leaf);
+			if (leaf) {
+				this.updateLeafStyles(leaf);
+				this.updateHrClasses(leaf);
+			}
 		}));
 
 		this.registerEvent(this.app.workspace.on('editor-change', () => {
@@ -278,6 +285,14 @@ export default class WritingMenuPlugin extends Plugin {
 			callback: async () => {
 				const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
 				if (activeView?.leaf) await this.copyWithOptions(activeView.leaf);
+			}
+		});
+
+		this.addCommand({
+			id: 'run-spell-check',
+			name: '맞춤법 검사',
+			editorCallback: (editor) => {
+				new SpellCheckerService().run(editor, this).catch(() => {});
 			}
 		});
 
@@ -602,6 +617,7 @@ export default class WritingMenuPlugin extends Plugin {
 	updateDynamicStyles() { this.leafStyleManager.updateDynamicStyles(); }
 	regenerateCSSTemplate() { this.leafStyleManager.regenerateCSSTemplate(); }
 	updateLeafStyles(leaf: WorkspaceLeaf, force: boolean = false) { this.leafStyleManager.updateLeafStyles(leaf, force); }
+	updateHrClasses(leaf: WorkspaceLeaf | null) { this.leafStyleManager.updateHrClasses(leaf); }
 	updateAllLeafStyles() { this.leafStyleManager.updateAllLeafStyles(); }
 	applyZenState(state: 'off' | 'wide' | 'focus') { this.leafStyleManager.applyZenState(state); }
 	exitZenFocus() { this.leafStyleManager.exitZenFocus(); }
