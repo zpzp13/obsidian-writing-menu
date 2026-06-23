@@ -12,10 +12,27 @@ import { EditVersionModal } from './EditVersionModal';
 type Page = { type: 'list' } | { type: 'preview'; entry: VersionEntry };
 
 export class VersionPanel {
-	static render(container: HTMLElement, plugin: WritingMenuPlugin): void {
+	static render(container: HTMLElement, plugin: WritingMenuPlugin, compact?: HTMLElement): void {
 		const manager = new VersionManager(plugin.app, plugin);
 		let currentFile: TFile | null = plugin.app.workspace.getActiveViewOfType(MarkdownView)?.file ?? null;
 		let lastEditor = plugin.app.workspace.getActiveViewOfType(MarkdownView)?.editor ?? null;
+
+		// ── 컴팩트: 버전 저장 버튼 ──
+		if (compact) {
+			const saveCompactBtn = compact.createDiv({
+				cls: 'wm-cal-icon-btn wm-ver-compact-save',
+				attr: { 'aria-label': '버전 저장' },
+			});
+			setIcon(saveCompactBtn, 'square-pen');
+			saveCompactBtn.addEventListener('click', (e) => { void (async () => {
+				e.stopPropagation();
+				if (!currentFile || !lastEditor) { new Notice('마크다운 노트를 먼저 열어주세요.'); return; }
+				const now = new Date();
+				const name = `${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+				await manager.saveVersion(currentFile, name, lastEditor.getValue());
+				await refresh();
+			})(); });
+		}
 		let page: Page = { type: 'list' };
 		let allVersions: VersionEntry[] = [];
 		let charCountMode: 'munpia' | 'novelpia' = 'munpia';
@@ -585,6 +602,15 @@ export class VersionPanel {
 				new Notice(`"${entry.name}"으로 복원했습니다.`);
 				page = { type: 'list' };
 				void refresh().catch(() => {});
+			})(); });
+
+			const copyBtn = actions.createDiv({ cls: 'wm-cal-icon-btn', attr: { 'aria-label': '전체 복사' } });
+			setIcon(copyBtn, 'copy');
+			copyBtn.addEventListener('click', () => { void (async () => {
+				if (!currentFile) return;
+				const content = await manager.readVersion(currentFile, entry);
+				await navigator.clipboard.writeText(content);
+				new Notice('복사되었습니다.');
 			})(); });
 
 			const body = root.createDiv({ cls: 'wm-vhv-preview-body' });

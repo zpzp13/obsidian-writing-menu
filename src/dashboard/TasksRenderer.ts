@@ -36,9 +36,25 @@ function applySort(items: ParsedTask[], s: SectionSort): ParsedTask[] {
 }
 
 export class TasksRenderer {
-	static render(container: HTMLElement, tasks: ParsedTask[], plugin: WritingMenuPlugin) {
+	static render(container: HTMLElement, tasks: ParsedTask[], plugin: WritingMenuPlugin, compact?: HTMLElement) {
 		let liveTasks = [...tasks];
 		const wrap = container.createDiv({ cls: 'wm-tasks-wrap' });
+
+		// ── 컴팩트 뱃지 (오늘/예정/지연) ──
+		const compactEls = new Map<ParsedTask['category'], HTMLElement>();
+		if (compact) {
+			const colors: Record<string, string> = {
+				today:    'var(--color-blue)',
+				upcoming: 'var(--color-green)',
+				overdue:  'var(--color-red)',
+			};
+			for (const { cat } of SECTIONS) {
+				const badge = compact.createSpan({ cls: 'wm-tasks-section-count' });
+				badge.style.setProperty('--section-color', colors[cat]);
+				badge.textContent = '0';
+				compactEls.set(cat, badge);
+			}
+		}
 
 		// ── reload helpers ──
 		let reloadTimer: number | null = null;
@@ -183,6 +199,8 @@ export class TasksRenderer {
 				const complete   = all.filter(t => t.completed);
 
 				countEl.textContent = String(incomplete.length);
+				const cb = compactEls.get(cat);
+				if (cb) cb.textContent = String(incomplete.length);
 				filterBtn.classList.toggle('is-active', sort.field !== 'date' || sort.dir !== 'asc');
 
 				if (incomplete.length === 0 && complete.length === 0) {

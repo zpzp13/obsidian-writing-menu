@@ -216,36 +216,36 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		if (!Platform.isMobile) {
 			new Setting(inlineBox)
 				.setName('글자색 (라이트)')
-				.addColorPicker(cp => cp
-					.setValue(fontColorLight === 'inherit' || !fontColorLight ? '#000000' : fontColorLight)
-					.onChange(async value => {
-						const dark = typeof this.plugin.settings.fontColor === 'string' ? this.plugin.settings.fontColor : this.plugin.settings.fontColor.dark;
-						this.plugin.settings.fontColor = { light: value, dark };
-						await this.plugin.saveSettings();
-					}))
 				.addExtraButton(btn => btn.setIcon('reset').setTooltip('기본값으로 초기화')
 					.onClick(async () => {
 						const dark = typeof this.plugin.settings.fontColor === 'string' ? this.plugin.settings.fontColor : this.plugin.settings.fontColor.dark;
 						this.plugin.settings.fontColor = { light: 'inherit', dark };
 						await this.plugin.saveSettings();
 						this.renderPage('typography');
+					}))
+				.addColorPicker(cp => cp
+					.setValue(fontColorLight === 'inherit' || !fontColorLight ? '#000000' : fontColorLight)
+					.onChange(async value => {
+						const dark = typeof this.plugin.settings.fontColor === 'string' ? this.plugin.settings.fontColor : this.plugin.settings.fontColor.dark;
+						this.plugin.settings.fontColor = { light: value, dark };
+						await this.plugin.saveSettings();
 					}));
 
 			new Setting(inlineBox)
 				.setName('글자색 (다크)')
-				.addColorPicker(cp => cp
-					.setValue(fontColorDark === 'inherit' || !fontColorDark ? '#ffffff' : fontColorDark)
-					.onChange(async value => {
-						const light = typeof this.plugin.settings.fontColor === 'string' ? this.plugin.settings.fontColor : this.plugin.settings.fontColor.light;
-						this.plugin.settings.fontColor = { light, dark: value };
-						await this.plugin.saveSettings();
-					}))
 				.addExtraButton(btn => btn.setIcon('reset').setTooltip('기본값으로 초기화')
 					.onClick(async () => {
 						const light = typeof this.plugin.settings.fontColor === 'string' ? this.plugin.settings.fontColor : this.plugin.settings.fontColor.light;
 						this.plugin.settings.fontColor = { light, dark: 'inherit' };
 						await this.plugin.saveSettings();
 						this.renderPage('typography');
+					}))
+				.addColorPicker(cp => cp
+					.setValue(fontColorDark === 'inherit' || !fontColorDark ? '#ffffff' : fontColorDark)
+					.onChange(async value => {
+						const light = typeof this.plugin.settings.fontColor === 'string' ? this.plugin.settings.fontColor : this.plugin.settings.fontColor.light;
+						this.plugin.settings.fontColor = { light, dark: value };
+						await this.plugin.saveSettings();
 					}));
 		} else {
 			new Setting(inlineBox).setName('글자색 (라이트)')
@@ -272,36 +272,36 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		if (!Platform.isMobile) {
 			new Setting(inlineBox)
 				.setName('배경색 (라이트)')
-				.addColorPicker(cp => cp
-					.setValue(bgColorLight === 'transparent' || bgColorLight === 'inherit' || !bgColorLight ? '#ffffff' : bgColorLight)
-					.onChange(async value => {
-						const dark = typeof this.plugin.settings.backgroundColor === 'string' ? this.plugin.settings.backgroundColor : this.plugin.settings.backgroundColor.dark;
-						this.plugin.settings.backgroundColor = { light: value, dark };
-						await this.plugin.saveSettings();
-					}))
 				.addExtraButton(btn => btn.setIcon('reset').setTooltip('기본값으로 초기화')
 					.onClick(async () => {
 						const dark = typeof this.plugin.settings.backgroundColor === 'string' ? this.plugin.settings.backgroundColor : this.plugin.settings.backgroundColor.dark;
 						this.plugin.settings.backgroundColor = { light: 'transparent', dark };
 						await this.plugin.saveSettings();
 						this.renderPage('typography');
+					}))
+				.addColorPicker(cp => cp
+					.setValue(bgColorLight === 'transparent' || bgColorLight === 'inherit' || !bgColorLight ? '#ffffff' : bgColorLight)
+					.onChange(async value => {
+						const dark = typeof this.plugin.settings.backgroundColor === 'string' ? this.plugin.settings.backgroundColor : this.plugin.settings.backgroundColor.dark;
+						this.plugin.settings.backgroundColor = { light: value, dark };
+						await this.plugin.saveSettings();
 					}));
 
 			new Setting(inlineBox)
 				.setName('배경색 (다크)')
-				.addColorPicker(cp => cp
-					.setValue(bgColorDark === 'transparent' || bgColorDark === 'inherit' || !bgColorDark ? '#000000' : bgColorDark)
-					.onChange(async value => {
-						const light = typeof this.plugin.settings.backgroundColor === 'string' ? this.plugin.settings.backgroundColor : this.plugin.settings.backgroundColor.light;
-						this.plugin.settings.backgroundColor = { light, dark: value };
-						await this.plugin.saveSettings();
-					}))
 				.addExtraButton(btn => btn.setIcon('reset').setTooltip('기본값으로 초기화')
 					.onClick(async () => {
 						const light = typeof this.plugin.settings.backgroundColor === 'string' ? this.plugin.settings.backgroundColor : this.plugin.settings.backgroundColor.light;
 						this.plugin.settings.backgroundColor = { light, dark: 'transparent' };
 						await this.plugin.saveSettings();
 						this.renderPage('typography');
+					}))
+				.addColorPicker(cp => cp
+					.setValue(bgColorDark === 'transparent' || bgColorDark === 'inherit' || !bgColorDark ? '#000000' : bgColorDark)
+					.onChange(async value => {
+						const light = typeof this.plugin.settings.backgroundColor === 'string' ? this.plugin.settings.backgroundColor : this.plugin.settings.backgroundColor.light;
+						this.plugin.settings.backgroundColor = { light, dark: value };
+						await this.plugin.saveSettings();
 					}));
 		} else {
 			new Setting(inlineBox).setName('배경색 (라이트)')
@@ -371,19 +371,19 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		new Setting(hrBox)
 			.setName('색상')
 			.setDesc('텍스트 모드 색상. 비워두면 기본 텍스트 색상 사용.')
-			.addColorPicker(cp => cp
-				.setValue(this.plugin.settings.hrColor || '#888888')
-				.onChange(async value => {
-					this.plugin.settings.hrColor = value;
-					await this.plugin.saveSettings();
-					this.plugin.leafStyleManager.updateDynamicStyles();
-				}))
 			.addExtraButton(btn => btn.setIcon('reset').setTooltip('색상 초기화 (기본값)')
 				.onClick(async () => {
 					this.plugin.settings.hrColor = '';
 					await this.plugin.saveSettings();
 					this.plugin.leafStyleManager.updateDynamicStyles();
 					this.renderPage('typography');
+				}))
+			.addColorPicker(cp => cp
+				.setValue(this.plugin.settings.hrColor || '#888888')
+				.onChange(async value => {
+					this.plugin.settings.hrColor = value;
+					await this.plugin.saveSettings();
+					this.plugin.leafStyleManager.updateDynamicStyles();
 				}));
 
 		// 정렬 버튼 (좌/중앙/우)
@@ -457,16 +457,16 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 
 		new Setting(h1Box)
 			.setName('색상')
-			.addColorPicker(cp => cp
-				.setValue(this.plugin.settings.h1Color === 'inherit' || !this.plugin.settings.h1Color ? '#000000' : this.plugin.settings.h1Color)
-				.onChange(async value => { this.plugin.settings.h1Color = value; await this.plugin.saveSettings(); }))
 			.addExtraButton(btn => btn
 				.setIcon('reset').setTooltip('기본값으로 초기화')
 				.onClick(async () => {
 					this.plugin.settings.h1Color = 'inherit';
 					await this.plugin.saveSettings();
 					this.renderPage('typography');
-				}));
+				}))
+			.addColorPicker(cp => cp
+				.setValue(this.plugin.settings.h1Color === 'inherit' || !this.plugin.settings.h1Color ? '#000000' : this.plugin.settings.h1Color)
+				.onChange(async value => { this.plugin.settings.h1Color = value; await this.plugin.saveSettings(); }));
 
 		// ── 각주 ────────────────────────────────────────────────────
 		this.addGroupTitle(containerEl, '각주');
@@ -507,16 +507,16 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 
 		new Setting(fnBox)
 			.setName('색상')
-			.addColorPicker(cp => cp
-				.setValue(this.plugin.settings.footnoteColor === 'inherit' || !this.plugin.settings.footnoteColor ? '#000000' : this.plugin.settings.footnoteColor)
-				.onChange(async value => { this.plugin.settings.footnoteColor = value; await this.plugin.saveSettings(); }))
 			.addExtraButton(btn => btn
 				.setIcon('reset').setTooltip('기본값으로 초기화')
 				.onClick(async () => {
 					this.plugin.settings.footnoteColor = 'inherit';
 					await this.plugin.saveSettings();
 					this.renderPage('typography');
-				}));
+				}))
+			.addColorPicker(cp => cp
+				.setValue(this.plugin.settings.footnoteColor === 'inherit' || !this.plugin.settings.footnoteColor ? '#000000' : this.plugin.settings.footnoteColor)
+				.onChange(async value => { this.plugin.settings.footnoteColor = value; await this.plugin.saveSettings(); }));
 	}
 
 	// ── 입력 보조 ───────────────────────────────────────────────────────
@@ -1116,15 +1116,10 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		// 사용자 지정 섹션
 		const customs = this.plugin.settings.specialCharCustom ?? [];
 		const customHdr = containerEl.createDiv({ cls: 'wm-settings-section-hdr' });
-		customHdr.createDiv({ cls: 'wm-settings-group-title', text: '사용자 지정 특수문자' });
+		customHdr.createDiv({ cls: 'wm-settings-group-title', text: '사용자 지정' });
 		const customHdrBtns = customHdr.createDiv({ cls: 'wm-settings-section-hdr-btns' });
 
-		// + 버튼 + inline popup
-		const addWrap = customHdrBtns.createDiv({ cls: 'wm-sc-add-wrap' });
-		const addBtn = addWrap.createDiv({ cls: 'clickable-icon wm-muted-icon' });
-		setIcon(addBtn, 'plus');
-
-		const popup = addWrap.createDiv({ cls: 'wm-sc-add-popup wm-sc-add-popup-right is-hidden' });
+		const popup = containerEl.createDiv({ cls: 'wm-sc-add-popup wm-sc-add-popup-right wm-sc-add-popup-up is-hidden' });
 		const charRow = popup.createDiv({ cls: 'wm-sc-add-row' });
 		const charInput = charRow.createEl('input', { attr: { type: 'text', placeholder: '특수문자', maxlength: '4' } });
 		const descRow = popup.createDiv({ cls: 'wm-sc-add-row' });
@@ -1154,10 +1149,6 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		submitBtn.addEventListener('click', doAdd);
 		descInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doAdd(); });
 		charInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') descInput.focus(); });
-		addBtn.addEventListener('click', (e) => { e.stopPropagation(); popupOpen ? hidePopup() : showPopup(); });
-		document.addEventListener('mousedown', (e) => {
-			if (popupOpen && !addWrap.contains(e.target as Node)) hidePopup();
-		});
 
 		if (customs.length > 0) {
 			const trashCustoms = customHdrBtns.createDiv({ cls: 'clickable-icon wm-muted-icon' });
@@ -1171,7 +1162,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		}
 		const customBox = this.createGroupBox(containerEl);
 		if (customs.length === 0) {
-			customBox.createDiv({ cls: 'wm-settings-hint', text: '+ 버튼을 눌러 특수문자를 지정하세요.' });
+			customBox.createDiv({ cls: 'wm-settings-hint', text: '아래 + 버튼으로 특수문자를 지정하세요.' });
 		} else {
 			for (let i = 0; i < customs.length; i++) {
 				const item = customs[i];
@@ -1188,6 +1179,15 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 						}));
 			}
 		}
+		const addIconRow = containerEl.createDiv({ cls: 'wm-settings-group-add-row' });
+		const addWrap = addIconRow.createDiv({ cls: 'wm-sc-add-wrap' });
+		const addBtn = addWrap.createDiv({ cls: 'clickable-icon wm-muted-icon' });
+		setIcon(addBtn, 'plus');
+		addWrap.appendChild(popup);
+		addBtn.addEventListener('click', (e) => { e.stopPropagation(); popupOpen ? hidePopup() : showPopup(); });
+		document.addEventListener('mousedown', (e) => {
+			if (popupOpen && !addWrap.contains(e.target as Node)) hidePopup();
+		});
 	}
 
 	// ── 맞춤법 검사 ─────────────────────────────────────────────────────────

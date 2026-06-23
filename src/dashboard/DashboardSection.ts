@@ -8,6 +8,7 @@ import { TaskParser } from './data/TaskParser';
 import { TasksRenderer } from './TasksRenderer';
 import { WritingTimeSection } from './WritingTimeSection';
 import { MusicPlayerSection } from './MusicPlayerSection';
+import { VersionPanel } from '../version/VersionPanel';
 import type { DailyCharStore } from './data/DailyCharStore';
 import type { DashSectionConfig } from '../types';
 import { calcAllCharCounts } from '../version/charCount';
@@ -29,32 +30,37 @@ export class DashboardSection {
 		for (const sec of cfg) {
 			if (!sec.visible) continue;
 			if (sec.id === 'chars') {
-				this.renderSection(wrap, '글자수', (body) => {
+				this.renderSection(wrap, '글자수', (body, compact) => {
 					body.addClass('no-item-dividers');
-					this.renderCharsContent(body, plugin);
+					this.renderCharsContent(body, plugin, compact);
 				}, 'writing-stats', plugin);
 			} else if (sec.id === 'time') {
-				this.renderSection(wrap, '작업 시간', (body) => {
+				this.renderSection(wrap, '작업 시간', (body, compact) => {
 					body.addClass('no-item-dividers');
 					const slot = body.createDiv({ cls: 'wm-dash-group-item' });
-					WritingTimeSection.render(slot, plugin).catch(() => {});
+					WritingTimeSection.render(slot, plugin, compact).catch(() => {});
 				}, 'writing-stats', plugin);
 			} else if (sec.id === 'tasks') {
-				this.renderSection(wrap, '할 일', (body) => {
+				this.renderSection(wrap, '할 일', (body, compact) => {
 					const slot = body.createDiv();
 					TaskParser.loadTasks(plugin)
 						.then(tasks => {
 							slot.empty();
-							TasksRenderer.render(slot, tasks, plugin);
+							TasksRenderer.render(slot, tasks, plugin, compact);
 						})
 						.catch(() => {});
 				}, 'calendar', plugin);
 			} else if (sec.id === 'music') {
-				this.renderSection(wrap, '음악', (body) => {
+				this.renderSection(wrap, '음악', (body, compact) => {
 					body.addClass('no-item-dividers');
 					const slot = body.createDiv({ cls: 'wm-dash-group-item' });
-					MusicPlayerSection.render(slot, plugin);
+					MusicPlayerSection.render(slot, plugin, compact);
 				}, 'music', plugin);
+			} else if (sec.id === 'version') {
+				this.renderSection(wrap, '버전관리', (body, compact) => {
+					body.addClass('wm-dash-panel-single', 'version-control-view');
+					VersionPanel.render(body, plugin, compact);
+				}, 'version-control', plugin);
 			}
 		}
 	}
@@ -63,17 +69,37 @@ export class DashboardSection {
 		this.renderCharsContent(container, plugin);
 	}
 
-	private static renderCharsContent(root: HTMLElement, plugin: WritingMenuPlugin) {
+	private static renderCharsContent(root: HTMLElement, plugin: WritingMenuPlugin, compact?: HTMLElement) {
 		const store = plugin.charStore;
 		const statsItem = root.createDiv({ cls: 'wm-dash-group-item' });
 
 		// DOM 구조 한 번 생성, SVG 재파싱 없이 text node만 갱신하는 함수 반환
 		const { updateChars, updateAvg } = this.buildStatsCardLive(statsItem, store, plugin);
 
+		// ── 헤더 컴팩트 요소 구성 (charCountMode 기준 단일 플랫폼 + 아이콘) ──
+		let compactNumEl: HTMLElement | undefined;
+		if (compact) {
+			const mode = plugin.settings.charCountMode ?? 'munpia';
+			const logoEl = compact.createDiv({ cls: 'wm-dash-hdr-compact-logo' });
+			logoEl.appendChild(sanitizeHTMLToDom(mode === 'munpia' ? MUNPIA_SVG : NOVELPIA_SVG));
+			compactNumEl = compact.createSpan({ cls: 'wm-dash-hdr-compact-num' });
+			compact.style.visibility = 'hidden';
+		}
+
 		const refreshChars = () => {
 			const view = plugin.app.workspace.getActiveViewOfType(MarkdownView);
-			if (!view?.file) { updateChars(null); return; }
-			updateChars(calcAllCharCounts(view.editor.getValue()));
+			if (!view?.file) {
+				updateChars(null);
+				if (compact) compact.style.visibility = 'hidden';
+				return;
+			}
+			const counts = calcAllCharCounts(view.editor.getValue());
+			updateChars(counts);
+			if (compact) compact.style.visibility = '';
+			if (compactNumEl) {
+				const mode = plugin.settings.charCountMode ?? 'munpia';
+				compactNumEl.textContent = `${counts[mode].toLocaleString()}자`;
+			}
 		};
 
 		refreshChars();
@@ -96,7 +122,7 @@ export class DashboardSection {
 	private static renderSection(
 		container: HTMLElement,
 		title: string,
-		fn: (body: HTMLElement) => void,
+		fn: (body: HTMLElement, compact: HTMLElement) => void,
 		settingsPage?: string,
 		plugin?: WritingMenuPlugin,
 	) {
@@ -105,6 +131,10 @@ export class DashboardSection {
 
 		const hdr = group.createDiv({ cls: 'wm-dash-group-hdr' });
 		hdr.createSpan({ cls: 'wm-dash-group-label', text: title });
+
+		// ── 컴팩트 미리보기 (CSS order:2 로 ⚙ 우측·› 좌측에 배치) ──
+		const compact = hdr.createDiv({ cls: 'wm-dash-group-hdr-compact' });
+		if (isCollapsed) compact.addClass('is-visible');
 
 		if (settingsPage && plugin) {
 			const cog = hdr.createDiv({ cls: 'wm-dash-group-cog' });
@@ -123,16 +153,18 @@ export class DashboardSection {
 		setIcon(chevron, isCollapsed ? 'chevron-right' : 'chevron-down');
 
 		const body = group.createDiv({ cls: 'wm-dash-group-body' + (isCollapsed ? ' is-collapsed' : '') });
-		fn(body);
+		fn(body, compact);
 
 		hdr.addEventListener('click', () => {
 			if (this.collapsed.has(title)) {
 				this.collapsed.delete(title);
 				body.removeClass('is-collapsed');
+				compact.removeClass('is-visible');
 				setIcon(chevron, 'chevron-down');
 			} else {
 				this.collapsed.add(title);
 				body.addClass('is-collapsed');
+				compact.addClass('is-visible');
 				setIcon(chevron, 'chevron-right');
 			}
 		});

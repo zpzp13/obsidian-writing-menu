@@ -362,9 +362,16 @@ function updateArtWrap(aw: ArtWrap, track: Track | null, plugin: WritingMenuPlug
 // ── 메인 렌더러 ────────────────────────────────────────────────────
 
 export class MusicPlayerSection {
-	static render(container: HTMLElement, plugin: WritingMenuPlugin) {
+	static render(container: HTMLElement, plugin: WritingMenuPlugin, compact?: HTMLElement) {
 		const mp = plugin.musicPlayer;
 		const player = container.createDiv({ cls: 'wm-dash-music-player' });
+
+		// ── 컴팩트: 현재 재생 곡명 ──
+		let compactTrackEl: HTMLElement | undefined;
+		if (compact) {
+			compactTrackEl = compact.createDiv({ cls: 'wm-music-compact-title' });
+			compactTrackEl.textContent = mp?.currentTrack?.name ?? '—';
+		}
 
 		if (!mp) {
 			player.createDiv({ cls: 'wm-dash-music-empty', text: '플레이어를 불러오는 중…' });
@@ -419,7 +426,7 @@ export class MusicPlayerSection {
 			container.empty();
 			const span = container.createSpan({ cls: 'wm-track-title-inner', text });
 			window.setTimeout(() => {
-				const overflow = container.scrollWidth - container.clientWidth;
+				const overflow = Math.round(container.scrollWidth - container.clientWidth);
 				if (overflow > 0) {
 					span.style.setProperty('--wm-scroll-dist', `-${overflow}px`);
 					const dur = Math.min(30, Math.max(10, overflow / 4));
@@ -487,6 +494,7 @@ export class MusicPlayerSection {
 
 		buildStrip();
 		refreshMarquee(trackTitleEl, mp.currentTrack?.name ?? '—');
+		if (compactTrackEl) refreshMarquee(compactTrackEl, mp.currentTrack?.name ?? '—');
 
 		// ── 진행바 ──
 		const progressRow = player.createDiv({ cls: 'wm-dash-music-progress-row' });
@@ -526,6 +534,7 @@ export class MusicPlayerSection {
 		nextBtn.addEventListener('click', (e) => { e.stopPropagation(); mp.next(); });
 
 		// ── 구독 ──
+		let lastCompactTrackName = mp.currentTrack?.name ?? '';
 		const update = () => {
 			updateProgress();
 			setIcon(playBtn, mp.isPlaying ? 'pause' : 'play');
@@ -534,10 +543,27 @@ export class MusicPlayerSection {
 			favBtn.toggleClass('is-fav', mp.currentTrack ? mp.isFavorite(mp.currentTrack) : false);
 			syncVolIcon();
 			buildStrip();
+			if (compactTrackEl) {
+				const name = mp.currentTrack?.name ?? '—';
+				if (name !== lastCompactTrackName) {
+					lastCompactTrackName = name;
+					refreshMarquee(compactTrackEl, name);
+				}
+			}
 			if (activePopup?.plugin === plugin) activePopup.render();
 		};
 		mp.subscribe(update);
 
-		watchDisconnect(player, () => { mp.unsubscribe(update); });
+		// compact가 hidden→visible 될 때 overflow 재측정 (display:none 상태에서는 측정 불가)
+		if (compact && compactTrackEl) {
+			const obs = new MutationObserver(() => {
+				if (compact.classList.contains('is-visible'))
+					refreshMarquee(compactTrackEl!, mp.currentTrack?.name ?? '—');
+			});
+			obs.observe(compact, { attributes: true, attributeFilter: ['class'] });
+			watchDisconnect(player, () => { mp.unsubscribe(update); obs.disconnect(); });
+		} else {
+			watchDisconnect(player, () => { mp.unsubscribe(update); });
+		}
 	}
 }
