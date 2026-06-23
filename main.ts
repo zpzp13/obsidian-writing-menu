@@ -588,6 +588,9 @@ export default class WritingMenuPlugin extends Plugin {
 			if (!existingIds.has('music')) {
 				this.settings.dashboardSections.push({ id: 'music', label: '음악', visible: true });
 			}
+			if (!existingIds.has('version')) {
+				this.settings.dashboardSections.push({ id: 'version', label: '버전관리', visible: true });
+			}
 		}
 	}
 

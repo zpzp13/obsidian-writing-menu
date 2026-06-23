@@ -23,7 +23,7 @@ interface ModeCardEls {
 }
 
 export class WritingTimeSection {
-	static async render(container: HTMLElement, plugin: WritingMenuPlugin): Promise<void> {
+	static async render(container: HTMLElement, plugin: WritingMenuPlugin, compact?: HTMLElement): Promise<void> {
 		const { app, settings } = plugin;
 		const modes: TimeModeConfig[] = settings.timeModes?.length
 			? settings.timeModes
@@ -68,6 +68,14 @@ export class WritingTimeSection {
 			: await WritingTimeStore.averageFolder(app, getAvgFolder(initialFile), modes);
 
 		const card = container.createDiv({ cls: 'wm-wt-card' });
+
+		// ── 헤더 컴팩트 요소 (모드 아이콘 + 모드명 + HH:MM:SS) ──
+		let compactLogoEl: HTMLElement | undefined;
+		let compactTimeEl: HTMLElement | undefined;
+		if (compact) {
+			compactLogoEl = compact.createDiv({ cls: 'wm-wt-compact-logo' });
+			compactTimeEl = compact.createSpan({ cls: 'wm-dash-hdr-compact-num' });
+		}
 
 		let selectedMode = plugin.settings.currentTimeMode ?? modes[0]?.id ?? '';
 		if (!modes.find(m => m.id === selectedMode)) selectedMode = modes[0]?.id ?? '';
@@ -241,6 +249,14 @@ export class WritingTimeSection {
 			els.goalBadgeUpd(cur, mode.goalSeconds  ?? 0);
 		};
 
+		const updateCompact = (sec: number) => {
+			if (!compactLogoEl || !compactTimeEl) return;
+			const mode = modes.find(m => m.id === selectedMode);
+			if (!mode) return;
+			setIcon(compactLogoEl, getModeIcon(mode));
+			compactTimeEl.textContent = toHMS(sec);
+		};
+
 		const getTimeFile = (): TFile | null => trackingFile ?? app.workspace.getActiveFile();
 
 		// ── buildCard ──
@@ -294,6 +310,11 @@ export class WritingTimeSection {
 					plugin.settings.currentTimeMode = mode.id;
 					plugin.saveSettings().catch(() => {});
 					updateStatsRow?.();
+					const f = getTimeFile();
+					if (f) {
+						const t = WritingTimeStore.getFileTime(app, f, modes, totalKey, plugin.pendingTimeUpdates);
+						updateCompact(t[mode.id] ?? 0);
+					}
 				});
 			}
 
@@ -322,6 +343,7 @@ export class WritingTimeSection {
 				avgStatNum.textContent  = avgSec > 0 ? fmtTime(avgSec) : '—';
 			};
 			updateStatsRow();
+			updateCompact(time[selectedMode] ?? 0);
 		};
 
 		// ── updateDisplay ──
@@ -337,6 +359,7 @@ export class WritingTimeSection {
 			const time = WritingTimeStore.getFileTime(app, timeFile, modes, totalKey, plugin.pendingTimeUpdates);
 			for (const mode of modes) updateCardEls(mode.id, time[mode.id] ?? 0);
 			updateStatsRow?.();
+			updateCompact(time[selectedMode] ?? 0);
 		};
 
 		// ── 파일 전환 ──

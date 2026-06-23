@@ -162,7 +162,7 @@ export interface WritingMenuSettings {
 }
 
 export interface DashSectionConfig {
-	id: 'chars' | 'time' | 'tasks' | 'music';
+	id: 'chars' | 'time' | 'tasks' | 'music' | 'version';
 	label: string;
 	visible: boolean;
 }
@@ -276,10 +276,11 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	timeAvgFolderLevel: 0,
 	timeExcludeFolders: [],
 	dashboardSections: [
-		{ id: 'chars',  label: '글자수',   visible: true },
-		{ id: 'time',   label: '작업시간', visible: true },
-		{ id: 'tasks',  label: '할 일',    visible: true },
-		{ id: 'music',  label: '음악',     visible: true },
+		{ id: 'chars',   label: '글자수',   visible: true },
+		{ id: 'time',    label: '작업시간', visible: true },
+		{ id: 'tasks',   label: '할 일',    visible: true },
+		{ id: 'music',   label: '음악',     visible: true },
+		{ id: 'version', label: '버전관리', visible: true },
 	],
 	musicFolderPaths: [],
 	musicVolume: 1.0,
