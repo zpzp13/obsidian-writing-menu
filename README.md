@@ -81,6 +81,18 @@ A comprehensive writing environment plugin for Obsidian, tailored for novelists 
 | Partial Revert | Restore only a selected range from a previous version |
 | Stage Tags | Color-coded tags (draft, revision, production, etc.) |
 
+### Plot Manager (F9)
+| Feature | Description |
+|---------|-------------|
+| Structure | Episode › Chapter › Scene hierarchy for column management |
+| Plot Lines | Per-scene memos for each plot line row |
+| Character Rows | Per-scene appearance memos for each character |
+| Markdown Storage | Each episode saved as a `.md` file; bidirectional sync |
+| Character Notes | Create or link character notes; template support; auto-move to designated folder |
+| Plot Timeline (F11) | Left-sidebar timeline view synced with the current selection |
+| Bulk Operations | Bulk create / delete scenes via dropdown |
+| Keyboard Shortcuts | Arrow keys to navigate, Enter/double-click to edit, Shift+F to search chapters, Ctrl+Wheel to zoom |
+
 ### Wiki View
 | Feature | Description |
 |---------|-------------|
@@ -152,6 +164,8 @@ These permissions are used **exclusively** for HWP export on Windows. All other 
 | `F3` | Dictionary / Hanja conversion |
 | `F4` | Zen mode (wide / focus / off) |
 | `F6` | Wiki folder/note selector |
+| `F9` | Plot Manager open/close |
+| `F11` | Plot Timeline sidebar open/close |
 | `Alt+C` | Copy without headings/footnotes |
 
 ---
@@ -171,6 +185,7 @@ Settings are organized as category pages:
 | Stopwatch | Timer duration, alarm sound |
 | Music Player | Music folders, volume, playback mode |
 | Wiki View | Card color, image/name/relation fields |
+| Plot Manager | Root folder, plot subfolder, character subfolder, character note template, open mode |
 | Dictionary | Standard Korean Dictionary API key |
 | Spell Checker | Engine selection (Daum / PNU), proper noun dictionary |
 | Special Characters | Close-on-insert behavior, favorites |
@@ -200,6 +215,7 @@ src/
   settings/        Settings tab (page router)
   spellcheck/      Spell checker service & correction modal
   utils/           Date, time, DOM, daily note utilities
+  plot/            Plot Manager & Timeline views
   version/         Version save & diff
   views/           Work time sidebar view
   wiki/            ObsiWiki panel & settings
@@ -303,6 +319,18 @@ MIT
 | 구간 되돌리기 | 특정 구간만 이전 버전으로 선택 복원 |
 | 단계 태그 | 초고·퇴고·연출 등 색상 코드 단계 태그 |
 
+### 플롯 매니저 (F9)
+| 기능 | 설명 |
+|------|------|
+| 구조 | 에피소드 › 회차 › 장면 계층으로 열 관리 |
+| 플롯 라인 행 | 장면별 플롯 메모 |
+| 인물 행 | 장면별 등장인물 역할 메모 |
+| 마크다운 저장 | 에피소드별 `.md` 파일 저장, 양방향 동기화 |
+| 캐릭터 노트 | 노트 생성 또는 연결, 템플릿 적용, 지정 폴더 자동 이동 |
+| 플롯 타임라인 (F11) | 선택 셀에 연동되는 왼쪽 사이드바 타임라인 뷰 |
+| 일괄 작업 | 장면 일괄 생성 / 삭제 드롭다운 |
+| 단축키 | 방향키 이동, Enter/더블클릭 편집, Shift+F 회차 검색, Ctrl+휠 확대/축소 |
+
 ### 위키 뷰
 | 기능 | 설명 |
 |------|------|
@@ -374,6 +402,8 @@ MIT
 | `F3` | 사전 / 한자 변환 |
 | `F4` | 젠 모드 (넓게 / 집중 / 해제 순환) |
 | `F6` | 위키 폴더·노트 선택 |
+| `F9` | 플롯 매니저 열기/닫기 |
+| `F11` | 플롯 타임라인 사이드바 열기/닫기 |
 | `Alt+C` | 헤딩·각주 제외 복사 |
 
 ---
@@ -393,6 +423,7 @@ MIT
 | 스톱워치 | 타이머 시간, 알람음 |
 | 음악 플레이어 | 음악 폴더, 볼륨, 재생 모드 |
 | 위키 뷰 | 카드 색상, 이미지·이름·관계 필드 |
+| 플롯 매니저 | 루트 폴더, 플롯 폴더명, 캐릭터 폴더명, 캐릭터 노트 템플릿, 열기 방식 |
 | 사전 | 표준국어대사전 API 키 |
 | 맞춤법 검사 | 검사 엔진 (Daum / 부산대), 고유명사 사전 |
 | 특수문자 | 삽입 후 닫기 설정, 즐겨찾기 |
@@ -422,6 +453,7 @@ src/
   settings/        설정 탭 (페이지 라우터)
   spellcheck/      맞춤법 검사 서비스 및 교정 모달
   utils/           날짜, 시간, DOM, 데일리노트 유틸리티
+  plot/            플롯 매니저·타임라인 뷰
   version/         버전 저장·diff
   views/           작업시간 사이드바 뷰
   wiki/            위키 패널·설정
