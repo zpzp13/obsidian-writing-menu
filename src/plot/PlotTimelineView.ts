@@ -250,10 +250,11 @@ export class PlotTimelineView extends ItemView {
 		const popup = document.body.createDiv({ cls: 'wm-tl-row-picker' });
 
 		const searchWrap = popup.createDiv({ cls: 'wm-tl-row-picker-search' });
-		setIcon(searchWrap.createDiv({ cls: 'wm-tl-row-picker-search-icon' }), 'search');
+		const searchIconEl = searchWrap.createDiv({ cls: 'wm-tl-row-picker-search-icon' });
+		setIcon(searchIconEl, 'search');
 		const searchInput = searchWrap.createEl('input', {
 			cls: 'wm-tl-row-picker-input',
-			attr: { type: 'text', placeholder: '플롯 라인 또는 인물 검색…', spellcheck: 'false' },
+			attr: { type: 'text', placeholder: '검색…', spellcheck: 'false' },
 		}) as HTMLInputElement;
 
 		const list = popup.createDiv({ cls: 'wm-tl-row-picker-list' });
@@ -263,8 +264,8 @@ export class PlotTimelineView extends ItemView {
 			const project = this.project!;
 			const filter = (name: string) => !q || name.toLowerCase().includes(q.toLowerCase());
 
-			const addItem = (name: string, sel: CellSelection) => {
-				const item = list.createDiv({ cls: 'wm-tl-row-picker-item' });
+			const addItem = (container: HTMLElement, name: string, sel: CellSelection) => {
+				const item = container.createDiv({ cls: 'wm-tl-row-picker-item' });
 				item.createSpan({ text: name });
 				const isActive = this.selection && (
 					(sel?.kind === 'plotLine' && this.selection.kind === 'plotLine' && sel.lineId === this.selection.lineId) ||
@@ -275,7 +276,6 @@ export class PlotTimelineView extends ItemView {
 					popup.remove();
 					this.selfClicked = true;
 					this.onCardClick?.(sel);
-					// Update local selection and re-render
 					if (sel) {
 						const newSel: CellSelection = sel.kind === 'plotLine'
 							? { kind: 'plotLine', lineId: sel.lineId, sceneId: this.selection?.sceneId ?? sel.lineId }
@@ -286,17 +286,16 @@ export class PlotTimelineView extends ItemView {
 				});
 			};
 
-			if (project.plotLines.length > 0) {
-				list.createDiv({ cls: 'wm-tl-row-picker-group', text: '플롯 라인' });
-				project.plotLines.filter(pl => filter(pl.name)).forEach(pl =>
-					addItem(pl.name, { kind: 'plotLine', lineId: pl.id, sceneId: '' })
-				);
+			const filteredLines = project.plotLines.filter(pl => filter(pl.name));
+			const filteredChars = project.characters.filter(ch => filter(ch.name));
+
+			if (filteredLines.length > 0) {
+				const sec = list.createDiv({ cls: 'wm-tl-row-picker-section' });
+				filteredLines.forEach(pl => addItem(sec, pl.name, { kind: 'plotLine', lineId: pl.id, sceneId: '' }));
 			}
-			if (project.characters.length > 0) {
-				list.createDiv({ cls: 'wm-tl-row-picker-group', text: '인물' });
-				project.characters.filter(ch => filter(ch.name)).forEach(ch =>
-					addItem(ch.name, { kind: 'char', charId: ch.id, sceneId: '' })
-				);
+			if (filteredChars.length > 0) {
+				const sec = list.createDiv({ cls: 'wm-tl-row-picker-section' });
+				filteredChars.forEach(ch => addItem(sec, ch.name, { kind: 'char', charId: ch.id, sceneId: '' }));
 			}
 		};
 
