@@ -3838,7 +3838,8 @@ button[aria-label="규칙 추가"] {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    align-self: center;
+    display: flex;
+    align-items: center;
 }
 
 /* ── 폴더/노트 선택 팝업 lucide 아이콘 ── */
@@ -5884,12 +5885,24 @@ td:hover .wm-plot-actions {
   margin-bottom: 8px;
   border-radius: 9px;
 }
+.wm-tl-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
 .wm-tl-title {
   font-size: 13px;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: .05em;
 }
+.wm-tl-ch-search-btn {
+  opacity: 0.5;
+  padding: 2px;
+  color: var(--text-muted);
+}
+.wm-tl-ch-search-btn:hover { opacity: 1; }
 .wm-tl-header-row {
   display: flex;
   align-items: center;
@@ -5905,6 +5918,83 @@ td:hover .wm-plot-actions {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.wm-tl-row-name-btn {
+  cursor: pointer;
+  border-bottom: 1px dashed var(--text-muted);
+}
+.wm-tl-row-name-btn:hover { color: var(--interactive-accent); border-bottom-color: var(--interactive-accent); }
+
+/* ── Row picker popup ── */
+.wm-tl-row-picker {
+  position: fixed;
+  z-index: 10001;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-l);
+  width: 240px;
+  max-height: 320px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.wm-tl-row-picker-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  flex-shrink: 0;
+}
+.wm-tl-row-picker-search-icon { display: flex; align-items: center; color: var(--text-muted); }
+.wm-tl-row-picker-search-icon .svg-icon { width: 14px; height: 14px; }
+.wm-tl-row-picker-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--text-normal);
+  outline: none;
+}
+.wm-tl-row-picker-list {
+  overflow-y: auto;
+  flex: 1;
+  padding: 4px 0;
+}
+.wm-tl-row-picker-group {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  padding: 6px 12px 2px;
+}
+.wm-tl-row-picker-item {
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text-normal);
+}
+.wm-tl-row-picker-item:hover { background: var(--background-modifier-hover); }
+.wm-tl-row-picker-item.is-active { color: var(--interactive-accent); font-weight: 600; }
+
+/* ── Timeline chapter search popup (reuses plot manager styles, add fixed positioning) ── */
+.wm-tl-ch-search-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10001;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-l);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 240px;
 }
 .wm-tl-page-nav {
   display: flex;
