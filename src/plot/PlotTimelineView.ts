@@ -138,7 +138,7 @@ export class PlotTimelineView extends ItemView {
 					if (!content) continue;
 
 					const isActive = sel.sceneId === sc.id;
-					const node = nodeList.createDiv({ cls: 'wm-tl-node' });
+					const node = nodeList.createDiv({ cls: 'wm-tl-node', attr: { 'data-scene-id': sc.id, 'data-ch-name': ch.name } });
 					node.createDiv({ cls: 'wm-tl-dot' + (isActive ? ' is-active' : '') });
 
 					const card = node.createDiv({ cls: 'wm-tl-card' + (isActive ? ' is-active' : '') });
@@ -216,29 +216,29 @@ export class PlotTimelineView extends ItemView {
 	}
 
 	private scrollToChapter(query: string) {
-		const el = this.containerEl.children[1] as HTMLElement;
 		const num = parseInt(query, 10);
 		if (isNaN(num)) return;
 
-		// Find episode section whose name or subtitle contains the chapter number
-		const epSections = Array.from(el.querySelectorAll('.wm-tl-ep-section')) as HTMLElement[];
-		for (const section of epSections) {
-			const nameEl = section.querySelector('.wm-tl-ep-name') as HTMLElement | null;
-			const subtitle = section.querySelector('.wm-tl-ep-subtitle') as HTMLElement | null;
-			const text = nameEl?.textContent ?? '';
-			if (text.includes(String(num)) || subtitle?.textContent?.includes(`${num}화`)) {
-				section.scrollIntoView({ block: 'start', behavior: 'smooth' });
-				return;
-			}
-		}
-		// Fallback: search chip labels for scene names like "1-5"
-		const chips = Array.from(el.querySelectorAll('.wm-tl-chip-label')) as HTMLElement[];
-		for (const chip of chips) {
-			if (chip.textContent?.startsWith(`${num}-`)) {
-				(chip.closest('.wm-tl-node') as HTMLElement | null)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-				return;
-			}
-		}
+		const el = this.containerEl.children[1] as HTMLElement;
+		// Find nodes whose chapter name matches "N화"
+		const allNodes = Array.from(el.querySelectorAll('.wm-tl-node[data-ch-name]')) as HTMLElement[];
+		const matching = allNodes.filter(n => {
+			const chName = n.getAttribute('data-ch-name') ?? '';
+			return chName === `${num}화` || chName === `${num}` || chName.startsWith(`${num}화`);
+		});
+
+		if (matching.length === 0) return;
+
+		// Scroll first match to center
+		matching[0].scrollIntoView({ block: 'center', behavior: 'smooth' });
+
+		// Briefly highlight all matching nodes' cards
+		matching.forEach(n => {
+			const card = n.querySelector('.wm-tl-card') as HTMLElement | null;
+			if (!card) return;
+			card.classList.add('wm-tl-card-flash');
+			setTimeout(() => card.classList.remove('wm-tl-card-flash'), 1400);
+		});
 	}
 
 	// ── Row picker popup ─────────────────────────────────────────────────
