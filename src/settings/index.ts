@@ -1,6 +1,7 @@
 import { App, PluginSettingTab, Setting, setIcon, Platform } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { renderWikiSettingsPage } from '../wiki/WikiSettings';
+import { renderPlotSettingsPage } from '../plot/PlotSettings';
 
 
 export class WritingMenuSettingTab extends PluginSettingTab {
@@ -35,6 +36,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			case 'music':             this.renderMusicPage(containerEl); break;
 			case 'calendar':         this.renderCalendarPage(containerEl); break;
 			case 'wiki':             this.renderWikiPage(containerEl); break;
+			case 'plot':             this.renderPlotPage(containerEl); break;
 			case 'special-chars':    this.renderSpecialCharsPage(containerEl); break;
 			case 'spellcheck':       this.renderSpellCheckPage(containerEl); break;
 		}
@@ -84,6 +86,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		this.addNavCard(calBox, '글자수 & 작업 시간', '추적 폴더, 목표 글자수, 작업 모드 설정', 'activity', 'writing-stats');
 		this.addNavCard(calBox, '버전 관리', '스냅샷 저장 위치 및 최대 보관 개수', 'history', 'version-control');
 		this.addNavCard(calBox, '위키 뷰', '위키 스타일 캐릭터 카드 뷰 설정', 'git-graph', 'wiki');
+		this.addNavCard(calBox, '플롯 매니저', '에피소드·회차·장면·인물 플롯 관리', 'network', 'plot');
 
 		this.addGroupTitle(containerEl, '기타');
 		const etcBox = this.createGroupBox(containerEl);
@@ -597,31 +600,37 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 
 				const hwpBox = this.createGroupBox(containerEl);
 
+				let hwpPathText: import('obsidian').TextComponent;
 				new Setting(hwpBox)
 					.setName('기본 저장 경로')
 					.setDesc('비어 있으면 바탕화면에 저장됩니다.')
-					.addText(text => text
-						.setPlaceholder('C:\\Users\\사용자\\Desktop')
-						.setValue(this.plugin.settings.hwpExportPath)
-						.onChange(async value => { this.plugin.settings.hwpExportPath = value; await this.plugin.saveSettings(); }))
 					.addExtraButton(btn => btn.setIcon('folder').setTooltip('폴더 선택')
 						.onClick(async () => {
 							const picked = await this.plugin.openFolderPicker();
-							if (picked) { this.plugin.settings.hwpExportPath = picked; await this.plugin.saveSettings(); this.renderPage('copy-export'); }
-						}));
+							if (picked) { this.plugin.settings.hwpExportPath = picked; await this.plugin.saveSettings(); hwpPathText.setValue(picked); }
+						}))
+					.addText(text => {
+						hwpPathText = text;
+						text.setPlaceholder('C:\\Users\\사용자\\Desktop')
+							.setValue(this.plugin.settings.hwpExportPath)
+							.onChange(async value => { this.plugin.settings.hwpExportPath = value; await this.plugin.saveSettings(); });
+					});
 
+				let hwpTplText: import('obsidian').TextComponent;
 				new Setting(hwpBox)
 					.setName('템플릿 파일')
 					.setDesc('스타일을 적용할 HWP 템플릿 (선택사항)')
-					.addText(text => text
-						.setPlaceholder('C:\\path\\to\\template.hwp')
-						.setValue(this.plugin.settings.hwpTemplatePath)
-						.onChange(async value => { this.plugin.settings.hwpTemplatePath = value; await this.plugin.saveSettings(); }))
 					.addExtraButton(btn => btn.setIcon('document').setTooltip('파일 선택')
 						.onClick(async () => {
 							const picked = await this.plugin.openTemplatePicker();
-							if (picked) { this.plugin.settings.hwpTemplatePath = picked; await this.plugin.saveSettings(); this.renderPage('copy-export'); }
-						}));
+							if (picked) { this.plugin.settings.hwpTemplatePath = picked; await this.plugin.saveSettings(); hwpTplText.setValue(picked); }
+						}))
+					.addText(text => {
+						hwpTplText = text;
+						text.setPlaceholder('C:\\path\\to\\template.hwp')
+							.setValue(this.plugin.settings.hwpTemplatePath)
+							.onChange(async value => { this.plugin.settings.hwpTemplatePath = value; await this.plugin.saveSettings(); });
+					});
 				hwpBox.createDiv({ cls: 'wm-settings-item-desc', text: '원하는 양식이 적용된 HWP 문서를 템플릿으로 등록하세요. 변환 시 해당 문서의 양식이 적용됩니다.' });
 			}
 		}
@@ -1059,6 +1068,11 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 	private renderWikiPage(containerEl: HTMLElement) {
 		this.addBackButton(containerEl, '위키 뷰');
 		renderWikiSettingsPage(containerEl, this.plugin, () => this.renderPage('wiki'));
+	}
+
+	private renderPlotPage(containerEl: HTMLElement) {
+		this.addBackButton(containerEl, '플롯 매니저');
+		renderPlotSettingsPage(containerEl, this.plugin);
 	}
 
 	// ── 특수문자 ─────────────────────────────────────────────────────────

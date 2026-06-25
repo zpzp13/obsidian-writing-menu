@@ -12,6 +12,8 @@ import { addCompactControl, addCompactToggle, addCompactStepper, addCompactSlide
 import { openDictionary } from './src/dictionary';
 import { openSpecialChars } from './src/special-chars/SpecialCharsModal';
 import { CalendarView, VIEW_TYPE_CALENDAR } from './src/calendar/views/CalendarView';
+import { PlotManagerView, PLOT_VIEW_TYPE } from './src/plot/PlotManagerView';
+import { PlotTimelineView, PLOT_TIMELINE_VIEW_TYPE } from './src/plot/PlotTimelineView';
 import { DailyCharStore } from './src/dashboard/data/DailyCharStore';
 import { MusicPlayer } from './src/dashboard/MusicPlayer';
 import { LeafStyleManager } from './src/editor/LeafStyleManager';
@@ -248,6 +250,28 @@ export default class WritingMenuPlugin extends Plugin {
 			(leaf) => new CalendarView(leaf, this)
 		);
 
+		this.registerView(
+			PLOT_VIEW_TYPE,
+			(leaf) => new PlotManagerView(leaf, this)
+		);
+
+		this.registerView(
+			PLOT_TIMELINE_VIEW_TYPE,
+			(leaf) => new PlotTimelineView(leaf, this)
+		);
+
+		this.addCommand({
+			id: 'toggle-plot-manager',
+			name: '플롯 매니저 열기/닫기',
+			callback: () => { void this.togglePlotManagerView(); }
+		});
+
+		this.addCommand({
+			id: 'toggle-plot-timeline',
+			name: '플롯 타임라인 사이드바 열기/닫기',
+			callback: () => { void this.togglePlotTimelineView(); }
+		});
+
 		this.addCommand({
 			id: 'toggle-dashboard-view',
 			name: '대시보드 열기/닫기',
@@ -446,6 +470,30 @@ export default class WritingMenuPlugin extends Plugin {
 	}
 
 
+	async togglePlotManagerView() {
+		const leaves = this.app.workspace.getLeavesOfType(PLOT_VIEW_TYPE);
+		if (leaves.length > 0) {
+			this.app.workspace.revealLeaf(leaves[0]);
+		} else {
+			// Open as inline tab in main editor area
+			const leaf = this.app.workspace.getLeaf('tab');
+			await leaf.setViewState({ type: PLOT_VIEW_TYPE, active: true });
+		}
+	}
+
+	async togglePlotTimelineView() {
+		const leaves = this.app.workspace.getLeavesOfType(PLOT_TIMELINE_VIEW_TYPE);
+		if (leaves.length > 0) {
+			leaves.forEach(leaf => leaf.detach());
+		} else {
+			const leaf = this.app.workspace.getRightLeaf(false);
+			if (leaf) {
+				await leaf.setViewState({ type: PLOT_TIMELINE_VIEW_TYPE, active: true });
+				await this.app.workspace.revealLeaf(leaf);
+			}
+		}
+	}
+
 	async toggleCalendarView() {
 		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CALENDAR);
 		if (leaves.length > 0) {
@@ -457,6 +505,21 @@ export default class WritingMenuPlugin extends Plugin {
 				await this.app.workspace.revealLeaf(leaf);
 			}
 		}
+	}
+
+	async openFileInWiki(file: import('obsidian').TFile) {
+		let leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CALENDAR);
+		if (leaves.length === 0) {
+			const leaf = this.app.workspace.getRightLeaf(false);
+			if (!leaf) return;
+			await leaf.setViewState({ type: VIEW_TYPE_CALENDAR, active: true });
+			await this.app.workspace.revealLeaf(leaf);
+			leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CALENDAR);
+		} else {
+			await this.app.workspace.revealLeaf(leaves[0]);
+		}
+		if (leaves.length === 0) return;
+		(leaves[0].view as CalendarView).openFileInWiki(file);
 	}
 
 	async toggleTimeTrackingSidebar() {
@@ -694,5 +757,12 @@ export default class WritingMenuPlugin extends Plugin {
 		interface AppWithSettings extends App { setting?: { open(): void; openTabById(id: string): void } }
 		(this.app as AppWithSettings).setting?.open();
 		(this.app as AppWithSettings).setting?.openTabById(this.manifest.id);
+	}
+
+	openPlotSettings() {
+		interface AppWithSettings extends App { setting?: { open(): void; openTabById(id: string): void } }
+		(this.app as AppWithSettings).setting?.open();
+		(this.app as AppWithSettings).setting?.openTabById(this.manifest.id);
+		window.setTimeout(() => this.settingTab?.renderPage('plot'), 50);
 	}
 }

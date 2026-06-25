@@ -154,6 +154,13 @@ export interface WritingMenuSettings {
 	specialCharCloseOnInsert: boolean;
 	specialCharFavorites: string[];
 	specialCharCustom: { char: string; desc: string }[];
+	// ── Plot Manager ───────────────────────────────────────────────────────────
+	plotManagerFolder: string;
+	plotDataFolder: string;
+	plotCharFolder: string;
+	plotCharNoteTemplate: string;
+	plotHiddenCharIds: string[];
+	plotCharNoteOpenMode: 'tab' | 'window';
 	// ── Spell Check ────────────────────────────────────────────────────────────
 	spellCheckEngine: 'daum' | 'pnu';
 	spellCheckIgnoredWords: string[];
@@ -322,6 +329,12 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	specialCharCloseOnInsert: true,
 	specialCharFavorites: [],
 	specialCharCustom: [],
+	plotManagerFolder: '',
+	plotDataFolder: '',
+	plotCharFolder: '',
+	plotCharNoteTemplate: '',
+	plotHiddenCharIds: [],
+	plotCharNoteOpenMode: 'tab',
 	spellCheckEngine: 'daum',
 	spellCheckIgnoredWords: [],
 };
