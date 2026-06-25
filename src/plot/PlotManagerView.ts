@@ -1,4 +1,5 @@
-import { ItemView, WorkspaceLeaf, setIcon, normalizePath, TAbstractFile } from 'obsidian';
+import { ItemView, WorkspaceLeaf, setIcon, normalizePath, TAbstractFile, Notice } from 'obsidian';
+import { FolderSuggestModal } from '../wiki/WikiModals';
 import type WritingMenuPlugin from '../../main';
 import { PLOT_VIEW_TYPE, PLOT_TIMELINE_VIEW_TYPE } from './PlotTypes';
 import type { PlotProject, CellSelection } from './PlotTypes';
@@ -151,6 +152,9 @@ export class PlotManagerView extends ItemView {
 		const shortcutBtn = baseGroup.createEl('button', { cls: 'wm-plot-tool-btn', attr: { title: '단축키' } });
 		setIcon(shortcutBtn, 'keyboard');
 		shortcutBtn.addEventListener('click', () => this.openShortcutDropdown(shortcutBtn));
+		const folderBtn = baseGroup.createEl('button', { cls: 'wm-plot-tool-btn', attr: { title: '폴더 변경' } });
+		setIcon(folderBtn, 'folder');
+		folderBtn.addEventListener('click', () => this.openFolderPicker());
 		const settingsBtn = baseGroup.createEl('button', { cls: 'wm-plot-tool-btn', attr: { title: '설정' } });
 		setIcon(settingsBtn, 'settings');
 		settingsBtn.addEventListener('click', () => this.plugin.openPlotSettings());
@@ -384,6 +388,15 @@ export class PlotManagerView extends ItemView {
 			}
 		};
 		setTimeout(() => document.addEventListener('click', outsideHandler, true), 0);
+	}
+
+	private openFolderPicker() {
+		new FolderSuggestModal(this.app, async (folder) => {
+			this.plugin.settings.plotManagerFolder = folder.path;
+			await this.plugin.saveSettings();
+			new Notice(`플롯 폴더: ${folder.path}`);
+			await this.reload();
+		}).open();
 	}
 
 	private async saveAndRefresh() {

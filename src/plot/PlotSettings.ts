@@ -1,20 +1,33 @@
 import { Setting, TextComponent } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
-import { NoteSuggestModal } from '../wiki/WikiModals';
+import { NoteSuggestModal, FolderSuggestModal } from '../wiki/WikiModals';
 
 export function renderPlotSettingsPage(containerEl: HTMLElement, plugin: WritingMenuPlugin): void {
 	const box = containerEl.createDiv({ cls: 'wm-settings-group-box' });
 
+	let rootTextComp: TextComponent;
 	new Setting(box)
 		.setName('루트 폴더')
 		.setDesc('플롯 관련 파일이 저장될 볼트 내 최상위 폴더 경로')
-		.addText(text => text
-			.setPlaceholder('예: 소설')
-			.setValue(plugin.settings.plotManagerFolder)
-			.onChange(async (val) => {
-				plugin.settings.plotManagerFolder = val.trim();
-				await plugin.saveSettings();
-			}));
+		.addExtraButton(btn => btn
+			.setIcon('folder')
+			.setTooltip('폴더 선택')
+			.onClick(() => {
+				new FolderSuggestModal(plugin.app, async (folder) => {
+					plugin.settings.plotManagerFolder = folder.path;
+					await plugin.saveSettings();
+					rootTextComp.setValue(folder.path);
+				}).open();
+			}))
+		.addText(text => {
+			rootTextComp = text;
+			text.setPlaceholder('예: 소설')
+				.setValue(plugin.settings.plotManagerFolder)
+				.onChange(async (val) => {
+					plugin.settings.plotManagerFolder = val.trim();
+					await plugin.saveSettings();
+				});
+		});
 
 	new Setting(box)
 		.setName('플롯 폴더명')

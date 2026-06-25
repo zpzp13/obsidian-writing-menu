@@ -263,12 +263,14 @@ export default class WritingMenuPlugin extends Plugin {
 		this.addCommand({
 			id: 'toggle-plot-manager',
 			name: '플롯 매니저 열기/닫기',
+			hotkeys: [{ modifiers: [], key: 'F9' }],
 			callback: () => { void this.togglePlotManagerView(); }
 		});
 
 		this.addCommand({
 			id: 'toggle-plot-timeline',
 			name: '플롯 타임라인 사이드바 열기/닫기',
+			hotkeys: [{ modifiers: [], key: 'F11' }],
 			callback: () => { void this.togglePlotTimelineView(); }
 		});
 
@@ -485,7 +487,7 @@ export default class WritingMenuPlugin extends Plugin {
 		if (leaves.length > 0) {
 			leaves.forEach(leaf => leaf.detach());
 		} else {
-			const leaf = this.app.workspace.getRightLeaf(false);
+			const leaf = this.app.workspace.getLeftLeaf(false);
 			if (leaf) {
 				await leaf.setViewState({ type: PLOT_TIMELINE_VIEW_TYPE, active: true });
 				await this.app.workspace.revealLeaf(leaf);
