@@ -2,6 +2,7 @@ import { setIcon } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { PlotProject, PlotCharacter, PlotScene } from './PlotTypes';
 import { getAllScenes, newId } from './PlotTypes';
+import { attachWikilinkAutocomplete, renderWithWikilinks } from './WikilinkHelper';
 
 interface Layout2Callbacks {
 	onSave(): void;
@@ -107,7 +108,8 @@ export class Layout2Canvas {
 
 		if (cell?.content) {
 			inner.setAttribute('draggable', 'true');
-			inner.createDiv({ cls: 'wm-plot-cell-text', text: cell.content });
+			const textDiv = inner.createDiv({ cls: 'wm-plot-cell-text' });
+			renderWithWikilinks(textDiv, cell.content, this.plugin.app);
 
 			inner.addEventListener('dragstart', (e) => {
 				e.dataTransfer!.setData('text/plain', key);
@@ -156,9 +158,12 @@ export class Layout2Canvas {
 
 		const textarea = td.createEl('textarea', { cls: 'wm-plot-cell-editor' });
 		textarea.value = cell?.content || '';
+
+		const ac = attachWikilinkAutocomplete(textarea, this.plugin.app);
 		textarea.focus();
 
 		const save = () => {
+			ac.dismiss();
 			const val = textarea.value.trim();
 			if (val) {
 				this.project.charCells[key] = { charId, sceneId, content: val };
@@ -171,6 +176,7 @@ export class Layout2Canvas {
 
 		textarea.addEventListener('blur', save);
 		textarea.addEventListener('keydown', (e) => {
+			if (ac.isOpen()) return;
 			if (e.key === 'Escape') { e.preventDefault(); this.render(); }
 			if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); save(); }
 		});

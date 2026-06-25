@@ -3,6 +3,7 @@ import type WritingMenuPlugin from '../../main';
 import type { PlotProject, PlotLine, PlotScene, PlotEpisode, PlotCharacter } from './PlotTypes';
 import { CellSelection, newId } from './PlotTypes';
 import { CharacterNoteModal } from './CharacterNoteModal';
+import { attachWikilinkAutocomplete, renderWithWikilinks } from './WikilinkHelper';
 
 interface Layout1Callbacks {
 	onSave(): void;
@@ -341,7 +342,8 @@ export class Layout1Grid {
 		const inner = td.createDiv({ cls: 'wm-plot-cell-inner' });
 		if (cell) {
 			inner.setAttribute('draggable', 'true');
-			inner.createDiv({ cls: 'wm-plot-cell-text', text: cell.content ?? '' });
+			const textDiv = inner.createDiv({ cls: 'wm-plot-cell-text' });
+			renderWithWikilinks(textDiv, cell.content ?? '', this.plugin.app);
 			inner.addEventListener('dragstart', (e) => {
 				e.dataTransfer!.setData('text/plain', key);
 				e.dataTransfer!.effectAllowed = 'move';
@@ -385,9 +387,12 @@ export class Layout1Grid {
 		const textarea = td.createEl('textarea', { cls: 'wm-plot-cell-editor' });
 		textarea.setAttribute('spellcheck', 'false');
 		textarea.value = cell?.content || '';
+
+		const ac = attachWikilinkAutocomplete(textarea, this.plugin.app);
 		textarea.focus();
 
 		const save = () => {
+			ac.dismiss();
 			const val = textarea.value.trim();
 			if (val) {
 				this.project.plotCells[key] = { plotLineId, sceneId, content: val };
@@ -400,6 +405,7 @@ export class Layout1Grid {
 
 		textarea.addEventListener('blur', save);
 		textarea.addEventListener('keydown', (e) => {
+			if (ac.isOpen()) return;
 			if (e.key === 'Escape') { e.preventDefault(); this.render(); }
 			if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); save(); }
 		});
@@ -531,7 +537,8 @@ export class Layout1Grid {
 		const inner = td.createDiv({ cls: 'wm-plot-cell-inner' });
 		if (cell?.content) {
 			inner.setAttribute('draggable', 'true');
-			inner.createDiv({ cls: 'wm-plot-cell-text', text: cell.content });
+			const textDiv = inner.createDiv({ cls: 'wm-plot-cell-text' });
+			renderWithWikilinks(textDiv, cell.content, this.plugin.app);
 			inner.addEventListener('dragstart', (e) => {
 				e.dataTransfer!.setData('text/plain', key);
 				e.dataTransfer!.effectAllowed = 'move';
@@ -575,9 +582,12 @@ export class Layout1Grid {
 		const textarea = td.createEl('textarea', { cls: 'wm-plot-cell-editor' });
 		textarea.setAttribute('spellcheck', 'false');
 		textarea.value = cell?.content || '';
+
+		const ac = attachWikilinkAutocomplete(textarea, this.plugin.app);
 		textarea.focus();
 
 		const save = () => {
+			ac.dismiss();
 			const val = textarea.value.trim();
 			if (val) {
 				this.project.charCells[key] = { charId, sceneId, content: val };
@@ -590,6 +600,7 @@ export class Layout1Grid {
 
 		textarea.addEventListener('blur', save);
 		textarea.addEventListener('keydown', (e) => {
+			if (ac.isOpen()) return;
 			if (e.key === 'Escape') { e.preventDefault(); this.render(); }
 			if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); save(); }
 		});
