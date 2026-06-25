@@ -6101,6 +6101,15 @@ td:hover .wm-plot-actions {
 .wm-tl-card.is-active {
   border-color: var(--interactive-accent);
 }
+@keyframes wm-tl-flash {
+  0%   { background: transparent; border-color: color-mix(in srgb, var(--interactive-accent) 40%, transparent); }
+  25%  { background: color-mix(in srgb, var(--interactive-accent) 22%, transparent); border-color: var(--interactive-accent); }
+  70%  { background: color-mix(in srgb, var(--interactive-accent) 14%, transparent); border-color: var(--interactive-accent); }
+  100% { background: transparent; border-color: color-mix(in srgb, var(--interactive-accent) 40%, transparent); }
+}
+.wm-tl-card-flash {
+  animation: wm-tl-flash 1.4s ease forwards;
+}
 
 /* Chip header: hash icon + scene number */
 .wm-tl-chip-wrap {
