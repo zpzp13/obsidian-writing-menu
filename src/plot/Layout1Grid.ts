@@ -64,8 +64,14 @@ export class Layout1Grid {
 		this.wrapper = container.createDiv({ cls: 'wm-plot-table-wrapper' });
 		this.wrapper.setAttribute('tabindex', '-1');
 		this.wrapper.addEventListener('keydown', this.onKeydown);
-		this.wrapper.addEventListener('dragstart', () => { this.isDragging = true; }, true);
-		this.wrapper.addEventListener('dragend', () => { this.isDragging = false; }, true);
+		this.wrapper.addEventListener('dragstart', () => {
+			this.isDragging = true;
+			const sec = this.wrapper.closest<HTMLElement>('.wm-plot-section');
+			if (sec) { this.scrollLockSection = sec; sec.style.overflow = 'hidden'; }
+		}, true);
+		// dragend on document handles both normal end and cancelled drag
+		// (source element may be detached after drop → wrapper listener unreliable)
+		document.addEventListener('dragend', this.onDocDragEnd, true);
 	}
 
 	render() {
@@ -357,6 +363,7 @@ export class Layout1Grid {
 		td.addEventListener('drop', (e) => {
 			e.preventDefault();
 			td.removeClass('wm-plot-drop-over');
+			this.onDocDragEnd(); // unlock scroll before render
 			const srcKey = e.dataTransfer!.getData('text/plain');
 			if (srcKey === key) return;
 			this.movePlotCell(srcKey, key, line.id, sc.id);
@@ -552,6 +559,7 @@ export class Layout1Grid {
 		td.addEventListener('drop', (e) => {
 			e.preventDefault();
 			td.removeClass('wm-plot-drop-over');
+			this.onDocDragEnd(); // unlock scroll before render
 			const srcKey = e.dataTransfer!.getData('text/plain');
 			if (srcKey === key) return;
 			this.moveCharCell(srcKey, key, char.id, sc.id);
@@ -611,6 +619,7 @@ export class Layout1Grid {
 	// ── Cell selection ────────────────────────────────────────────────────────
 
 	private isDragging = false;
+	private scrollLockSection: HTMLElement | null = null;
 	private cellSelectDebounce: ReturnType<typeof setTimeout> | null = null;
 
 	private selectCell(cell: GridCell, scrollToCenter = false) {
@@ -758,6 +767,12 @@ export class Layout1Grid {
 			this.charsTbody.appendChild(tr);
 		}
 	}
+
+	private readonly onDocDragEnd = () => {
+		if (!this.isDragging) return;
+		this.isDragging = false;
+		if (this.scrollLockSection) { this.scrollLockSection.style.overflow = ''; this.scrollLockSection = null; }
+	};
 
 	private readonly onKeydown = (e: KeyboardEvent) => {
 		if (!this.selectedCell) return;
@@ -1488,6 +1503,8 @@ export class Layout1Grid {
 	}
 
 	destroy() {
+		document.removeEventListener('dragend', this.onDocDragEnd, true);
+		this.onDocDragEnd(); // restore overflow if still locked
 		document.querySelector('.wm-plot-palette-popup')?.remove();
 		document.querySelector('.wm-plot-bulk-popup')?.remove();
 		document.querySelector('.wm-plot-char-vis-popup')?.remove();

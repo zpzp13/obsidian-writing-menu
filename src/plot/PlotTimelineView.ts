@@ -166,15 +166,8 @@ export class PlotTimelineView extends ItemView {
 			body.createDiv({ cls: 'wm-tl-empty', text: '이 페이지에 내용이 없습니다.' });
 		}
 
-		// 타임라인 자체 카드 클릭 시 스크롤 없음, 플롯 매니저에서 선택 변경 시에만 중앙 포커스
-		const shouldScroll = !this.selfClicked;
+		// 타임라인은 항상 스크롤 위치 유지 — 카드 클릭 시 플롯 매니저가 중앙 스크롤함
 		this.selfClicked = false;
-		if (shouldScroll) {
-			requestAnimationFrame(() => {
-				const activeCard = el.querySelector<HTMLElement>('.wm-tl-card.is-active');
-				if (activeCard) activeCard.scrollIntoView({ block: 'center' });
-			});
-		}
 	}
 
 	// ── Chapter search popup ─────────────────────────────────────────────
