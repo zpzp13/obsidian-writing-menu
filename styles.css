@@ -5921,9 +5921,8 @@ td:hover .wm-plot-actions {
 }
 .wm-tl-row-name-btn {
   cursor: pointer;
-  border-bottom: 1px dashed var(--text-muted);
 }
-.wm-tl-row-name-btn:hover { color: var(--interactive-accent); border-bottom-color: var(--interactive-accent); }
+.wm-tl-row-name-btn:hover { color: var(--interactive-accent); }
 
 /* ── Row picker popup ── */
 .wm-tl-row-picker {
@@ -5942,33 +5941,44 @@ td:hover .wm-plot-actions {
 .wm-tl-row-picker-search {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--background-modifier-border);
+  border: 2px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-primary);
+  margin: 8px 8px 6px;
+  transition: border-color 0.15s;
   flex-shrink: 0;
 }
-.wm-tl-row-picker-search-icon { display: flex; align-items: center; color: var(--text-muted); }
+.wm-tl-row-picker-search:focus-within { border-color: var(--interactive-accent); }
+.wm-tl-row-picker-search-icon {
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  pointer-events: none;
+  transition: color 0.15s;
+}
+.wm-tl-row-picker-search:focus-within .wm-tl-row-picker-search-icon { color: var(--interactive-accent); }
 .wm-tl-row-picker-search-icon .svg-icon { width: 14px; height: 14px; }
 .wm-tl-row-picker-input {
   flex: 1;
-  border: none;
+  border: none !important;
   background: transparent;
   font-size: 13px;
   color: var(--text-normal);
   outline: none;
+  padding: 6px 8px 6px 0;
+  box-shadow: none !important;
 }
 .wm-tl-row-picker-list {
   overflow-y: auto;
   flex: 1;
-  padding: 4px 0;
+  padding: 2px 0 4px;
 }
-.wm-tl-row-picker-group {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: .05em;
-  padding: 6px 12px 2px;
+.wm-tl-row-picker-section + .wm-tl-row-picker-section {
+  border-top: 1px solid var(--background-modifier-border);
+  margin-top: 2px;
+  padding-top: 2px;
 }
 .wm-tl-row-picker-item {
   padding: 6px 14px;
