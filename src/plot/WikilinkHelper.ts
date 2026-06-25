@@ -22,7 +22,7 @@ export function attachWikilinkAutocomplete(textarea: HTMLTextAreaElement, app: A
 
 	const updateHighlight = () => {
 		if (!dropdown) return;
-		dropdown.querySelectorAll<HTMLElement>('.wm-plot-wikilink-item').forEach((el, i) => {
+		dropdown.querySelectorAll<HTMLElement>('.suggestion-item').forEach((el, i) => {
 			el.classList.toggle('is-selected', i === selectedIdx);
 		});
 	};
@@ -50,12 +50,12 @@ export function attachWikilinkAutocomplete(textarea: HTMLTextAreaElement, app: A
 		items = filtered.slice(0, 10).map(f => f.basename);
 		if (items.length === 0) return;
 
-		dropdown = document.body.createDiv({ cls: 'wm-plot-wikilink-dropdown' });
+		dropdown = document.body.createDiv({ cls: 'suggestion-container mod-small' });
 		selectedIdx = 0;
 
 		items.forEach((name, i) => {
 			const item = (dropdown as HTMLElement).createDiv({
-				cls: 'wm-plot-wikilink-item' + (i === 0 ? ' is-selected' : ''),
+				cls: 'suggestion-item' + (i === 0 ? ' is-selected' : ''),
 			});
 			item.textContent = name;
 			item.addEventListener('mousedown', (e) => {
