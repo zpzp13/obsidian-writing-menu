@@ -52,7 +52,7 @@
 .wm-settings-nav-card-icon { display: flex; align-items: center; justify-content: center; color: var(--text-normal); flex-shrink: 0; width: 24px; height: 24px; }
 .wm-settings-nav-card-icon svg { width: 16px; height: 16px; }
 .wm-settings-nav-card-body { flex: 1; min-width: 0; }
-.wm-settings-nav-card-title { font-size: 16px; font-weight: 600; color: var(--text-normal); line-height: 1.3; }
+.wm-settings-nav-card-title { font-size: 16px; color: var(--text-normal); line-height: 1.3; }
 .wm-settings-nav-card-desc { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
 .wm-settings-nav-card-chevron { display: flex; align-items: center; color: var(--text-faint); flex-shrink: 0; }
 .wm-settings-nav-card-chevron svg { width: 16px; height: 16px; }
@@ -4910,3 +4910,1127 @@ button[aria-label="규칙 추가"] {
 
 /* 설정 페이지 추가 행 */
 .wm-settings-add-row { display: flex; align-items: center; padding: 8px 12px; }
+
+/* ════════════════════════════════════════════════════════════════════
+   Plot Manager
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── View shell ── */
+.wm-plot-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  font-size: 13px;
+}
+
+.wm-plot-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 10px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.wm-plot-toolbar,
+.wm-plot-view .wm-plot-toolbar {
+  box-shadow: none !important;
+}
+
+.wm-plot-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: 2px solid var(--background-modifier-border);
+  border-radius: 6px;
+  padding: 3px 7px;
+  flex-shrink: 0;
+}
+.wm-plot-toolbar-group-label {
+  font-size: 14px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  padding: 3px 8px;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+}
+
+.wm-plot-zoom-label {
+  font-size: 14px;
+  color: var(--text-muted);
+  min-width: 36px;
+  text-align: center;
+}
+
+.wm-plot-tool-text-btn {
+  font-size: 12px;
+  padding: 3px 8px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.wm-plot-tool-text-btn svg { width: 14px !important; height: 14px !important; }
+
+.wm-plot-tool-btn {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  color: var(--text-muted) !important;
+  display: flex;
+  align-items: center;
+}
+.wm-plot-tool-btn svg { color: var(--text-muted) !important; }
+.wm-plot-tool-btn:hover { background: var(--background-modifier-hover) !important; color: var(--text-normal) !important; }
+.wm-plot-tool-btn:hover svg { color: var(--text-normal) !important; }
+
+.wm-plot-divider {
+  height: 4px;
+  background: var(--background-modifier-border);
+  flex-shrink: 0;
+  cursor: row-resize;
+}
+
+/* ── Content area + independent scroll sections ── */
+.wm-plot-content-area {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.wm-plot-section {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+
+.wm-plot-layout1,
+.wm-plot-layout2 {
+  overflow: visible;
+}
+
+.wm-plot-table-wrapper,
+.wm-plot-canvas-wrapper {
+  overflow: visible;
+  position: relative;
+  transform-origin: top left;
+}
+
+/* ── Table ── */
+.wm-plot-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: max-content;
+  table-layout: fixed;
+}
+
+.wm-plot-table th {
+  position: sticky;
+  top: 0;
+  background: var(--background-secondary);
+  z-index: 1;
+  width: 130px;
+  min-width: 130px;
+  height: 32px;
+  padding: 4px 8px;
+  white-space: nowrap;
+  font-weight: 600;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+/* ch/sc header cells: 32px; ep header: 48px (set on .wm-plot-ep-header directly) */
+.wm-plot-table thead th:not(.wm-plot-corner-cell):not(.wm-plot-ep-header) { height: 32px; }
+
+/* Multi-row sticky: row1=48px, row2=32px, row3=32px */
+.wm-plot-table thead tr:nth-child(1) th { top: 0; }
+.wm-plot-table thead tr:nth-child(2) th { top: 48px; }
+.wm-plot-table thead tr:nth-child(3) th { top: 80px; }
+/* Corner cell: rowspan:3 → spans all 3 rows; always top: 0 */
+.wm-plot-corner-cell { top: 0 !important; }
+
+.wm-plot-sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--background-secondary);
+  width: 120px;
+  min-width: 120px;
+  max-width: 120px;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.wm-plot-corner-cell {
+  position: sticky;
+  left: 0;
+  top: 0;
+  z-index: 3 !important;
+  background: var(--background-secondary);
+}
+
+/* Episode / Chapter / Scene header */
+.wm-plot-ep-header {
+  background: var(--background-secondary-alt, var(--background-secondary));
+  position: relative;
+  height: 48px !important;
+  box-sizing: border-box;
+  /* box-shadow simulates bottom border — doesn't disappear with sticky */
+  box-shadow: 0 1px 0 0 var(--background-modifier-border);
+}
+/* Centered content block; actions are absolute so they don't shift centering */
+.wm-plot-ep-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  pointer-events: none;
+}
+.wm-plot-ep-name {
+  font-weight: 600;
+  line-height: 1.3;
+}
+.wm-plot-ep-subtitle {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+.wm-plot-ch-header {
+  background: var(--background-secondary);
+  position: relative;
+}
+.wm-plot-sc-header {
+  font-weight: 400;
+  font-size: 11px;
+  position: relative;
+}
+
+.wm-plot-header-text {
+  display: block;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 14px;
+}
+
+/* Zero out any default or inherited table-cell borders/padding from Obsidian base CSS */
+.wm-plot-table td {
+  border: none;
+  padding: 0;
+}
+
+/* Grid lines: border-right + border-bottom only (separate border model) */
+.wm-plot-grid-lines td,
+.wm-plot-grid-lines th {
+  border-right: 1px solid var(--background-modifier-border);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+/* Top border on first thead row, left border on sticky column */
+.wm-plot-grid-lines thead tr:first-child th {
+  border-top: 1px solid var(--background-modifier-border);
+}
+.wm-plot-grid-lines .wm-plot-sticky-col {
+  border-left: 1px solid var(--background-modifier-border);
+  /* box-shadow replaces border-right to eliminate sticky sub-pixel gap */
+  box-shadow: 1px 0 0 0 var(--background-modifier-border);
+}
+/* sticky-col's border-right is replaced by box-shadow — avoid double line */
+.wm-plot-grid-lines td.wm-plot-sticky-col,
+.wm-plot-grid-lines th.wm-plot-sticky-col {
+  border-right: none;
+}
+
+/* ── Cells ── */
+.wm-plot-cell {
+  width: 200px;
+  min-width: 130px;
+  max-width: 200px;
+  height: 120px;        /* baseline; cell grows with content */
+  padding: 0;           /* inner div handles padding */
+  vertical-align: top;
+  text-align: center;
+  box-sizing: border-box;
+  position: relative;
+}
+.wm-plot-cell:hover { background: var(--background-modifier-hover); }
+.wm-plot-cell.is-filled { background: color-mix(in srgb, var(--interactive-accent) 12%, transparent); }
+.wm-plot-cell.wm-plot-drop-over { outline: 2px dashed var(--interactive-accent); }
+
+/* inner container fills cell, padding inside */
+.wm-plot-cell-inner {
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  font-size: 13px;
+  line-height: 1.4;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+.wm-plot-cell-text {
+  text-align: justify;
+  word-break: break-word;
+  white-space: pre-wrap;
+  width: 100%;
+}
+
+/* editor fills the cell exactly — no height jump on edit */
+.wm-plot-cell-editor {
+  width: 100%;
+  height: 100%;
+  resize: vertical;
+  font-size: 12px;
+  background: var(--background-primary);
+  border: 1px solid var(--interactive-accent);
+  border-radius: 0;
+  padding: 6px 8px;
+  box-sizing: border-box;
+}
+
+.wm-plot-collapsed-row {
+  height: 32px;
+  min-height: 0;
+  background: var(--background-secondary);
+  vertical-align: middle;
+}
+
+/* Compact label for collapsed plot lines */
+.wm-plot-label-compact {
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 0 !important;
+  height: 32px !important;
+  gap: 0;
+  padding: 0 6px !important;
+  position: relative;
+}
+.wm-plot-expand-btn {
+  flex-shrink: 0;
+  opacity: 0.6;
+  position: absolute;
+  left: 6px;
+}
+.wm-plot-expand-btn:hover { opacity: 1 !important; }
+.wm-plot-label-compact .wm-plot-line-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  padding: 0 28px;
+}
+
+/* ── Shared label base (.wm-plot-label) + variants ── */
+.wm-plot-label {
+  position: relative;      /* anchor for absolute-positioned actions */
+  display: flex;
+  align-items: center;     /* name vertically centered in full height */
+  justify-content: center;
+  padding: 4px 8px;
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.wm-plot-line-name,
+.wm-plot-char-name {
+  flex: none;
+  width: 100%;
+  word-break: break-word;
+  white-space: normal;
+  outline: none;
+  text-align: center;
+}
+.wm-plot-line-name {
+  font-size: 14px;
+  font-weight: 600;
+  cursor: text;
+}
+.wm-plot-char-name {
+  font-size: 14px;
+  font-weight: 600;
+  cursor: default;
+}
+.wm-plot-line-name:focus {
+  outline: 1px solid var(--interactive-accent);
+  border-radius: 2px;
+}
+
+/* 이미지 있을 때 이름을 상단으로 */
+.wm-plot-char-has-profile .wm-plot-char-label {
+  align-items: flex-start;
+  padding-top: 8px;
+}
+
+/* Character profile image — full-cell background, gradient fade bottom→top */
+.wm-plot-char-has-profile::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--char-profile-img);
+  background-size: cover;
+  background-position: center top;
+  opacity: 0.55;
+  -webkit-mask-image: linear-gradient(to top, black 0%, black 40%, transparent 85%);
+  mask-image: linear-gradient(to top, black 0%, black 40%, transparent 85%);
+  pointer-events: none;
+  z-index: 0;
+}
+.wm-plot-char-has-profile > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Bottom action row — absolute, center-aligned, hidden until hover */
+.wm-plot-label-actions {
+  position: absolute;
+  bottom: 4px;
+  left: 0; right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s;
+}
+.wm-plot-sticky-col:hover .wm-plot-label-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ── Action group (wm-vhv-item-actions pattern) ── */
+.wm-plot-actions {
+  position: absolute;
+  top: 0; right: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 0 2px;
+  opacity: 0;
+  pointer-events: none;
+  background: inherit;
+  transition: opacity .15s;
+}
+th:hover .wm-plot-actions,
+td:hover .wm-plot-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+.wm-plot-act-btn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: none;
+  border: none;
+  box-shadow: none !important;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-s, 3px);
+  flex-shrink: 0;
+}
+.wm-plot-act-btn svg { width: 13px; height: 13px; }
+.wm-plot-act-btn:hover { color: var(--interactive-accent); }
+.wm-plot-act-del:hover { color: var(--text-error, #e74c3c) !important; }
+
+
+/* ── Section divider row (between plot lines and characters) ── */
+.wm-plot-section-divider-cell {
+  height: 3px;
+  padding: 0;
+  background: var(--interactive-accent);
+}
+
+/* ── Char cell ── */
+.wm-plot-char-cell {
+  padding: 0;
+}
+
+/* ── Scene cell character button & badge ── */
+.wm-plot-cell-char-btn {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  opacity: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 3px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  z-index: 1;
+}
+.wm-plot-cell:hover .wm-plot-cell-char-btn { opacity: 0.7; }
+.wm-plot-cell-char-btn:hover { opacity: 1 !important; background: var(--background-modifier-hover); }
+
+.wm-plot-char-badge {
+  position: absolute;
+  bottom: 2px;
+  left: 4px;
+  font-size: 9px;
+  color: var(--interactive-accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: calc(100% - 24px);
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+/* ── Character picker dropdown ── */
+.wm-plot-char-picker {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  z-index: 10;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  min-width: 120px;
+  padding: 4px 0;
+  font-size: 12px;
+}
+.wm-plot-char-picker-empty {
+  padding: 8px 12px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.wm-plot-char-picker-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 12px;
+  cursor: pointer;
+  color: var(--text-normal);
+}
+.wm-plot-char-picker-item:hover { background: var(--background-modifier-hover); }
+.wm-plot-char-picker-item.is-selected { color: var(--interactive-accent); font-weight: 600; }
+.wm-plot-char-picker-check { display: flex; align-items: center; color: var(--interactive-accent); }
+.wm-plot-char-picker-check svg { width: 12px; height: 12px; }
+
+/* ── Drag ── */
+[draggable="true"] { cursor: grab; }
+
+/* ── Cell selection — inset so it's visible even in col 0 ── */
+.wm-plot-cell.is-selected {
+  box-shadow: inset 0 0 0 2px var(--interactive-accent) !important;
+  z-index: 1;
+}
+
+/* ── Episode subtitle popup ── */
+.wm-plot-subtitle-popup {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+  padding: 6px;
+  min-width: 200px;
+}
+.wm-plot-subtitle-input {
+  width: 100%;
+  padding: 5px 8px;
+  font-size: 12px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  box-sizing: border-box;
+  outline: none;
+}
+.wm-plot-subtitle-input:focus {
+  border-color: var(--interactive-accent);
+}
+
+/* ── Shortcut dropdown ── */
+.wm-plot-shortcut-dropdown {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  padding: 8px 12px;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.wm-plot-shortcut-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 0;
+}
+.wm-plot-shortcut-key {
+  font-size: 11px;
+  font-family: var(--font-monospace);
+  background: var(--background-modifier-hover);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  min-width: 110px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.wm-plot-shortcut-desc {
+  font-size: 12px;
+  color: var(--text-normal);
+}
+
+/* ── Info popup ── */
+.wm-plot-info-popup {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  padding: 20px 24px 16px;
+  max-width: 420px;
+  min-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.wm-plot-info-title {
+  margin: 12px 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-accent);
+}
+.wm-plot-info-title:first-child { margin-top: 0; }
+.wm-plot-info-list {
+  margin: 0 0 4px 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.wm-plot-info-list li {
+  font-size: 12px;
+  color: var(--text-normal);
+  line-height: 1.5;
+}
+.wm-plot-info-close {
+  align-self: flex-end;
+  margin-top: 10px;
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border: none;
+  border-radius: 5px;
+  padding: 5px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.wm-plot-info-close:hover { opacity: 0.9; }
+
+/* ── Bulk create popup ── */
+.wm-plot-bulk-popup {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 16px 20px;
+  min-width: 280px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.wm-plot-bulk-title {
+  margin: 0 0 2px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-normal);
+}
+.wm-plot-bulk-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: -4px;
+}
+.wm-plot-bulk-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text-normal);
+}
+.wm-plot-bulk-row input[type="number"] {
+  width: 70px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  font-size: 13px;
+  text-align: right;
+}
+.wm-plot-bulk-info {
+  font-size: 12px;
+  color: var(--text-accent);
+}
+.wm-plot-bulk-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+.wm-plot-bulk-confirm {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border: none;
+  border-radius: 4px;
+  padding: 5px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.wm-plot-bulk-confirm:hover { opacity: 0.9; }
+.wm-plot-bulk-cancel {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 5px 16px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.wm-plot-bulk-dropdown {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  padding: 10px 12px;
+  min-width: 200px;
+}
+.wm-plot-bulk-dropdown .wm-plot-bulk-row {
+  gap: 8px;
+}
+.wm-plot-bulk-dropdown .wm-plot-bulk-actions {
+  margin-top: 6px;
+}
+.wm-plot-bulk-total {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.wm-plot-bulk-range {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.wm-plot-bulk-range input[type="number"] {
+  width: 70px;
+  padding: 4px 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  font-size: 12px;
+  text-align: right;
+}
+
+/* ── Page navigation label ── */
+.wm-plot-page-label {
+  font-size: 14px;
+  color: var(--text-muted);
+  padding: 0 4px;
+  white-space: nowrap;
+  min-width: 60px;
+  text-align: center;
+}
+
+/* ── Chapter search popup ── */
+.wm-plot-ch-search-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10001;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 240px;
+}
+.wm-plot-ch-search-popup-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.wm-plot-ch-search-popup-wrap {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-s);
+  border: 2px solid var(--interactive-accent);
+  padding: 0 4px;
+}
+.wm-plot-ch-search-popup-input {
+  flex: 1;
+  font-size: 14px;
+  color: var(--text-normal);
+  height: 26px;
+  padding: 0 4px;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* ── Chapter column flash highlight ── */
+@keyframes wm-ch-flash-anim {
+  0%   { box-shadow: inset 0 0 0 9999px color-mix(in srgb, var(--interactive-accent) 35%, transparent); }
+  100% { box-shadow: inset 0 0 0 9999px transparent; }
+}
+.wm-plot-ch-flash {
+  animation: wm-ch-flash-anim 1.2s ease-out !important;
+}
+
+/* ── Hidden character row ── */
+.wm-plot-char-hidden { display: none; }
+
+/* ── Character visibility popup ── */
+.wm-plot-char-vis-popup {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 320px;
+  height: 440px;
+}
+.wm-plot-char-vis-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  flex: 1;
+}
+.wm-plot-char-vis-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-normal);
+  user-select: none;
+}
+.wm-plot-char-vis-item:hover { background: var(--background-modifier-hover); }
+.wm-plot-char-vis-item input[type="checkbox"] { cursor: pointer; flex-shrink: 0; }
+
+/* 전체 토글 버튼 (검색창 우측 아이콘) */
+.wm-plot-char-vis-toggle-all {
+  display: flex;
+  align-items: center;
+  background: none !important;
+  border: none;
+  cursor: pointer;
+  padding: 0 6px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.wm-plot-char-vis-toggle-all:hover { background: transparent !important; color: var(--text-normal); }
+.wm-plot-char-vis-toggle-icon {
+  display: flex;
+  align-items: center;
+}
+.wm-plot-char-vis-toggle-icon svg { width: 18px; height: 18px; }
+
+/* 검색박스 (wm-dict-search-box 스타일) */
+.wm-plot-char-vis-search-box {
+  display: flex;
+  align-items: center;
+  border: 2px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-primary);
+  transition: border-color 0.15s;
+  flex-shrink: 0;
+}
+.wm-plot-char-vis-search-box:focus-within { border-color: var(--interactive-accent); }
+.wm-plot-char-vis-search-icon {
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  color: var(--text-faint);
+  flex-shrink: 0;
+  pointer-events: none;
+  transition: color 0.15s;
+}
+.wm-plot-char-vis-search-box:focus-within .wm-plot-char-vis-search-icon { color: var(--interactive-accent); }
+.wm-plot-char-vis-search-icon svg { width: 14px; height: 14px; }
+.wm-plot-char-vis-search {
+  flex: 1;
+  border: none !important;
+  background: transparent !important;
+  color: var(--text-normal);
+  font-size: 13px;
+  padding: 6px 8px 6px 0;
+  outline: none !important;
+  box-shadow: none !important;
+  min-width: 0;
+}
+
+/* ── Confirm move modal ── */
+.wm-confirm-move-msg { font-size: 13px; color: var(--text-normal); margin-bottom: 16px; line-height: 1.5; }
+.wm-confirm-move-btns { display: flex; gap: 8px; justify-content: flex-end; }
+.wm-confirm-move-btn {
+  padding: 5px 14px; border-radius: 5px; border: 1px solid var(--background-modifier-border);
+  font-size: 13px; cursor: pointer; background: var(--background-modifier-hover); color: var(--text-normal);
+}
+.wm-confirm-move-btn.mod-cta {
+  background: var(--interactive-accent); color: var(--text-on-accent); border-color: transparent;
+}
+
+/* ── Color palette popup ── */
+.wm-plot-palette-popup {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  padding: 6px 8px 8px;
+  min-width: 120px;
+}
+.wm-plot-palette-clear {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 2px 4px 6px;
+  cursor: pointer;
+  text-align: center;
+}
+.wm-plot-palette-clear:hover { color: var(--text-normal); }
+.wm-plot-palette-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 22px);
+  gap: 4px;
+}
+.wm-plot-palette-swatch {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  box-sizing: border-box;
+  transition: transform .1s;
+}
+.wm-plot-palette-swatch:hover { transform: scale(1.2); }
+.wm-plot-palette-swatch.is-active { border-color: var(--text-normal); }
+
+.wm-plot-palette-custom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--background-modifier-border);
+  cursor: pointer;
+}
+.wm-plot-palette-custom-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex: 1;
+}
+.wm-plot-palette-custom-input {
+  width: 28px; height: 22px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 3px;
+  padding: 1px;
+  cursor: pointer;
+  background: none;
+}
+
+/* ── Timeline view ── */
+.wm-tl-view {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+  font-size: 13px;
+}
+.wm-tl-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: color-mix(in srgb, var(--interactive-accent) 15%, var(--background-primary));
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 12px 10px 20px;
+  margin-bottom: 8px;
+  border-radius: 9px;
+}
+.wm-tl-title {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.wm-tl-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.wm-tl-row-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-normal);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wm-tl-page-nav {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+}
+.wm-tl-page-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 0 3px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+}
+/* Continuous spine: single ::before line spans entire body */
+.wm-tl-body {
+  position: relative;
+  margin: 16px 12px 12px;
+  padding-left: 35px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.wm-tl-body::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--background-modifier-border);
+  border-radius: 1px;
+}
+
+.wm-tl-ep-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding-bottom: 16px;
+}
+
+/* Episode header: name + optional subtitle, padding to clear spine */
+.wm-tl-ep-header { padding: 0px 0 8px 6px; }
+.wm-tl-ep-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--interactive-accent);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.wm-tl-ep-subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 5px;
+}
+
+/* Node list: no border (spine is on .wm-tl-body::before) */
+.wm-tl-node-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 4px;
+}
+
+/* Individual node — only rendered for cells with content */
+.wm-tl-node { position: relative; }
+
+/* Dot — centered on body's spine (body has padding-left:22, spine center at 9px from body outer,
+   node left = 22px from body outer → dot left = 9-22-6 = -19px from node left edge) */
+.wm-tl-dot {
+  position: absolute;
+  left: -32px;
+  top: 10px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--interactive-accent);
+  background: var(--background-primary);
+  z-index: 1;
+  box-sizing: border-box;
+}
+.wm-tl-dot.is-active { background: var(--interactive-accent); }
+
+/* Card — matches wm-wt-mode-card.is-selected style */
+.wm-tl-card {
+  border: 2px solid color-mix(in srgb, var(--interactive-accent) 40%, transparent);
+  border-radius: 9px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px 4px 6px;
+  background: transparent;
+}
+.wm-tl-card.is-active {
+  border-color: var(--interactive-accent);
+}
+
+/* Chip header: hash icon + scene number */
+.wm-tl-chip-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--interactive-accent) 15%, var(--background-primary));
+  color: var(--text-accent);
+  flex-shrink: 0;
+  margin-bottom: 4px;
+}
+.wm-tl-chip-icon { display: inline-flex; align-items: center; flex-shrink: 0; }
+.wm-tl-chip-icon svg { width: 12px; height: 12px; }
+.wm-tl-chip-label { font-size: 11px; font-weight: 600; }
+
+/* Card content */
+.wm-tl-card-text {
+  padding: 2px 6px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  word-break: break-word;
+  white-space: pre-wrap;
+  color: var(--text-normal);
+}
+
+.wm-tl-empty {
+  color: var(--text-faint);
+  font-size: 12px;
+  text-align: center;
+  padding: 32px 16px;
+}
