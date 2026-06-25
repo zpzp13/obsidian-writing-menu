@@ -6143,3 +6143,40 @@ td:hover .wm-plot-actions {
   text-align: center;
   padding: 32px 16px;
 }
+
+/* ── Plot Cell Wikilink Autocomplete ── */
+.wm-plot-wikilink-dropdown {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-l);
+  overflow-y: auto;
+  max-height: 200px;
+  min-width: 160px;
+  padding: 2px 0;
+}
+.wm-plot-wikilink-item {
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-normal);
+}
+.wm-plot-wikilink-item.is-selected,
+.wm-plot-wikilink-item:hover {
+  background: var(--background-modifier-hover);
+}
+
+/* ── Plot Cell Wikilink Display ── */
+.wm-plot-wikilink {
+  color: var(--link-color);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--link-color);
+  text-underline-offset: 2px;
+}
+.wm-plot-wikilink:hover {
+  color: var(--link-color-hover);
+}
