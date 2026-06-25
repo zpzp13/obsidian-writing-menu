@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(npm run *)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(find \"C:/Users/82109/Desktop/Obsidian/Test\" -name \"*.json\" -not -path \"*/.obsidian/*\" 2>/dev/null | head -20)",
+      "Read(//c/Users/82109/Desktop/Obsidian/Test/**)",
+      "Skill(code-review)",
+      "Skill(code-review:*)"
     ]
   }
 }

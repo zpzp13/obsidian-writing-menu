@@ -17,7 +17,6 @@ export class PlotManagerView extends ItemView {
 	private zoom = 1.0;
 	private zoomLabelEl: HTMLElement | null = null;
 	private pageLabel: HTMLElement | null = null;
-	private wheelHandler: ((e: WheelEvent) => void) | null = null;
 
 	constructor(leaf: WorkspaceLeaf, private plugin: WritingMenuPlugin) {
 		super(leaf);
@@ -37,6 +36,20 @@ export class PlotManagerView extends ItemView {
 			await this.plotManager.save(this.project);
 		}
 		this.render();
+
+		// Global event listeners — registered once per view lifecycle (not per render)
+		const contentEl = this.containerEl.children[1] as HTMLElement;
+		this.registerDomEvent(document, 'keydown', (e: KeyboardEvent) => {
+			if (e.shiftKey && e.key === 'F' && contentEl.contains(document.activeElement)) {
+				e.preventDefault();
+				this.openChapterSearchPopup();
+			}
+		});
+		this.registerDomEvent(contentEl, 'wheel', (e: WheelEvent) => {
+			if (!e.ctrlKey) return;
+			e.preventDefault();
+			this.applyZoom(this.zoom - e.deltaY * 0.001);
+		}, { passive: false });
 
 		// Reload when plot folder files change
 		this.registerEvent(
@@ -62,9 +75,6 @@ export class PlotManagerView extends ItemView {
 	}
 
 	async onClose() {
-		if (this.wheelHandler) {
-			(this.containerEl.children[1] as HTMLElement)?.removeEventListener('wheel', this.wheelHandler as EventListener);
-		}
 		this.grid?.destroy();
 	}
 
@@ -162,22 +172,6 @@ export class PlotManagerView extends ItemView {
 		this.grid.render();
 		this.updatePageLabel();
 		this.applyZoomStyle();
-
-		// Shift+F 회차 검색
-		this.registerDomEvent(document, 'keydown', (e: KeyboardEvent) => {
-			if (e.shiftKey && e.key === 'F' && content.contains(document.activeElement)) {
-				e.preventDefault();
-				this.openChapterSearchPopup();
-			}
-		});
-
-		// Ctrl+wheel zoom
-		this.wheelHandler = (e: WheelEvent) => {
-			if (!e.ctrlKey) return;
-			e.preventDefault();
-			this.applyZoom(this.zoom - e.deltaY * 0.001);
-		};
-		content.addEventListener('wheel', this.wheelHandler as EventListener, { passive: false });
 	}
 
 	private applyZoom(value: number) {
