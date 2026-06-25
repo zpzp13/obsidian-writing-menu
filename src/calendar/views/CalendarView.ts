@@ -84,6 +84,19 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 		window.setTimeout(() => this.wikiPanel?.openFolderPicker(), 50);
 	}
 
+	openFileInWiki(file: import('obsidian').TFile) {
+		this.dashTab = 'wiki';
+		this.dashSubView = 'content';
+		if (this.wikiPanel) {
+			// 이미 패널이 있으면 직접 파일 열기 (re-render 없이)
+			this.wikiPanel.openFile(file);
+		} else {
+			// 패널 없으면 render 후 생성된 패널에 파일 설정
+			this.render();
+			window.setTimeout(() => this.wikiPanel?.openFile(file), 50);
+		}
+	}
+
 	// ── Root render ─────────────────────────────────────────────────
 
 	render() {

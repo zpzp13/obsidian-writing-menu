@@ -473,9 +473,8 @@ export default class WritingMenuPlugin extends Plugin {
 	async togglePlotManagerView() {
 		const leaves = this.app.workspace.getLeavesOfType(PLOT_VIEW_TYPE);
 		if (leaves.length > 0) {
-			this.app.workspace.revealLeaf(leaves[0]);
+			leaves.forEach(leaf => leaf.detach());
 		} else {
-			// Open as inline tab in main editor area
 			const leaf = this.app.workspace.getLeaf('tab');
 			await leaf.setViewState({ type: PLOT_VIEW_TYPE, active: true });
 		}

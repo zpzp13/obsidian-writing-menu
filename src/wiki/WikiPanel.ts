@@ -53,6 +53,13 @@ export class WikiPanel {
 		if (this.container) void this.render(this.container);
 	}
 
+	openFile(file: TFile) {
+		this.currentFile = file;
+		this.targetFolder = file.parent ?? this.targetFolder;
+		this.stripScrollLeft = -1; // 스크롤 위치 리셋 → 선택 파일 중앙으로
+		this.rerender();
+	}
+
 	openFolderPicker() {
 		new FolderOrNoteSuggestModal(this.app, (item) => {
 			if (item instanceof TFolder) {

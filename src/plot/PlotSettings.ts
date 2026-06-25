@@ -1,18 +1,6 @@
-import { Setting, TextComponent, FuzzySuggestModal, TFile } from 'obsidian';
+import { Setting, TextComponent } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
-
-class VaultFilePicker extends FuzzySuggestModal<TFile> {
-	constructor(
-		app: import('obsidian').App,
-		private onSelect: (file: TFile) => void,
-	) {
-		super(app);
-		this.setPlaceholder('파일 검색…');
-	}
-	getItems(): TFile[] { return this.app.vault.getMarkdownFiles(); }
-	getItemText(item: TFile): string { return item.path; }
-	onChooseItem(item: TFile): void { this.onSelect(item); }
-}
+import { NoteSuggestModal } from '../wiki/WikiModals';
 
 export function renderPlotSettingsPage(containerEl: HTMLElement, plugin: WritingMenuPlugin): void {
 	const box = containerEl.createDiv({ cls: 'wm-settings-group-box' });
@@ -58,7 +46,7 @@ export function renderPlotSettingsPage(containerEl: HTMLElement, plugin: Writing
 			.setIcon('document')
 			.setTooltip('파일 선택')
 			.onClick(() => {
-				new VaultFilePicker(plugin.app, async (file) => {
+				new NoteSuggestModal(plugin.app, async (file) => {
 					plugin.settings.plotCharNoteTemplate = file.path;
 					await plugin.saveSettings();
 					templateTextComp.setValue(file.path);

@@ -127,9 +127,9 @@ export class Layout2Canvas {
 			this.moveCharCell(srcKey, dstKey, char.id, sc.id);
 		});
 
-		// Click to edit
+		// Click to edit (use closest to handle clicks on child text nodes)
 		td.addEventListener('click', (e) => {
-			if ((e.target as HTMLElement).getAttribute('draggable')) return;
+			if ((e.target as HTMLElement).closest('[draggable]')) return;
 			this.openCellEditor(td, char.id, sc.id);
 		});
 	}
