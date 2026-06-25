@@ -64,6 +64,8 @@ export class Layout1Grid {
 		this.wrapper = container.createDiv({ cls: 'wm-plot-table-wrapper' });
 		this.wrapper.setAttribute('tabindex', '-1');
 		this.wrapper.addEventListener('keydown', this.onKeydown);
+		this.wrapper.addEventListener('dragstart', () => { this.isDragging = true; }, true);
+		this.wrapper.addEventListener('dragend', () => { this.isDragging = false; }, true);
 	}
 
 	render() {
@@ -608,6 +610,7 @@ export class Layout1Grid {
 
 	// ── Cell selection ────────────────────────────────────────────────────────
 
+	private isDragging = false;
 	private cellSelectDebounce: ReturnType<typeof setTimeout> | null = null;
 
 	private selectCell(cell: GridCell, scrollToCenter = false) {
@@ -624,8 +627,9 @@ export class Layout1Grid {
 		this.wrapper.focus({ preventScroll: true });
 		if (cell.rowKind === 'plotLine') {
 			// Defer char reorder + visibility update to the next frame so keyboard nav stays snappy
+			// Skip during drag to prevent scroll anchoring from jumping the viewport
 			requestAnimationFrame(() => {
-				if (this.selectedCell === cell) {
+				if (this.selectedCell === cell && !this.isDragging) {
 					this.reorderCharsByColumn(cell.c);
 					this.updateHiddenCharVisibility(cell.sceneId);
 				}
