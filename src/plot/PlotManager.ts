@@ -211,12 +211,23 @@ export class PlotManager {
 				name: pl.name,
 				collapsed: pl.collapsed,
 				...(pl.color ? { color: pl.color } : {}),
+				...(pl.colorDark ? { colorDark: pl.colorDark } : {}),
+				...(pl.rowHeight !== undefined ? { rowHeight: pl.rowHeight } : {}),
+				...(pl.fontSize !== undefined ? { fontSize: pl.fontSize } : {}),
+				...(pl.fontColor ? { fontColor: pl.fontColor } : {}),
+				...(pl.fontColorDark ? { fontColorDark: pl.fontColorDark } : {}),
 			})),
 			characters: project.characters.map(ch => ({
 				id: ch.id,
 				name: ch.name,
 				...(ch.color ? { color: ch.color } : {}),
 				...(ch.filePath ? { filePath: ch.filePath } : {}),
+				...(ch.rowHeight !== undefined ? { rowHeight: ch.rowHeight } : {}),
+				...(ch.fontSize !== undefined ? { fontSize: ch.fontSize } : {}),
+				...(ch.fontColor ? { fontColor: ch.fontColor } : {}),
+				...(ch.fontColorDark ? { fontColorDark: ch.fontColorDark } : {}),
+				...(ch.bgColor ? { bgColor: ch.bgColor } : {}),
+				...(ch.bgColorDark ? { bgColorDark: ch.bgColorDark } : {}),
 			})),
 		};
 
@@ -286,6 +297,11 @@ export class PlotManager {
 				name: String(item.name ?? ''),
 				collapsed: Boolean(item.collapsed ?? false),
 				...(item.color ? { color: String(item.color) } : {}),
+				...(item.colorDark ? { colorDark: String(item.colorDark) } : {}),
+				...(item.rowHeight !== undefined ? { rowHeight: Number(item.rowHeight) } : {}),
+				...(item.fontSize !== undefined ? { fontSize: Number(item.fontSize) } : {}),
+				...(item.fontColor ? { fontColor: String(item.fontColor) } : {}),
+				...(item.fontColorDark ? { fontColorDark: String(item.fontColorDark) } : {}),
 			}));
 	}
 
@@ -298,6 +314,12 @@ export class PlotManager {
 				name: String(item.name ?? ''),
 				...(item.color ? { color: String(item.color) } : {}),
 				...(item.filePath ? { filePath: String(item.filePath) } : {}),
+				...(item.rowHeight !== undefined ? { rowHeight: Number(item.rowHeight) } : {}),
+				...(item.fontSize !== undefined ? { fontSize: Number(item.fontSize) } : {}),
+				...(item.fontColor ? { fontColor: String(item.fontColor) } : {}),
+				...(item.fontColorDark ? { fontColorDark: String(item.fontColorDark) } : {}),
+				...(item.bgColor ? { bgColor: String(item.bgColor) } : {}),
+				...(item.bgColorDark ? { bgColorDark: String(item.bgColorDark) } : {}),
 			}));
 	}
 

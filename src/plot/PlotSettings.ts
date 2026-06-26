@@ -79,11 +79,25 @@ export function renderPlotSettingsPage(containerEl: HTMLElement, plugin: Writing
 		.setName('캐릭터 노트 열기')
 		.setDesc('"노트 열기" 버튼을 눌렀을 때 노트를 여는 방식')
 		.addDropdown(dd => dd
+			.addOption('current', '현재 탭')
 			.addOption('tab', '새 탭')
 			.addOption('window', '새 창')
 			.setValue(plugin.settings.plotCharNoteOpenMode ?? 'tab')
 			.onChange(async (val) => {
-				plugin.settings.plotCharNoteOpenMode = val as 'tab' | 'window';
+				plugin.settings.plotCharNoteOpenMode = val as 'current' | 'tab' | 'window';
+				await plugin.saveSettings();
+			}));
+
+	new Setting(box)
+		.setName('링크 열기')
+		.setDesc('플롯 매니저/타임라인에서 [[위키링크]] 클릭 시 노트를 여는 방식')
+		.addDropdown(dd => dd
+			.addOption('current', '현재 탭')
+			.addOption('tab', '새 탭')
+			.addOption('window', '새 창')
+			.setValue(plugin.settings.plotLinkOpenMode ?? 'tab')
+			.onChange(async (val) => {
+				plugin.settings.plotLinkOpenMode = val as 'current' | 'tab' | 'window';
 				await plugin.saveSettings();
 			}));
 }

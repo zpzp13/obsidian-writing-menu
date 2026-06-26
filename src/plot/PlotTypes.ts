@@ -30,6 +30,11 @@ export interface PlotLine {
 	name: string;
 	collapsed: boolean;
 	color?: string;
+	colorDark?: string;
+	rowHeight?: number;
+	fontSize?: number;
+	fontColor?: string;
+	fontColorDark?: string;
 }
 
 export interface PlotEpisode {
@@ -66,6 +71,12 @@ export interface PlotCharacter {
 	name: string;
 	filePath?: string;
 	color?: string;
+	rowHeight?: number;
+	fontSize?: number;
+	fontColor?: string;
+	fontColorDark?: string;
+	bgColor?: string;
+	bgColorDark?: string;
 }
 
 export interface CharCell {

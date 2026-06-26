@@ -4,6 +4,8 @@ import type { PlotProject, PlotLine, PlotScene, PlotEpisode, PlotCharacter } fro
 import { CellSelection, newId } from './PlotTypes';
 import { CharacterNoteModal } from './CharacterNoteModal';
 import { attachWikilinkAutocomplete, renderWithWikilinks } from './WikilinkHelper';
+import { getToneColor } from '../wiki/WikiTypes';
+import { addOutsideClickListener } from './PlotUtils';
 
 interface Layout1Callbacks {
 	onSave(): void;
@@ -21,26 +23,16 @@ interface GridCell {
 	sceneId: string;
 }
 
-const PALETTE = ['#e74c3c','#e67e22','#f39c12','#27ae60','#2980b9','#8e44ad','#16a085','#d63384'];
+type FormatFields = {
+	rowHeight?: number;
+	fontSize?: number;
+	fontColor?: string;
+	fontColorDark?: string;
+	bgColor?: string;
+	bgColorDark?: string;
+};
 
-function hexToRgb(hex: string): [number, number, number] | null {
-	if (!hex.startsWith('#') || hex.length !== 7) return null;
-	return [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
-}
-
-function isDark(): boolean {
-	return document.body.classList.contains('theme-dark');
-}
-
-function applyLabelColor(el: HTMLElement, hex: string) {
-	const rgb = hexToRgb(hex);
-	if (rgb) {
-		const a = isDark() ? 0.6 : 0.35;
-		el.style.background = `linear-gradient(rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a}), rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})), var(--background-secondary)`;
-	} else {
-		el.style.backgroundColor = hex;
-	}
-}
+// ─────────────────────────────────────────────────────────────────────────────
 
 export class Layout1Grid {
 	private wrapper: HTMLElement;
@@ -64,8 +56,6 @@ export class Layout1Grid {
 		this.wrapper = container.createDiv({ cls: 'wm-plot-table-wrapper' });
 		this.wrapper.setAttribute('tabindex', '-1');
 		this.wrapper.addEventListener('keydown', this.onKeydown);
-		this.wrapper.addEventListener('dragstart', () => { this.isDragging = true; }, true);
-		this.wrapper.addEventListener('dragend', () => { this.isDragging = false; }, true);
 	}
 
 	render() {
@@ -73,6 +63,12 @@ export class Layout1Grid {
 		const prevSelected = this.selectedCell
 			? { rowKind: this.selectedCell.rowKind, rowId: this.selectedCell.rowId, sceneId: this.selectedCell.sceneId }
 			: null;
+
+		// Save scroll BEFORE empty() — emptying the wrapper shrinks scrollable content to zero,
+		// causing the browser to clamp scrollTop/scrollLeft to 0 before content is rebuilt.
+		const section = this.wrapper.closest<HTMLElement>('.wm-plot-section');
+		const savedScrollTop = section?.scrollTop ?? 0;
+		const savedScrollLeft = section?.scrollLeft ?? 0;
 
 		this.wrapper.empty();
 		this.cellGrid = [];
@@ -95,6 +91,9 @@ export class Layout1Grid {
 			this.renderCharTbody(table);
 		}
 
+		// Restore scroll after rebuild so viewport stays at the same position
+		if (section) { section.scrollTop = savedScrollTop; section.scrollLeft = savedScrollLeft; }
+
 		// Restore selection after re-render — no scroll so viewport doesn't jump
 		if (prevSelected) {
 			for (const row of this.cellGrid) {
@@ -108,9 +107,17 @@ export class Layout1Grid {
 				}
 			}
 		}
+
 	}
 
 	getTableEl(): HTMLElement { return this.wrapper; }
+
+	clearGridSelection() {
+		if (!this.selectedCell) return;
+		this.selectedCell.el.classList.remove('is-selected');
+		this.selectedCell = null;
+		this.callbacks.onCellSelect?.(null);
+	}
 
 	// ── Thead ────────────────────────────────────────────────────────────────
 
@@ -232,11 +239,9 @@ export class Layout1Grid {
 		for (const line of this.project.plotLines) {
 			this.cellGrid[rowIdx] = [];
 			const tr = tbody.createEl('tr');
-			const rowColor = line.color;
+			this.applyLineStyle(line, tr);
 
-			// Sticky label cell — tinted gradient adapts to light/dark mode
 			const labelTd = tr.createEl('td', { cls: 'wm-plot-sticky-col' });
-			if (rowColor) applyLabelColor(labelTd, rowColor);
 
 			if (line.collapsed) {
 				// Compact collapsed label: always-visible expand icon + name only
@@ -262,9 +267,8 @@ export class Layout1Grid {
 					if (e.key === 'Enter') { e.preventDefault(); nameSpan.blur(); }
 				});
 
-				const td = tr.createEl('td', { attr: { colspan: String(Math.max(scenes.length, 1)) } });
-				td.addClass('wm-plot-collapsed-row');
-				if (rowColor) td.style.backgroundColor = rowColor + (isDark() ? '55' : '28');
+				tr.createEl('td', { attr: { colspan: String(Math.max(scenes.length, 1)) } })
+					.addClass('wm-plot-collapsed-row');
 				rowIdx++;
 				continue;
 			}
@@ -294,15 +298,29 @@ export class Layout1Grid {
 				this.render();
 			});
 
-			const paletteBtn = labelAct.createEl('button', { cls: 'wm-plot-act-btn', attr: { title: '행 색상' } });
-			setIcon(paletteBtn, 'palette');
-			paletteBtn.addEventListener('click', (e) => {
+			const fmtBtn = labelAct.createEl('button', { cls: 'wm-plot-act-btn', attr: { title: '서식' } });
+			setIcon(fmtBtn, 'settings');
+			fmtBtn.addEventListener('click', (e) => {
 				e.stopPropagation();
-				this.openColorPalette(paletteBtn, (color) => {
-					line.color = color || undefined;
-					this.callbacks.onSave();
-					this.render();
-				}, line.color);
+				this.openFormatPopup(
+					fmtBtn, tr,
+					() => ({
+						rowHeight: line.rowHeight, fontSize: line.fontSize,
+						fontColor: line.fontColor, fontColorDark: line.fontColorDark,
+						bgColor: line.color, bgColorDark: line.colorDark,
+					}),
+					(f) => {
+						line.rowHeight = f.rowHeight;
+						line.fontSize = f.fontSize;
+						line.fontColor = f.fontColor;
+						line.fontColorDark = f.fontColorDark;
+						line.color = f.bgColor;
+						line.colorDark = f.bgColorDark;
+						this.applyLineStyle(line, tr);
+						this.callbacks.onSave();
+					},
+					'wm-plot-line-fmt-popup',
+				);
 			});
 
 			const delBtn = labelAct.createEl('button', { cls: 'wm-plot-act-btn wm-plot-act-del', attr: { title: '삭제' } });
@@ -316,7 +334,7 @@ export class Layout1Grid {
 			} else {
 				for (let c = 0; c < scenes.length; c++) {
 					const sc = scenes[c];
-					const td = this.renderPlotCell(tr, line, sc, rowColor);
+					const td = this.renderPlotCell(tr, line, sc);
 					const gcell: GridCell = { el: td, r: rowIdx, c, rowKind: 'plotLine', rowId: line.id, sceneId: sc.id };
 					this.cellGrid[rowIdx][c] = gcell;
 
@@ -334,18 +352,17 @@ export class Layout1Grid {
 		}
 	}
 
-	private renderPlotCell(tr: HTMLTableRowElement, line: PlotLine, sc: PlotScene, rowColor: string | undefined): HTMLElement {
+	private renderPlotCell(tr: HTMLTableRowElement, line: PlotLine, sc: PlotScene): HTMLElement {
 		const key = `${line.id}__${sc.id}`;
 		const cell = this.project.plotCells[key];
 		const td = tr.createEl('td', { cls: 'wm-plot-cell' });
 		if (cell) td.addClass('is-filled');
-		if (rowColor) td.style.backgroundColor = rowColor + '28';
 
 		const inner = td.createDiv({ cls: 'wm-plot-cell-inner' });
 		if (cell) {
 			inner.setAttribute('draggable', 'true');
 			const textDiv = inner.createDiv({ cls: 'wm-plot-cell-text' });
-			renderWithWikilinks(textDiv, cell.content ?? '', this.plugin.app);
+			renderWithWikilinks(textDiv, cell.content ?? '', this.plugin.app, () => this.plugin.settings.plotLinkOpenMode ?? 'tab');
 			inner.addEventListener('dragstart', (e) => {
 				e.dataTransfer!.setData('text/plain', key);
 				e.dataTransfer!.effectAllowed = 'move';
@@ -408,7 +425,7 @@ export class Layout1Grid {
 		textarea.addEventListener('blur', save);
 		textarea.addEventListener('keydown', (e) => {
 			if (ac.isOpen()) return;
-			if (e.key === 'Escape') { e.preventDefault(); this.render(); }
+			if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this.render(); }
 			if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); save(); }
 		});
 	}
@@ -437,14 +454,18 @@ export class Layout1Grid {
 			this.charTbodyRows.push(tr);
 			if (isHidden) tr.addClass('wm-plot-char-hidden');
 			if (!isHidden) this.cellGrid[rowIdx] = [];
-			const rowColor = char.color;
+			if (char.color) tr.style.setProperty('--char-wiki-color', char.color);
+			this.applyCharStyle(char, tr);
 
 			const labelTd = tr.createEl('td', { cls: 'wm-plot-sticky-col' });
-			if (rowColor) applyLabelColor(labelTd, rowColor);
+			if (char.color) {
+				labelTd.style.setProperty('--char-wiki-color', char.color);
+				labelTd.style.setProperty('--char-wiki-text', getToneColor(char.color));
+			}
 
-			const labelInner = labelTd.createDiv({ cls: 'wm-plot-label wm-plot-char-label' });
+			const labelInner = labelTd.createDiv({ cls: 'wm-plot-char-label' });
 
-			// 프로필 이미지 — 셀 전체 배경에 반투명 오버레이로
+			// 프로필 이미지 — 전체 셀 배경 (::before)
 			if (char.filePath) {
 				const charFile = this.plugin.app.vault.getAbstractFileByPath(char.filePath);
 				if (charFile instanceof TFile) {
@@ -460,9 +481,12 @@ export class Layout1Grid {
 				}
 			}
 
-			const nameSpan = labelInner.createEl('span', { text: char.name, cls: 'wm-plot-char-name' });
-
+			// 액션 버튼 (labelInner 안 — 이름 헤더 위에 표시)
 			const labelAct = labelInner.createDiv({ cls: 'wm-plot-label-actions' });
+
+			// 이름 헤더 — labelTd에 직접 배치 (position: absolute, 하단 전체 너비)
+			const nameHeader = labelTd.createDiv({ cls: 'wm-plot-char-name-header' });
+			nameHeader.createEl('span', { text: char.name, cls: 'wm-plot-char-name' });
 
 			// 노트 파일을 resolve. filePath 없거나 파일 없으면 연결 모달 먼저 띄움
 			const resolveCharFile = (callback: (file: TFile) => void) => {
@@ -483,7 +507,12 @@ export class Layout1Grid {
 			openNoteBtn.addEventListener('click', () => {
 				resolveCharFile((f) => {
 					const mode = this.plugin.settings.plotCharNoteOpenMode ?? 'tab';
-					void this.plugin.app.workspace.getLeaf(mode === 'window' ? 'window' : 'tab').openFile(f);
+					if (mode === 'current') {
+						const leaf = this.plugin.app.workspace.getMostRecentLeaf() ?? this.plugin.app.workspace.getLeaf(false);
+						void leaf.openFile(f);
+					} else {
+						void this.plugin.app.workspace.getLeaf(mode).openFile(f);
+					}
 				});
 			});
 
@@ -493,13 +522,29 @@ export class Layout1Grid {
 				resolveCharFile((f) => void this.plugin.openFileInWiki(f));
 			});
 
-			const paletteBtn = labelAct.createEl('button', { cls: 'wm-plot-act-btn', attr: { title: '행 색상' } });
-			setIcon(paletteBtn, 'palette');
-			paletteBtn.addEventListener('click', (e) => {
+			const fmtBtn = labelAct.createEl('button', { cls: 'wm-plot-act-btn', attr: { title: '서식' } });
+			setIcon(fmtBtn, 'settings');
+			fmtBtn.addEventListener('click', (e) => {
 				e.stopPropagation();
-				this.openColorPalette(paletteBtn, (color) => {
-					void this.updateCharColor(char, color || undefined);
-				}, char.color);
+				this.openFormatPopup(
+					fmtBtn, tr,
+					() => ({
+						rowHeight: char.rowHeight, fontSize: char.fontSize,
+						fontColor: char.fontColor, fontColorDark: char.fontColorDark,
+						bgColor: char.bgColor, bgColorDark: char.bgColorDark,
+					}),
+					(f) => {
+						char.rowHeight = f.rowHeight;
+						char.fontSize = f.fontSize;
+						char.fontColor = f.fontColor;
+						char.fontColorDark = f.fontColorDark;
+						char.bgColor = f.bgColor;
+						char.bgColorDark = f.bgColorDark;
+						this.applyCharStyle(char, tr);
+						this.callbacks.onSave();
+					},
+					'wm-plot-char-fmt-popup',
+				);
 			});
 
 			const delBtn = labelAct.createEl('button', { cls: 'wm-plot-act-btn wm-plot-act-del', attr: { title: '삭제' } });
@@ -511,7 +556,7 @@ export class Layout1Grid {
 			} else {
 				for (let c = 0; c < scenes.length; c++) {
 					const sc = scenes[c];
-					const td = this.renderCharCell(tr, char, sc, rowColor);
+					const td = this.renderCharCell(tr, char, sc);
 					const gcell: GridCell = { el: td, r: isHidden ? -1 : rowIdx, c, rowKind: 'char', rowId: char.id, sceneId: sc.id };
 					if (!isHidden) this.cellGrid[rowIdx][c] = gcell;
 
@@ -529,18 +574,17 @@ export class Layout1Grid {
 		}
 	}
 
-	private renderCharCell(tr: HTMLTableRowElement, char: PlotCharacter, sc: PlotScene, rowColor: string | undefined): HTMLElement {
+	private renderCharCell(tr: HTMLTableRowElement, char: PlotCharacter, sc: PlotScene): HTMLElement {
 		const key = `${char.id}__${sc.id}`;
 		const cell = this.project.charCells[key];
 		const td = tr.createEl('td', { cls: 'wm-plot-cell wm-plot-char-cell' });
-		if (cell?.content) td.addClass('is-filled');
-		if (rowColor) td.style.backgroundColor = rowColor + '28';
+		if (cell?.content) td.addClass('is-filled'); // color via CSS --char-wiki-color on tr
 
 		const inner = td.createDiv({ cls: 'wm-plot-cell-inner' });
 		if (cell?.content) {
 			inner.setAttribute('draggable', 'true');
 			const textDiv = inner.createDiv({ cls: 'wm-plot-cell-text' });
-			renderWithWikilinks(textDiv, cell.content, this.plugin.app);
+			renderWithWikilinks(textDiv, cell.content, this.plugin.app, () => this.plugin.settings.plotLinkOpenMode ?? 'tab');
 			inner.addEventListener('dragstart', (e) => {
 				e.dataTransfer!.setData('text/plain', key);
 				e.dataTransfer!.effectAllowed = 'move';
@@ -603,14 +647,13 @@ export class Layout1Grid {
 		textarea.addEventListener('blur', save);
 		textarea.addEventListener('keydown', (e) => {
 			if (ac.isOpen()) return;
-			if (e.key === 'Escape') { e.preventDefault(); this.render(); }
+			if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this.render(); }
 			if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); save(); }
 		});
 	}
 
 	// ── Cell selection ────────────────────────────────────────────────────────
 
-	private isDragging = false;
 	private cellSelectDebounce: ReturnType<typeof setTimeout> | null = null;
 
 	private selectCell(cell: GridCell, scrollToCenter = false) {
@@ -624,12 +667,15 @@ export class Layout1Grid {
 		this.selectedCell = cell;
 		cell.el.classList.add('is-selected');
 		if (scroll) this.scrollCellIntoView(cell.el, scrollToCenter);
+		const section = this.wrapper.closest<HTMLElement>('.wm-plot-section');
+		const savedTop = section?.scrollTop ?? 0;
+		const savedLeft = section?.scrollLeft ?? 0;
 		this.wrapper.focus({ preventScroll: true });
+		if (section) { section.scrollTop = savedTop; section.scrollLeft = savedLeft; }
 		if (cell.rowKind === 'plotLine') {
 			// Defer char reorder + visibility update to the next frame so keyboard nav stays snappy
-			// Skip during drag to prevent scroll anchoring from jumping the viewport
 			requestAnimationFrame(() => {
-				if (this.selectedCell === cell && !this.isDragging) {
+				if (this.selectedCell === cell) {
 					this.reorderCharsByColumn(cell.c);
 					this.updateHiddenCharVisibility(cell.sceneId);
 				}
@@ -760,11 +806,10 @@ export class Layout1Grid {
 	}
 
 	private readonly onKeydown = (e: KeyboardEvent) => {
-		if (!this.selectedCell) return;
 		// When a textarea (cell editor) is active, let all keys pass through natively.
-		// Arrow keys should move the cursor, Shift+Arrow should select text, etc.
-		// Only re-enable cell navigation after the editor commits (Enter/Escape).
 		if ((e.target as HTMLElement).tagName === 'TEXTAREA') return;
+
+		if (!this.selectedCell) return;
 
 		const { r, c } = this.selectedCell;
 
@@ -788,12 +833,12 @@ export class Layout1Grid {
 		}
 
 		switch (e.key) {
+			case 'Escape':     e.preventDefault(); e.stopPropagation(); this.clearGridSelection(); break;
 			case 'ArrowRight': e.preventDefault(); this.navigateTo(r, c + 1, 0);  break;
 			case 'ArrowLeft':  e.preventDefault(); this.navigateTo(r, c - 1, 0);  break;
 			case 'ArrowDown':  e.preventDefault(); this.navigateTo(r + 1, c, 1);  break;
 			case 'ArrowUp':    e.preventDefault(); this.navigateTo(r - 1, c, -1); break;
 			case 'Enter':      e.preventDefault(); this.editSelectedCell(); break;
-			case 'Escape':     e.preventDefault(); this.clearSelection(); break;
 		}
 	};
 
@@ -805,54 +850,6 @@ export class Layout1Grid {
 		} else {
 			this.openCharCellEditor(el, rowId, sceneId);
 		}
-	}
-
-	// ── Color palette ─────────────────────────────────────────────────────────
-
-	private openColorPalette(anchor: HTMLElement, onPick: (color: string | null) => void, current?: string) {
-		document.querySelector('.wm-plot-palette-popup')?.remove();
-
-		const rect = anchor.getBoundingClientRect();
-		const popup = document.body.createDiv({ cls: 'wm-plot-palette-popup' });
-		popup.style.position = 'fixed';
-		popup.style.top = `${rect.bottom + 4}px`;
-		popup.style.left = `${rect.left}px`;
-		popup.style.zIndex = '10000';
-		// After render, flip above anchor if popup overflows viewport bottom
-		requestAnimationFrame(() => {
-			const popupH = popup.getBoundingClientRect().height;
-			if (rect.bottom + 4 + popupH > window.innerHeight) {
-				popup.style.top = `${rect.top - popupH - 4}px`;
-			}
-		});
-
-		const clearBtn = popup.createDiv({ cls: 'wm-plot-palette-clear', text: '없음' });
-		clearBtn.addEventListener('click', () => { popup.remove(); onPick(null); });
-
-		const grid = popup.createDiv({ cls: 'wm-plot-palette-grid' });
-		for (const color of PALETTE) {
-			const swatch = grid.createDiv({ cls: 'wm-plot-palette-swatch' + (current === color ? ' is-active' : '') });
-			swatch.style.background = color;
-			swatch.addEventListener('click', () => { popup.remove(); onPick(color); });
-		}
-
-		// Custom color picker
-		const customRow = popup.createDiv({ cls: 'wm-plot-palette-custom' });
-		customRow.createEl('span', { cls: 'wm-plot-palette-custom-label', text: '직접 선택' });
-		const colorInp = customRow.createEl('input', {
-			cls: 'wm-plot-palette-custom-input',
-			attr: { type: 'color', value: current ?? '#3498db' },
-		}) as HTMLInputElement;
-		colorInp.addEventListener('click', (e) => e.stopPropagation());
-		colorInp.addEventListener('change', () => { popup.remove(); onPick(colorInp.value); });
-
-		const outsideHandler = (e: MouseEvent) => {
-			if (!popup.contains(e.target as Node)) {
-				popup.remove();
-				document.removeEventListener('click', outsideHandler, true);
-			}
-		};
-		setTimeout(() => document.addEventListener('click', outsideHandler, true), 0);
 	}
 
 	// ── Episode subtitle input ────────────────────────────────────────────────
@@ -879,26 +876,10 @@ export class Layout1Grid {
 		input.addEventListener('blur', save);
 		input.addEventListener('keydown', (e) => {
 			if (e.key === 'Enter') { e.preventDefault(); save(); }
-			if (e.key === 'Escape') { e.preventDefault(); popup.remove(); }
+			if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); popup.remove(); }
 		});
 		input.focus();
 		input.select();
-	}
-
-	// ── Wiki color sync ───────────────────────────────────────────────────────
-
-	private async updateCharColor(char: PlotCharacter, color: string | undefined) {
-		char.color = color;
-		if (char.filePath) {
-			const file = this.plugin.app.vault.getAbstractFileByPath(char.filePath);
-			if (file instanceof TFile) {
-				await this.plugin.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
-					if (color) { fm['wikiColor'] = color; } else { delete fm['wikiColor']; }
-				});
-			}
-		}
-		this.callbacks.onSave();
-		this.render();
 	}
 
 	// ── Renumbering ──────────────────────────────────────────────────────────
@@ -1061,6 +1042,191 @@ export class Layout1Grid {
 		}
 	}
 
+	private applyLineStyle(line: PlotLine, tr: HTMLElement): void {
+		if (line.rowHeight !== undefined) tr.style.setProperty('--plot-row-height', `${line.rowHeight}px`);
+		else tr.style.removeProperty('--plot-row-height');
+
+		if (line.fontSize !== undefined) tr.style.setProperty('--plot-row-font-size', `${line.fontSize}px`);
+		else tr.style.removeProperty('--plot-row-font-size');
+
+		if (line.fontColor) tr.style.setProperty('--plot-row-font-color', line.fontColor);
+		else tr.style.removeProperty('--plot-row-font-color');
+
+		if (line.fontColorDark) tr.style.setProperty('--plot-row-font-color-dark', line.fontColorDark);
+		else tr.style.removeProperty('--plot-row-font-color-dark');
+
+		if (line.color) tr.style.setProperty('--plot-row-bg', line.color);
+		else tr.style.removeProperty('--plot-row-bg');
+
+		if (line.colorDark) tr.style.setProperty('--plot-row-bg-dark', line.colorDark);
+		else tr.style.removeProperty('--plot-row-bg-dark');
+	}
+
+	private applyCharStyle(char: PlotCharacter, tr: HTMLElement): void {
+		if (char.rowHeight !== undefined) tr.style.setProperty('--plot-row-height', `${char.rowHeight}px`);
+		else tr.style.removeProperty('--plot-row-height');
+
+		if (char.fontSize !== undefined) tr.style.setProperty('--plot-row-font-size', `${char.fontSize}px`);
+		else tr.style.removeProperty('--plot-row-font-size');
+
+		if (char.fontColor) tr.style.setProperty('--plot-row-font-color', char.fontColor);
+		else tr.style.removeProperty('--plot-row-font-color');
+
+		if (char.fontColorDark) tr.style.setProperty('--plot-row-font-color-dark', char.fontColorDark);
+		else tr.style.removeProperty('--plot-row-font-color-dark');
+
+		if (char.bgColor) tr.style.setProperty('--plot-row-bg', char.bgColor);
+		else tr.style.removeProperty('--plot-row-bg');
+
+		if (char.bgColorDark) tr.style.setProperty('--plot-row-bg-dark', char.bgColorDark);
+		else tr.style.removeProperty('--plot-row-bg-dark');
+	}
+
+	private openFormatPopup(
+		anchor: HTMLElement,
+		tr: HTMLElement,
+		getSnap: () => FormatFields,
+		applySnap: (f: FormatFields) => void,
+		popupClass: string,
+	): void {
+		document.querySelector(`.${popupClass}`)?.remove();
+		const popup = document.body.createDiv({ cls: `writing-menu-dropdown ${popupClass}` });
+
+		const undoStack: FormatFields[] = [];
+		const redoStack: FormatFields[] = [];
+		let undoBtnEl: HTMLElement | null = null;
+		let redoBtnEl: HTMLElement | null = null;
+
+		const updateBtns = () => {
+			undoBtnEl?.classList.toggle('is-disabled', undoStack.length === 0);
+			redoBtnEl?.classList.toggle('is-disabled', redoStack.length === 0);
+		};
+
+		const pushUndo = (before: FormatFields) => {
+			undoStack.push(before);
+			redoStack.length = 0;
+			updateBtns();
+		};
+
+		const addStepper = (label: string, icon: string, val: number, step: number, min: number, onSet: (v: number) => void) => {
+			const div = popup.createDiv({ cls: 'writing-menu-control wm-stepper-control' });
+			const lg = div.createDiv({ cls: 'writing-menu-control-label-group' });
+			const ic = lg.createSpan({ cls: 'writing-menu-icon' }); setIcon(ic, icon);
+			lg.createEl('label', { text: label });
+			const grp = div.createDiv({ cls: 'writing-menu-control-group wm-stepper-group' });
+			const inp = grp.createEl('input', { type: 'number', value: String(val), cls: 'wm-stepper-input' }) as HTMLInputElement;
+
+			const change = (newVal: number) => {
+				const before = getSnap();
+				inp.value = String(newVal);
+				onSet(newVal);
+				pushUndo(before);
+			};
+
+			inp.onchange = () => change(Math.max(Number(inp.value), min));
+
+			const minusBtn = grp.createDiv({ cls: 'clickable-icon wm-icon-btn-20' });
+			setIcon(minusBtn, 'minus');
+			requestAnimationFrame(() => {
+				const svg = minusBtn.querySelector('svg');
+				if (svg) { svg.setAttribute('width', '15'); svg.setAttribute('height', '15'); }
+			});
+			minusBtn.onclick = () => change(Math.max(Math.round((Number(inp.value) - step) * 100) / 100, min));
+
+			const plusBtn = grp.createDiv({ cls: 'clickable-icon wm-icon-btn-20' });
+			setIcon(plusBtn, 'plus');
+			requestAnimationFrame(() => {
+				const svg = plusBtn.querySelector('svg');
+				if (svg) { svg.setAttribute('width', '15'); svg.setAttribute('height', '15'); }
+			});
+			plusBtn.onclick = () => change(Math.round((Number(inp.value) + step) * 100) / 100);
+		};
+
+		const addDualColor = (label: string, icon: string, lightVal: string, darkVal: string, onLight: (v: string) => void, onDark: (v: string) => void) => {
+			const div = popup.createDiv({ cls: 'writing-menu-control' });
+			const lg = div.createDiv({ cls: 'writing-menu-control-label-group' });
+			const ic = lg.createSpan({ cls: 'writing-menu-icon' }); setIcon(ic, icon);
+			lg.createEl('label', { text: label });
+			const grp = div.createDiv({ cls: 'writing-menu-control-group wm-color-group' });
+			const li = grp.createEl('input', { type: 'color', value: lightVal, cls: 'wm-compact-color-input' }) as HTMLInputElement;
+			const di = grp.createEl('input', { type: 'color', value: darkVal, cls: 'wm-compact-color-input' }) as HTMLInputElement;
+			li.onchange = () => { const before = getSnap(); onLight(li.value); pushUndo(before); };
+			di.onchange = () => { const before = getSnap(); onDark(di.value); pushUndo(before); };
+		};
+
+		const renderContent = () => {
+			popup.empty();
+			const cur = getSnap();
+
+			addStepper('행 높이', 'rows', cur.rowHeight ?? 140, 10, 40, (v) => applySnap({ ...getSnap(), rowHeight: v }));
+			addStepper('글자 크기', 'type', cur.fontSize ?? 14, 1, 8, (v) => applySnap({ ...getSnap(), fontSize: v }));
+			addDualColor('글자색', 'a-large-small',
+				cur.fontColor ?? '#000000', cur.fontColorDark ?? '#ffffff',
+				(v) => applySnap({ ...getSnap(), fontColor: v }),
+				(v) => applySnap({ ...getSnap(), fontColorDark: v }),
+			);
+			addDualColor('배경색', 'paint-bucket',
+				cur.bgColor ?? '#ffffff', cur.bgColorDark ?? '#1e1e1e',
+				(v) => applySnap({ ...getSnap(), bgColor: v }),
+				(v) => applySnap({ ...getSnap(), bgColorDark: v }),
+			);
+
+			// ── 되돌리기
+			const undoDiv = popup.createDiv({ cls: 'writing-menu-control wm-plot-fmt-undo-row' });
+			const undoLg = undoDiv.createDiv({ cls: 'writing-menu-control-label-group' });
+			const undoIc = undoLg.createSpan({ cls: 'writing-menu-icon' }); setIcon(undoIc, 'refresh-cw');
+			undoLg.createEl('label', { text: '되돌리기' });
+			const undoGrp = undoDiv.createDiv({ cls: 'writing-menu-control-group' });
+
+			undoBtnEl = undoGrp.createDiv({ cls: 'clickable-icon wm-icon-btn-20' });
+			setIcon(undoBtnEl, 'arrow-left');
+			undoBtnEl.addEventListener('click', () => {
+				if (!undoStack.length) return;
+				const c = getSnap();
+				const prev = undoStack.pop()!;
+				redoStack.push(c);
+				applySnap(prev);
+				renderContent();
+			});
+
+			const rstBtn = undoGrp.createDiv({ cls: 'clickable-icon wm-icon-btn-20' });
+			setIcon(rstBtn, 'rotate-cw');
+			rstBtn.addEventListener('click', () => {
+				const c = getSnap();
+				undoStack.push(c);
+				redoStack.length = 0;
+				applySnap({ rowHeight: undefined, fontSize: undefined, fontColor: undefined, fontColorDark: undefined, bgColor: undefined, bgColorDark: undefined });
+				renderContent();
+			});
+
+			redoBtnEl = undoGrp.createDiv({ cls: 'clickable-icon wm-icon-btn-20' });
+			setIcon(redoBtnEl, 'arrow-right');
+			redoBtnEl.addEventListener('click', () => {
+				if (!redoStack.length) return;
+				const c = getSnap();
+				const next = redoStack.pop()!;
+				undoStack.push(c);
+				applySnap(next);
+				renderContent();
+			});
+
+			updateBtns();
+		};
+
+		renderContent();
+
+		requestAnimationFrame(() => {
+			const rect = anchor.getBoundingClientRect();
+			const ph = popup.getBoundingClientRect().height;
+			const pw = popup.getBoundingClientRect().width;
+			const top = rect.bottom + 4 + ph > window.innerHeight ? rect.top - ph - 4 : rect.bottom + 4;
+			popup.style.top = `${top}px`;
+			popup.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - pw - 8))}px`;
+		});
+
+		addOutsideClickListener(popup, () => popup.remove());
+	}
+
 	private deletePlotLine(id: string) {
 		this.project.plotLines = this.project.plotLines.filter(l => l.id !== id);
 		this.callbacks.onSave();
@@ -1180,13 +1346,7 @@ export class Layout1Grid {
 			dismiss();
 		});
 
-		const outsideHandler = (e: MouseEvent) => {
-			if (!popup.contains(e.target as Node)) {
-				dismiss();
-				document.removeEventListener('click', outsideHandler, true);
-			}
-		};
-		setTimeout(() => document.addEventListener('click', outsideHandler, true), 0);
+		addOutsideClickListener(popup, dismiss);
 	}
 
 	openBulkDeletePopup(anchor: HTMLElement) {
@@ -1279,13 +1439,7 @@ export class Layout1Grid {
 			dismiss();
 		});
 
-		const outsideHandler = (e: MouseEvent) => {
-			if (!popup.contains(e.target as Node)) {
-				dismiss();
-				document.removeEventListener('click', outsideHandler, true);
-			}
-		};
-		setTimeout(() => document.addEventListener('click', outsideHandler, true), 0);
+		addOutsideClickListener(popup, dismiss);
 	}
 
 	openCharVisibilityPopup() {
@@ -1371,13 +1525,7 @@ export class Layout1Grid {
 			this.render();
 		});
 
-		const outsideHandler = (e: MouseEvent) => {
-			if (!popup.contains(e.target as Node)) {
-				dismiss();
-				document.removeEventListener('click', outsideHandler, true);
-			}
-		};
-		setTimeout(() => document.addEventListener('click', outsideHandler, true), 0);
+		addOutsideClickListener(popup, dismiss);
 		setTimeout(() => searchInput.focus(), 50);
 	}
 
