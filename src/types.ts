@@ -160,7 +160,8 @@ export interface WritingMenuSettings {
 	plotCharFolder: string;
 	plotCharNoteTemplate: string;
 	plotHiddenCharIds: string[];
-	plotCharNoteOpenMode: 'tab' | 'window';
+	plotCharNoteOpenMode: 'current' | 'tab' | 'window';
+	plotLinkOpenMode: 'current' | 'tab' | 'window';
 	// ── Spell Check ────────────────────────────────────────────────────────────
 	spellCheckEngine: 'daum' | 'pnu';
 	spellCheckIgnoredWords: string[];
@@ -335,6 +336,7 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	plotCharNoteTemplate: '',
 	plotHiddenCharIds: [],
 	plotCharNoteOpenMode: 'tab',
+	plotLinkOpenMode: 'tab',
 	spellCheckEngine: 'daum',
 	spellCheckIgnoredWords: [],
 };

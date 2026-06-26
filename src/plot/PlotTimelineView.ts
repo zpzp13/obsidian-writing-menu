@@ -1,7 +1,9 @@
 import { ItemView, WorkspaceLeaf, setIcon } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { PLOT_TIMELINE_VIEW_TYPE } from './PlotTypes';
-import type { PlotProject, PlotEpisode, PlotScene, CellSelection } from './PlotTypes';
+import type { PlotProject, CellSelection } from './PlotTypes';
+import { renderWithWikilinks } from './WikilinkHelper';
+import { addOutsideClickListener, openChapterSearchPopup } from './PlotUtils';
 
 export { PLOT_TIMELINE_VIEW_TYPE };
 
@@ -149,7 +151,8 @@ export class PlotTimelineView extends ItemView {
 					setIcon(chipIcon, 'hash');
 					chipWrap.createSpan({ cls: 'wm-tl-chip-label', text: sc.name });
 
-					card.createDiv({ cls: 'wm-tl-card-text', text: content });
+					const cardText = card.createDiv({ cls: 'wm-tl-card-text' });
+					renderWithWikilinks(cardText, content, this.app, () => this.plugin.settings.plotLinkOpenMode ?? 'tab');
 
 					card.addEventListener('click', () => {
 						this.selfClicked = true;
@@ -167,52 +170,19 @@ export class PlotTimelineView extends ItemView {
 		}
 
 		// 타임라인 자체 카드 클릭 시 스크롤 없음, 플롯 매니저에서 선택 변경 시에만 중앙 포커스
-		const shouldScroll = !this.selfClicked;
-		this.selfClicked = false;
-		if (shouldScroll) {
+		if (!this.selfClicked) {
 			requestAnimationFrame(() => {
 				const activeCard = el.querySelector<HTMLElement>('.wm-tl-card.is-active');
 				if (activeCard) activeCard.scrollIntoView({ block: 'center' });
 			});
 		}
+		this.selfClicked = false;
 	}
 
 	// ── Chapter search popup ─────────────────────────────────────────────
 
 	private openChapterSearch() {
-		document.querySelector('.wm-tl-ch-search-popup')?.remove();
-
-		const popup = document.body.createDiv({ cls: 'wm-tl-ch-search-popup' });
-		popup.createDiv({ cls: 'wm-plot-ch-search-popup-title', text: '회차 검색' });
-
-		const inputWrap = popup.createDiv({ cls: 'wm-plot-ch-search-popup-wrap' });
-		const input = inputWrap.createEl('input', {
-			cls: 'wm-plot-ch-search-popup-input',
-			attr: { type: 'text', placeholder: '화 번호 입력 (예: 5)', spellcheck: 'false' },
-		}) as HTMLInputElement;
-
-		const dismiss = () => popup.remove();
-		const doSearch = () => {
-			const q = input.value.trim();
-			if (q) this.scrollToChapter(q);
-			dismiss();
-		};
-
-		input.addEventListener('keydown', (e) => {
-			if (e.key === 'Enter') doSearch();
-			else if (e.key === 'Escape') dismiss();
-		});
-
-		setTimeout(() => input.focus(), 0);
-		setTimeout(() => {
-			const outsideHandler = (e: MouseEvent) => {
-				if (!popup.contains(e.target as Node)) {
-					dismiss();
-					document.removeEventListener('click', outsideHandler, true);
-				}
-			};
-			document.addEventListener('click', outsideHandler, true);
-		}, 0);
+		openChapterSearchPopup('wm-tl-ch-search-popup', (q) => this.scrollToChapter(q));
 	}
 
 	private scrollToChapter(query: string) {
@@ -321,15 +291,7 @@ export class PlotTimelineView extends ItemView {
 			}
 		});
 
-		setTimeout(() => {
-			searchInput.focus();
-			const outsideHandler = (e: MouseEvent) => {
-				if (!popup.contains(e.target as Node)) {
-					popup.remove();
-					document.removeEventListener('click', outsideHandler, true);
-				}
-			};
-			document.addEventListener('click', outsideHandler, true);
-		}, 0);
+		setTimeout(() => searchInput.focus(), 0);
+		addOutsideClickListener(popup, () => popup.remove());
 	}
 }

@@ -1,4 +1,4 @@
-import type { App } from 'obsidian';
+import type { App, TFile } from 'obsidian';
 
 export interface WikilinkAC {
 	isOpen(): boolean;
@@ -8,7 +8,7 @@ export interface WikilinkAC {
 export function attachWikilinkAutocomplete(textarea: HTMLTextAreaElement, app: App): WikilinkAC {
 	let dropdown: HTMLElement | null = null;
 	let selectedIdx = 0;
-	let items: string[] = [];
+	let items: { name: string; path: string }[] = [];
 	let bracketStart = -1;
 
 	const isOpen = () => !!dropdown;
@@ -22,9 +22,11 @@ export function attachWikilinkAutocomplete(textarea: HTMLTextAreaElement, app: A
 
 	const updateHighlight = () => {
 		if (!dropdown) return;
-		dropdown.querySelectorAll<HTMLElement>('.suggestion-item').forEach((el, i) => {
+		const els = dropdown.querySelectorAll<HTMLElement>('.suggestion-item');
+		els.forEach((el, i) => {
 			el.classList.toggle('is-selected', i === selectedIdx);
 		});
+		els[selectedIdx]?.scrollIntoView({ block: 'nearest' });
 	};
 
 	const insertLink = (name: string) => {
@@ -47,17 +49,25 @@ export function attachWikilinkAutocomplete(textarea: HTMLTextAreaElement, app: A
 			? files.filter(f => f.basename.toLowerCase().includes(q))
 			: files.slice(0, 20);
 
-		items = filtered.slice(0, 10).map(f => f.basename);
+		items = filtered.slice(0, 50).map(f => ({ name: f.basename, path: f.path }));
 		if (items.length === 0) return;
 
 		dropdown = document.body.createDiv({ cls: 'suggestion-container mod-small' });
+		dropdown.style.maxHeight = '240px';
+		dropdown.style.overflowY = 'auto';
 		selectedIdx = 0;
 
-		items.forEach((name, i) => {
+		items.forEach(({ name, path }, i) => {
 			const item = (dropdown as HTMLElement).createDiv({
 				cls: 'suggestion-item' + (i === 0 ? ' is-selected' : ''),
 			});
-			item.textContent = name;
+			item.createDiv({ cls: 'suggestion-title', text: name });
+			const folderPath = path.includes('/') ? path.substring(0, path.lastIndexOf('/')) + '/' : '';
+			if (folderPath) {
+				const note = item.createDiv({ cls: 'suggestion-note', text: folderPath });
+				note.style.color = 'var(--text-muted)';
+				note.style.fontSize = '13px';
+			}
 			item.addEventListener('mousedown', (e) => {
 				e.preventDefault();
 				insertLink(name);
@@ -108,7 +118,7 @@ export function attachWikilinkAutocomplete(textarea: HTMLTextAreaElement, app: A
 			updateHighlight();
 		} else if (e.key === 'Enter') {
 			e.preventDefault(); e.stopImmediatePropagation();
-			if (items[selectedIdx] !== undefined) insertLink(items[selectedIdx]);
+			if (items[selectedIdx] !== undefined) insertLink(items[selectedIdx].name);
 		} else if (e.key === 'Escape') {
 			e.preventDefault(); e.stopImmediatePropagation();
 			dismiss();
@@ -121,7 +131,12 @@ export function attachWikilinkAutocomplete(textarea: HTMLTextAreaElement, app: A
 	return { isOpen, dismiss };
 }
 
-export function renderWithWikilinks(container: HTMLElement, text: string, app: App) {
+export function renderWithWikilinks(
+	container: HTMLElement,
+	text: string,
+	app: App,
+	getOpenMode: () => 'current' | 'tab' | 'window' = () => 'tab',
+) {
 	if (!text.includes('[[')) {
 		container.textContent = text;
 		return;
@@ -134,7 +149,20 @@ export function renderWithWikilinks(container: HTMLElement, text: string, app: A
 			const span = container.createEl('span', { cls: 'wm-plot-wikilink', text: linkText });
 			span.addEventListener('click', (e) => {
 				e.stopPropagation();
-				void app.workspace.openLinkText(linkText, '', false);
+				const mode = getOpenMode();
+				if (mode === 'current') {
+					const resolved = app.metadataCache.getFirstLinkpathDest(linkText, '');
+					if (resolved) {
+						const leaf = app.workspace.getMostRecentLeaf() ?? app.workspace.getLeaf(false);
+						void leaf.openFile(resolved as TFile);
+					} else {
+						void app.workspace.openLinkText(linkText, '', false);
+					}
+				} else if (mode === 'window') {
+					void app.workspace.openLinkText(linkText, '', 'window');
+				} else {
+					void app.workspace.openLinkText(linkText, '', 'tab');
+				}
 			});
 			span.addEventListener('dblclick', (e) => e.stopPropagation());
 		} else {

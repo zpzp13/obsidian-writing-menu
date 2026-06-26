@@ -6,6 +6,7 @@ import type { PlotProject, CellSelection } from './PlotTypes';
 import { PlotManager } from './PlotManager';
 import { Layout1Grid } from './Layout1Grid';
 import type { PlotTimelineView } from './PlotTimelineView';
+import { addOutsideClickListener, openChapterSearchPopup } from './PlotUtils';
 
 export { PLOT_VIEW_TYPE };
 
@@ -40,10 +41,11 @@ export class PlotManagerView extends ItemView {
 
 		// Global event listeners — registered once per view lifecycle (not per render)
 		const contentEl = this.containerEl.children[1] as HTMLElement;
+
 		this.registerDomEvent(document, 'keydown', (e: KeyboardEvent) => {
 			if (e.shiftKey && e.key === 'F' && contentEl.contains(document.activeElement)) {
 				e.preventDefault();
-				this.openChapterSearchPopup();
+				this.openChapterSearch();
 			}
 		});
 		this.registerDomEvent(contentEl, 'wheel', (e: WheelEvent) => {
@@ -64,14 +66,33 @@ export class PlotManagerView extends ItemView {
 			})
 		);
 		this.registerEvent(
-			this.app.vault.on('rename', (_file: TAbstractFile, oldPath: string) => {
+			this.app.vault.on('rename', (file: TAbstractFile, oldPath: string) => {
 				const folder = (this.plugin.settings.plotManagerFolder ?? '').trim();
 				if (!folder) return;
 				const folderPath = normalizePath(folder);
 				if (oldPath.startsWith(folderPath + '/')) {
 					void this.reload();
+					return;
+				}
+				// 인물 노트 경로 갱신 — 이름 변경 시 filePath 자동 업데이트
+				if (this.project) {
+					let changed = false;
+					for (const char of this.project.characters) {
+						if (char.filePath && normalizePath(char.filePath) === normalizePath(oldPath)) {
+							char.filePath = file.path;
+							changed = true;
+						}
+					}
+					if (changed) {
+						void this.plotManager.save(this.project);
+						this.render();
+					}
 				}
 			})
+		);
+		// 테마 전환 시 row 색상 opacity를 재계산하기 위해 re-render
+		this.registerEvent(
+			(this.app.workspace as any).on('css-change', () => { this.render(); })
 		);
 	}
 
@@ -148,7 +169,7 @@ export class PlotManagerView extends ItemView {
 		reloadBtn.addEventListener('click', () => void this.reload());
 		const searchBtn = baseGroup.createEl('button', { cls: 'wm-plot-tool-btn', attr: { title: '회차 검색 (Shift+F)' } });
 		setIcon(searchBtn, 'search');
-		searchBtn.addEventListener('click', () => this.openChapterSearchPopup());
+		searchBtn.addEventListener('click', () => this.openChapterSearch());
 		const shortcutBtn = baseGroup.createEl('button', { cls: 'wm-plot-tool-btn', attr: { title: '단축키' } });
 		setIcon(shortcutBtn, 'keyboard');
 		shortcutBtn.addEventListener('click', () => this.openShortcutDropdown(shortcutBtn));
@@ -199,23 +220,25 @@ export class PlotManagerView extends ItemView {
 		});
 	}
 
+	private getTimelineArgs() {
+		return {
+			onCardClick: (newSel: CellSelection) => { this.grid?.selectCellBySelection(newSel); },
+			pageSceneIds: this.grid?.getPageSceneIds(),
+			pageInfo: this.grid?.getPageInfo(),
+			onPageChange: (delta: number) => this.timelinePageChange(delta),
+		};
+	}
+
 	private notifyTimeline(sel: CellSelection) {
 		this.lastSelection = sel;
 		if (!this.project) return;
-		const onCardClick = (newSel: CellSelection) => {
-			this.grid?.selectCellBySelection(newSel);
-		};
-		const pageSceneIds = this.grid?.getPageSceneIds();
-		const pageInfo = this.grid?.getPageInfo();
-		const onPageChange = (delta: number) => this.timelinePageChange(delta);
+		const { onCardClick, pageSceneIds, pageInfo, onPageChange } = this.getTimelineArgs();
 		const leaves = this.app.workspace.getLeavesOfType(PLOT_TIMELINE_VIEW_TYPE);
 		if (leaves.length === 0 && sel !== null) {
-			// Auto-open timeline on first selection
-			const leaf = this.app.workspace.getRightLeaf(false);
+			const leaf = this.app.workspace.getLeftLeaf(false);
 			if (leaf) {
 				void leaf.setViewState({ type: PLOT_TIMELINE_VIEW_TYPE, active: false }).then(() => {
-					const view = leaf.view as PlotTimelineView;
-					view.refresh(this.project!, sel, onCardClick, pageSceneIds, pageInfo, onPageChange);
+					(leaf.view as PlotTimelineView).refresh(this.project!, sel, onCardClick, pageSceneIds, pageInfo, onPageChange);
 				});
 			}
 		} else {
@@ -233,12 +256,8 @@ export class PlotManagerView extends ItemView {
 
 	private syncTimelinePage() {
 		if (!this.project) return;
-		const pageSceneIds = this.grid?.getPageSceneIds();
-		const pageInfo = this.grid?.getPageInfo();
-		const onCardClick = (newSel: CellSelection) => { this.grid?.selectCellBySelection(newSel); };
-		const onPageChange = (delta: number) => this.timelinePageChange(delta);
-		const leaves = this.app.workspace.getLeavesOfType(PLOT_TIMELINE_VIEW_TYPE);
-		leaves.forEach(leaf => {
+		const { onCardClick, pageSceneIds, pageInfo, onPageChange } = this.getTimelineArgs();
+		this.app.workspace.getLeavesOfType(PLOT_TIMELINE_VIEW_TYPE).forEach(leaf => {
 			(leaf.view as PlotTimelineView).refresh(this.project!, this.lastSelection, onCardClick, pageSceneIds, pageInfo, onPageChange);
 		});
 	}
@@ -250,44 +269,16 @@ export class PlotManagerView extends ItemView {
 		this.pageLabel.textContent = `${range} (${page + 1}/${totalPages})`;
 	}
 
-	private openChapterSearchPopup() {
-		document.querySelector('.wm-plot-ch-search-popup')?.remove();
-
-		const popup = document.body.createDiv({ cls: 'wm-plot-ch-search-popup' });
-		popup.createDiv({ cls: 'wm-plot-ch-search-popup-title', text: '회차 검색' });
-
-		const inputWrap = popup.createDiv({ cls: 'wm-plot-ch-search-popup-wrap' });
-		const input = inputWrap.createEl('input', {
-			cls: 'wm-plot-ch-search-popup-input',
-			attr: { type: 'text', placeholder: '화 번호 입력 (예: 5)', spellcheck: 'false' },
-		}) as HTMLInputElement;
-
+	private openChapterSearch() {
 		const restoreFocus = () => {
 			const wrapper = this.grid?.getTableEl();
 			if (wrapper) wrapper.focus({ preventScroll: true });
 		};
-		const dismiss = () => { popup.remove(); restoreFocus(); };
-		const doSearch = () => {
-			const q = input.value.trim();
-			if (q) this.grid?.scrollToChapter(q);
-			dismiss();
-		};
-
-		input.addEventListener('keydown', (e) => {
-			if (e.key === 'Enter') doSearch();
-			else if (e.key === 'Escape') dismiss();
-		});
-
-		setTimeout(() => input.focus(), 0);
-		setTimeout(() => {
-			const outsideHandler = (e: MouseEvent) => {
-				if (!popup.contains(e.target as Node)) {
-					dismiss();
-					document.removeEventListener('click', outsideHandler, true);
-				}
-			};
-			document.addEventListener('click', outsideHandler, true);
-		}, 0);
+		openChapterSearchPopup(
+			'wm-plot-ch-search-popup',
+			(q) => this.grid?.scrollToChapter(q),
+			restoreFocus,
+		);
 	}
 
 	private openShortcutDropdown(anchor: HTMLElement) {
@@ -326,13 +317,7 @@ export class PlotManagerView extends ItemView {
 			dropdown.style.left = `${Math.min(rect.left, window.innerWidth - dw - 8)}px`;
 		});
 
-		const outsideHandler = (e: MouseEvent) => {
-			if (!dropdown.contains(e.target as Node)) {
-				dropdown.remove();
-				document.removeEventListener('click', outsideHandler, true);
-			}
-		};
-		setTimeout(() => document.addEventListener('click', outsideHandler, true), 0);
+		addOutsideClickListener(dropdown, () => dropdown.remove());
 	}
 
 	private openInfoPopup() {
@@ -381,13 +366,7 @@ export class PlotManagerView extends ItemView {
 		const closeBtn = popup.createEl('button', { cls: 'wm-plot-info-close', text: '닫기' });
 		closeBtn.addEventListener('click', () => popup.remove());
 
-		const outsideHandler = (e: MouseEvent) => {
-			if (!popup.contains(e.target as Node)) {
-				popup.remove();
-				document.removeEventListener('click', outsideHandler, true);
-			}
-		};
-		setTimeout(() => document.addEventListener('click', outsideHandler, true), 0);
+		addOutsideClickListener(popup, () => popup.remove());
 	}
 
 	private openFolderPicker() {
