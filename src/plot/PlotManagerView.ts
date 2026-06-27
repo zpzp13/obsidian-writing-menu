@@ -148,15 +148,30 @@ export class PlotManagerView extends ItemView {
 		setIcon(bulkDelBtn, 'list-minus');
 		bulkDelBtn.addEventListener('click', () => this.grid?.openBulkDeletePopup(bulkDelBtn));
 
-		// 캐릭터 그룹: label | 캐릭터 추가 | 선택 보기
+		// 캐릭터 그룹: label | 캐릭터 추가 | 선택 보기 | 폴더 동기화
 		const charGroup = toolbar.createDiv({ cls: 'wm-plot-toolbar-group wm-plot-toolbar-group-open' });
 		charGroup.createDiv({ cls: 'wm-plot-toolbar-group-label', text: '캐릭터' });
 		const addCharBtn = charGroup.createEl('button', { cls: 'wm-plot-tool-btn', attr: { title: '캐릭터 추가' } });
 		setIcon(addCharBtn, 'user-round-plus');
-		addCharBtn.addEventListener('click', () => this.grid?.addCharacter());
+		addCharBtn.addEventListener('click', () => this.grid?.openAddCharPopup(addCharBtn));
 		const charVisBtn = charGroup.createEl('button', { cls: 'wm-plot-tool-btn', attr: { title: '선택 보기' } });
 		setIcon(charVisBtn, 'user-round-check');
 		charVisBtn.addEventListener('click', () => this.grid?.openCharVisibilityPopup());
+		const syncCharBtn = charGroup.createEl('button', { cls: 'wm-plot-tool-btn', attr: { title: '폴더 동기화' } });
+		setIcon(syncCharBtn, 'folder-sync');
+		syncCharBtn.addEventListener('click', () => void this.grid?.syncCharsFromFolder());
+
+		// 되돌리기 그룹: label | 실행 취소 | 다시 실행
+		const undoGroup = toolbar.createDiv({ cls: 'wm-plot-toolbar-group wm-plot-toolbar-group-open' });
+		undoGroup.createDiv({ cls: 'wm-plot-toolbar-group-label', text: '되돌리기' });
+		const undoBtn = undoGroup.createEl('button', { cls: 'wm-plot-tool-btn', attr: { title: '실행 취소 (구조 변경)' } });
+		setIcon(undoBtn, 'arrow-left');
+		undoBtn.disabled = true;
+		undoBtn.addEventListener('click', () => this.grid?.undo());
+		const redoBtn = undoGroup.createEl('button', { cls: 'wm-plot-tool-btn', attr: { title: '다시 실행' } });
+		setIcon(redoBtn, 'arrow-right');
+		redoBtn.disabled = true;
+		redoBtn.addEventListener('click', () => this.grid?.redo());
 
 		// 기본 그룹: label | 정보 | 새로고침 | 회차 검색 | 단축키 | 설정
 		const baseGroup = toolbar.createDiv({ cls: 'wm-plot-toolbar-group wm-plot-toolbar-group-open' });
@@ -192,6 +207,10 @@ export class PlotManagerView extends ItemView {
 			onHiddenCharsChange: (hidden) => {
 				this.plugin.settings.plotHiddenCharIds = [...hidden];
 				void this.plugin.saveSettings();
+			},
+			onUndoRedoChange: (canUndo, canRedo) => {
+				undoBtn.disabled = !canUndo;
+				redoBtn.disabled = !canRedo;
 			},
 		}, this.hiddenCharIds);
 		this.grid.render();
@@ -270,6 +289,8 @@ export class PlotManagerView extends ItemView {
 	}
 
 	private openChapterSearch() {
+		const existing = document.querySelector('.wm-plot-ch-search-popup');
+		if (existing) { existing.remove(); return; }
 		const restoreFocus = () => {
 			const wrapper = this.grid?.getTableEl();
 			if (wrapper) wrapper.focus({ preventScroll: true });

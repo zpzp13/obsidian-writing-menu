@@ -1,8 +1,9 @@
-import { setIcon, TFile } from 'obsidian';
+import { setIcon, TFile, TFolder, normalizePath, Modal } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { PlotProject, PlotLine, PlotScene, PlotEpisode, PlotCharacter } from './PlotTypes';
 import { CellSelection, newId } from './PlotTypes';
 import { CharacterNoteModal } from './CharacterNoteModal';
+import { FolderSuggestModal, NoteSuggestModal } from '../wiki/WikiModals';
 import { attachWikilinkAutocomplete, renderWithWikilinks } from './WikilinkHelper';
 import { getToneColor } from '../wiki/WikiTypes';
 import { addOutsideClickListener } from './PlotUtils';
@@ -12,6 +13,7 @@ interface Layout1Callbacks {
 	onCellSelect(selection: CellSelection): void;
 	onPageChange?(): void;
 	onHiddenCharsChange?(hidden: Set<string>): void;
+	onUndoRedoChange?(canUndo: boolean, canRedo: boolean): void;
 }
 
 interface GridCell {
@@ -32,6 +34,27 @@ type FormatFields = {
 	bgColorDark?: string;
 };
 
+class DeleteCharConfirmModal extends Modal {
+	constructor(
+		app: import('obsidian').App,
+		private charName: string,
+		private filePath: string,
+		private onConfirm: () => void,
+	) { super(app); }
+
+	onOpen() {
+		this.titleEl.setText('캐릭터 삭제');
+		this.contentEl.createEl('p', { text: `"${this.charName}" 캐릭터와 연결된 노트 파일을 함께 삭제할까요?` });
+		this.contentEl.createEl('p', { text: `파일: ${this.filePath}`, cls: 'wm-delete-confirm-path' });
+		const btns = this.contentEl.createDiv({ cls: 'modal-button-container' });
+		btns.createEl('button', { text: '취소' }).addEventListener('click', () => this.close());
+		const ok = btns.createEl('button', { text: '삭제', cls: 'mod-warning' });
+		ok.addEventListener('click', () => { this.close(); this.onConfirm(); });
+	}
+
+	onClose() { this.contentEl.empty(); }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export class Layout1Grid {
@@ -45,6 +68,17 @@ export class Layout1Grid {
 	private chapterPage = 0;
 	private readonly CHAPTERS_PER_PAGE = 25;
 	private visibleEps: PlotEpisode[] = [];
+	private fmtHistory = new Map<string, { undo: FormatFields[], redo: FormatFields[] }>();
+	private charGridRowMap = new Map<string, number>();
+	private charDomOrderedRows: number[] = [];
+	private plotRowCount = 0;
+	private _rendering = false;
+	private scrollRafId: number | null = null;
+	private reorderRafId: number | null = null;
+	private sectionEl: HTMLElement | null = null; // cached .wm-plot-section ancestor
+	private structUndoStack: string[] = [];
+	private structRedoStack: string[] = [];
+	private readonly STRUCT_UNDO_MAX = 20;
 
 	constructor(
 		private container: HTMLElement,
@@ -56,58 +90,81 @@ export class Layout1Grid {
 		this.wrapper = container.createDiv({ cls: 'wm-plot-table-wrapper' });
 		this.wrapper.setAttribute('tabindex', '-1');
 		this.wrapper.addEventListener('keydown', this.onKeydown);
+		// Cache the scroll container once — closest() traversal on every keypress is wasteful
+		requestAnimationFrame(() => {
+			this.sectionEl = this.wrapper.closest<HTMLElement>('.wm-plot-section');
+		});
 	}
 
 	render() {
-		// Preserve selection before clearing
-		const prevSelected = this.selectedCell
-			? { rowKind: this.selectedCell.rowKind, rowId: this.selectedCell.rowId, sceneId: this.selectedCell.sceneId }
-			: null;
+		// Guard against re-entrant calls (e.g. blur fires synchronously when wrapper.empty() removes focused textarea)
+		if (this._rendering) return;
+		this._rendering = true;
 
-		// Save scroll BEFORE empty() — emptying the wrapper shrinks scrollable content to zero,
-		// causing the browser to clamp scrollTop/scrollLeft to 0 before content is rebuilt.
-		const section = this.wrapper.closest<HTMLElement>('.wm-plot-section');
-		const savedScrollTop = section?.scrollTop ?? 0;
-		const savedScrollLeft = section?.scrollLeft ?? 0;
+		// Wrap everything so _rendering is ALWAYS reset — even if renderThead/renderPlotTbody/
+		// renderCharTbody throws. Without this, a single exception permanently blocks future renders
+		// (callers like scrollToChapter update the page label but cells never rebuild).
+		try {
+			// Cancel stale RAFs before clearing DOM — prevents detached-element scrollIntoView
+			// or visibility updates from firing after the DOM is rebuilt for a different page.
+			if (this.scrollRafId !== null) { cancelAnimationFrame(this.scrollRafId); this.scrollRafId = null; }
+			if (this.reorderRafId !== null) { cancelAnimationFrame(this.reorderRafId); this.reorderRafId = null; }
 
-		this.wrapper.empty();
-		this.cellGrid = [];
-		this.selectedCell = null;
-		this.charTbodyRows = [];
-		this.charsTbody = null;
-		this.lastReorderedCol = -1;
+			// Preserve selection before clearing
+			const prevSelected = this.selectedCell
+				? { rowKind: this.selectedCell.rowKind, rowId: this.selectedCell.rowId, sceneId: this.selectedCell.sceneId }
+				: null;
 
-		const { visibleEps, scenes } = this.getPageScenes();
-		this.visibleEps = visibleEps;
-		this.scenes = scenes;
+			// Save scroll BEFORE empty() — emptying the wrapper shrinks scrollable content to zero,
+			// causing the browser to clamp scrollTop/scrollLeft to 0 before content is rebuilt.
+			const section = this.sectionEl;
+			const savedScrollTop = section?.scrollTop ?? 0;
+			const savedScrollLeft = section?.scrollLeft ?? 0;
 
-		const table = this.wrapper.createEl('table', { cls: 'wm-plot-table wm-plot-grid-lines' });
+			this.wrapper.empty();
+			this.cellGrid = [];
+			this.selectedCell = null;
+			this.charTbodyRows = [];
+			this.charsTbody = null;
+			this.lastReorderedCol = -1;
 
-		this.renderThead(table);
-		this.renderPlotTbody(table);
+			const { visibleEps, scenes } = this.getPageScenes();
+			this.visibleEps = visibleEps;
+			this.scenes = scenes;
 
-		if (this.project.characters.length > 0) {
-			this.renderCharDivider(table);
-			this.renderCharTbody(table);
-		}
+			const table = this.wrapper.createEl('table', { cls: 'wm-plot-table wm-plot-grid-lines' });
 
-		// Restore scroll after rebuild so viewport stays at the same position
-		if (section) { section.scrollTop = savedScrollTop; section.scrollLeft = savedScrollLeft; }
+			this.renderThead(table);
+			this.renderPlotTbody(table);
+			this.plotRowCount = this.cellGrid.length;
 
-		// Restore selection after re-render — no scroll so viewport doesn't jump
-		if (prevSelected) {
-			for (const row of this.cellGrid) {
-				if (!row) continue;
-				for (const cell of row) {
-					if (!cell) continue;
-					if (cell.rowKind === prevSelected.rowKind && cell.rowId === prevSelected.rowId && cell.sceneId === prevSelected.sceneId) {
-						this.applySelection(cell, false);
-						return;
+			if (this.project.characters.length > 0) {
+				this.renderCharDivider(table);
+				this.charGridRowMap.clear();
+				this.renderCharTbody(table);
+				this.updateCharDomOrder();
+			}
+
+			// Restore selection BEFORE scroll — applySelection may unhide rows (hidden chars
+			// temporarily visible), which changes the scrollable height. Restoring scroll before
+			// unhiding would cause the browser to clamp scrollTop to the reduced height.
+			if (prevSelected) {
+				for (const row of this.cellGrid) {
+					if (!row) continue;
+					for (const cell of row) {
+						if (!cell) continue;
+						if (cell.rowKind === prevSelected.rowKind && cell.rowId === prevSelected.rowId && cell.sceneId === prevSelected.sceneId) {
+							this.applySelection(cell, false);
+							// Restore scroll AFTER selection so any newly-visible rows are in the DOM
+							if (section) { section.scrollTop = savedScrollTop; section.scrollLeft = savedScrollLeft; }
+							return;
+						}
 					}
 				}
 			}
+		} finally {
+			this._rendering = false;
 		}
-
 	}
 
 	getTableEl(): HTMLElement { return this.wrapper; }
@@ -320,6 +377,7 @@ export class Layout1Grid {
 						this.callbacks.onSave();
 					},
 					'wm-plot-line-fmt-popup',
+					line.id,
 				);
 			});
 
@@ -402,17 +460,22 @@ export class Layout1Grid {
 		td.removeClass('is-selected');
 		const key = `${plotLineId}__${sceneId}`;
 		const cell = this.project.plotCells[key];
+		const originalVal = cell?.content || '';
 
 		const textarea = td.createEl('textarea', { cls: 'wm-plot-cell-editor' });
 		textarea.setAttribute('spellcheck', 'false');
-		textarea.value = cell?.content || '';
+		textarea.value = originalVal;
 
 		const ac = attachWikilinkAutocomplete(textarea, this.plugin.app);
 		textarea.focus();
 
+		let saved = false;
 		const save = () => {
+			if (saved) return;
+			saved = true;
 			ac.dismiss();
 			const val = textarea.value.trim();
+			if (val !== originalVal) this.pushStructUndo();
 			if (val) {
 				this.project.plotCells[key] = { plotLineId, sceneId, content: val };
 			} else {
@@ -453,7 +516,7 @@ export class Layout1Grid {
 			tr.dataset['charId'] = char.id;
 			this.charTbodyRows.push(tr);
 			if (isHidden) tr.addClass('wm-plot-char-hidden');
-			if (!isHidden) this.cellGrid[rowIdx] = [];
+			this.cellGrid[rowIdx] = [];
 			if (char.color) tr.style.setProperty('--char-wiki-color', char.color);
 			this.applyCharStyle(char, tr);
 
@@ -544,6 +607,7 @@ export class Layout1Grid {
 						this.callbacks.onSave();
 					},
 					'wm-plot-char-fmt-popup',
+					char.id,
 				);
 			});
 
@@ -557,8 +621,8 @@ export class Layout1Grid {
 				for (let c = 0; c < scenes.length; c++) {
 					const sc = scenes[c];
 					const td = this.renderCharCell(tr, char, sc);
-					const gcell: GridCell = { el: td, r: isHidden ? -1 : rowIdx, c, rowKind: 'char', rowId: char.id, sceneId: sc.id };
-					if (!isHidden) this.cellGrid[rowIdx][c] = gcell;
+					const gcell: GridCell = { el: td, r: rowIdx, c, rowKind: 'char', rowId: char.id, sceneId: sc.id };
+					this.cellGrid[rowIdx][c] = gcell;
 
 					td.addEventListener('click', (e) => {
 						e.stopPropagation();
@@ -570,7 +634,19 @@ export class Layout1Grid {
 					});
 				}
 			}
-			if (!isHidden) rowIdx++;
+			this.charGridRowMap.set(char.id, rowIdx);
+			rowIdx++;
+		}
+	}
+
+	private updateCharDomOrder() {
+		if (!this.charsTbody) { this.charDomOrderedRows = []; return; }
+		this.charDomOrderedRows = [];
+		for (const tr of Array.from(this.charsTbody.rows) as HTMLTableRowElement[]) {
+			const charId = tr.dataset['charId'];
+			if (!charId || tr.classList.contains('wm-plot-char-hidden')) continue;
+			const row = this.charGridRowMap.get(charId);
+			if (row !== undefined) this.charDomOrderedRows.push(row);
 		}
 	}
 
@@ -624,17 +700,22 @@ export class Layout1Grid {
 		td.removeClass('is-selected');
 		const key = `${charId}__${sceneId}`;
 		const cell = this.project.charCells[key];
+		const originalVal = cell?.content || '';
 
 		const textarea = td.createEl('textarea', { cls: 'wm-plot-cell-editor' });
 		textarea.setAttribute('spellcheck', 'false');
-		textarea.value = cell?.content || '';
+		textarea.value = originalVal;
 
 		const ac = attachWikilinkAutocomplete(textarea, this.plugin.app);
 		textarea.focus();
 
+		let saved = false;
 		const save = () => {
+			if (saved) return;
+			saved = true;
 			ac.dismiss();
 			const val = textarea.value.trim();
+			if (val !== originalVal) this.pushStructUndo();
 			if (val) {
 				this.project.charCells[key] = { charId, sceneId, content: val };
 			} else {
@@ -667,21 +748,52 @@ export class Layout1Grid {
 		this.selectedCell = cell;
 		cell.el.classList.add('is-selected');
 		if (scroll) this.scrollCellIntoView(cell.el, scrollToCenter);
-		const section = this.wrapper.closest<HTMLElement>('.wm-plot-section');
-		const savedTop = section?.scrollTop ?? 0;
-		const savedLeft = section?.scrollLeft ?? 0;
-		this.wrapper.focus({ preventScroll: true });
-		if (section) { section.scrollTop = savedTop; section.scrollLeft = savedLeft; }
+
+		// Re-focus wrapper so keyboard events keep firing after a mouse click.
+		// Skip entirely when wrapper is already focused (keyboard navigation) —
+		// reading scrollTop/scrollLeft forces a synchronous layout on every keypress.
+		if (document.activeElement !== this.wrapper) {
+			const section = this.sectionEl;
+			const savedTop = section?.scrollTop ?? 0;
+			const savedLeft = section?.scrollLeft ?? 0;
+			this.wrapper.focus({ preventScroll: true });
+			if (section) { section.scrollTop = savedTop; section.scrollLeft = savedLeft; }
+		}
+
 		if (cell.rowKind === 'plotLine') {
-			// Defer char reorder + visibility update to the next frame so keyboard nav stays snappy
-			requestAnimationFrame(() => {
+			// Cancel pending reorder RAF to avoid pile-up during rapid key presses
+			if (this.reorderRafId !== null) cancelAnimationFrame(this.reorderRafId);
+			this.reorderRafId = requestAnimationFrame(() => {
+				this.reorderRafId = null;
 				if (this.selectedCell === cell) {
 					this.reorderCharsByColumn(cell.c);
 					this.updateHiddenCharVisibility(cell.sceneId);
+					this.updateCharDomOrder();
 				}
 			});
 		} else {
-			this.updateHiddenCharVisibility(null);
+			if (this.reorderRafId !== null) {
+				cancelAnimationFrame(this.reorderRafId);
+				this.reorderRafId = null;
+			}
+			if (!scroll) {
+				// Restoring from render() — must be synchronous and re-apply column sort
+				this.reorderCharsByColumn(cell.c);
+				this.updateHiddenCharVisibility(cell.sceneId);
+				this.updateCharDomOrder();
+			} else {
+				// During navigation, defer DOM visibility + order updates to next frame.
+				// Cancels previous pending RAF so only the final cell in a rapid sequence
+				// triggers the update — eliminates style recalculations per keypress.
+				const sceneId = cell.sceneId;
+				this.reorderRafId = requestAnimationFrame(() => {
+					this.reorderRafId = null;
+					if (this.selectedCell === cell) {
+						this.updateHiddenCharVisibility(sceneId);
+						this.updateCharDomOrder();
+					}
+				});
+			}
 		}
 		// Debounce onCellSelect — rapid arrow key presses only fire the callback
 		// after 80ms pause, preventing excessive timeline re-renders
@@ -723,15 +835,54 @@ export class Layout1Grid {
 		const rows = this.cellGrid.length;
 		if (rows === 0) return;
 		let targetR = Math.max(0, Math.min(rows - 1, r));
-		// Skip collapsed rows (empty cellGrid entries) when moving vertically
+
 		if (dr !== 0) {
-			while (targetR >= 0 && targetR < rows) {
-				const row = this.cellGrid[targetR];
-				if (row && row.length > 0) break;
-				targetR += dr;
+			// r is the destination (current + dr); currentR is the actual current row
+			const currentR = r - dr;
+			const wasInCharSection = currentR >= this.plotRowCount;
+
+			if (wasInCharSection) {
+				// Moving from a char row: always navigate via DOM order
+				const curIdx = this.charDomOrderedRows.indexOf(currentR);
+				if (dr > 0) {
+					const nextIdx = curIdx + 1;
+					targetR = nextIdx < this.charDomOrderedRows.length ? this.charDomOrderedRows[nextIdx] : -1;
+				} else {
+					if (curIdx <= 0) {
+						// First char in DOM order → exit up to last plot row
+						targetR = this.plotRowCount - 1;
+						while (targetR >= 0 && (!this.cellGrid[targetR] || this.cellGrid[targetR].length === 0)) {
+							targetR--;
+						}
+					} else {
+						targetR = this.charDomOrderedRows[curIdx - 1];
+					}
+				}
+				if (targetR < 0 || targetR >= rows) return;
+			} else if (dr > 0 && targetR >= this.plotRowCount && this.charDomOrderedRows.length > 0) {
+				// Entering char section from plot: cancel pending RAF and sync everything
+				if (this.reorderRafId !== null) {
+					cancelAnimationFrame(this.reorderRafId);
+					this.reorderRafId = null;
+				}
+				// Ensure hidden chars with content in this column are visible before computing DOM order
+				const enterSceneId = this.scenes[c]?.id ?? null;
+				this.updateHiddenCharVisibility(enterSceneId);
+				this.reorderCharsByColumn(c);
+				this.updateCharDomOrder(); // force refresh after visibility change
+				targetR = this.charDomOrderedRows[0] ?? -1;
+				if (targetR < 0 || targetR >= rows) return;
+			} else {
+				// Navigate within plot: skip collapsed rows, stay within plot section
+				while (targetR >= 0 && targetR < this.plotRowCount) {
+					const row = this.cellGrid[targetR];
+					if (row && row.length > 0) break;
+					targetR += dr;
+				}
+				if (targetR < 0 || targetR >= this.plotRowCount) return;
 			}
-			if (targetR < 0 || targetR >= rows) return;
 		}
+
 		const row = this.cellGrid[targetR];
 		if (!row) return;
 		const cols = row.length;
@@ -760,21 +911,29 @@ export class Layout1Grid {
 	}
 
 	private scrollCellIntoView(el: HTMLElement, center = false) {
-		const pos = center ? 'center' : 'nearest';
-		el.scrollIntoView({ block: pos as ScrollLogicalPosition, inline: pos as ScrollLogicalPosition });
-		if (!center) {
-			// Correct for sticky header overlap only in nearest mode
-			requestAnimationFrame(() => {
-				const section = this.wrapper.closest('.wm-plot-section') as HTMLElement | null;
-				if (!section) return;
-				const STICKY_H = 112; // 48 (ep) + 32 (ch) + 32 (sc)
-				const sRect = section.getBoundingClientRect();
-				const cRect = el.getBoundingClientRect();
-				if (cRect.top < sRect.top + STICKY_H) {
-					section.scrollTop -= (sRect.top + STICKY_H - cRect.top) + 2;
-				}
-			});
+		// Cancel any pending scroll RAF to avoid pile-up during rapid key presses
+		if (this.scrollRafId !== null) {
+			cancelAnimationFrame(this.scrollRafId);
+			this.scrollRafId = null;
 		}
+		if (center) {
+			el.scrollIntoView({ block: 'center', inline: 'center' });
+			return;
+		}
+		// Defer scroll to RAF so rapid keydown events don't block input processing
+		this.scrollRafId = requestAnimationFrame(() => {
+			this.scrollRafId = null;
+			el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+			// Correct for sticky header overlap
+			const section = this.sectionEl;
+			if (!section) return;
+			const STICKY_H = 112; // 48 (ep) + 32 (ch) + 32 (sc)
+			const sRect = section.getBoundingClientRect();
+			const cRect = el.getBoundingClientRect();
+			if (cRect.top < sRect.top + STICKY_H) {
+				section.scrollTop -= (sRect.top + STICKY_H - cRect.top) + 2;
+			}
+		});
 	}
 
 	private reorderCharsByColumn(colIdx: number) {
@@ -796,6 +955,7 @@ export class Layout1Grid {
 		for (const tr of [...filled, ...empty]) {
 			this.charsTbody.appendChild(tr);
 		}
+		this.updateCharDomOrder();
 	}
 
 	private restoreCharOrder() {
@@ -803,6 +963,7 @@ export class Layout1Grid {
 		for (const tr of this.charTbodyRows) {
 			this.charsTbody.appendChild(tr);
 		}
+		this.updateCharDomOrder();
 	}
 
 	private readonly onKeydown = (e: KeyboardEvent) => {
@@ -885,17 +1046,23 @@ export class Layout1Grid {
 	// ── Renumbering ──────────────────────────────────────────────────────────
 
 	private renumberAll() {
-		this.project.episodes.forEach((ep, i) => { ep.name = `EPISODE ${i + 1}`; });
+		// Use sorted display order so chapter names always match what the grid shows
+		const sortedChs = this.getSortedAllChapters();
+		const epNumbers = new Map<string, number>();
+		let epNum = 0;
 		let globalCh = 0;
-		for (const ep of this.project.episodes) {
-			for (const ch of ep.chapters) {
-				globalCh++;
-				ch.name = `${globalCh}화`;
-				let localSc = 0;
-				for (const sc of ch.scenes) {
-					localSc++;
-					sc.name = `${globalCh}-${localSc}`;
-				}
+		for (const { ep, ch } of sortedChs) {
+			if (!epNumbers.has(ep.id)) {
+				epNum++;
+				epNumbers.set(ep.id, epNum);
+				ep.name = `EPISODE ${epNum}`;
+			}
+			globalCh++;
+			ch.name = `${globalCh}화`;
+			let localSc = 0;
+			for (const sc of ch.scenes) {
+				localSc++;
+				sc.name = `${globalCh}-${localSc}`;
 			}
 		}
 	}
@@ -933,27 +1100,208 @@ export class Layout1Grid {
 		return false;
 	}
 
+	// ── Structural undo / redo ──────────────────────────────────────────────
+
+	private pushStructUndo() {
+		this.structUndoStack.push(JSON.stringify(this.project));
+		if (this.structUndoStack.length > this.STRUCT_UNDO_MAX) this.structUndoStack.shift();
+		this.structRedoStack = [];
+		this.callbacks.onUndoRedoChange?.(true, false);
+	}
+
+	private restoreProjectSnapshot(snapshot: string) {
+		const r = JSON.parse(snapshot) as PlotProject;
+		this.project.plotLines  = r.plotLines;
+		this.project.episodes   = r.episodes;
+		this.project.characters = r.characters;
+		this.project.plotCells  = r.plotCells;
+		this.project.charCells  = r.charCells;
+	}
+
+	undo() {
+		if (this.structUndoStack.length === 0) return;
+		this.structRedoStack.push(JSON.stringify(this.project));
+		this.restoreProjectSnapshot(this.structUndoStack.pop()!);
+		this.chapterPage = 0;
+		this.callbacks.onSave();
+		this.render();
+		this.callbacks.onPageChange?.();
+		this.callbacks.onUndoRedoChange?.(this.structUndoStack.length > 0, true);
+	}
+
+	redo() {
+		if (this.structRedoStack.length === 0) return;
+		this.structUndoStack.push(JSON.stringify(this.project));
+		this.restoreProjectSnapshot(this.structRedoStack.pop()!);
+		this.chapterPage = 0;
+		this.callbacks.onSave();
+		this.render();
+		this.callbacks.onPageChange?.();
+		this.callbacks.onUndoRedoChange?.(true, this.structRedoStack.length > 0);
+	}
+
 	addPlotLine() {
+		this.pushStructUndo();
 		const n = this.project.plotLines.length + 1;
 		this.project.plotLines.push({ id: newId(), name: `플롯 라인 ${n}`, collapsed: false });
 		this.callbacks.onSave();
 		this.render();
 	}
 
-	addCharacter() {
-		new CharacterNoteModal(this.plugin, (name, filePath) => {
-			let color: string | undefined;
-			if (filePath) {
-				const file = this.plugin.app.vault.getAbstractFileByPath(filePath);
-				if (file instanceof TFile) {
-					const cfm = this.plugin.app.metadataCache.getFileCache(file)?.frontmatter;
-					if (typeof cfm?.['wikiColor'] === 'string') color = cfm['wikiColor'];
+	openAddCharPopup(anchor: HTMLElement) {
+		const existingAddChar = document.querySelector('.wm-plot-addchar-popup');
+		if (existingAddChar) { existingAddChar.remove(); return; }
+		document.querySelector('.wm-bulk-create-popup')?.remove();
+		document.querySelector('.wm-bulk-delete-popup')?.remove();
+		const popup = document.body.createDiv({ cls: 'wm-plot-addchar-popup wm-plot-bulk-popup wm-plot-bulk-dropdown' });
+		popup.style.position = 'fixed';
+		popup.style.zIndex = '10001';
+
+		const root = this.plugin.settings.plotManagerFolder?.trim() ?? '';
+		const charSub = this.plugin.settings.plotCharFolder?.trim() ?? '';
+		const charRoot = root && charSub ? normalizePath(root + '/' + charSub) : (root || '');
+
+		// 루트 폴더: 읽기 전용 표시만
+		const rootRow = popup.createDiv({ cls: 'wm-plot-bulk-row' });
+		rootRow.createEl('label', { text: '루트 폴더' });
+		const rootDisplay = rootRow.createEl('span', {
+			cls: 'wm-plot-addchar-root-display' + (charRoot ? '' : ' wm-plot-addchar-root-unset'),
+			text: charRoot || '(미설정 — 설정에서 지정)',
+		});
+		void rootDisplay; // read-only, no input
+
+		// 아이콘(왼쪽 외부) + 입력창, 아이콘 클릭 → 선택 팝업
+		const makeIconRow = (label: string, placeholder: string, initVal: string, iconName: string, onIconClick: (inp: HTMLInputElement) => void): HTMLInputElement => {
+			const row = popup.createDiv({ cls: 'wm-plot-bulk-row' });
+			row.createEl('label', { text: label });
+			const wrap = row.createDiv({ cls: 'wm-plot-addchar-input-wrap' });
+			const ic = wrap.createSpan({ cls: 'wm-plot-addchar-icon clickable-icon', attr: { title: '선택' } });
+			setIcon(ic, iconName);
+			const inp = wrap.createEl('input', { attr: { type: 'text', placeholder, value: initVal } }) as HTMLInputElement;
+			ic.addEventListener('click', () => onIconClick(inp));
+			return inp;
+		};
+
+		const subInp = makeIconRow('하위 폴더', '예: 주인공 (선택)', '', 'folder-open', (inp) => {
+			new FolderSuggestModal(this.plugin.app, (folder: TFolder) => {
+				const rel = charRoot && folder.path.startsWith(charRoot + '/') ? folder.path.slice(charRoot.length + 1) : folder.path;
+				inp.value = rel;
+			}).open();
+		});
+
+		const nameRow = popup.createDiv({ cls: 'wm-plot-bulk-row' });
+		nameRow.createEl('label', { text: '캐릭터 이름' });
+		const nameInp = nameRow.createEl('input', { attr: { type: 'text', placeholder: '이름 입력' } }) as HTMLInputElement;
+
+		const tmplInp = makeIconRow('템플릿', '예: 템플릿/인물.md', this.plugin.settings.plotCharNoteTemplate ?? '', 'file-text', (inp) => {
+			new NoteSuggestModal(this.plugin.app, (file: TFile) => {
+				inp.value = file.path;
+			}).open();
+		});
+
+		const actions = popup.createDiv({ cls: 'wm-plot-bulk-actions' });
+		const confirmBtn = actions.createEl('button', { cls: 'wm-plot-bulk-confirm', text: '추가' });
+
+		requestAnimationFrame(() => {
+			const rect = anchor.getBoundingClientRect();
+			const ph = popup.getBoundingClientRect().height;
+			const top = rect.bottom + 4 + ph > window.innerHeight ? rect.top - ph - 4 : rect.bottom + 4;
+			popup.style.top = `${top}px`;
+			popup.style.left = `${rect.left}px`;
+			nameInp.focus();
+		});
+
+		const dismiss = () => popup.remove();
+
+		confirmBtn.addEventListener('click', async () => {
+			const name = nameInp.value.trim();
+			if (!name) { nameInp.focus(); return; }
+			this.pushStructUndo();
+
+			const sub = subInp.value.trim();
+			const folder = charRoot && sub ? normalizePath(charRoot + '/' + sub) : (charRoot || sub || '');
+			const filePath = folder ? normalizePath(folder + '/' + name + '.md') : (name + '.md');
+
+			let content = '';
+			const tmplPath = tmplInp.value.trim();
+			if (tmplPath) {
+				const tmplFile = this.plugin.app.vault.getAbstractFileByPath(tmplPath);
+				if (tmplFile instanceof TFile) {
+					content = await this.plugin.app.vault.read(tmplFile);
 				}
 			}
-			this.project.characters.push({ id: newId(), name, color, ...(filePath ? { filePath } : {}) });
+
+			if (folder) {
+				const existing = this.plugin.app.vault.getAbstractFileByPath(folder);
+				if (!existing) {
+					try { await this.plugin.app.vault.createFolder(folder); } catch { /* already exists */ }
+				}
+			}
+
+			let file = this.plugin.app.vault.getAbstractFileByPath(filePath);
+			if (!(file instanceof TFile)) {
+				file = await this.plugin.app.vault.create(filePath, content);
+			}
+
+			const cfm = this.plugin.app.metadataCache.getFileCache(file as TFile)?.frontmatter;
+			const color = typeof cfm?.['wikiColor'] === 'string' ? cfm['wikiColor'] : undefined;
+
+			this.project.characters.push({ id: newId(), name, color, filePath });
 			this.callbacks.onSave();
 			this.render();
-		}).open();
+			dismiss();
+		});
+
+		nameInp.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter') { e.preventDefault(); confirmBtn.click(); }
+			if (e.key === 'Escape') { e.preventDefault(); dismiss(); }
+		});
+
+		addOutsideClickListener(popup, dismiss);
+	}
+
+	async syncCharsFromFolder() {
+		const root = this.plugin.settings.plotManagerFolder?.trim() ?? '';
+		const charSub = this.plugin.settings.plotCharFolder?.trim() ?? '';
+		if (!root) return;
+		this.pushStructUndo();
+		const charFolder = charSub ? normalizePath(root + '/' + charSub) : root;
+
+		const vault = this.plugin.app.vault;
+		const charFiles = vault.getAllLoadedFiles().filter(f =>
+			f instanceof TFile &&
+			(f as TFile).extension === 'md' &&
+			(f.path.startsWith(charFolder + '/') || f.path === charFolder + '.md')
+		) as TFile[];
+
+		// Build map of existing chars by filePath
+		const existingByPath = new Map<string, PlotCharacter>();
+		for (const ch of this.project.characters) {
+			if (ch.filePath) existingByPath.set(ch.filePath, ch);
+		}
+
+		// Add files not yet in project
+		for (const file of charFiles) {
+			if (!existingByPath.has(file.path)) {
+				const cfm = vault.getAbstractFileByPath(file.path) instanceof TFile
+					? this.plugin.app.metadataCache.getFileCache(file)?.frontmatter
+					: undefined;
+				const color = typeof cfm?.['wikiColor'] === 'string' ? cfm['wikiColor'] : undefined;
+				this.project.characters.push({ id: newId(), name: file.basename, color, filePath: file.path });
+			}
+		}
+
+		// Remove chars whose file no longer exists in this folder
+		const validPaths = new Set(charFiles.map(f => f.path));
+		this.project.characters = this.project.characters.filter(ch => {
+			if (!ch.filePath) return true;
+			// Only remove if the filePath is under the charFolder
+			const underFolder = ch.filePath.startsWith(charFolder + '/') || ch.filePath === charFolder + '.md';
+			return !underFolder || validPaths.has(ch.filePath);
+		});
+
+		this.callbacks.onSave();
+		this.render();
 	}
 
 	// ── Private mutations ─────────────────────────────────────────────────────
@@ -964,6 +1312,7 @@ export class Layout1Grid {
 	}
 
 	private addEpisode() {
+		this.pushStructUndo();
 		const chId = newId();
 		const firstScId = newId();
 		const ep: PlotEpisode = {
@@ -981,6 +1330,7 @@ export class Layout1Grid {
 	}
 
 	private deleteEpisode(epId: string) {
+		this.pushStructUndo();
 		this.project.episodes = this.project.episodes.filter(e => e.id !== epId);
 		this.renumberAll();
 		this.callbacks.onSave();
@@ -988,6 +1338,7 @@ export class Layout1Grid {
 	}
 
 	private addChapter(epId: string) {
+		this.pushStructUndo();
 		const ep = this.project.episodes.find(e => e.id === epId);
 		if (!ep) return;
 		const firstScId = newId();
@@ -1001,6 +1352,7 @@ export class Layout1Grid {
 	}
 
 	private deleteChapter(epId: string, chId: string) {
+		this.pushStructUndo();
 		const ep = this.project.episodes.find(e => e.id === epId);
 		if (!ep) return;
 		ep.chapters = ep.chapters.filter(c => c.id !== chId);
@@ -1010,6 +1362,7 @@ export class Layout1Grid {
 	}
 
 	private addSceneForScene(sceneId: string) {
+		this.pushStructUndo();
 		for (const ep of this.project.episodes) {
 			for (const ch of ep.chapters) {
 				if (ch.scenes.some(s => s.id === sceneId)) {
@@ -1028,6 +1381,7 @@ export class Layout1Grid {
 	}
 
 	private deleteScene(sceneId: string) {
+		this.pushStructUndo();
 		for (const ep of this.project.episodes) {
 			for (const ch of ep.chapters) {
 				const idx = ch.scenes.findIndex(s => s.id === sceneId);
@@ -1088,12 +1442,18 @@ export class Layout1Grid {
 		getSnap: () => FormatFields,
 		applySnap: (f: FormatFields) => void,
 		popupClass: string,
+		histKey: string,
 	): void {
-		document.querySelector(`.${popupClass}`)?.remove();
+		const existingFmt = document.querySelector(`.${popupClass}`);
+		if (existingFmt) { existingFmt.remove(); return; }
 		const popup = document.body.createDiv({ cls: `writing-menu-dropdown ${popupClass}` });
 
-		const undoStack: FormatFields[] = [];
-		const redoStack: FormatFields[] = [];
+		if (!this.fmtHistory.has(histKey)) {
+			this.fmtHistory.set(histKey, { undo: [], redo: [] });
+		}
+		const hist = this.fmtHistory.get(histKey)!;
+		const undoStack = hist.undo;
+		const redoStack = hist.redo;
 		let undoBtnEl: HTMLElement | null = null;
 		let redoBtnEl: HTMLElement | null = null;
 
@@ -1104,6 +1464,7 @@ export class Layout1Grid {
 
 		const pushUndo = (before: FormatFields) => {
 			undoStack.push(before);
+			if (undoStack.length > 8) undoStack.shift();
 			redoStack.length = 0;
 			updateBtns();
 		};
@@ -1228,6 +1589,7 @@ export class Layout1Grid {
 	}
 
 	private deletePlotLine(id: string) {
+		this.pushStructUndo();
 		this.project.plotLines = this.project.plotLines.filter(l => l.id !== id);
 		this.callbacks.onSave();
 		this.render();
@@ -1249,18 +1611,39 @@ export class Layout1Grid {
 	}
 
 	private deleteCharacter(charId: string) {
-		this.project.characters = this.project.characters.filter(c => c.id !== charId);
-		for (const key of Object.keys(this.project.charCells)) {
-			if (key.startsWith(charId + '__')) delete this.project.charCells[key];
+		const char = this.project.characters.find(c => c.id === charId);
+		if (!char) return;
+
+		const doDelete = async () => {
+			this.pushStructUndo();
+			if (char.filePath) {
+				const file = this.plugin.app.vault.getAbstractFileByPath(char.filePath);
+				if (file instanceof TFile) {
+					await this.plugin.app.vault.trash(file, true);
+				}
+			}
+			this.project.characters = this.project.characters.filter(c => c.id !== charId);
+			for (const key of Object.keys(this.project.charCells)) {
+				if (key.startsWith(charId + '__')) delete this.project.charCells[key];
+			}
+			this.callbacks.onSave();
+			this.render();
+		};
+
+		if (char.filePath && this.plugin.app.vault.getAbstractFileByPath(char.filePath) instanceof TFile) {
+			new DeleteCharConfirmModal(this.plugin.app, char.name, char.filePath, () => void doDelete()).open();
+		} else {
+			void doDelete();
 		}
-		this.callbacks.onSave();
-		this.render();
 	}
 
 	openBulkCreatePopup(anchor: HTMLElement) {
-		document.querySelector('.wm-plot-bulk-popup')?.remove();
+		const existingCreate = document.querySelector('.wm-bulk-create-popup');
+		if (existingCreate) { existingCreate.remove(); return; }
+		document.querySelector('.wm-bulk-delete-popup')?.remove();
+		document.querySelector('.wm-plot-addchar-popup')?.remove();
 
-		const popup = document.body.createDiv({ cls: 'wm-plot-bulk-popup wm-plot-bulk-dropdown' });
+		const popup = document.body.createDiv({ cls: 'wm-bulk-create-popup wm-plot-bulk-popup wm-plot-bulk-dropdown' });
 		popup.style.position = 'fixed';
 		popup.style.zIndex = '10001';
 
@@ -1303,6 +1686,7 @@ export class Layout1Grid {
 			const targetCh = Math.max(1, Math.min(200, parseInt(totalChInput.value) || 1));
 			const perEp    = Math.max(1, Math.min(50,  parseInt(perEpInput.value)   || 1));
 			const scPerCh  = Math.max(1, Math.min(20,  parseInt(scPerChInput.value) || 1));
+			this.pushStructUndo();
 
 			// Fill existing chapters that are short on scenes
 			for (const ep of this.project.episodes) {
@@ -1313,28 +1697,18 @@ export class Layout1Grid {
 				}
 			}
 
-			// Add new chapters/episodes until we reach the target
+			// Add new chapters as new episodes only — never insert into existing episodes
+			// (inserting into existing episodes would shift renumbered indices and scatter data)
 			let toAdd = targetCh - this.project.episodes.reduce((s, ep) => s + ep.chapters.length, 0);
-			if (toAdd > 0) {
-				// First fill existing episodes up to perEp chapters each
-				for (const ep of this.project.episodes) {
-					while (ep.chapters.length < perEp && toAdd > 0) {
-						const scenes = Array.from({ length: scPerCh }, () => ({ id: newId(), name: '' }));
-						ep.chapters.push({ id: newId(), name: '', scenes });
-						toAdd--;
-					}
+			while (toAdd > 0) {
+				const chapters = [];
+				const chInEp = Math.min(perEp, toAdd);
+				for (let ci = 0; ci < chInEp; ci++) {
+					const scenes = Array.from({ length: scPerCh }, () => ({ id: newId(), name: '' }));
+					chapters.push({ id: newId(), name: '', scenes });
+					toAdd--;
 				}
-				// Then add new episodes for any remaining
-				while (toAdd > 0) {
-					const chapters = [];
-					const chInEp = Math.min(perEp, toAdd);
-					for (let ci = 0; ci < chInEp; ci++) {
-						const scenes = Array.from({ length: scPerCh }, () => ({ id: newId(), name: '' }));
-						chapters.push({ id: newId(), name: '', scenes });
-						toAdd--;
-					}
-					this.project.episodes.push({ id: newId(), name: '', chapters });
-				}
+				this.project.episodes.push({ id: newId(), name: '', chapters });
 			}
 
 			this.renumberAll();
@@ -1350,28 +1724,38 @@ export class Layout1Grid {
 	}
 
 	openBulkDeletePopup(anchor: HTMLElement) {
-		document.querySelector('.wm-plot-bulk-popup')?.remove();
+		const existingDelete = document.querySelector('.wm-bulk-delete-popup');
+		if (existingDelete) { existingDelete.remove(); return; }
+		document.querySelector('.wm-bulk-create-popup')?.remove();
+		document.querySelector('.wm-plot-addchar-popup')?.remove();
 
-		const totalChs = this.project.episodes.reduce((s, ep) => s + ep.chapters.length, 0);
-		if (totalChs === 0) return;
+		const sortedAll = this.getSortedAllChapters();
+		if (sortedAll.length === 0) return;
+		// Use chapter number (화 번호) for the input range so it matches what users see
+		const firstNum = parseInt(sortedAll[0].ch.name) || 1;
+		const lastNum  = parseInt(sortedAll[sortedAll.length - 1].ch.name) || sortedAll.length;
 
-		const popup = document.body.createDiv({ cls: 'wm-plot-bulk-popup wm-plot-bulk-dropdown' });
+		const popup = document.body.createDiv({ cls: 'wm-bulk-delete-popup wm-plot-bulk-popup wm-plot-bulk-dropdown' });
 		popup.style.position = 'fixed';
 		popup.style.zIndex = '10001';
 
 		const rangeRow = popup.createDiv({ cls: 'wm-plot-bulk-row' });
 		rangeRow.createEl('label', { text: '삭제 범위' });
 		const rangeWrap = rangeRow.createDiv({ cls: 'wm-plot-bulk-range' });
-		const fromInput = rangeWrap.createEl('input', { attr: { type: 'number', min: '1', max: String(totalChs), value: '1' } }) as HTMLInputElement;
+		const fromInput = rangeWrap.createEl('input', { attr: { type: 'number', min: String(firstNum), max: String(lastNum), value: String(firstNum) } }) as HTMLInputElement;
 		rangeWrap.createEl('span', { text: '~' });
-		const toInput = rangeWrap.createEl('input', { attr: { type: 'number', min: '1', max: String(totalChs), value: String(totalChs) } }) as HTMLInputElement;
-		rangeWrap.createEl('span', { text: `/ ${totalChs}화`, cls: 'wm-plot-bulk-total' });
+		const toInput = rangeWrap.createEl('input', { attr: { type: 'number', min: String(firstNum), max: String(lastNum), value: String(lastNum) } }) as HTMLInputElement;
+		rangeWrap.createEl('span', { text: `화`, cls: 'wm-plot-bulk-total' });
 
 		const infoEl = popup.createDiv({ cls: 'wm-plot-bulk-info' });
 		const updateInfo = () => {
-			const from = Math.max(1, parseInt(fromInput.value) || 1);
-			const to = Math.min(totalChs, parseInt(toInput.value) || totalChs);
-			infoEl.textContent = `회차 ${Math.max(0, to - from + 1)}개 삭제`;
+			const from = parseInt(fromInput.value) || firstNum;
+			const to   = parseInt(toInput.value)   || lastNum;
+			const count = sortedAll.filter(({ ch }) => {
+				const n = parseInt(ch.name);
+				return !isNaN(n) && n >= from && n <= to;
+			}).length;
+			infoEl.textContent = `회차 ${count}개 삭제`;
 		};
 		updateInfo();
 		fromInput.addEventListener('input', updateInfo);
@@ -1392,29 +1776,26 @@ export class Layout1Grid {
 		const dismiss = () => popup.remove();
 
 		confirmBtn.addEventListener('click', () => {
-			const from = Math.max(1, parseInt(fromInput.value) || 1);
-			const to   = Math.min(totalChs, parseInt(toInput.value) || totalChs);
+			const from = parseInt(fromInput.value) || firstNum;
+			const to   = parseInt(toInput.value)   || lastNum;
 			if (from > to) { dismiss(); return; }
+			this.pushStructUndo();
 
-			// Collect deleted scene IDs before removing chapters
+			// Delete by chapter number (화 번호) — matches what user sees on screen
+			const sortedChs = this.getSortedAllChapters();
+			const deletedChIds = new Set<string>();
 			const deletedSceneIds = new Set<string>();
-			let globalChIdx = 0;
-			for (const ep of this.project.episodes) {
-				for (const ch of ep.chapters) {
-					globalChIdx++;
-					if (globalChIdx >= from && globalChIdx <= to) {
-						ch.scenes.forEach(s => deletedSceneIds.add(s.id));
-					}
+			for (const { ch } of sortedChs) {
+				const n = parseInt(ch.name);
+				if (!isNaN(n) && n >= from && n <= to) {
+					deletedChIds.add(ch.id);
+					ch.scenes.forEach(s => deletedSceneIds.add(s.id));
 				}
 			}
 
-			// Remove chapters in range
-			globalChIdx = 0;
+			// Remove chapters by ID
 			for (const ep of this.project.episodes) {
-				ep.chapters = ep.chapters.filter(() => {
-					globalChIdx++;
-					return globalChIdx < from || globalChIdx > to;
-				});
+				ep.chapters = ep.chapters.filter(ch => !deletedChIds.has(ch.id));
 			}
 			// Remove episodes with no chapters left
 			this.project.episodes = this.project.episodes.filter(ep => ep.chapters.length > 0);
@@ -1443,7 +1824,8 @@ export class Layout1Grid {
 	}
 
 	openCharVisibilityPopup() {
-		document.querySelector('.wm-plot-char-vis-popup')?.remove();
+		const existingVis = document.querySelector('.wm-plot-char-vis-popup');
+		if (existingVis) { existingVis.remove(); return; }
 
 		const popup = document.body.createDiv({ cls: 'wm-plot-char-vis-popup' });
 		popup.style.position = 'fixed';
@@ -1637,8 +2019,12 @@ export class Layout1Grid {
 
 	destroy() {
 		document.querySelector('.wm-plot-palette-popup')?.remove();
-		document.querySelector('.wm-plot-bulk-popup')?.remove();
+		document.querySelector('.wm-bulk-create-popup')?.remove();
+		document.querySelector('.wm-bulk-delete-popup')?.remove();
+		document.querySelector('.wm-plot-addchar-popup')?.remove();
 		document.querySelector('.wm-plot-char-vis-popup')?.remove();
+		if (this.scrollRafId !== null) cancelAnimationFrame(this.scrollRafId);
+		if (this.reorderRafId !== null) cancelAnimationFrame(this.reorderRafId);
 		this.wrapper.empty();
 	}
 }

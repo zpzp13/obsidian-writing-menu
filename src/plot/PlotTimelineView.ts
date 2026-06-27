@@ -10,11 +10,13 @@ export { PLOT_TIMELINE_VIEW_TYPE };
 export class PlotTimelineView extends ItemView {
 	private project: PlotProject | null = null;
 	private selection: CellSelection = null;
+	private latestSelection: CellSelection = null;
 	private onCardClick: ((sel: CellSelection) => void) | null = null;
 	private pageSceneIds: Set<string> | null = null;
 	private pageInfo: { page: number; totalPages: number; chStart: number; chEnd: number } | null = null;
 	private onPageChange: ((delta: number) => void) | null = null;
 	private selfClicked = false;
+	private isPinned = false;
 
 	constructor(leaf: WorkspaceLeaf, private plugin: WritingMenuPlugin) {
 		super(leaf);
@@ -36,12 +38,15 @@ export class PlotTimelineView extends ItemView {
 		onPageChange?: (delta: number) => void,
 	) {
 		this.project = project;
-		this.selection = selection;
+		this.latestSelection = selection;
 		if (onCardClick !== undefined) this.onCardClick = onCardClick;
 		if (pageSceneIds !== undefined) this.pageSceneIds = pageSceneIds;
 		if (pageInfo !== undefined) this.pageInfo = pageInfo;
 		if (onPageChange !== undefined) this.onPageChange = onPageChange;
-		this.renderTimeline();
+		if (!this.isPinned) {
+			this.selection = selection;
+			this.renderTimeline();
+		}
 	}
 
 	private renderEmpty() {
@@ -72,8 +77,20 @@ export class PlotTimelineView extends ItemView {
 		// ── Header (sticky) ──
 		const header = el.createDiv({ cls: 'wm-tl-header' });
 
-		// Title row: TIMELINE label + chapter search button
+		// Title row: pin + TIMELINE label + chapter search button
 		const titleRow = header.createDiv({ cls: 'wm-tl-title-row' });
+		const pinBtn = titleRow.createEl('button', { cls: 'wm-plot-tool-btn wm-tl-pin-btn' + (this.isPinned ? ' is-active' : ''), attr: { title: this.isPinned ? '고정 해제' : '타임라인 고정' } });
+		setIcon(pinBtn, 'pin');
+		pinBtn.addEventListener('click', () => {
+			this.isPinned = !this.isPinned;
+			if (!this.isPinned) {
+				this.selection = this.latestSelection;
+				this.renderTimeline();
+			} else {
+				pinBtn.classList.toggle('is-active', true);
+				pinBtn.setAttribute('title', '고정 해제');
+			}
+		});
 		titleRow.createSpan({ cls: 'wm-tl-title', text: 'TIMELINE' });
 		const chSearchBtn = titleRow.createEl('button', { cls: 'wm-plot-tool-btn wm-tl-ch-search-btn', attr: { title: '회차 검색' } });
 		setIcon(chSearchBtn, 'search');
