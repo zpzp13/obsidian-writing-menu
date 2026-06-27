@@ -14,6 +14,7 @@ interface Layout1Callbacks {
 	onPageChange?(): void;
 	onHiddenCharsChange?(hidden: Set<string>): void;
 	onUndoRedoChange?(canUndo: boolean, canRedo: boolean): void;
+	onBeforeTrash?(path: string): void;
 }
 
 interface GridCell {
@@ -72,6 +73,7 @@ export class Layout1Grid {
 	private charGridRowMap = new Map<string, number>();
 	private charDomOrderedRows: number[] = [];
 	private plotRowCount = 0;
+	private plotSortedLines: PlotLine[] = [];
 	private _rendering = false;
 	private scrollRafId: number | null = null;
 	private reorderRafId: number | null = null;
@@ -157,14 +159,106 @@ export class Layout1Grid {
 							this.applySelection(cell, false);
 							// Restore scroll AFTER selection so any newly-visible rows are in the DOM
 							if (section) { section.scrollTop = savedScrollTop; section.scrollLeft = savedScrollLeft; }
+							requestAnimationFrame(() => this.applyPinnedSticky());
 							return;
 						}
 					}
 				}
 			}
+			// Selection not found (e.g. deleted character row) — still restore scroll
+			if (section) { section.scrollTop = savedScrollTop; section.scrollLeft = savedScrollLeft; }
+			requestAnimationFrame(() => this.applyPinnedSticky());
 		} finally {
 			this._rendering = false;
 		}
+	}
+
+	refreshPinnedSticky() {
+		requestAnimationFrame(() => this.applyPinnedSticky());
+	}
+
+	private applyPinnedSticky() {
+		// Clear sticky-top only from tds that had it previously applied (avoids full grid traversal)
+		(Array.from(this.wrapper.querySelectorAll('tbody td')) as HTMLElement[])
+			.filter(td => td.style.top !== '')
+			.forEach(td => {
+				td.style.top = '';
+				td.style.zIndex = '';
+				if (!td.classList.contains('wm-plot-sticky-col')) {
+					td.style.position = '';
+				}
+			});
+
+		const thead = this.wrapper.querySelector('thead') as HTMLElement | null;
+		let offset = thead ? thead.offsetHeight : 112;
+		const pinnedRows = Array.from(this.wrapper.querySelectorAll('tbody tr.wm-plot-row-pinned')) as HTMLTableRowElement[];
+		for (const row of pinnedRows) {
+			const cells = Array.from(row.querySelectorAll('td')) as HTMLElement[];
+			cells.forEach((td: HTMLElement, i: number) => {
+				td.style.position = 'sticky';
+				td.style.top = `${offset}px`;
+				td.style.zIndex = i === 0 ? '6' : '5';
+			});
+			offset += row.offsetHeight;
+		}
+	}
+
+	private handlePinToggle(lineId: string) {
+		const line = this.project.plotLines.find(l => l.id === lineId);
+		if (!line) return;
+		line.pinned = !line.pinned;
+		this.callbacks.onSave();
+
+		const plotTbody = this.wrapper.querySelector('tbody.wm-plot-tbody') as HTMLElement | null;
+		if (!plotTbody) { this.render(); return; }
+
+		const tr = plotTbody.querySelector(`tr[data-line-id="${lineId}"]`) as HTMLTableRowElement | null;
+		if (!tr) { this.render(); return; }
+
+		tr.toggleClass('wm-plot-row-pinned', !!line.pinned);
+		tr.querySelectorAll('.wm-plot-pin-btn').forEach(btn => {
+			(btn as HTMLElement).toggleClass('is-pinned', !!line.pinned);
+			btn.setAttribute('title', line.pinned ? '고정 해제' : '고정');
+		});
+
+		// New sorted order after toggle
+		const newSortedLines = [...this.project.plotLines].sort((a, b) =>
+			(a.pinned ? 0 : 1) - (b.pinned ? 0 : 1)
+		);
+
+		// Re-sort DOM rows
+		const allRows = Array.from(plotTbody.querySelectorAll('tr[data-line-id]')) as HTMLTableRowElement[];
+		allRows.sort((a, b) =>
+			newSortedLines.findIndex(l => l.id === a.dataset.lineId) -
+			newSortedLines.findIndex(l => l.id === b.dataset.lineId)
+		);
+		allRows.forEach(r => plotTbody.appendChild(r));
+
+		// Rebuild cellGrid plot rows to match new DOM order
+		const lineToGridRow = new Map<string, (GridCell | null)[]>();
+		this.plotSortedLines.forEach((l, i) => {
+			lineToGridRow.set(l.id, this.cellGrid[i] ?? []);
+		});
+		const charRows = this.cellGrid.slice(this.plotRowCount);
+		const newPlotRows = newSortedLines.map(l => lineToGridRow.get(l.id) ?? []);
+		this.cellGrid = [...newPlotRows, ...charRows];
+
+		// Update GridCell.r values to reflect new positions
+		newPlotRows.forEach((row, newR) => {
+			if (row) row.forEach(cell => { if (cell) cell.r = newR; });
+		});
+
+		// Update selectedCell.r if it pointed to a plot row that moved
+		if (this.selectedCell && this.selectedCell.r < this.plotRowCount) {
+			const selLine = this.plotSortedLines[this.selectedCell.r];
+			if (selLine) {
+				const newR = newSortedLines.findIndex(l => l.id === selLine.id);
+				if (newR >= 0) this.selectedCell = { ...this.selectedCell, r: newR };
+			}
+		}
+		this.plotSortedLines = newSortedLines;
+
+		requestAnimationFrame(() => this.applyPinnedSticky());
 	}
 
 	getTableEl(): HTMLElement { return this.wrapper; }
@@ -226,16 +320,17 @@ export class Layout1Grid {
 			if (ep === this.visibleEps[this.visibleEps.length - 1]) {
 				const addEpBtn = epAct.createEl('button', { cls: 'wm-plot-act-btn', attr: { title: '에피소드 추가' } });
 				setIcon(addEpBtn, 'plus');
-				addEpBtn.addEventListener('click', (e) => { e.stopPropagation(); this.addEpisode(); });
+				addEpBtn.addEventListener('click', (e) => { e.stopPropagation(); this.addEpisodeAfter(ep.id); });
 			}
 			const delEpBtn = epAct.createEl('button', { cls: 'wm-plot-act-btn wm-plot-act-del', attr: { title: '에피소드 삭제' } });
 			setIcon(delEpBtn, 'x');
 			delEpBtn.addEventListener('click', (e) => { e.stopPropagation(); this.deleteEpisode(ep.id); });
 		}
-		// If no episodes, add an add-episode button in the empty area
+		// If no episodes, add a styled episode header with a visible add button
 		if (this.project.episodes.length === 0) {
-			const th = epRow.createEl('th');
-			const btn = th.createEl('button', { cls: 'wm-plot-act-btn', attr: { title: '에피소드 추가' } });
+			const th = epRow.createEl('th', { cls: 'wm-plot-ep-header' });
+			const epAct = th.createDiv({ cls: 'wm-plot-actions', attr: { style: 'opacity:1;pointer-events:auto;' } });
+			const btn = epAct.createEl('button', { cls: 'wm-plot-act-btn', attr: { title: '에피소드 추가' } });
 			setIcon(btn, 'plus');
 			btn.addEventListener('click', () => this.addEpisode());
 		}
@@ -263,7 +358,7 @@ export class Layout1Grid {
 				}
 			}
 		}
-		if (this.project.episodes.length === 0) chRow.createEl('th');
+		if (this.project.episodes.length === 0) chRow.createEl('th', { cls: 'wm-plot-ch-header' });
 
 		// ── Row 3: Scenes ──
 		const scRow = thead.createEl('tr');
@@ -282,20 +377,28 @@ export class Layout1Grid {
 			setIcon(delScBtn, 'x');
 			delScBtn.addEventListener('click', (e) => { e.stopPropagation(); this.deleteScene(sc.id); });
 		}
-		if (scenes.length === 0) scRow.createEl('th', { text: '(장면 없음)' });
+		if (scenes.length === 0) scRow.createEl('th', { cls: 'wm-plot-sc-header', text: '(장면 없음)' });
 	}
 
 	// ── Plot line tbody ───────────────────────────────────────────────────────
 
 	private renderPlotTbody(table: HTMLTableElement) {
 		const scenes = this.scenes;
-		const tbody = table.createEl('tbody');
+		const tbody = table.createEl('tbody', { cls: 'wm-plot-tbody' });
 
 		let rowIdx = this.cellGrid.length;
 
-		for (const line of this.project.plotLines) {
+		// Pinned rows first (preserving original relative order), then unpinned
+		const sortedLines = [...this.project.plotLines].sort((a, b) =>
+			(a.pinned ? 0 : 1) - (b.pinned ? 0 : 1)
+		);
+		this.plotSortedLines = sortedLines;
+
+		for (const line of sortedLines) {
 			this.cellGrid[rowIdx] = [];
 			const tr = tbody.createEl('tr');
+			tr.dataset.lineId = line.id;
+			if (line.pinned) tr.addClass('wm-plot-row-pinned');
 			this.applyLineStyle(line, tr);
 
 			const labelTd = tr.createEl('td', { cls: 'wm-plot-sticky-col' });
@@ -312,6 +415,15 @@ export class Layout1Grid {
 					line.collapsed = false;
 					this.callbacks.onSave();
 					this.render();
+				});
+				// Pin button in collapsed row
+				const pinBtnC = labelInner.createEl('button', {
+					cls: 'wm-plot-act-btn wm-plot-pin-btn' + (line.pinned ? ' is-pinned' : ''),
+					attr: { title: line.pinned ? '고정 해제' : '고정' },
+				});
+				setIcon(pinBtnC, 'pin');
+				pinBtnC.addEventListener('click', () => {
+					this.handlePinToggle(line.id);
 				});
 				const nameSpan = labelInner.createEl('span', { text: line.name, cls: 'wm-plot-line-name' });
 				nameSpan.setAttribute('contenteditable', 'true');
@@ -342,8 +454,16 @@ export class Layout1Grid {
 				if (e.key === 'Enter') { e.preventDefault(); nameSpan.blur(); }
 			});
 
+			// All hover actions in one centered row: [pin][eye][format][delete]
 			const labelAct = labelInner.createDiv({ cls: 'wm-plot-label-actions' });
-
+			const pinBtn = labelAct.createEl('button', {
+				cls: 'wm-plot-act-btn wm-plot-pin-btn' + (line.pinned ? ' is-pinned' : ''),
+				attr: { title: line.pinned ? '고정 해제' : '고정' },
+			});
+			setIcon(pinBtn, 'pin');
+			pinBtn.addEventListener('click', () => {
+				this.handlePinToggle(line.id);
+			});
 			const collapseBtn = labelAct.createEl('button', {
 				cls: 'wm-plot-act-btn wm-plot-collapse-btn',
 				attr: { title: '접기' },
@@ -354,7 +474,6 @@ export class Layout1Grid {
 				this.callbacks.onSave();
 				this.render();
 			});
-
 			const fmtBtn = labelAct.createEl('button', { cls: 'wm-plot-act-btn', attr: { title: '서식' } });
 			setIcon(fmtBtn, 'settings');
 			fmtBtn.addEventListener('click', (e) => {
@@ -1312,15 +1431,27 @@ export class Layout1Grid {
 	}
 
 	private addEpisode() {
+		this.addEpisodeAfter(null);
+	}
+
+	private addEpisodeAfter(afterEpId: string | null) {
 		this.pushStructUndo();
-		const chId = newId();
 		const firstScId = newId();
-		const ep: PlotEpisode = {
+		const newEp: PlotEpisode = {
 			id: newId(),
 			name: '',
-			chapters: [{ id: chId, name: '', scenes: [{ id: firstScId, name: '' }] }],
+			chapters: [{ id: newId(), name: '', scenes: [{ id: firstScId, name: '' }] }],
 		};
-		this.project.episodes.push(ep);
+		if (afterEpId !== null) {
+			const idx = this.project.episodes.findIndex(e => e.id === afterEpId);
+			if (idx >= 0) {
+				this.project.episodes.splice(idx + 1, 0, newEp);
+			} else {
+				this.project.episodes.push(newEp);
+			}
+		} else {
+			this.project.episodes.push(newEp);
+		}
 		this.renumberAll();
 		this.callbacks.onSave();
 		this.chapterPage = this.findPageForScene(firstScId);
@@ -1387,6 +1518,11 @@ export class Layout1Grid {
 				const idx = ch.scenes.findIndex(s => s.id === sceneId);
 				if (idx !== -1) {
 					ch.scenes.splice(idx, 1);
+					// A chapter with no scenes causes table misalignment (chapter th exists
+					// but no scene th below it). Auto-delete the now-empty chapter.
+					if (ch.scenes.length === 0) {
+						ep.chapters = ep.chapters.filter(c => c.id !== ch.id);
+					}
 					this.renumberAll();
 					this.callbacks.onSave();
 					this.render();
@@ -1619,6 +1755,7 @@ export class Layout1Grid {
 			if (char.filePath) {
 				const file = this.plugin.app.vault.getAbstractFileByPath(char.filePath);
 				if (file instanceof TFile) {
+					this.callbacks.onBeforeTrash?.(char.filePath);
 					await this.plugin.app.vault.trash(file, true);
 				}
 			}
@@ -1942,11 +2079,21 @@ export class Layout1Grid {
 	}
 
 	private getSortedAllChapters() {
-		// Sort by 화 number in chapter name so pagination order matches display order
-		// regardless of episode array order (e.g. alphabetical file loading)
-		const allChs = this.project.episodes.flatMap(ep => ep.chapters.map(ch => ({ ep, ch })));
-		allChs.sort((a, b) => (parseInt(a.ch.name) || Infinity) - (parseInt(b.ch.name) || Infinity));
-		return allChs;
+		// Use episode ARRAY ORDER as the canonical episode order (maintained by insertion and
+		// by PlotManager.load() sorting on startup). Within each episode, sort existing chapters
+		// by number; new/unnamed chapters (name='') go to the end of their episode. This gives
+		// insertion semantics: addChapter to ep1 inserts after ep1's last chapter, shifting ep2+.
+		return this.project.episodes.flatMap(ep => {
+			const sorted = [...ep.chapters].sort((a, b) => {
+				const na = parseInt(a.name);
+				const nb = parseInt(b.name);
+				if (isNaN(na) && isNaN(nb)) return 0;
+				if (isNaN(na)) return 1;
+				if (isNaN(nb)) return -1;
+				return na - nb;
+			});
+			return sorted.map(ch => ({ ep, ch }));
+		});
 	}
 
 	private getPageScenes(): { visibleEps: PlotEpisode[]; scenes: PlotScene[] } {
@@ -2025,6 +2172,7 @@ export class Layout1Grid {
 		document.querySelector('.wm-plot-char-vis-popup')?.remove();
 		if (this.scrollRafId !== null) cancelAnimationFrame(this.scrollRafId);
 		if (this.reorderRafId !== null) cancelAnimationFrame(this.reorderRafId);
+		this.fmtHistory.clear();
 		this.wrapper.empty();
 	}
 }
