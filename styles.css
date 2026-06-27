@@ -5166,9 +5166,9 @@ button[aria-label="규칙 추가"] {
   position: relative;
 }
 .wm-plot-cell:hover { background: var(--background-modifier-hover); }
-.wm-plot-cell.is-filled { background: var(--plot-row-bg, color-mix(in srgb, var(--interactive-accent) 12%, transparent)); }
-.theme-dark .wm-plot-cell.is-filled { background: var(--plot-row-bg-dark, var(--plot-row-bg, color-mix(in srgb, var(--interactive-accent) 12%, transparent))); }
-.wm-plot-cell.wm-plot-drop-over { outline: 2px dashed var(--interactive-accent); }
+.wm-plot-cell.is-filled { background: var(--plot-row-bg, transparent); }
+.theme-dark .wm-plot-cell.is-filled { background: var(--plot-row-bg-dark, var(--plot-row-bg, transparent)); }
+.wm-plot-cell.wm-plot-drop-over { box-shadow: inset 0 0 0 2px var(--interactive-accent); }
 
 /* inner container fills cell, padding inside */
 .wm-plot-cell-inner {
@@ -5291,17 +5291,9 @@ button[aria-label="규칙 추가"] {
 
 .wm-plot-line-name {
   font-size: var(--plot-row-font-size, 14px);
-  color: var(--plot-row-font-color, var(--text-normal));
-}
-.theme-dark .wm-plot-line-name {
-  color: var(--plot-row-font-color-dark, var(--plot-row-font-color, var(--text-normal)));
 }
 .wm-plot-char-name {
   font-size: var(--plot-row-font-size, 14px);
-  color: var(--plot-row-font-color, var(--text-normal));
-}
-.theme-dark .wm-plot-char-name {
-  color: var(--plot-row-font-color-dark, var(--plot-row-font-color, var(--text-normal)));
 }
 
 /* ── Character label: 전체 배경 이미지 + 하단 이름 ── */
@@ -5700,11 +5692,71 @@ td:hover .wm-plot-actions {
 .wm-plot-bulk-dropdown .wm-plot-bulk-actions {
   margin-top: 6px;
 }
+.wm-plot-addchar-popup .wm-plot-bulk-row {
+  align-items: center;
+}
+.wm-plot-addchar-popup .wm-plot-bulk-row > input[type="text"] {
+  width: 160px;
+  height: 30px;
+  flex: none;
+  box-sizing: border-box;
+  margin-left: auto;
+  outline: none;
+  box-shadow: none;
+}
+.wm-plot-addchar-popup .wm-plot-bulk-row > input[type="text"]:focus {
+  outline: none;
+  box-shadow: none;
+  border: 2px solid var(--interactive-accent);
+}
 .wm-plot-bulk-total {
   font-size: 12px;
   color: var(--text-muted);
   white-space: nowrap;
 }
+.wm-plot-addchar-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.wm-plot-addchar-input-wrap input[type="text"] {
+  width: 160px;
+  height: 30px;
+  flex: none;
+  box-sizing: border-box;
+  outline: none;
+  box-shadow: none;
+}
+.wm-plot-addchar-input-wrap input[type="text"]:focus {
+  outline: none;
+  box-shadow: none;
+  border: 2px solid var(--interactive-accent);
+}
+.wm-plot-addchar-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+}
+.wm-plot-addchar-icon:hover { color: var(--text-normal); background: var(--background-modifier-hover); }
+.wm-plot-addchar-icon svg { width: 13px; height: 13px; }
+.wm-plot-addchar-root-display {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-left: auto;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+.wm-plot-addchar-root-unset { color: var(--text-faint); font-style: italic; }
+.wm-delete-confirm-path { font-size: 12px; color: var(--text-muted); word-break: break-all; }
 .wm-plot-bulk-range {
   display: flex;
   align-items: center;
@@ -5983,7 +6035,7 @@ td:hover .wm-plot-actions {
   margin-bottom: 2px;
 }
 .wm-tl-title {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: .05em;
@@ -6001,7 +6053,7 @@ td:hover .wm-plot-actions {
   gap: 8px;
 }
 .wm-tl-row-name {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text-normal);
   flex: 1;
@@ -6141,14 +6193,14 @@ td:hover .wm-plot-actions {
 /* Episode header: name + optional subtitle, padding to clear spine */
 .wm-tl-ep-header { padding: 0px 0 8px 6px; }
 .wm-tl-ep-name {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--interactive-accent);
   text-transform: uppercase;
   letter-spacing: .08em;
 }
 .wm-tl-ep-subtitle {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   margin-top: 5px;
 }
@@ -6215,13 +6267,13 @@ td:hover .wm-plot-actions {
   margin-bottom: 4px;
 }
 .wm-tl-chip-icon { display: inline-flex; align-items: center; flex-shrink: 0; }
-.wm-tl-chip-icon svg { width: 12px; height: 12px; }
-.wm-tl-chip-label { font-size: 11px; font-weight: 600; }
+.wm-tl-chip-icon svg { width: 13px; height: 13px; }
+.wm-tl-chip-label { font-size: 12px; font-weight: 600; }
 
 /* Card content */
 .wm-tl-card-text {
   padding: 2px 6px 0;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
   word-break: break-word;
   white-space: pre-wrap;
@@ -6230,10 +6282,17 @@ td:hover .wm-plot-actions {
 
 .wm-tl-empty {
   color: var(--text-faint);
-  font-size: 12px;
+  font-size: 13px;
   text-align: center;
   padding: 32px 16px;
 }
+.wm-tl-pin-btn {
+  opacity: 0.5;
+  padding: 2px;
+  color: var(--text-muted);
+}
+.wm-tl-pin-btn:hover { opacity: 1; }
+.wm-tl-pin-btn.is-active { opacity: 1; color: var(--interactive-accent); }
 
 /* ── Plot Cell Wikilink Display ── */
 .wm-plot-wikilink {
