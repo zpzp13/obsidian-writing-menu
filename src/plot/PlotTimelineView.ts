@@ -187,13 +187,14 @@ export class PlotTimelineView extends ItemView {
 		}
 
 		// 타임라인 자체 카드 클릭 시 스크롤 없음, 플롯 매니저에서 선택 변경 시에만 중앙 포커스
-		if (!this.selfClicked) {
+		const scrollToActive = !this.selfClicked;
+		this.selfClicked = false;
+		if (scrollToActive) {
 			requestAnimationFrame(() => {
 				const activeCard = el.querySelector<HTMLElement>('.wm-tl-card.is-active');
 				if (activeCard) activeCard.scrollIntoView({ block: 'center' });
 			});
 		}
-		this.selfClicked = false;
 	}
 
 	// ── Chapter search popup ─────────────────────────────────────────────

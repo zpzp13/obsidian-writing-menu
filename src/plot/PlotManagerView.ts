@@ -19,6 +19,7 @@ export class PlotManagerView extends ItemView {
 	private zoom = 1.0;
 	private zoomLabelEl: HTMLElement | null = null;
 	private pageLabel: HTMLElement | null = null;
+	private _suppressDeletePath: string | null = null;
 
 	constructor(leaf: WorkspaceLeaf, private plugin: WritingMenuPlugin) {
 		super(leaf);
@@ -57,6 +58,11 @@ export class PlotManagerView extends ItemView {
 		// Reload when plot folder files change
 		this.registerEvent(
 			this.app.vault.on('delete', (file: TAbstractFile) => {
+				// Skip reload when deletion was triggered internally (e.g. deleteCharacter)
+				if (this._suppressDeletePath && normalizePath(file.path) === normalizePath(this._suppressDeletePath)) {
+					this._suppressDeletePath = null;
+					return;
+				}
 				const folder = (this.plugin.settings.plotManagerFolder ?? '').trim();
 				if (!folder) return;
 				const folderPath = normalizePath(folder);
@@ -107,6 +113,10 @@ export class PlotManagerView extends ItemView {
 
 	private render() {
 		const content = this.containerEl.children[1] as HTMLElement;
+		// Save scroll before wiping DOM — content.empty() destroys the section element itself
+		const oldSection = content.querySelector<HTMLElement>('.wm-plot-section');
+		const savedScrollTop = oldSection?.scrollTop ?? 0;
+		const savedScrollLeft = oldSection?.scrollLeft ?? 0;
 		content.empty();
 		content.addClass('wm-plot-view');
 
@@ -212,10 +222,16 @@ export class PlotManagerView extends ItemView {
 				undoBtn.disabled = !canUndo;
 				redoBtn.disabled = !canRedo;
 			},
+			onBeforeTrash: (path) => { this._suppressDeletePath = path; },
 		}, this.hiddenCharIds);
 		this.grid.render();
 		this.updatePageLabel();
 		this.applyZoomStyle();
+		// Restore scroll after DOM rebuild — the section element was recreated above
+		if (savedScrollTop || savedScrollLeft) {
+			const newSection = content.querySelector<HTMLElement>('.wm-plot-section');
+			if (newSection) { newSection.scrollTop = savedScrollTop; newSection.scrollLeft = savedScrollLeft; }
+		}
 	}
 
 	private applyZoom(value: number) {
@@ -237,6 +253,8 @@ export class PlotManagerView extends ItemView {
 			w.style.width = '';
 			w.style.height = '';
 		});
+		// Pinned row sticky top values must be recalculated after zoom changes row heights
+		this.grid?.refreshPinnedSticky();
 	}
 
 	private getTimelineArgs() {

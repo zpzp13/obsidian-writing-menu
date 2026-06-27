@@ -5038,7 +5038,7 @@ button[aria-label="규칙 추가"] {
   position: sticky;
   top: 0;
   background: var(--background-secondary);
-  z-index: 1;
+  z-index: 2;
   width: 130px;
   min-width: 130px;
   height: 32px;
@@ -5218,6 +5218,7 @@ button[aria-label="규칙 추가"] {
   background: var(--plot-row-bg-dark, var(--plot-row-bg, var(--background-secondary)));
 }
 
+
 /* Compact label for collapsed plot lines */
 .wm-plot-label-compact {
   flex-direction: row !important;
@@ -5233,15 +5234,24 @@ button[aria-label="규칙 추가"] {
   flex-shrink: 0;
   opacity: 0.6;
   position: absolute;
-  left: 6px;
+  left: 30px;
 }
 .wm-plot-expand-btn:hover { opacity: 1 !important; }
+/* Pin button in collapsed row: left of expand btn */
+.wm-plot-label-compact .wm-plot-pin-btn {
+  flex-shrink: 0;
+  opacity: 0.4;
+  position: absolute;
+  left: 6px;
+}
+.wm-plot-label-compact .wm-plot-pin-btn.is-pinned { opacity: 1; color: var(--interactive-accent); }
+.wm-plot-label-compact .wm-plot-pin-btn:hover { opacity: 1 !important; }
 .wm-plot-label-compact .wm-plot-line-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
-  padding: 0 28px;
+  padding: 0 54px;
 }
 
 /* ── Shared label base (.wm-plot-label) + variants ── */
@@ -5331,7 +5341,7 @@ button[aria-label="규칙 추가"] {
 }
 .wm-plot-char-name {
   color: var(--text-normal);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   word-break: break-word;
   white-space: normal;
@@ -5340,7 +5350,7 @@ button[aria-label="규칙 추가"] {
 }
 .wm-plot-char-has-profile .wm-plot-char-name {
   color: #fff;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+  text-shadow: 0 1px 4px rgba(0,0,0,1), 0 0 8px rgba(0,0,0,0.8);
 }
 /* ── Character content cells: format popup bg > wiki color tint ── */
 .wm-plot-char-cell.is-filled {
@@ -5350,7 +5360,24 @@ button[aria-label="규칙 추가"] {
   background-color: var(--plot-row-bg-dark, var(--plot-row-bg, color-mix(in srgb, var(--char-wiki-color, transparent) 22%, transparent)));
 }
 
-/* Action row — absolute, top-aligned, hidden until hover */
+/* Pin button: accent color when pinned */
+.wm-plot-pin-btn.is-pinned { color: var(--interactive-accent) !important; opacity: 1 !important; }
+
+/* Pinned rows: opaque background so sticky cells cover scrolled content */
+tr.wm-plot-row-pinned .wm-plot-cell {
+  background-color: var(--background-primary);
+}
+tr.wm-plot-row-pinned .wm-plot-cell.is-filled {
+  background-color: var(--plot-row-bg, var(--background-primary));
+}
+.theme-dark tr.wm-plot-row-pinned .wm-plot-cell.is-filled {
+  background-color: var(--plot-row-bg-dark, var(--plot-row-bg, var(--background-primary)));
+}
+tr.wm-plot-row-pinned .wm-plot-collapsed-row {
+  background-color: var(--background-secondary);
+}
+
+/* Action row — [pin][eye][format][delete] centered, shown on hover */
 .wm-plot-label-actions {
   position: absolute;
   top: 4px;
@@ -5687,7 +5714,7 @@ td:hover .wm-plot-actions {
   min-width: 200px;
 }
 .wm-plot-bulk-dropdown .wm-plot-bulk-row {
-  gap: 8px;
+  gap: 25px;
 }
 .wm-plot-bulk-dropdown .wm-plot-bulk-actions {
   margin-top: 6px;
@@ -5744,7 +5771,7 @@ td:hover .wm-plot-actions {
   border-radius: 4px;
 }
 .wm-plot-addchar-icon:hover { color: var(--text-normal); background: var(--background-modifier-hover); }
-.wm-plot-addchar-icon svg { width: 13px; height: 13px; }
+.wm-plot-addchar-icon svg { width: 15px; height: 15px; }
 .wm-plot-addchar-root-display {
   font-size: 13px;
   color: var(--text-muted);
@@ -6293,6 +6320,8 @@ td:hover .wm-plot-actions {
 }
 .wm-tl-pin-btn:hover { opacity: 1; }
 .wm-tl-pin-btn.is-active { opacity: 1; color: var(--interactive-accent); }
+.wm-plot-tool-btn.wm-tl-pin-btn.is-active svg { color: var(--interactive-accent) !important; }
+.wm-tl-page-nav .wm-plot-tool-btn:last-child { padding-right: 0; }
 
 /* ── Plot Cell Wikilink Display ── */
 .wm-plot-wikilink {

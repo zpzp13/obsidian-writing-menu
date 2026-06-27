@@ -29,6 +29,7 @@ export interface PlotLine {
 	id: string;
 	name: string;
 	collapsed: boolean;
+	pinned?: boolean;
 	color?: string;
 	colorDark?: string;
 	rowHeight?: number;
