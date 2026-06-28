@@ -5377,7 +5377,7 @@ tr.wm-plot-row-pinned .wm-plot-collapsed-row {
   background-color: var(--background-secondary);
 }
 
-/* Action row — [pin][eye][format][delete] centered, shown on hover */
+/* Action row 1 — [pin][eye][format] centered, shown on hover */
 .wm-plot-label-actions {
   position: absolute;
   top: 4px;
@@ -5391,6 +5391,23 @@ tr.wm-plot-row-pinned .wm-plot-collapsed-row {
   transition: opacity .15s;
 }
 .wm-plot-sticky-col:hover .wm-plot-label-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+/* Action row 2 — [↑][↓][delete] centered, shown on hover */
+.wm-plot-label-actions-2 {
+  position: absolute;
+  top: 28px;
+  left: 0; right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s;
+}
+.wm-plot-sticky-col:hover .wm-plot-label-actions-2 {
   opacity: 1;
   pointer-events: auto;
 }
