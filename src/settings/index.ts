@@ -409,6 +409,19 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		hrBox.createDiv({ cls: 'wm-settings-item-desc', text: '구분선의 가로 정렬 위치입니다. 텍스트 모드에서 적용됩니다.' });
 
 		new Setting(hrBox)
+			.setName('위아래 여백')
+			.setDesc('구분선 위아래 여백 (em 단위, 기본값 0.5)')
+			.addText(text => text
+				.setPlaceholder('0.5')
+				.setValue(String(this.plugin.settings.hrMargin ?? 0.5))
+				.onChange(async value => {
+					const n = parseFloat(value);
+					this.plugin.settings.hrMargin = isNaN(n) ? 0.5 : Math.max(0, n);
+					await this.plugin.saveSettings();
+					this.plugin.leafStyleManager.updateDynamicStyles();
+				}));
+
+		new Setting(hrBox)
 			.setName('SVG 코드')
 			.setDesc('SVG 모드에서 사용할 SVG 코드를 붙여넣으세요')
 			.addTextArea(ta => ta
@@ -416,6 +429,19 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.hrSvg)
 				.onChange(async value => {
 					this.plugin.settings.hrSvg = value;
+					await this.plugin.saveSettings();
+					this.plugin.leafStyleManager.updateDynamicStyles();
+				}));
+
+		new Setting(hrBox)
+			.setName('SVG 크기')
+			.setDesc('SVG 모드 구분선 높이 (em 단위, 기본값 2)')
+			.addText(text => text
+				.setPlaceholder('2')
+				.setValue(String(this.plugin.settings.hrSvgSize ?? 2))
+				.onChange(async value => {
+					const n = parseFloat(value);
+					this.plugin.settings.hrSvgSize = isNaN(n) ? 2 : Math.max(0.1, n);
 					await this.plugin.saveSettings();
 					this.plugin.leafStyleManager.updateDynamicStyles();
 				}));

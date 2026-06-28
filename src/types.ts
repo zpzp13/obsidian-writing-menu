@@ -54,6 +54,8 @@ export interface WritingMenuSettings {
 	hrColor: string;
 	hrAlign: 'left' | 'center' | 'right';
 	hrSvg: string;
+	hrSvgSize: number;
+	hrMargin: number;
 	enableFocusMode: boolean;
 	focusOpacity: number;
 	enableTypewriterScrolling: boolean;
@@ -194,6 +196,8 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	hrColor: '',
 	hrAlign: 'center',
 	hrSvg: '',
+	hrSvgSize: 2,
+	hrMargin: 0.5,
 	enableFocusMode: false,
 	focusOpacity: 0.25,
 	enableTypewriterScrolling: false,

@@ -3903,7 +3903,7 @@ button[aria-label="규칙 추가"] {
 				background: none !important;
 				box-shadow: none !important;
 				height: 1.5em !important;
-				margin: 0.5em 0 !important;
+				margin: var(--wm-hr-margin, 0.5em) 0 !important;
 			}
 			.wm-hr-custom:not(.wm-hr-svg) .cm-content hr::before,
 			.wm-hr-custom:not(.wm-hr-svg) .markdown-preview-view hr::before,
@@ -3924,8 +3924,8 @@ button[aria-label="규칙 추가"] {
 				border-top: none !important;
 				background: none !important;
 				box-shadow: none !important;
-				height: 2em !important;
-				margin: 0.5em 0 !important;
+				height: var(--wm-hr-svg-height, 2em) !important;
+				margin: var(--wm-hr-margin, 0.5em) 0 !important;
 				background-image: var(--wm-hr-svg-url) !important;
 				background-repeat: no-repeat !important;
 				background-size: auto 100% !important;
