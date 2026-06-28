@@ -44,9 +44,15 @@ export class PlotManagerView extends ItemView {
 		const contentEl = this.containerEl.children[1] as HTMLElement;
 
 		this.registerDomEvent(document, 'keydown', (e: KeyboardEvent) => {
-			if (e.shiftKey && e.key === 'F' && contentEl.contains(document.activeElement)) {
-				e.preventDefault();
-				this.openChapterSearch();
+			if (e.shiftKey && e.key === 'F') {
+				const active = document.activeElement;
+				const isEditing = active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement;
+				const isInView = contentEl.contains(active);
+				const isActiveView = this.app.workspace.getActiveViewOfType(PlotManagerView) === this;
+				if (!isEditing && (isInView || isActiveView)) {
+					e.preventDefault();
+					this.openChapterSearch();
+				}
 			}
 		});
 		this.registerDomEvent(contentEl, 'wheel', (e: WheelEvent) => {
@@ -76,6 +82,13 @@ export class PlotManagerView extends ItemView {
 				const folder = (this.plugin.settings.plotManagerFolder ?? '').trim();
 				if (!folder) return;
 				const folderPath = normalizePath(folder);
+				// 폴더 자체가 이름 변경된 경우 — 설정 경로를 새 경로로 갱신
+				if (normalizePath(oldPath) === folderPath) {
+					this.plugin.settings.plotManagerFolder = file.path;
+					void this.plugin.saveSettings();
+					void this.reload();
+					return;
+				}
 				if (oldPath.startsWith(folderPath + '/')) {
 					void this.reload();
 					return;

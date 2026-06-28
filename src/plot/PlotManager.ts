@@ -141,6 +141,11 @@ export class PlotManager {
 				flushBuffer();
 				const charName = h5[1].trim();
 				currentChar = characters.find(ch => ch.name === charName) ?? null;
+				if (!currentChar) {
+					// 삭제된 인물이 에피소드 파일에 남아 있는 경우 자동 복원
+					currentChar = { id: newId(), name: charName };
+					characters.push(currentChar);
+				}
 				currentPlotLine = null;
 			} else {
 				if ((currentPlotLine || currentChar) && currentScene) {
@@ -260,6 +265,7 @@ export class PlotManager {
 
 			const plotLines = this.parseConfigPlotLines(data);
 			const characters = this.parseConfigCharacters(data);
+			const prevCharCount = characters.length;
 
 			// Legacy: charCells may still exist in old config — use as fallback
 			const legacyCharCells = this.parseConfigCharCells(data);
@@ -282,7 +288,21 @@ export class PlotManager {
 				} catch { /* skip */ }
 			}
 
-			return { plotLines, episodes, characters, plotCells, charCells };
+			// Sort episodes by their first chapter number so array order matches
+			// display order regardless of alphabetical file-loading order.
+			episodes.sort((a, b) => {
+				const minNum = (ep: PlotEpisode) => ep.chapters.reduce((m, ch) => {
+					const n = parseInt(ch.name);
+					return isNaN(n) ? m : Math.min(m, n);
+				}, Infinity);
+				return minNum(a) - minNum(b);
+			});
+			const project = { plotLines, episodes, characters, plotCells, charCells };
+			// 에피소드 파일에서 삭제된 인물이 복원된 경우 config 재저장
+			if (characters.length > prevCharCount) {
+				await this.save(project);
+			}
+			return project;
 		} catch {
 			return this.createEmptyProject();
 		}

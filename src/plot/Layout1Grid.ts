@@ -454,7 +454,7 @@ export class Layout1Grid {
 				if (e.key === 'Enter') { e.preventDefault(); nameSpan.blur(); }
 			});
 
-			// All hover actions in one centered row: [pin][eye][format][delete]
+			// Row 1: [pin][eye][format]
 			const labelAct = labelInner.createDiv({ cls: 'wm-plot-label-actions' });
 			const pinBtn = labelAct.createEl('button', {
 				cls: 'wm-plot-act-btn wm-plot-pin-btn' + (line.pinned ? ' is-pinned' : ''),
@@ -500,7 +500,32 @@ export class Layout1Grid {
 				);
 			});
 
-			const delBtn = labelAct.createEl('button', { cls: 'wm-plot-act-btn wm-plot-act-del', attr: { title: '삭제' } });
+			// Row 2: [↑][↓][delete]
+			const labelAct2 = labelInner.createDiv({ cls: 'wm-plot-label-actions-2' });
+			const lineIdx = this.project.plotLines.indexOf(line);
+			const upBtn = labelAct2.createEl('button', { cls: 'wm-plot-act-btn', attr: { title: '위로 이동' } });
+			setIcon(upBtn, 'arrow-up');
+			if (lineIdx <= 0) upBtn.disabled = true;
+			upBtn.addEventListener('click', () => {
+				const idx = this.project.plotLines.indexOf(line);
+				if (idx <= 0) return;
+				[this.project.plotLines[idx - 1], this.project.plotLines[idx]] =
+					[this.project.plotLines[idx], this.project.plotLines[idx - 1]];
+				this.callbacks.onSave();
+				this.render();
+			});
+			const downBtn = labelAct2.createEl('button', { cls: 'wm-plot-act-btn', attr: { title: '아래로 이동' } });
+			setIcon(downBtn, 'arrow-down');
+			if (lineIdx >= this.project.plotLines.length - 1) downBtn.disabled = true;
+			downBtn.addEventListener('click', () => {
+				const idx = this.project.plotLines.indexOf(line);
+				if (idx >= this.project.plotLines.length - 1) return;
+				[this.project.plotLines[idx], this.project.plotLines[idx + 1]] =
+					[this.project.plotLines[idx + 1], this.project.plotLines[idx]];
+				this.callbacks.onSave();
+				this.render();
+			});
+			const delBtn = labelAct2.createEl('button', { cls: 'wm-plot-act-btn wm-plot-act-del', attr: { title: '삭제' } });
 			setIcon(delBtn, 'trash-2');
 			delBtn.addEventListener('click', () => this.deletePlotLine(line.id));
 
@@ -684,6 +709,7 @@ export class Layout1Grid {
 				}).open();
 			};
 
+			// Row 1: [노트 열기][위키 뷰][서식]
 			const openNoteBtn = labelAct.createEl('button', { cls: 'wm-plot-act-btn', attr: { title: '노트 열기' } });
 			setIcon(openNoteBtn, 'external-link');
 			openNoteBtn.addEventListener('click', () => {
@@ -730,7 +756,32 @@ export class Layout1Grid {
 				);
 			});
 
-			const delBtn = labelAct.createEl('button', { cls: 'wm-plot-act-btn wm-plot-act-del', attr: { title: '삭제' } });
+			// Row 2: [↑][↓][삭제]
+			const labelAct2 = labelInner.createDiv({ cls: 'wm-plot-label-actions-2' });
+			const charIdx = this.project.characters.indexOf(char);
+			const upBtn = labelAct2.createEl('button', { cls: 'wm-plot-act-btn', attr: { title: '위로 이동' } });
+			setIcon(upBtn, 'arrow-up');
+			if (charIdx <= 0) upBtn.disabled = true;
+			upBtn.addEventListener('click', () => {
+				const idx = this.project.characters.indexOf(char);
+				if (idx <= 0) return;
+				[this.project.characters[idx - 1], this.project.characters[idx]] =
+					[this.project.characters[idx], this.project.characters[idx - 1]];
+				this.callbacks.onSave();
+				this.render();
+			});
+			const downBtn = labelAct2.createEl('button', { cls: 'wm-plot-act-btn', attr: { title: '아래로 이동' } });
+			setIcon(downBtn, 'arrow-down');
+			if (charIdx >= this.project.characters.length - 1) downBtn.disabled = true;
+			downBtn.addEventListener('click', () => {
+				const idx = this.project.characters.indexOf(char);
+				if (idx >= this.project.characters.length - 1) return;
+				[this.project.characters[idx], this.project.characters[idx + 1]] =
+					[this.project.characters[idx + 1], this.project.characters[idx]];
+				this.callbacks.onSave();
+				this.render();
+			});
+			const delBtn = labelAct2.createEl('button', { cls: 'wm-plot-act-btn wm-plot-act-del', attr: { title: '삭제' } });
 			setIcon(delBtn, 'trash-2');
 			delBtn.addEventListener('click', () => this.deleteCharacter(char.id));
 
