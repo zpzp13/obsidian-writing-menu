@@ -109,7 +109,7 @@ export class Layout2Canvas {
 		if (cell?.content) {
 			inner.setAttribute('draggable', 'true');
 			const textDiv = inner.createDiv({ cls: 'wm-plot-cell-text' });
-			renderWithWikilinks(textDiv, cell.content, this.plugin.app);
+			renderWithWikilinks(textDiv, cell.content, this.plugin.app, () => this.plugin.settings.plotLinkOpenMode ?? 'tab');
 
 			inner.addEventListener('dragstart', (e) => {
 				e.dataTransfer!.setData('text/plain', key);
