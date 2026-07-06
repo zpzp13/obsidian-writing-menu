@@ -24,11 +24,11 @@ let cache: CachedAnalysis | null = null;
 export class RepetitionSection {
 	static render(container: HTMLElement, plugin: WritingMenuPlugin, compact?: HTMLElement) {
 		const root = container.createDiv({ cls: 'wm-rep-root' });
-		renderInto(root, plugin, compact);
+		void renderInto(root, plugin, compact);
 	}
 }
 
-function renderInto(root: HTMLElement, plugin: WritingMenuPlugin, compact?: HTMLElement) {
+async function renderInto(root: HTMLElement, plugin: WritingMenuPlugin, compact?: HTMLElement) {
 	root.empty();
 
 	if (!isMorphAnalysisSupported()) {
@@ -42,7 +42,7 @@ function renderInto(root: HTMLElement, plugin: WritingMenuPlugin, compact?: HTML
 
 	if (compact) compact.classList.add('is-hidden');
 
-	if (!isGaruAssetsDownloaded(plugin)) {
+	if (!(await isGaruAssetsDownloaded(plugin))) {
 		renderDownloadPrompt(root, plugin, compact);
 		return;
 	}
@@ -67,7 +67,7 @@ function renderDownloadPrompt(root: HTMLElement, plugin: WritingMenuPlugin, comp
 		try {
 			await downloadGaruAssets(plugin, step => btn.setText(step));
 			new Notice('형태소 분석 모델을 내려받았습니다.');
-			renderInto(root, plugin, compact);
+			await renderInto(root, plugin, compact);
 		} catch (e) {
 			new Notice(`다운로드 실패: ${e instanceof Error ? e.message : String(e)}`);
 			btn.disabled = false;

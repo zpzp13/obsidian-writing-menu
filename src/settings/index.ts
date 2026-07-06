@@ -1337,27 +1337,30 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		if (isMorphAnalysisSupported()) {
 			this.addGroupTitle(containerEl, '형태소 분석 모델');
 			const modelBox = this.createGroupBox(containerEl);
-			const downloaded = isGaruAssetsDownloaded(this.plugin);
 			const modelSetting = new Setting(modelBox)
 				.setName('오프라인 형태소 분석 모델')
-				.setDesc(downloaded ? '다운로드 완료 · 완전히 오프라인으로 동작합니다.' : '반복 표현 탐지에 필요합니다. 최초 1회만 다운로드하면 됩니다 (약 1.4MB).');
-			if (downloaded) {
-				modelSetting.addExtraButton(btn => btn.setIcon('check').setTooltip('다운로드됨').setDisabled(true));
-			} else {
-				modelSetting.addButton(btn => btn.setButtonText('다운로드').setCta()
-					.onClick(() => {
-						fireAndForget(async () => {
-							btn.setDisabled(true);
-							try {
-								await downloadGaruAssets(this.plugin, step => { btn.setButtonText(step); });
-								this.renderPage('repetition');
-							} catch (e) {
-								btn.setDisabled(false).setButtonText('다운로드');
-								modelBox.createDiv({ cls: 'wm-settings-item-desc', text: `실패: ${e instanceof Error ? e.message : String(e)}` });
-							}
-						});
-					}));
-			}
+				.setDesc('확인 중…');
+			fireAndForget(async () => {
+				const downloaded = await isGaruAssetsDownloaded(this.plugin);
+				modelSetting.setDesc(downloaded ? '다운로드 완료 · 완전히 오프라인으로 동작합니다.' : '반복 표현 탐지에 필요합니다. 최초 1회만 다운로드하면 됩니다 (약 1.4MB).');
+				if (downloaded) {
+					modelSetting.addExtraButton(btn => btn.setIcon('check').setTooltip('다운로드됨').setDisabled(true));
+				} else {
+					modelSetting.addButton(btn => btn.setButtonText('다운로드').setCta()
+						.onClick(() => {
+							fireAndForget(async () => {
+								btn.setDisabled(true);
+								try {
+									await downloadGaruAssets(this.plugin, step => { btn.setButtonText(step); });
+									this.renderPage('repetition');
+								} catch (e) {
+									btn.setDisabled(false).setButtonText('다운로드');
+									modelBox.createDiv({ cls: 'wm-settings-item-desc', text: `실패: ${e instanceof Error ? e.message : String(e)}` });
+								}
+							});
+						}));
+				}
+			});
 			const engineDesc = modelBox.createDiv({ cls: 'wm-settings-item-desc' });
 			engineDesc.appendText('형태소 분석 엔진: ');
 			engineDesc.createEl('a', { text: 'garu-ko', href: 'https://github.com/ongjin/garu', attr: { target: '_blank', rel: 'noopener' } });
