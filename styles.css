@@ -2235,8 +2235,8 @@ input.slider.wm-music-vol-slider::-webkit-slider-thumb {
     position: fixed;
     top: var(--suggest-top, 0);
     left: var(--suggest-left, 0);
-    background-color: var(--background-secondary) !important;
-    border: 1px solid var(--wiki-border-color) !important;
+    background-color: var(--background-secondary);
+    border: 1px solid var(--wiki-border-color);
     box-shadow: var(--shadow-s);
     padding: 4px;
     display: flex;
@@ -2259,10 +2259,10 @@ input.slider.wm-music-vol-slider::-webkit-slider-thumb {
     justify-content: space-between;
     align-items: center;
     width: 100%;
-    margin-bottom: 0 !important;
+    margin-bottom: 0;
     padding: 0 4px;
-    background-color: transparent !important;
-    border: none !important;
+    background-color: transparent;
+    border: none;
 }
 
 .wiki-nav-btn {
@@ -2295,10 +2295,10 @@ input.slider.wm-music-vol-slider::-webkit-slider-thumb {
 
 
 /* Group Menu Specific Styles (User Requested) */
-.wiki-group-popover input,
-.wiki-group-popover select {
-    background: var(--background-modifier-form-field) !important;
-    border: var(--input-border-width) solid var(--background-modifier-border) !important;
+.menu.wiki-group-popover input,
+.menu.wiki-group-popover select {
+    background: var(--background-modifier-form-field);
+    border: var(--input-border-width) solid var(--background-modifier-border);
     color: var(--text-normal);
     padding: var(--input-padding);
     font-size: var(--font-ui-small);
@@ -2308,13 +2308,13 @@ input.slider.wm-music-vol-slider::-webkit-slider-thumb {
     transition: box-shadow 0.15s ease-in-out, border 0.15s ease-in-out;
 }
 
-.wiki-group-popover input:active,
-.wiki-group-popover input:focus,
-.wiki-group-popover input:focus-visible,
-.wiki-group-popover select:active,
-.wiki-group-popover select:focus {
-    box-shadow: 0 0 0 var(--input-border-width-focus) var(--background-modifier-border-focus) !important;
-    border-color: var(--background-modifier-border-focus) !important;
+.menu.wiki-group-popover input:active,
+.menu.wiki-group-popover input:focus,
+.menu.wiki-group-popover input:focus-visible,
+.menu.wiki-group-popover select:active,
+.menu.wiki-group-popover select:focus {
+    box-shadow: 0 0 0 var(--input-border-width-focus) var(--background-modifier-border-focus);
+    border-color: var(--background-modifier-border-focus);
 }
 
 /* Adjust layout for inputs in group menu */
@@ -2342,7 +2342,7 @@ input.slider.wm-music-vol-slider::-webkit-slider-thumb {
     align-items: center;
     padding: 8px 12px;
     gap: 12px;
-    width: 100% !important;
+    width: 100%;
     /* User Request */
 }
 
@@ -2379,9 +2379,9 @@ input.slider.wm-music-vol-slider::-webkit-slider-thumb {
 }
 
 /* Share Input Styles with Config Popover */
-.wiki-config-popover input {
-    background: var(--background-modifier-form-field) !important;
-    border: var(--input-border-width) solid var(--background-modifier-border) !important;
+.menu.wiki-config-popover input {
+    background: var(--background-modifier-form-field);
+    border: var(--input-border-width) solid var(--background-modifier-border);
     color: var(--text-normal);
     padding: var(--input-padding);
     font-size: var(--font-ui-small);
@@ -2393,28 +2393,21 @@ input.slider.wm-music-vol-slider::-webkit-slider-thumb {
     /* Fill container */
 }
 
-.wiki-config-popover input:active,
-.wiki-config-popover input:focus,
-.wiki-config-popover input:focus-visible {
-    box-shadow: 0 0 0 var(--input-border-width-focus) var(--background-modifier-border-focus) !important;
-    border-color: var(--background-modifier-border-focus) !important;
+.menu.wiki-config-popover input:active,
+.menu.wiki-config-popover input:focus,
+.menu.wiki-config-popover input:focus-visible {
+    box-shadow: 0 0 0 var(--input-border-width-focus) var(--background-modifier-border-focus);
+    border-color: var(--background-modifier-border-focus);
 }
 
 /* --- Settings Page Styles --- */
 
 /* Unified Width for Inputs & Textareas */
-.wiki-settings-image-field input[type="text"],
-.wiki-settings-textarea textarea {
-    width: 140px !important;
-    height: 79.99px !important;
-    box-sizing: border-box !important;
+.setting-item.wiki-settings-textarea textarea {
+    width: 140px;
+    height: 79.99px;
+    box-sizing: border-box;
 }
-
-/* Add Rule Button Padding */
-button[aria-label="규칙 추가"] {
-    padding: 2px 6px !important;
-}
-
 
 
 /* ═══════════════════════════════════════════════════════
@@ -2423,7 +2416,7 @@ button[aria-label="규칙 추가"] {
 
 /* wiki 모드: wm-cal-content에 .wm-wiki-mode가 붙으면 fixed-height flex 체인으로 전환 */
 .wm-wiki-mode {
-    overflow-y: hidden !important;
+    overflow-y: hidden;
 }
 .wm-wiki-mode .wm-cal-wrapper {
     flex: 1;
@@ -2481,7 +2474,7 @@ button[aria-label="규칙 추가"] {
 .wm-wiki-panel a,
 .wm-wiki-panel .internal-link,
 .wm-wiki-panel .external-link {
-    text-decoration: none !important;
+    text-decoration: none;
 }
 
 /* 카드 스트립 / 관계 리스트 접힘 */
@@ -2669,20 +2662,20 @@ button[aria-label="규칙 추가"] {
 
 /* ── TOC ── */
 .wiki-toc-container {
-    flex: 0 0 auto !important;
-    width: auto !important;
-    min-width: 80px !important;
-    max-width: 260px !important;
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 80px;
+    max-width: 260px;
     /* 컨텐츠 너비에 맞게 컬럼 flex: 항목이 자기 내용 너비만큼만 차지 */
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: flex-start !important;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
     background: var(--background-secondary);
     border: 1px solid var(--background-modifier-border);
     border-radius: 0;
-    padding: 4px 6px 15px !important;
+    padding: 4px 6px 15px;
     margin-bottom: 0;
-    font-size: 13px !important;
+    font-size: 13px;
     overflow: hidden;
 }
 /* 타이틀 행: 목차 라벨 + 접기 아이콘 */
@@ -2714,8 +2707,8 @@ button[aria-label="규칙 추가"] {
     align-items: baseline;
     gap: 4px;
     padding: 2px 3px;
-    margin: 0 !important;
-    line-height: 1.3 !important;
+    margin: 0;
+    line-height: 1.3;
     border-radius: 2px;
     cursor: default;
     white-space: nowrap;
@@ -2739,28 +2732,28 @@ button[aria-label="규칙 추가"] {
 
 /* ── 프로필 패널 (나무위키 스타일) ── */
 .wiki-profile-container {
-    display: block !important;
-    float: none !important;
-    clear: none !important;
-    flex: 0 0 220px !important;
-    width: 220px !important;
-    margin: 0 0 0 auto !important;
-    background: transparent !important;
-    border: 1px solid var(--wiki-accent-color, var(--interactive-accent)) !important;
-    border-top: none !important;
-    border-radius: 0 !important;
-    overflow: hidden !important;
-    box-shadow: none !important;
-    height: fit-content !important;
+    display: block;
+    float: none;
+    clear: none;
+    flex: 0 0 220px;
+    width: 220px;
+    margin: 0 0 0 auto;
+    background: transparent;
+    border: 1px solid var(--wiki-accent-color, var(--interactive-accent));
+    border-top: none;
+    border-radius: 0;
+    overflow: hidden;
+    box-shadow: none;
+    height: fit-content;
 }
 .wiki-profile-name-header {
-    display: flex !important;
-    align-items: center !important;
+    display: flex;
+    align-items: center;
     gap: 6px;
-    padding: 4px 8px !important;
-    background: var(--wiki-accent-color, var(--interactive-accent)) !important;
-    color: var(--wiki-accent-text, #fff) !important;
-    font-size: unset !important;
+    padding: 4px 8px;
+    background: var(--wiki-accent-color, var(--interactive-accent));
+    color: var(--wiki-accent-text, #fff);
+    font-size: unset;
 }
 .wiki-profile-name-text {
     flex: 1;
@@ -2794,7 +2787,7 @@ button[aria-label="규칙 추가"] {
     font-size: 28px;
     font-weight: 700;
     cursor: pointer;
-    border-radius: 0 !important;
+    border-radius: 0;
     background: color-mix(in srgb, var(--wiki-accent-color, var(--interactive-accent)), var(--background-secondary) 80%);
     color: var(--wiki-accent-color, var(--interactive-accent));
 }
