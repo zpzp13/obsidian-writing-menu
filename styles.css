@@ -18,7 +18,6 @@
 .wm-menu-nav-icon svg { width: 15px; height: 15px; }
 .wm-menu-nav-body { flex: 1; min-width: 0; }
 .wm-menu-nav-title { font-size: 13px; font-weight: 600; color: var(--interactive-accent); line-height: 1.3; }
-.wm-menu-nav-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wm-menu-nav-chevron { display: flex; align-items: center; color: var(--text-faint); flex-shrink: 0; }
 .wm-menu-nav-chevron svg { width: 15px; height: 15px; }
 
@@ -37,9 +36,9 @@
 .wm-settings-group-box .wm-settings-nav-card:hover { border-color: var(--background-modifier-border); background: var(--background-modifier-hover); }
 
 /* Setting items inside group box — uniform height matching nav cards, no radius, dividers only */
-.wm-settings-group-box .setting-item { background: transparent !important; border-radius: 0 !important; border-top: 1px solid var(--background-modifier-border) !important; border-bottom: none !important; padding-top: 10px !important; padding-bottom: 10px !important; margin: 0 !important; min-height: 50px; box-sizing: border-box; }
-.wm-settings-group-box .setting-item:first-child { border-top: none !important; }
-.wm-settings-group-box .setting-item-description { display: none !important; }
+.wm-settings-group-box .setting-item { background: transparent; border-radius: 0; border-top: 1px solid var(--background-modifier-border); border-bottom: none; padding-top: 10px; padding-bottom: 10px; margin: 0; min-height: 50px; box-sizing: border-box; }
+.wm-settings-group-box .setting-item:first-child { border-top: none; }
+.wm-settings-group-box .setting-item-description { display: none; }
 .wm-settings-group-box .setting-item select {
     background: var(--background-secondary, var(--background-primary));
     color: var(--text-normal);
@@ -61,9 +60,7 @@
 .wm-settings-group-title { font-size: 16px; font-weight: 600; color: var(--interactive-accent); letter-spacing: 0; margin: 20px 0 8px 0; }
 .wm-settings-group-title:first-child { margin-top: 4px; }
 .wm-settings-subgroup-title { font-size: 14px; font-weight: 600; color: var(--text-muted); margin: 8px 0 8px 0; opacity: 0.65; }
-.wm-settings-subgroup-title-row { display: flex; align-items: center; justify-content: space-between; margin-right: 11px; }
 .wm-settings-subgroup-title-row .wm-settings-subgroup-title { margin: 8px 0; }
-.wm-settings-subgroup-desc { font-size: 13px; color: var(--text-muted); margin: 8px 0 8px 4px; line-height: 2; }
 
 /* ── Settings Sub-page Back Button ── */
 .wm-settings-back-btn { display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text-muted); font-size: 14px; font-weight: 600; margin-bottom: 16px; padding: 4px 0; }
@@ -127,83 +124,78 @@
 /* Input & Select Styling - Transparent Backgrounds */
 .writing-menu-control input,
 .writing-menu-control select {
-    background-color: transparent !important;
-    border: 1px solid transparent !important;
+    background-color: transparent;
+    border: 1px solid transparent;
     /* Keep minimal */
     color: var(--text-normal);
-    caret-color: var(--text-accent) !important;
+    caret-color: var(--text-accent);
     /* User request: match text color */
-    box-shadow: none !important;
-    padding: 0 !important;
+    box-shadow: none;
+    padding: 0;
 }
 
 /* Color Input Swatch Fixes */
 .writing-menu-control input[type="color"] {
-    -webkit-appearance: none !important;
-    appearance: none !important;
-    width: 28px !important;
-    height: 28px !important;
-    min-width: 28px !important;
-    min-height: 28px !important;
-    background: transparent !important;
-    border: none !important;
-    padding: 0 !important;
-    margin: 0 !important;
+    -webkit-appearance: none;
+    appearance: none;
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    min-height: 28px;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
     cursor: pointer;
-    flex-shrink: 0 !important;
-    box-sizing: border-box !important;
-    border-radius: 0 !important;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    border-radius: 0;
     /* Strictly Square Container */
 }
 
 .writing-menu-control input[type="color"]::-webkit-color-swatch-wrapper {
-    padding: 0 !important;
-    display: block !important;
+    padding: 0;
+    display: block;
     /* Ensure it fills block */
-    width: 100% !important;
-    height: 100% !important;
-    box-sizing: border-box !important;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
 }
 
 .writing-menu-control input[type="color"]::-webkit-color-swatch {
-    border: none !important;
-    box-shadow: none !important;
-    outline: none !important;
-    border-radius: 50% !important;
+    border: none;
+    box-shadow: none;
+    outline: none;
+    border-radius: 50%;
     /* Circular Swatch */
     transition: transform 0.1s ease;
-    box-sizing: border-box !important;
-    width: 100% !important;
-    height: 100% !important;
-}
-
-/* Helper for controls needing zero padding container */
-.writing-menu-no-padding {
-    padding: 0 !important;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
 }
 
 /* Text Input Default Width */
 .writing-menu-control input[type="text"] {
     width: 100px;
     text-align: right;
-    padding: 0 !important;
+    padding: 0;
 }
 
 .writing-menu-control input:focus,
 .writing-menu-control select:focus {
-    background-color: transparent !important;
-    box-shadow: none !important;
+    background-color: transparent;
+    box-shadow: none;
     /* Optional: cleaner look */
 }
 
 .writing-menu-control input[type="number"] {
-    width: 50px !important;
+    width: 50px;
     text-align: center;
 }
 
 .writing-menu-control select {
     max-width: 100px;
-    padding: 0 !important;
+    padding: 0;
     text-align: right;
 }
 
@@ -217,8 +209,8 @@
 .writing-menu-control .clickable-icon {
     color: var(--text-muted);
     cursor: pointer;
-    width: 30px !important;
-    height: 30px !important;
+    width: 30px;
+    height: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -278,18 +270,6 @@
     width: 100%;
 }
 
-.writing-menu-nested {
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-    padding-left: 20px !important;
-    box-sizing: border-box !important;
-}
-
-/* Remove CSS-based symbol, use real icon */
-.writing-menu-nested>label::before {
-    display: none;
-}
-
 .writing-menu-icon {
     width: 16px;
     height: 16px;
@@ -304,24 +284,6 @@
     height: 16px;
     display: block;
     vertical-align: middle;
-}
-
-.writing-menu-nested>label,
-.writing-menu-nested>.writing-menu-control-label-group {
-    padding-left: 0;
-}
-
-.writing-menu-hidden {
-    display: none !important;
-}
-
-/* Settings Button in Dropdown */
-.writing-menu-settings-btn {
-    justify-content: center;
-    cursor: pointer;
-    margin-top: 4px;
-    border-top: 1px solid var(--background-modifier-border);
-    color: var(--text-accent);
 }
 
 /* Focus Mode Styles */
@@ -1021,22 +983,6 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 .wm-dash-panel-single {
     padding: 20px 10px;
 }
-.wm-dash-panel-placeholder {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 120px;
-}
-.wm-dash-placeholder {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    color: var(--text-muted);
-}
-.wm-dash-placeholder-icon svg { width: 28px; height: 28px; }
-.wm-dash-placeholder-text { font-size: 13px; font-weight: 600; }
-.wm-dash-placeholder-sub  { font-size: 11px; }
 
 /* ── Sort Board ── */
 .wm-dash-sort-board { padding: 0; }
@@ -1471,156 +1417,9 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 }
 .wm-dash-today-num.wm-dash-stat-num { font-size: 20px; line-height: 1; }
 .wm-dash-today-sum.wm-dash-stat-num { font-size: 22px; line-height: 1; }
-
-/* 설정 아이콘: 목표 카드 좌측 하단, 호버 시 표시 */
-.wm-dash-stat-cog {
-    position: absolute;
-    bottom: 4px;
-    left: 4px;
-    width: 16px;
-    height: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-faint);
-    cursor: pointer;
-    border-radius: var(--radius-s, 4px);
-    opacity: 0;
-    transition: opacity 0.12s;
-}
-.wm-dash-stat-card:hover .wm-dash-stat-cog { opacity: 1; }
-.wm-dash-stat-cog:hover { color: var(--text-muted); background: var(--background-modifier-hover); }
-.wm-dash-stat-cog svg { width: 12px; height: 12px; }
-
-/* Stats grid and heatmap: additional 10px inset inside the item's own 10px padding
+/* Stats grid: additional 10px inset inside the item's own 10px padding
    → total 20px from group edge, matching version-history's item-top indent */
 .wm-dash-stats-grid { margin: 0 10px; }
-.wm-dash-hm-pad { margin: 0 10px; }
-
-/* ── Heatmap layout (drag-scrollable) ── */
-.wm-hm-wrapper {
-    position: relative;
-    background: transparent;  /* 사이드바 배경색과 동일 */
-    width: 100%;
-    overflow: hidden;
-    border-radius: var(--radius-m);
-}
-
-/* DOW labels: 절대 배치로 고정, solid 배경으로 스크롤 내용 마스킹 */
-.wm-hm-dow-labels {
-    position: absolute;
-    left: 0;
-    /* top: 6px padding + 14px month row + 4px gap = 24px */
-    top: 24px;
-    z-index: 2;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    background: var(--background-secondary);
-    width: 32px;
-    box-sizing: border-box;
-    padding: 0 6px 0 8px;
-}
-.wm-hm-dow-label {
-    height: 13px;    /* matches cell height */
-    line-height: 13px;
-    font-size: 10px;
-    color: var(--text-muted);
-    width: 18px;
-    text-align: left;
-}
-
-/* Scrollable content area */
-.wm-hm-content {
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: none;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    /* left: 8px margin + 18px dow labels + 6px gap = 32px */
-    padding: 6px 8px 8px 32px;
-    cursor: grab;
-    user-select: none;
-    box-sizing: border-box;
-    width: 100%;
-}
-.wm-hm-content::-webkit-scrollbar { display: none; }
-.wm-hm-content.is-dragging { cursor: grabbing; }
-
-/* Month label row (scrolls with grid) */
-.wm-hm-month-row {
-    display: flex;
-    gap: 2px;
-    height: 14px;
-}
-.wm-hm-month-col {
-    width: 13px;      /* same as cell size */
-    flex-shrink: 0;
-    height: 14px;
-    position: relative;
-    overflow: visible;
-}
-.wm-hm-month-label {
-    position: absolute;
-    left: 0;
-    font-size: 10px;
-    color: var(--text-muted);
-    white-space: nowrap;
-    line-height: 14px;
-}
-
-/* Cell grid */
-.wm-hm-grid {
-    display: flex;
-    flex-direction: row;
-    gap: 2px;
-}
-.wm-hm-col {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-.wm-hm-cell {
-    width: 13px;
-    height: 13px;
-    border-radius: 3px;
-    cursor: pointer;
-    transition: background-color 0.3s ease-out;
-}
-.wm-hm-cell-today { box-shadow: inset 0 0 0 2px var(--interactive-accent); }
-.wm-hm-cell-future { opacity: 0.15; pointer-events: none; }
-.wm-hm-col .wm-hm-cell:hover { background-color: var(--interactive-accent) !important; transition-duration: 25ms; }
-
-/* Level colors: level-0 uses explicit rgba so it's always visible against any sidebar */
-.theme-light .wm-hm-cell.level-0 { background: rgba(0, 0, 0, 0.10); }
-.theme-dark  .wm-hm-cell.level-0 { background: rgba(255, 255, 255, 0.10); }
-.wm-hm-cell.level-1 { background: color-mix(in srgb, var(--hm-color, var(--interactive-accent)) 18%, transparent); }
-.wm-hm-cell.level-2 { background: color-mix(in srgb, var(--hm-color, var(--interactive-accent)) 45%, transparent); }
-.wm-hm-cell.level-3 { background: color-mix(in srgb, var(--hm-color, var(--interactive-accent)) 75%, transparent); }
-.wm-hm-cell.level-4 { background: var(--hm-color, var(--interactive-accent)); }
-
-/* Tooltip (appended to body, keep-the-rhythm dark style) */
-.wm-hm-popup {
-    position: fixed;
-    z-index: 9999;
-    background: #000;
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    border-radius: var(--radius-m);
-    padding: 6px 10px;
-    box-shadow: 0 2px 8px -1px rgba(0, 0, 0, 0.5);
-    pointer-events: none;
-    transform: translate(-50%, -100%);
-    white-space: nowrap;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    color: #fff;
-    font-size: var(--font-smaller);
-}
-.wm-hm-popup-date { font-weight: 600; margin-bottom: 2px; }
-.wm-hm-popup-count { color: var(--interactive-accent); font-variant-numeric: tabular-nums; }
-.wm-hm-popup-empty { opacity: 0.55; }
 
 /* ── Day Preview Popup ── */
 .wm-day-preview { min-width: 220px; max-width: 280px; padding: 6px 0; }
@@ -1671,8 +1470,6 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     border-color: var(--interactive-accent);
     color: var(--text-on-accent);
 }
-/* 얇은 구분선 (작업시간 내부) */
-.wm-day-preview-sep-thin { opacity: 0.5; margin: 2px 2px; }
 
 /* (old stats row removed — replaced by .wm-dash-stats-card) */
 
@@ -1983,9 +1780,6 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 .wm-cal-cell.wm-cal-task-level-1:not(.wm-cal-today) { background: color-mix(in srgb, var(--interactive-accent) 12%, transparent); }
 .wm-cal-cell.wm-cal-task-level-2:not(.wm-cal-today) { background: color-mix(in srgb, var(--interactive-accent) 28%, transparent); }
 .wm-cal-cell.wm-cal-task-level-3:not(.wm-cal-today) { background: color-mix(in srgb, var(--interactive-accent) 50%, transparent); }
-
-/* ── 캘린더 태스크 미리보기 팝업 ── */
-.wm-cal-task-preview { min-width: 180px; max-width: 260px; }
 
 
 /* ── 음악 플레이어 섹션 ── */
@@ -2360,191 +2154,10 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     --font-text-size: 13px !important;
 }
 
-/* --- REFACTORED SECTIONS --- */
-
-/* PROPS BELOW NAME (Revised) */
-.wiki-group-character-props {
-    display: block !important;
-    color: var(--text-muted) !important;
-    font-size: var(--wiki-group-prop-size) !important;
-    /* Slightly smaller */
-    text-align: center;
-    /* Center Align */
-    padding: 0 4px;
-    /* Reduced side padding */
-    margin-top: 2px !important;
-    /* Tighter vertical spacing */
-    line-height: 1.2;
-    opacity: 0.9;
-    width: 100%;
-}
-
-/* Ensure p tags inside properties don't ruin spacing */
-.wiki-group-character-props p {
-    margin: 0 !important;
-    padding: 0 !important;
-    text-align: center;
-}
-
-/* --- GLOBAL RESETS --- */
-.obsiwiki-view-container,
-.obsiwiki-view-container * {
-    border-radius: 0px !important;
-    box-sizing: border-box !important;
-    box-shadow: none !important;
-}
-
-/* --- MAIN CONTAINER --- */
-.obsiwiki-view-container {
-    padding: 15px;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    height: 100%;
-    display: block !important;
-    position: relative;
-}
-
 /* Ensure Toolbar spans full width */
 .wiki-toolbar {
     display: flex;
     width: 100%;
-}
-
-/* Main Content */
-.obsiwiki-main-content {
-    display: block !important;
-    width: 100%;
-}
-
-/* --- Floating Vertical Sidebar (Floating Overlay) --- */
-.wiki-floating-sidebar {
-    position: absolute !important;
-    top: 100%;
-    margin-top: 10px;
-    right: -12px;
-    /* Pull right to ignore parent padding (12px) */
-
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 8px;
-
-    /* Transparency */
-    /* Transparency */
-    background-color: rgba(0, 0, 0, 0.35) !important;
-    /* Force transparent black (35%) */
-    backdrop-filter: blur(3px) !important;
-
-    border: 1px solid var(--wiki-border-color);
-    border-right: none;
-    border-radius: 12px !important;
-
-    box-shadow: var(--shadow-s);
-    z-index: 500;
-    opacity: 0;
-    transition: opacity 0.2s ease-in-out;
-}
-
-.wiki-floating-sidebar:hover,
-.wiki-floating-sidebar.is-active {
-    opacity: 1;
-    /* Stay visible on hover OR when active */
-}
-
-
-
-
-
-/* --- 1. GROUP INFOBOX (Cleaned) --- */
-
-
-.wiki-group-toggle {
-    position: static;
-    font-size: 11px;
-    cursor: pointer;
-    opacity: 0.8;
-}
-
-.wiki-group-title {
-    font-size: 16px;
-    text-align: center;
-    flex: 0 1 auto;
-}
-
-.wiki-group-content {
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-}
-
-.wiki-group-collapsed {
-    display: none;
-}
-
-/* NOTE: .wiki-group-row, .wiki-group-label, .wiki-group-data are defined at the bottom for Vertical Layout */
-
-/* LIST: Grid Layout */
-.wiki-group-character-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, 120px);
-    gap: 0px;
-    justify-content: start;
-    width: 100%;
-}
-
-.wiki-group-character-item {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    min-height: 120px;
-    height: auto;
-    position: relative;
-    cursor: pointer;
-    overflow: hidden;
-}
-
-/* IMAGE */
-.wiki-group-character-image {
-    width: 120px !important;
-    height: 120px !important;
-    min-width: 120px !important;
-    min-height: 120px !important;
-    object-fit: cover !important;
-    border-radius: 0 !important;
-    border: none !important;
-    margin: 0 !important;
-    display: block;
-    opacity: 0.95;
-    transition: opacity 0.2s;
-}
-
-.wiki-group-character-item:hover .wiki-group-character-image {
-    opacity: 0.8;
-}
-
-/* TEXT BELOW IMAGE */
-.wiki-group-character-name {
-    display: block !important;
-    background-color: transparent !important;
-    color: var(--text-normal) !important;
-    font-size: var(--wiki-group-title-size) !important;
-    font-weight: bold;
-    padding: 6px 2px 2px 2px;
-    text-align: center;
-    white-space: normal;
-    line-height: 1.2;
-}
-
-
-
-.wiki-color-picker-icon-container input[type="color"] {
-    opacity: 0;
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    cursor: pointer;
 }
 
 .wiki-profile-image-container {
@@ -2558,32 +2171,6 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     cursor: pointer;
 }
 
-
-/* --- Floating Vertical Sidebar --- */
-.wiki-floating-sidebar {
-    position: sticky;
-    top: 10px;
-    float: right;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 8px;
-    background-color: var(--background-primary);
-    border: 1px solid var(--wiki-border-color);
-    border-radius: var(--radius-m);
-    z-index: 500;
-    opacity: 0;
-    transition: opacity 0.2s ease-in-out;
-    margin-right: 15px;
-    /* Spacing from scrollbar */
-    margin-left: 10px;
-    box-shadow: var(--shadow-s);
-}
-
-.wiki-floating-sidebar:hover {
-    opacity: 1;
-}
-
 /* --- Popovers & Menus --- */
 /* Refactored to use Native .menu classes. Custom .wiki-popover styles removed. */
 
@@ -2595,48 +2182,6 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     box-shadow: none;
 }
 
-
-/* Group Infobox */
-.wiki-group-infobox {
-    width: 100%;
-    margin-bottom: 20px;
-    background-color: var(--wiki-bg-color);
-    border: 1px solid var(--wiki-border-color);
-    border-top-color: transparent;
-    /* Transparent Top Border */
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-/* Group Header */
-/* Group Header */
-.wiki-group-header {
-    background-color: color-mix(in srgb, var(--wiki-accent-color) 40%, transparent);
-    /* Transparency Restored */
-    color: var(--wiki-accent-text);
-    padding: 8px 12px;
-    cursor: pointer;
-    border-bottom: none !important;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-bottom: 0px;
-    position: relative;
-    font-weight: 700;
-}
-
-
-
-/* Color Picker Icon - Absolute Position */
-.wiki-color-picker-icon-container {
-    position: absolute;
-    right: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    display: flex;
-    align-items: center;
-}
-
 /* Profile Key Tweaks */
 .wiki-profile-key {
     background-color: var(--wiki-accent-color);
@@ -2645,261 +2190,13 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     font-weight: 700;
 }
 
-.wiki-group-row {
-    display: block;
-    border-bottom: none !important;
-}
-
-.wiki-group-label {
-    width: 100%;
-    padding: 3px 12px;
-    /* Reduced by 5px (was 8px) */
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-right: none !important;
-    border-bottom: none !important;
-    cursor: pointer;
-    user-select: none;
-    position: relative;
-    /* Palette Mode Styles override this inline, but ensure defaults are clean */
-}
-
-.wiki-group-label .wiki-group-pin-icon {
-    margin-left: 8px;
-    color: var(--interactive-accent);
-    /* Default Accent Color */
-    opacity: 1;
-    /* Full visibility */
-    display: flex;
-    align-items: center;
-}
-
-.wiki-group-label .wiki-group-pin-icon svg {
-    width: 14px;
-    height: 14px;
-}
-
-.wiki-group-data {
-    width: 100%;
-    padding: 8px 12px;
-    border: none !important;
-}
-
-/* Group Infobox (Horizontal Wrapping) */
-.wiki-group-character-list {
-    display: flex;
-    flex-flow: row wrap !important;
-    /* Force wrap */
-    gap: 8px;
-    justify-content: flex-start !important;
-    /* Force left align */
-    align-items: flex-start !important;
-}
-
-/* Character Item */
-.wiki-group-character-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    width: auto;
-    /* Let content dictate width */
-    max-width: 120px;
-    /* Optional cap */
-}
-
-.wiki-group-character-image {
-    object-fit: cover;
-    display: block;
-    margin: 0 auto 4px auto;
-    /* Center image in item, margin bottom */
-}
-
-/* Rule Popover (Advanced Grid Layout) */
-.wiki-rule-row {
-    display: flex;
-    align-items: center;
-    gap: 0;
-    padding: 4px 0;
-    border-bottom: none !important;
-    /* Force No Border */
-    width: 100%;
-    cursor: default;
-    background-color: var(--background-secondary);
-}
-
 .wiki-rule-row.dragging {
     opacity: 0.5;
     background: var(--background-modifier-hover);
 }
 
-/* Scrollable Container for Rules */
-.wiki-group-rules-scroll {
-    max-height: 300px;
-    /* Ensure limiting height */
-    overflow-y: auto;
-    overflow-x: hidden;
-    margin-bottom: 8px;
-    /* border-bottom removed */
-}
-
-
-
-
-/* Separator - Only used between major blocks now */
-.wiki-separator {
-    width: 1px;
-    height: 20px;
-    background-color: var(--wiki-border-color);
-    margin: 0 8px;
-}
-
-/* Rule Sections */
-.wiki-rule-drag-handle {
-    cursor: grab;
-    color: var(--text-muted);
-    padding: 0 8px;
-    display: flex;
-    align-items: center;
-}
-
-.wiki-rule-section {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    /* Equal Width modification handled inline or via class */
-}
-
-.wiki-rule-section-flex {
-    flex: 1;
-    /* Equal Width */
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    justify-content: center;
-}
-
-.wiki-rule-input {
-    min-width: 0;
-    width: 100%;
-    /* Responds to parent */
-    background: transparent !important;
-    border: none !important;
-    color: var(--text-normal) !important;
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.wiki-rule-input:focus {
-    border: none !important;
-    outline: none !important;
-    box-shadow: none !important;
-    /* Hard reset */
-}
-
-/* Condition Selector - Transparent & Centered */
-.wiki-condition-select {
-    background: transparent !important;
-    border: none !important;
-    /* No Border */
-    padding: 0 4px;
-    /* Tight padding */
-    font-size: var(--font-ui-smaller);
-    color: var(--text-muted);
-    cursor: pointer;
-    appearance: none;
-    text-align: center;
-    box-shadow: none !important;
-}
-
-.wiki-condition-select option {
-    background-color: var(--background-secondary);
-    /* Dropdown items need background */
-    color: var(--text-normal);
-}
-
-.wiki-condition-select:focus {
-    outline: none !important;
-    box-shadow: none !important;
-}
-
-/* Ensure Parent Wrapper has no Border */
-.wiki-rule-section select {
-    border: none !important;
-    background: transparent !important;
-    box-shadow: none !important;
-}
-
-/* Specific Fix for Rule Popover - Remove Bottom Padding */
-.rule-popover {
-    padding-bottom: 0 !important;
-}
-
-.wiki-filter-add-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    padding: 6px 12px;
-    cursor: pointer;
-    color: var(--text-muted);
-    font-size: var(--font-ui-small);
-    border-radius: var(--radius-s);
-}
-
-.wiki-filter-add-btn:hover {
-    background-color: var(--background-modifier-hover);
-    color: var(--text-normal);
-}
-
-
-.wiki-condition-select:hover {
-    color: var(--text-normal);
-}
-
-/* Actions */
-.wiki-tool-btn {
-    color: var(--text-muted);
-    cursor: pointer;
-    padding: 4px;
-    display: flex;
-    align-items: center;
-}
-
-.wiki-tool-btn:hover {
-    color: var(--text-normal);
-}
-
-.wiki-tool-btn.active-pin {
-    color: var(--interactive-accent);
-    transform: rotate(45deg);
-}
-
 .wiki-tool-btn.delete:hover {
     color: var(--text-error);
-}
-
-/* Add Button Centering */
-.wiki-filter-add-btn {
-    padding: 8px;
-    display: flex;
-    align-items: center;
-    /* Center Vertically */
-    justify-content: center;
-    /* Center Horizontally as requested? Or just aligned? User said 'center is off' */
-    gap: 6px;
-    cursor: pointer;
-    color: var(--text-muted);
-    min-height: 28px;
-    /* Match others */
-}
-
-.wiki-filter-add-btn:hover {
-    color: var(--text-normal);
 }
 
 /* Saved Views / Menu Items */
@@ -2918,29 +2215,6 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 .wiki-saved-view-item:hover,
 .wiki-suggestion-item:hover {
     background-color: var(--background-modifier-hover);
-}
-
-/* Saved View Actions (Always Visible) */
-.wiki-saved-view-actions {
-    margin-left: auto;
-    display: flex;
-    gap: 4px;
-    opacity: 1;
-    /* Always Visible */
-}
-
-.wiki-action-icon {
-    color: var(--text-muted);
-    padding: 4px;
-    border-radius: 4px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-}
-
-.wiki-action-icon:hover {
-    background-color: var(--background-modifier-hover);
-    color: var(--text-normal);
 }
 
 .wiki-action-icon.delete:hover {
@@ -2982,19 +2256,6 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     color: var(--text-on-accent);
 }
 
-.wiki-suggestion-item.wiki-group-header {
-    background-color: transparent;
-    /* Transparent */
-    padding: 2px 8px;
-    /* Further reduced padding */
-    cursor: pointer;
-    border-bottom: 1px solid var(--wiki-border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 4px;
-}
-
 /* --- TOOLBAR (Horizontal Layout) --- */
 .wiki-toolbar {
     display: flex;
@@ -3007,18 +2268,6 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     border: none !important;
 }
 
-.wiki-toolbar-left-nav {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.wiki-toolbar-right-tools {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
 .wiki-nav-btn {
     cursor: pointer;
     color: var(--text-muted);
@@ -3028,31 +2277,6 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 }
 
 .wiki-nav-btn:hover {
-    color: var(--text-normal);
-}
-
-.wiki-view-icon {
-    display: flex;
-    align-items: center;
-    color: var(--text-normal);
-}
-
-.wiki-view-title {
-    font-weight: 600;
-    font-size: 14px;
-    color: var(--text-normal);
-    line-height: 1;
-}
-
-.wiki-toolbar-item {
-    cursor: pointer;
-    color: var(--text-muted);
-    display: flex;
-    align-items: center;
-    transition: color 0.2s ease;
-}
-
-.wiki-toolbar-item:hover {
     color: var(--text-normal);
 }
 
@@ -3070,14 +2294,6 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     width: 100%;
     padding-bottom: 4px;
     margin-bottom: 16px;
-}
-
-/* Force Restore Transparency for Group Header and Ensure Text Opacity */
-.wiki-group-header {
-    background-color: color-mix(in srgb, var(--wiki-accent-color) 40%, transparent) !important;
-    /* Lighter Transparency (40%) */
-    color: var(--wiki-accent-text) !important;
-    opacity: 1 !important;
 }
 
 
@@ -3197,24 +2413,6 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     box-sizing: border-box !important;
 }
 
-/* Sort List Item Container */
-.wiki-sort-item-container {
-    padding: 11px !important;
-    gap: 11px !important;
-    align-items: center !important;
-}
-
-/* Vertical Separator for Sort Item */
-.wiki-sort-separator {
-    width: 1px;
-    height: 130px;
-    /* Increased height */
-    background-color: var(--background-modifier-border);
-    margin: 0 2px;
-    /* Requested padding/margin */
-    flex-shrink: 0;
-}
-
 /* Add Rule Button Padding */
 button[aria-label="규칙 추가"] {
     padding: 2px 6px !important;
@@ -3225,8 +2423,6 @@ button[aria-label="규칙 추가"] {
 /* ═══════════════════════════════════════════════════════
    나무위키 대시보드 스타일 — WikiPanel (dashboard 내장형)
    ═══════════════════════════════════════════════════════ */
-
-.wm-dash-panel-single .wiki-floating-sidebar { display: none !important; }
 
 /* wiki 모드: wm-cal-content에 .wm-wiki-mode가 붙으면 fixed-height flex 체인으로 전환 */
 .wm-wiki-mode {
@@ -3294,20 +2490,6 @@ button[aria-label="규칙 추가"] {
 /* 카드 스트립 / 관계 리스트 접힘 */
 .wiki-card-strip-wrap.is-collapsed,
 .wiki-rel-list-wrap.is-collapsed { display: none; }
-
-/* 폴더 아이콘 (wm-cal-icon-btn 규격: 28×28, 아이콘 16px) */
-.wiki-bc-folder-icon {
-    width: 28px;
-    height: 28px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    color: var(--text-muted);
-    opacity: 0.72;
-}
-.wiki-bc-folder-icon .svg-icon { width: 16px; height: 16px; }
-.wiki-toolbar-left:hover .wiki-bc-folder-icon { opacity: 1; color: var(--text-normal); }
 
 .wiki-strip-collapse-btn { flex-shrink: 0; }
 
@@ -3593,19 +2775,6 @@ button[aria-label="규칙 추가"] {
     white-space: nowrap;
     text-align: center;
 }
-.wiki-color-picker-icon-container {
-    position: relative;
-    width: 20px;
-    height: 20px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0.7;
-    flex-shrink: 0;
-}
-.wiki-color-picker-icon-container:hover { opacity: 1; }
-.wiki-color-picker-icon-container .svg-icon { width: 14px; height: 14px; }
 
 /* TOC와 Profile은 flex-wrap으로 공간이 되면 같은 줄(TOC 좌측, Profile 우측), 안 되면 줄 바꿈 */
 
@@ -4462,16 +3631,6 @@ button[aria-label="규칙 추가"] {
 [data-writing-menu-id] .cm-cursor-primary { border-left-color: var(--wm-font-color, inherit) !important; }
 [data-writing-menu-id] .cm-highlight { color: var(--wm-font-color, inherit) !important; }
 
-/* Properties (frontmatter) 글자색 — Obsidian 내부 변수만 재정의 */
-[data-writing-menu-id] .metadata-container {
-    --text-normal: var(--wm-font-color, var(--text-normal));
-    --text-muted: var(--wm-font-color, var(--text-muted));
-    --text-faint: var(--wm-font-color, var(--text-faint));
-    --icon-color: var(--wm-font-color, var(--icon-color));
-    --metadata-label-text-color: var(--wm-font-color, var(--metadata-label-text-color));
-    --metadata-input-text-color: var(--wm-font-color, var(--metadata-input-text-color));
-}
-
 /* Link color override */
 [data-writing-menu-id].wm-disable-link-color .cm-content .cm-link,
 [data-writing-menu-id].wm-disable-link-color a {
@@ -4662,7 +3821,6 @@ button[aria-label="규칙 추가"] {
 .wm-pair-delete-btn:hover { color: var(--icon-color-hover); }
 .wm-pair-add-btn { padding: 2px 8px 5px; color: var(--text-muted); cursor: pointer; font-size: 15px; text-align: center; }
 .wm-settings-add-btn-row { margin: 8px 0; }
-.wm-settings-add-btn-right { display: flex; justify-content: flex-end; }
 .wm-substitution-list { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 0; max-width: 520px; border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m, 8px); overflow: hidden; }
 .wm-substitution-list.is-mobile-width { max-width: 100%; }
 .wm-substitution-row { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--background-modifier-border); }
@@ -4778,10 +3936,7 @@ button[aria-label="규칙 추가"] {
 .wm-settings-group-add-row { display: flex; justify-content: center; }
 .wm-settings-group-add-row .clickable-icon { width: 20px; height: 20px; padding: 1px; }
 .wm-settings-group-add-row .clickable-icon .svg-icon { width: 20px; height: 20px; }
-/* 타이틀 + 설명 함께 한 줄 (작업 모드 등) */
-.wm-settings-section-hdr-label { display: flex; align-items: center; gap: 8px; flex: 1; }
 .wm-settings-section-hdr-label .wm-settings-group-title { margin: 0; flex: none; }
-.wm-settings-group-title-desc { color: var(--text-faint); }
 
 /* 설정 팝업은 오른쪽 기준 정렬 */
 .wm-sc-add-popup-right { left: auto; right: 0; }
@@ -4885,7 +4040,6 @@ button[aria-label="규칙 추가"] {
 .wm-spell-detail-fixed { flex-shrink: 0; }
 .wm-spell-detail-scroll { flex: 1; overflow-y: auto; min-height: 0; }
 .wm-spell-section { padding: 8px 16px; }
-.wm-spell-section-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
 
 /* 원문/수정 비교 카드 (클릭 가능) */
 .wm-spell-orig-card { margin: 10px 16px 4px; border: 1.5px solid var(--background-modifier-border); border-radius: 8px; overflow: hidden; }
@@ -4933,9 +4087,6 @@ button[aria-label="규칙 추가"] {
 /* 설정 페이지 알림 / 항목 개별 설명 */
 .wm-settings-item-desc { padding: 0 16px 10px; margin-right: 150px; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
 .wm-settings-item-desc p { font-size: 13px; color: var(--text-muted); margin: 0 0 4px; line-height: 1.5; }
-
-/* 설정 페이지 추가 행 */
-.wm-settings-add-row { display: flex; align-items: center; padding: 8px 12px; }
 
 /* ════════════════════════════════════════════════════════════════════
    Plot Manager
@@ -4991,15 +4142,6 @@ button[aria-label="규칙 추가"] {
   text-align: center;
 }
 
-.wm-plot-tool-text-btn {
-  font-size: 12px;
-  padding: 3px 8px;
-  display: flex;
-  align-items: center;
-  gap: 3px;
-}
-.wm-plot-tool-text-btn svg { width: 14px !important; height: 14px !important; }
-
 .wm-plot-tool-btn {
   background: none !important;
   border: none !important;
@@ -5014,13 +4156,6 @@ button[aria-label="규칙 추가"] {
 .wm-plot-tool-btn svg { color: var(--text-muted) !important; }
 .wm-plot-tool-btn:hover { background: var(--background-modifier-hover) !important; color: var(--text-normal) !important; }
 .wm-plot-tool-btn:hover svg { color: var(--text-normal) !important; }
-
-.wm-plot-divider {
-  height: 4px;
-  background: var(--background-modifier-border);
-  flex-shrink: 0;
-  cursor: row-resize;
-}
 
 /* ── Content area + independent scroll sections ── */
 .wm-plot-content-area {
@@ -5506,72 +4641,7 @@ td:hover .wm-plot-actions {
 .wm-plot-char-cell {
   padding: 0;
 }
-
-/* ── Scene cell character button & badge ── */
-.wm-plot-cell-char-btn {
-  position: absolute;
-  bottom: 4px;
-  right: 4px;
-  opacity: 0;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 2px;
-  border-radius: 3px;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  z-index: 1;
-}
 .wm-plot-cell:hover .wm-plot-cell-char-btn { opacity: 0.7; }
-.wm-plot-cell-char-btn:hover { opacity: 1 !important; background: var(--background-modifier-hover); }
-
-.wm-plot-char-badge {
-  position: absolute;
-  bottom: 2px;
-  left: 4px;
-  font-size: 9px;
-  color: var(--interactive-accent);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: calc(100% - 24px);
-  pointer-events: none;
-  opacity: 0.8;
-}
-
-/* ── Character picker dropdown ── */
-.wm-plot-char-picker {
-  position: absolute;
-  bottom: 100%;
-  right: 0;
-  z-index: 10;
-  background: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  min-width: 120px;
-  padding: 4px 0;
-  font-size: 12px;
-}
-.wm-plot-char-picker-empty {
-  padding: 8px 12px;
-  color: var(--text-muted);
-  font-size: 11px;
-}
-.wm-plot-char-picker-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 5px 12px;
-  cursor: pointer;
-  color: var(--text-normal);
-}
-.wm-plot-char-picker-item:hover { background: var(--background-modifier-hover); }
-.wm-plot-char-picker-item.is-selected { color: var(--interactive-accent); font-weight: 600; }
-.wm-plot-char-picker-check { display: flex; align-items: center; color: var(--interactive-accent); }
-.wm-plot-char-picker-check svg { width: 12px; height: 12px; }
 
 /* ── Drag ── */
 [draggable="true"] { cursor: grab; }
@@ -5848,11 +4918,6 @@ td:hover .wm-plot-actions {
   font-weight: 600;
   color: var(--text-normal);
 }
-.wm-plot-bulk-desc {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-top: -4px;
-}
 .wm-plot-bulk-row {
   display: flex;
   align-items: center;
@@ -5892,15 +4957,6 @@ td:hover .wm-plot-actions {
   font-weight: 500;
 }
 .wm-plot-bulk-confirm:hover { opacity: 0.9; }
-.wm-plot-bulk-cancel {
-  background: var(--background-modifier-hover);
-  color: var(--text-normal);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 4px;
-  padding: 5px 16px;
-  font-size: 13px;
-  cursor: pointer;
-}
 .wm-plot-bulk-dropdown {
   position: fixed;
   z-index: 10001;
@@ -6156,81 +5212,6 @@ td:hover .wm-plot-actions {
 }
 .wm-confirm-move-btn.mod-cta {
   background: var(--interactive-accent); color: var(--text-on-accent); border-color: transparent;
-}
-
-/* ── Color picker modal ── */
-.wm-cp-modal { width: 270px; }
-.wm-cp-content {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 2px 0 4px;
-}
-/* Segmented tab control */
-.wm-cp-tabs {
-  display: flex;
-  gap: 2px;
-  padding: 2px;
-  border-radius: 7px;
-  background: var(--background-secondary);
-}
-.wm-cp-tab {
-  flex: 1;
-  display: flex; align-items: center; justify-content: center; gap: 5px;
-  padding: 5px 0;
-  border-radius: 5px;
-  border: none; background: none;
-  cursor: pointer; font-size: 13px;
-  color: var(--text-muted);
-  transition: background .1s, color .1s;
-}
-.wm-cp-tab:hover { color: var(--text-normal); }
-.wm-cp-tab.is-active {
-  background: var(--interactive-accent);
-  color: var(--text-on-accent);
-  box-shadow: none;
-  font-weight: 500;
-}
-.wm-cp-tab .svg-icon { width: 13px; height: 13px; }
-/* Swatch grid — 6 columns */
-.wm-cp-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 28px);
-  gap: 6px;
-  margin: 0 auto;
-}
-.wm-cp-swatch {
-  width: 28px; height: 28px;
-  border-radius: 50%;
-  cursor: pointer;
-  border: 2px solid transparent;
-  box-sizing: border-box;
-  transition: transform .12s;
-}
-.wm-cp-swatch:hover { transform: scale(1.18); }
-.wm-cp-swatch.is-active { border-color: var(--text-normal); }
-/* Footer */
-.wm-cp-actions {
-  display: flex; align-items: center;
-  justify-content: space-between;
-  border-top: 1px solid var(--background-modifier-border);
-  padding-top: 10px;
-}
-.wm-cp-none {
-  all: unset;
-  cursor: pointer; font-size: 13px;
-  color: var(--text-muted);
-  padding: 4px 12px;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 5px;
-}
-.wm-cp-none:hover { color: var(--text-normal); background: var(--background-modifier-hover); }
-.wm-cp-color-inp {
-  width: 28px; height: 28px;
-  padding: 0;
-  border: 2px solid var(--background-modifier-border);
-  border-radius: 50%;
-  cursor: pointer; overflow: hidden; flex-shrink: 0;
 }
 
 /* ── Timeline view ── */
