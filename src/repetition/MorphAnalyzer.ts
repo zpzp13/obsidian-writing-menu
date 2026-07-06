@@ -1,16 +1,20 @@
-import * as fsRaw from 'fs';
 import { Platform } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { MorphToken } from './types';
 import type { FsLike } from '../utils/nodeShims';
-
-const fs = fsRaw as unknown as FsLike;
 // @ts-ignore 타입 없는 vendored wasm-bindgen glue (garu_wasm.d.ts는 참고용, import는 값만 사용)
 import initGaruWasm, { GaruWasm } from './vendor/garu_wasm.js';
 import { getAssetPaths, isGaruAssetsDownloaded } from './GaruAssets';
 
 // WASM 엔진 JS는 번들에 포함하되(가볍다, ~14KB), 무거운 .wasm/모델 바이너리는
 // GaruAssets.ts가 첫 사용 시 CDN에서 내려받아 플러그인 폴더에 저장해둔 걸 읽어서 쓴다.
+// fs도 데스크톱 전용이므로 모바일에서 로드 자체가 안 되도록 지연 로드한다.
+let fsModule: FsLike | null = null;
+async function getFs(): Promise<FsLike> {
+	if (!Platform.isDesktop) throw new Error('데스크톱 전용 기능입니다.');
+	if (!fsModule) fsModule = (await import('fs')) as unknown as FsLike;
+	return fsModule;
+}
 
 export class ModelNotDownloadedError extends Error {
 	constructor() { super('형태소 분석 모델이 아직 다운로드되지 않았습니다.'); }
@@ -25,10 +29,11 @@ export function isMorphAnalysisSupported(): boolean {
 
 async function getGaru(plugin: WritingMenuPlugin): Promise<InstanceType<typeof GaruWasm>> {
 	if (garuInstance) return garuInstance;
-	if (!isGaruAssetsDownloaded(plugin)) throw new ModelNotDownloadedError();
+	if (!(await isGaruAssetsDownloaded(plugin))) throw new ModelNotDownloadedError();
 
 	if (!loadingPromise) {
 		loadingPromise = (async () => {
+			const fs = await getFs();
 			const { wasmPath, modelPath } = getAssetPaths(plugin);
 			const wasmBytes = fs.readFileSync(wasmPath);
 			const modelBytes = fs.readFileSync(modelPath);

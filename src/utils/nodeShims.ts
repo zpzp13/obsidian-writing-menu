@@ -1,6 +1,7 @@
 // 심사 환경이 @types/node를 해석하지 못하는 경우에도(설치 여부와 무관하게 그런
-// 경우가 있는 것으로 보임) fs/path/child_process 호출이 any로 전파되지 않도록,
+// 경우가 있는 것으로 보임) fs/child_process 호출이 any로 전파되지 않도록,
 // 실제로 쓰는 API 표면만 최소로 직접 선언해서 캐스팅에 사용한다.
+// (path 모듈은 아예 안 쓰고 자체 joinPath 헬퍼로 대체했다.)
 
 export interface DirentLike {
 	name: string;
@@ -15,10 +16,6 @@ export interface FsLike {
 	readFileSync(path: string): Uint8Array;
 	readdirSync(path: string, options: { withFileTypes: true }): DirentLike[];
 	unlinkSync(path: string): void;
-}
-
-export interface PathLike {
-	join(...segments: string[]): string;
 }
 
 interface DataEventEmitterLike {
