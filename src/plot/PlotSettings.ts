@@ -112,7 +112,6 @@ export function renderPlotSettingsPage(containerEl: HTMLElement, plugin: Writing
 		.addSlider(sl => sl
 			.setLimits(120, 400, 10)
 			.setValue(plugin.settings.plotCellWidth ?? 200)
-			.setDynamicTooltip()
 			.onChange(async (val) => {
 				plugin.settings.plotCellWidth = val;
 				activeDocument.body.style.setProperty('--wm-plot-cell-width', `${val}px`);

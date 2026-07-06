@@ -44,7 +44,7 @@ export class PlotManagerView extends ItemView {
 		// Global event listeners — registered once per view lifecycle (not per render)
 		const contentEl = this.containerEl.children[1] as HTMLElement;
 
-		this.registerDomEvent(document, 'keydown', (e: KeyboardEvent) => {
+		this.registerDomEvent(activeDocument, 'keydown', (e: KeyboardEvent) => {
 			if (e.shiftKey && e.key === 'F') {
 				const active = activeDocument.activeElement;
 				const isEditing = active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement;

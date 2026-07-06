@@ -1239,7 +1239,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		const addBtn = addWrap.createDiv({ cls: 'clickable-icon wm-muted-icon' });
 		setIcon(addBtn, 'plus');
 		addWrap.appendChild(popup);
-		addBtn.addEventListener('click', (e) => { e.stopPropagation(); popupOpen ? hidePopup() : showPopup(); });
+		addBtn.addEventListener('click', (e) => { e.stopPropagation(); if (popupOpen) hidePopup(); else showPopup(); });
 		activeDocument.addEventListener('mousedown', (e) => {
 			if (popupOpen && !addWrap.contains(e.target as Node)) hidePopup();
 		});
