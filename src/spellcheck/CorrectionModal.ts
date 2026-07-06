@@ -262,7 +262,7 @@ export class CorrectionModal extends Modal {
 			item.addEventListener('click', () => {
 				this.focusedOccIdx = oi;
 				this.refresh();
-				requestAnimationFrame(() => this.scrollPreviewToOcc(oi));
+				window.requestAnimationFrame(() => this.scrollPreviewToOcc(oi));
 			});
 		});
 
@@ -285,7 +285,7 @@ export class CorrectionModal extends Modal {
 			const { pos } = occ;
 			const end = pos + c.original.length;
 
-			if (cursor < pos) this.previewEl.appendChild(document.createTextNode(body.substring(cursor, pos)));
+			if (cursor < pos) this.previewEl.appendChild(activeDocument.createTextNode(body.substring(cursor, pos)));
 
 			const span = this.previewEl.createSpan({ cls: 'wm-spell-error-span' });
 			span.setAttribute('data-occ-idx', String(oi));
@@ -301,7 +301,7 @@ export class CorrectionModal extends Modal {
 			cursor = end;
 		}
 
-		if (cursor < body.length) this.previewEl.appendChild(document.createTextNode(body.substring(cursor)));
+		if (cursor < body.length) this.previewEl.appendChild(activeDocument.createTextNode(body.substring(cursor)));
 	}
 
 	private renderDetail() {
@@ -347,7 +347,7 @@ export class CorrectionModal extends Modal {
 		}
 
 		// 스크롤 영역: 도움말만
-		const helpText = (c.help || '').replace(/^도움말\s*[:\-]?\s*/i, '').trim();
+		const helpText = (c.help || '').replace(/^도움말\s*[:-]?\s*/i, '').trim();
 		if (helpText) {
 			const scroll = this.detailEl.createDiv({ cls: 'wm-spell-detail-scroll' });
 			scroll.createEl('div', { cls: 'wm-spell-labeled-divider', text: '도움말' });
@@ -465,7 +465,7 @@ export class CorrectionModal extends Modal {
 		});
 		overlay.addEventListener('click', e => { if (e.target === overlay) this.closeEditPopup(); });
 
-		setTimeout(() => { input.focus(); input.select(); }, 10);
+		window.setTimeout(() => { input.focus(); input.select(); }, 10);
 	}
 
 	// ── 전체 교정 적용 ───────────────────────────────────────────────────────
@@ -544,6 +544,6 @@ export class CorrectionModal extends Modal {
 		if (len === 0) return;
 		this.focusedOccIdx = (this.focusedOccIdx + delta + len) % len;
 		this.refresh();
-		requestAnimationFrame(() => this.scrollPreviewToOcc(this.focusedOccIdx));
+		window.requestAnimationFrame(() => this.scrollPreviewToOcc(this.focusedOccIdx));
 	}
 }

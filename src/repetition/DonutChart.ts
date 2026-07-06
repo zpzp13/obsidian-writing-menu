@@ -36,11 +36,11 @@ export function renderDonutChart(container: HTMLElement, segments: DonutSegment[
 	const cy = size / 2;
 
 	const svgNs = 'http://www.w3.org/2000/svg';
-	const svg = document.createElementNS(svgNs, 'svg');
+	const svg = activeDocument.createElementNS(svgNs, 'svg');
 	svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
 	svg.addClass('wm-rep-donut-svg');
 
-	const bg = document.createElementNS(svgNs, 'circle');
+	const bg = activeDocument.createElementNS(svgNs, 'circle');
 	bg.setAttribute('cx', String(cx));
 	bg.setAttribute('cy', String(cy));
 	bg.setAttribute('r', String(radius));
@@ -54,7 +54,7 @@ export function renderDonutChart(container: HTMLElement, segments: DonutSegment[
 		if (total <= 0) return;
 		const frac = seg.value / total;
 		const dash = frac * circumference;
-		const circle = document.createElementNS(svgNs, 'circle');
+		const circle = activeDocument.createElementNS(svgNs, 'circle');
 		circle.setAttribute('cx', String(cx));
 		circle.setAttribute('cy', String(cy));
 		circle.setAttribute('r', String(radius));

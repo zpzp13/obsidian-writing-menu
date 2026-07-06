@@ -95,7 +95,7 @@ export class Layout1Grid {
 		this.wrapper.setAttribute('tabindex', '-1');
 		this.wrapper.addEventListener('keydown', this.onKeydown);
 		// Cache the scroll container once — closest() traversal on every keypress is wasteful
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			this.sectionEl = this.wrapper.closest<HTMLElement>('.wm-plot-section');
 		});
 	}
@@ -161,7 +161,7 @@ export class Layout1Grid {
 							this.applySelection(cell, false);
 							// Restore scroll AFTER selection so any newly-visible rows are in the DOM
 							if (section) { section.scrollTop = savedScrollTop; section.scrollLeft = savedScrollLeft; }
-							requestAnimationFrame(() => this.applyPinnedSticky());
+							window.requestAnimationFrame(() => this.applyPinnedSticky());
 							return;
 						}
 					}
@@ -169,14 +169,14 @@ export class Layout1Grid {
 			}
 			// Selection not found (e.g. deleted character row) — still restore scroll
 			if (section) { section.scrollTop = savedScrollTop; section.scrollLeft = savedScrollLeft; }
-			requestAnimationFrame(() => this.applyPinnedSticky());
+			window.requestAnimationFrame(() => this.applyPinnedSticky());
 		} finally {
 			this._rendering = false;
 		}
 	}
 
 	refreshPinnedSticky() {
-		requestAnimationFrame(() => this.applyPinnedSticky());
+		window.requestAnimationFrame(() => this.applyPinnedSticky());
 	}
 
 	private applyPinnedSticky() {
@@ -260,7 +260,7 @@ export class Layout1Grid {
 		}
 		this.plotSortedLines = newSortedLines;
 
-		requestAnimationFrame(() => this.applyPinnedSticky());
+		window.requestAnimationFrame(() => this.applyPinnedSticky());
 	}
 
 	getTableEl(): HTMLElement { return this.wrapper; }
@@ -1024,8 +1024,8 @@ export class Layout1Grid {
 		trigEnd: number,    // position after trigger character
 		onDismiss: () => void,
 	): HTMLElement {
-		document.querySelectorAll('.wm-cell-trigger-popup').forEach(el => el.remove());
-		const popup = document.body.createDiv({ cls: 'wm-cell-trigger-popup' });
+		activeDocument.querySelectorAll('.wm-cell-trigger-popup').forEach(el => el.remove());
+		const popup = activeDocument.body.createDiv({ cls: 'wm-cell-trigger-popup' });
 		const rect = textarea.getBoundingClientRect();
 		popup.style.left = `${rect.left}px`;
 		popup.style.top = `${rect.top - 4}px`;
@@ -1045,16 +1045,16 @@ export class Layout1Grid {
 		const outsideHandler = (e: MouseEvent) => {
 			if (!popup.contains(e.target as Node)) {
 				onDismiss();
-				document.removeEventListener('mousedown', outsideHandler, true);
+				activeDocument.removeEventListener('mousedown', outsideHandler, true);
 			}
 		};
-		setTimeout(() => document.addEventListener('mousedown', outsideHandler, true), 0);
+		window.setTimeout(() => activeDocument.addEventListener('mousedown', outsideHandler, true), 0);
 		return popup;
 	}
 
 	// ── Cell selection ────────────────────────────────────────────────────────
 
-	private cellSelectDebounce: ReturnType<typeof setTimeout> | null = null;
+	private cellSelectDebounce: number | null = null;
 
 	private selectCell(cell: GridCell, scrollToCenter = false) {
 		if (this.selectedCell === cell) return; // no-op if same cell (boundary clamp etc.)
@@ -1071,7 +1071,7 @@ export class Layout1Grid {
 		// Re-focus wrapper so keyboard events keep firing after a mouse click.
 		// Skip entirely when wrapper is already focused (keyboard navigation) —
 		// reading scrollTop/scrollLeft forces a synchronous layout on every keypress.
-		if (document.activeElement !== this.wrapper) {
+		if (activeDocument.activeElement !== this.wrapper) {
 			const section = this.sectionEl;
 			const savedTop = section?.scrollTop ?? 0;
 			const savedLeft = section?.scrollLeft ?? 0;
@@ -1082,7 +1082,7 @@ export class Layout1Grid {
 		if (cell.rowKind === 'plotLine') {
 			// Cancel pending reorder RAF to avoid pile-up during rapid key presses
 			if (this.reorderRafId !== null) cancelAnimationFrame(this.reorderRafId);
-			this.reorderRafId = requestAnimationFrame(() => {
+			this.reorderRafId = window.requestAnimationFrame(() => {
 				this.reorderRafId = null;
 				if (this.selectedCell === cell) {
 					this.reorderCharsByColumn(cell.c);
@@ -1105,7 +1105,7 @@ export class Layout1Grid {
 				// Cancels previous pending RAF so only the final cell in a rapid sequence
 				// triggers the update — eliminates style recalculations per keypress.
 				const sceneId = cell.sceneId;
-				this.reorderRafId = requestAnimationFrame(() => {
+				this.reorderRafId = window.requestAnimationFrame(() => {
 					this.reorderRafId = null;
 					if (this.selectedCell === cell) {
 						this.updateHiddenCharVisibility(sceneId);
@@ -1116,8 +1116,8 @@ export class Layout1Grid {
 		}
 		// Debounce onCellSelect — rapid arrow key presses only fire the callback
 		// after 80ms pause, preventing excessive timeline re-renders
-		if (this.cellSelectDebounce) clearTimeout(this.cellSelectDebounce);
-		this.cellSelectDebounce = setTimeout(() => {
+		if (this.cellSelectDebounce) window.clearTimeout(this.cellSelectDebounce);
+		this.cellSelectDebounce = window.setTimeout(() => {
 			this.cellSelectDebounce = null;
 			if (this.selectedCell === cell) {
 				this.callbacks.onCellSelect({
@@ -1230,7 +1230,7 @@ export class Layout1Grid {
 			return;
 		}
 		// Defer scroll to RAF so rapid keydown events don't block input processing
-		this.scrollRafId = requestAnimationFrame(() => {
+		this.scrollRafId = window.requestAnimationFrame(() => {
 			this.scrollRafId = null;
 			el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 			// Correct for sticky header overlap
@@ -1317,9 +1317,9 @@ export class Layout1Grid {
 	// ── Episode subtitle input ────────────────────────────────────────────────
 
 	private openSubtitleInput(ep: PlotEpisode, anchor: HTMLElement) {
-		document.querySelector('.wm-plot-subtitle-popup')?.remove();
+		activeDocument.querySelector('.wm-plot-subtitle-popup')?.remove();
 		const rect = anchor.getBoundingClientRect();
-		const popup = document.body.createDiv({ cls: 'wm-plot-subtitle-popup' });
+		const popup = activeDocument.body.createDiv({ cls: 'wm-plot-subtitle-popup' });
 		popup.style.top = `${rect.bottom + 4}px`;
 		popup.style.left = `${Math.max(4, rect.left - 80)}px`;
 
@@ -1345,12 +1345,12 @@ export class Layout1Grid {
 	// ── Sort Popup ───────────────────────────────────────────────────────────
 
 	openSortPopup(anchor: HTMLElement): void {
-		document.querySelector('.wm-plot-sort-popup')?.remove();
+		activeDocument.querySelector('.wm-plot-sort-popup')?.remove();
 		const rect = anchor.getBoundingClientRect();
-		const popup = document.body.createDiv({ cls: 'wm-plot-sort-popup' });
+		const popup = activeDocument.body.createDiv({ cls: 'wm-plot-sort-popup' });
 		popup.style.top = `${rect.bottom + 4}px`;
 		popup.style.left = `${Math.max(4, rect.left)}px`;
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			const pw = popup.offsetWidth;
 			const ph = popup.offsetHeight;
 			popup.style.left = `${Math.max(4, Math.min(rect.left, window.innerWidth - pw - 8))}px`;
@@ -1409,7 +1409,7 @@ export class Layout1Grid {
 							currentPage = Math.floor(ei / PAGE_SIZE);
 							collapsedEps.delete(ep.id);
 							renderTree(container);
-							requestAnimationFrame(() => {
+							window.requestAnimationFrame(() => {
 								const rows = container.querySelectorAll<HTMLElement>('.wm-sort-ch-row');
 								for (const row of Array.from(rows)) {
 									const lbl = row.querySelector('.wm-sort-label');
@@ -1418,7 +1418,7 @@ export class Layout1Grid {
 										row.classList.remove('wm-sort-ch-flash');
 										void row.offsetWidth;
 										row.classList.add('wm-sort-ch-flash');
-										setTimeout(() => row.classList.remove('wm-sort-ch-flash'), 1200);
+										window.setTimeout(() => row.classList.remove('wm-sort-ch-flash'), 1200);
 										break;
 									}
 								}
@@ -1515,7 +1515,7 @@ export class Layout1Grid {
 						dragType = 'ch'; dragEpFromIdx = epIdx; dragChFromIdx = -1; dragFromIdx = chIdx;
 						e.dataTransfer!.effectAllowed = 'move';
 						e.dataTransfer!.setData('text/plain', '');
-						setTimeout(() => chRow.classList.add('wm-sort-dragging'), 0);
+						window.setTimeout(() => chRow.classList.add('wm-sort-dragging'), 0);
 					});
 					chRow.addEventListener('dragend', () => {
 						dragType = null; dragEpFromIdx = -1; dragChFromIdx = -1; dragFromIdx = -1;
@@ -1600,7 +1600,7 @@ export class Layout1Grid {
 							dragType = 'sc'; dragEpFromIdx = epIdx; dragChFromIdx = chIdx; dragFromIdx = scIdx;
 							e.dataTransfer!.effectAllowed = 'move';
 							e.dataTransfer!.setData('text/plain', '');
-							setTimeout(() => scRow.classList.add('wm-sort-dragging'), 0);
+							window.setTimeout(() => scRow.classList.add('wm-sort-dragging'), 0);
 						});
 						scRow.addEventListener('dragend', () => {
 							dragType = null; dragEpFromIdx = -1; dragChFromIdx = -1; dragFromIdx = -1;
@@ -1633,14 +1633,14 @@ export class Layout1Grid {
 
 		renderTree(popup);
 		// Outside-click: also allow clicks inside the chapter search popup
-		setTimeout(() => {
+		window.setTimeout(() => {
 			const handler = (e: MouseEvent) => {
-				const searchPop = document.querySelector('.wm-plot-ch-search-popup');
+				const searchPop = activeDocument.querySelector('.wm-plot-ch-search-popup');
 				if (popup.contains(e.target as Node) || (searchPop && searchPop.contains(e.target as Node))) return;
 				popup.remove();
-				document.removeEventListener('click', handler, true);
+				activeDocument.removeEventListener('click', handler, true);
 			};
-			document.addEventListener('click', handler, true);
+			activeDocument.addEventListener('click', handler, true);
 		}, 0);
 	}
 
@@ -1767,11 +1767,11 @@ export class Layout1Grid {
 	}
 
 	openAddCharPopup(anchor: HTMLElement) {
-		const existingAddChar = document.querySelector('.wm-plot-addchar-popup');
+		const existingAddChar = activeDocument.querySelector('.wm-plot-addchar-popup');
 		if (existingAddChar) { existingAddChar.remove(); return; }
-		document.querySelector('.wm-bulk-create-popup')?.remove();
-		document.querySelector('.wm-bulk-delete-popup')?.remove();
-		const popup = document.body.createDiv({ cls: 'wm-plot-addchar-popup wm-plot-bulk-popup wm-plot-bulk-dropdown' });
+		activeDocument.querySelector('.wm-bulk-create-popup')?.remove();
+		activeDocument.querySelector('.wm-bulk-delete-popup')?.remove();
+		const popup = activeDocument.body.createDiv({ cls: 'wm-plot-addchar-popup wm-plot-bulk-popup wm-plot-bulk-dropdown' });
 
 		const root = this.plugin.settings.plotManagerFolder?.trim() ?? '';
 		const charSub = this.plugin.settings.plotCharFolder?.trim() ?? '';
@@ -1818,7 +1818,7 @@ export class Layout1Grid {
 		const actions = popup.createDiv({ cls: 'wm-plot-bulk-actions' });
 		const confirmBtn = actions.createEl('button', { cls: 'wm-plot-bulk-confirm', text: '추가' });
 
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			const rect = anchor.getBoundingClientRect();
 			const ph = popup.getBoundingClientRect().height;
 			const top = rect.bottom + 4 + ph > window.innerHeight ? rect.top - ph - 4 : rect.bottom + 4;
@@ -1855,12 +1855,12 @@ export class Layout1Grid {
 					}
 				}
 
-				let file = this.plugin.app.vault.getAbstractFileByPath(filePath);
-				if (!(file instanceof TFile)) {
-					file = await this.plugin.app.vault.create(filePath, content);
-				}
+				const existingFile = this.plugin.app.vault.getAbstractFileByPath(filePath);
+				const file = existingFile instanceof TFile
+					? existingFile
+					: await this.plugin.app.vault.create(filePath, content);
 
-				const cfm = this.plugin.app.metadataCache.getFileCache(file as TFile)?.frontmatter;
+				const cfm = this.plugin.app.metadataCache.getFileCache(file)?.frontmatter;
 				const color = typeof cfm?.['wikiColor'] === 'string' ? cfm['wikiColor'] : undefined;
 
 				this.project.characters.push({ id: newId(), name, color, filePath });
@@ -2078,9 +2078,9 @@ export class Layout1Grid {
 		popupClass: string,
 		histKey: string,
 	): void {
-		const existingFmt = document.querySelector(`.${popupClass}`);
+		const existingFmt = activeDocument.querySelector(`.${popupClass}`);
 		if (existingFmt) { existingFmt.remove(); return; }
-		const popup = document.body.createDiv({ cls: `writing-menu-dropdown ${popupClass}` });
+		const popup = activeDocument.body.createDiv({ cls: `writing-menu-dropdown ${popupClass}` });
 
 		if (!this.fmtHistory.has(histKey)) {
 			this.fmtHistory.set(histKey, { undo: [], redo: [] });
@@ -2122,7 +2122,7 @@ export class Layout1Grid {
 
 			const minusBtn = grp.createDiv({ cls: 'clickable-icon wm-icon-btn-20' });
 			setIcon(minusBtn, 'minus');
-			requestAnimationFrame(() => {
+			window.requestAnimationFrame(() => {
 				const svg = minusBtn.querySelector('svg');
 				if (svg) { svg.setAttribute('width', '15'); svg.setAttribute('height', '15'); }
 			});
@@ -2130,7 +2130,7 @@ export class Layout1Grid {
 
 			const plusBtn = grp.createDiv({ cls: 'clickable-icon wm-icon-btn-20' });
 			setIcon(plusBtn, 'plus');
-			requestAnimationFrame(() => {
+			window.requestAnimationFrame(() => {
 				const svg = plusBtn.querySelector('svg');
 				if (svg) { svg.setAttribute('width', '15'); svg.setAttribute('height', '15'); }
 			});
@@ -2210,7 +2210,7 @@ export class Layout1Grid {
 
 		renderContent();
 
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			const rect = anchor.getBoundingClientRect();
 			const ph = popup.getBoundingClientRect().height;
 			const pw = popup.getBoundingClientRect().width;
@@ -2254,7 +2254,7 @@ export class Layout1Grid {
 				const file = this.plugin.app.vault.getAbstractFileByPath(char.filePath);
 				if (file instanceof TFile) {
 					this.callbacks.onBeforeTrash?.(char.filePath);
-					await this.plugin.app.vault.trash(file, true);
+					await this.plugin.app.fileManager.trashFile(file);
 				}
 			}
 			this.project.characters = this.project.characters.filter(c => c.id !== charId);
@@ -2273,12 +2273,12 @@ export class Layout1Grid {
 	}
 
 	openBulkCreatePopup(anchor: HTMLElement) {
-		const existingCreate = document.querySelector('.wm-bulk-create-popup');
+		const existingCreate = activeDocument.querySelector('.wm-bulk-create-popup');
 		if (existingCreate) { existingCreate.remove(); return; }
-		document.querySelector('.wm-bulk-delete-popup')?.remove();
-		document.querySelector('.wm-plot-addchar-popup')?.remove();
+		activeDocument.querySelector('.wm-bulk-delete-popup')?.remove();
+		activeDocument.querySelector('.wm-plot-addchar-popup')?.remove();
 
-		const popup = document.body.createDiv({ cls: 'wm-bulk-create-popup wm-plot-bulk-popup wm-plot-bulk-dropdown' });
+		const popup = activeDocument.body.createDiv({ cls: 'wm-bulk-create-popup wm-plot-bulk-popup wm-plot-bulk-dropdown' });
 
 		const makeRow = (label: string, value: string) => {
 			const row = popup.createDiv({ cls: 'wm-plot-bulk-row' });
@@ -2305,7 +2305,7 @@ export class Layout1Grid {
 		const confirmBtn = actions.createEl('button', { cls: 'wm-plot-bulk-confirm', text: '생성' });
 
 		// Position below anchor
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			const rect = anchor.getBoundingClientRect();
 			const ph = popup.getBoundingClientRect().height;
 			const top = rect.bottom + 4 + ph > window.innerHeight ? rect.top - ph - 4 : rect.bottom + 4;
@@ -2357,10 +2357,10 @@ export class Layout1Grid {
 	}
 
 	openBulkDeletePopup(anchor: HTMLElement) {
-		const existingDelete = document.querySelector('.wm-bulk-delete-popup');
+		const existingDelete = activeDocument.querySelector('.wm-bulk-delete-popup');
 		if (existingDelete) { existingDelete.remove(); return; }
-		document.querySelector('.wm-bulk-create-popup')?.remove();
-		document.querySelector('.wm-plot-addchar-popup')?.remove();
+		activeDocument.querySelector('.wm-bulk-create-popup')?.remove();
+		activeDocument.querySelector('.wm-plot-addchar-popup')?.remove();
 
 		const sortedAll = this.getSortedAllChapters();
 		if (sortedAll.length === 0) return;
@@ -2368,7 +2368,7 @@ export class Layout1Grid {
 		const firstNum = parseInt(sortedAll[0].ch.name) || 1;
 		const lastNum  = parseInt(sortedAll[sortedAll.length - 1].ch.name) || sortedAll.length;
 
-		const popup = document.body.createDiv({ cls: 'wm-bulk-delete-popup wm-plot-bulk-popup wm-plot-bulk-dropdown' });
+		const popup = activeDocument.body.createDiv({ cls: 'wm-bulk-delete-popup wm-plot-bulk-popup wm-plot-bulk-dropdown' });
 
 		const rangeRow = popup.createDiv({ cls: 'wm-plot-bulk-row' });
 		rangeRow.createEl('label', { text: '삭제 범위' });
@@ -2396,7 +2396,7 @@ export class Layout1Grid {
 		const confirmBtn = actions.createEl('button', { cls: 'wm-plot-bulk-confirm', text: '삭제' });
 
 		// Position below anchor
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			const rect = anchor.getBoundingClientRect();
 			const ph = popup.getBoundingClientRect().height;
 			const top = rect.bottom + 4 + ph > window.innerHeight ? rect.top - ph - 4 : rect.bottom + 4;
@@ -2455,10 +2455,10 @@ export class Layout1Grid {
 	}
 
 	openCharVisibilityPopup() {
-		const existingVis = document.querySelector('.wm-plot-char-vis-popup');
+		const existingVis = activeDocument.querySelector('.wm-plot-char-vis-popup');
 		if (existingVis) { existingVis.remove(); return; }
 
-		const popup = document.body.createDiv({ cls: 'wm-plot-char-vis-popup' });
+		const popup = activeDocument.body.createDiv({ cls: 'wm-plot-char-vis-popup' });
 
 		popup.createEl('h3', { cls: 'wm-plot-bulk-title', text: '선택 보기' });
 
@@ -2534,7 +2534,7 @@ export class Layout1Grid {
 		});
 
 		addOutsideClickListener(popup, dismiss);
-		setTimeout(() => searchInput.focus(), 50);
+		window.setTimeout(() => searchInput.focus(), 50);
 	}
 
 	prevPage() {
@@ -2633,7 +2633,7 @@ export class Layout1Grid {
 			this.callbacks.onPageChange?.();
 			this.render();
 		}
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			const ch = allChs[idx].ch;
 			const th = this.wrapper.querySelector<HTMLElement>(`[data-ch-id="${ch.id}"]`);
 			if (!th) return;
@@ -2654,11 +2654,11 @@ export class Layout1Grid {
 	}
 
 	destroy() {
-		document.querySelector('.wm-plot-palette-popup')?.remove();
-		document.querySelector('.wm-bulk-create-popup')?.remove();
-		document.querySelector('.wm-bulk-delete-popup')?.remove();
-		document.querySelector('.wm-plot-addchar-popup')?.remove();
-		document.querySelector('.wm-plot-char-vis-popup')?.remove();
+		activeDocument.querySelector('.wm-plot-palette-popup')?.remove();
+		activeDocument.querySelector('.wm-bulk-create-popup')?.remove();
+		activeDocument.querySelector('.wm-bulk-delete-popup')?.remove();
+		activeDocument.querySelector('.wm-plot-addchar-popup')?.remove();
+		activeDocument.querySelector('.wm-plot-char-vis-popup')?.remove();
 		if (this.scrollRafId !== null) cancelAnimationFrame(this.scrollRafId);
 		if (this.reorderRafId !== null) cancelAnimationFrame(this.reorderRafId);
 		this.fmtHistory.clear();

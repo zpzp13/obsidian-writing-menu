@@ -46,7 +46,7 @@ export class PlotManagerView extends ItemView {
 
 		this.registerDomEvent(document, 'keydown', (e: KeyboardEvent) => {
 			if (e.shiftKey && e.key === 'F') {
-				const active = document.activeElement;
+				const active = activeDocument.activeElement;
 				const isEditing = active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement;
 				const isInView = contentEl.contains(active);
 				const isActiveView = this.app.workspace.getActiveViewOfType(PlotManagerView) === this;
@@ -324,7 +324,7 @@ export class PlotManagerView extends ItemView {
 	}
 
 	private openChapterSearch() {
-		const existing = document.querySelector('.wm-plot-ch-search-popup');
+		const existing = activeDocument.querySelector('.wm-plot-ch-search-popup');
 		if (existing) { existing.remove(); return; }
 		const restoreFocus = () => {
 			const wrapper = this.grid?.getTableEl();
@@ -338,10 +338,10 @@ export class PlotManagerView extends ItemView {
 	}
 
 	private openShortcutDropdown(anchor: HTMLElement) {
-		const existing = document.querySelector('.wm-plot-shortcut-dropdown');
+		const existing = activeDocument.querySelector('.wm-plot-shortcut-dropdown');
 		if (existing) { existing.remove(); return; }
 		const rect = anchor.getBoundingClientRect();
-		const dropdown = document.body.createDiv({ cls: 'wm-plot-shortcut-dropdown' });
+		const dropdown = activeDocument.body.createDiv({ cls: 'wm-plot-shortcut-dropdown' });
 
 		const shortcuts: [string, string][] = [
 			['Shift+F', '회차 검색'],
@@ -361,7 +361,7 @@ export class PlotManagerView extends ItemView {
 		}
 
 		// Position: prefer below, flip above if overflow
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			const dh = dropdown.getBoundingClientRect().height;
 			const dw = dropdown.getBoundingClientRect().width;
 			const top = rect.bottom + 4 + dh > window.innerHeight
@@ -375,9 +375,9 @@ export class PlotManagerView extends ItemView {
 	}
 
 	private openInfoPopup() {
-		const existing = document.querySelector('.wm-plot-info-popup');
+		const existing = activeDocument.querySelector('.wm-plot-info-popup');
 		if (existing) { existing.remove(); return; }
-		const popup = document.body.createDiv({ cls: 'wm-plot-info-popup' });
+		const popup = activeDocument.body.createDiv({ cls: 'wm-plot-info-popup' });
 
 		const sections: { title: string; items: string[] }[] = [
 			{

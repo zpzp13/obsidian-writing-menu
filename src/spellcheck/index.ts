@@ -232,7 +232,7 @@ function formatHelp(help: string): string {
 	help = help.replace(/\n{2,}/g, '\n\n');
 	const lines = help.split('\n').filter(l => l.trim().length > 0);
 	if (lines.length === 0) return help;
-	const desc = lines[0].replace(/([^\s])\s*(\d+[\.\)])/g, '$1\n$2');
+	const desc = lines[0].replace(/([^\s])\s*(\d+[.)])/g, '$1\n$2');
 	if (lines.length > 1) {
 		const sentences = lines.slice(1).join(' ').split('.').filter(s => s.trim().length > 0);
 		if (sentences.length > 0) {
@@ -266,7 +266,7 @@ function buildCorrections(raw: RawResult[]): Correction[] {
 async function collectRaw(chunks: string[], checkFn: (chunk: string) => Promise<RawResult[]>, delay = 0): Promise<RawResult[]> {
 	const raw: RawResult[] = [];
 	for (let i = 0; i < chunks.length; i++) {
-		if (i > 0 && delay > 0) await new Promise(r => setTimeout(r, delay));
+		if (i > 0 && delay > 0) await new Promise(r => window.setTimeout(r, delay));
 		raw.push(...await checkFn(chunks[i]));
 	}
 	return raw;
