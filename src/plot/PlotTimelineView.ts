@@ -161,7 +161,6 @@ export class PlotTimelineView extends ItemView {
 					node.createDiv({ cls: 'wm-tl-dot' + (isActive ? ' is-active' : '') });
 
 					const card = node.createDiv({ cls: 'wm-tl-card' + (isActive ? ' is-active' : '') });
-					card.style.cursor = 'pointer';
 
 					const chipWrap = card.createDiv({ cls: 'wm-tl-chip-wrap' });
 					const chipIcon = chipWrap.createDiv({ cls: 'wm-tl-chip-icon' });

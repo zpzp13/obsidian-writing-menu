@@ -1253,6 +1253,7 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     margin-right: 2px;
 }
 .wm-dash-group-hdr-compact.is-visible { display: flex; order: 2; }
+.wm-dash-group-hdr-compact.is-hidden { visibility: hidden; }
 /* 버전관리 컴팩트 저장 버튼 — 헤더 높이를 cog(20px)에 맞춤 */
 .wm-ver-compact-save { width: 20px; height: 20px; padding: 0; }
 .wm-dash-hdr-compact-logo {
@@ -2945,6 +2946,17 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 .wiki-action-icon.delete:hover {
     color: var(--text-error);
     background-color: var(--background-modifier-error-hover);
+}
+
+.wm-wikilink-dropdown {
+    position: fixed;
+    z-index: 10002;
+    max-height: 240px;
+    overflow-y: auto;
+}
+.wm-wikilink-suggestion-note {
+    color: var(--text-muted);
+    font-size: 13px;
 }
 
 /* Suggestions Container */
@@ -4840,7 +4852,7 @@ button[aria-label="규칙 추가"] {
 .file-add-btn:hover { color: var(--text-success); }
 
 /* ── 맞춤법 검사 모달 ──────────────────────────────────────────────────── */
-.wm-spell-modal { display: flex; flex-direction: column; overflow: hidden; }
+.wm-spell-modal { width: 60vw; max-width: 980px; height: 80vh; display: flex; flex-direction: column; overflow: hidden; }
 .wm-spell-modal .modal-content { display: flex; flex-direction: column; height: 100%; padding: 0; overflow: hidden; }
 
 .wm-spell-header { display: flex; align-items: center; gap: 10px; padding: 14px 14px; border-bottom: 1px solid var(--background-modifier-border); flex-shrink: 0; }
@@ -5070,6 +5082,10 @@ button[aria-label="규칙 추가"] {
 .wm-plot-table thead tr:nth-child(3) th { top: 80px; }
 /* Corner cell: rowspan:3 → spans all 3 rows; always top: 0 */
 .wm-plot-corner-cell { top: 0 !important; }
+
+.wm-plot-sticky-td {
+  position: sticky;
+}
 
 .wm-plot-sticky-col {
   position: sticky;
@@ -5568,6 +5584,8 @@ td:hover .wm-plot-actions {
 
 /* ── Episode subtitle popup ── */
 .wm-plot-subtitle-popup {
+  position: fixed;
+  z-index: 10000;
   background: var(--background-primary);
   border: 1px solid var(--background-modifier-border);
   border-radius: 6px;
@@ -5592,6 +5610,8 @@ td:hover .wm-plot-actions {
 
 /* ── Sort popup ── */
 .wm-plot-sort-popup {
+  position: fixed;
+  z-index: 10000;
   background: var(--background-primary);
   border: 1px solid var(--background-modifier-border);
   border-radius: 6px;
@@ -5695,6 +5715,9 @@ td:hover .wm-plot-actions {
 
 /* ── Cell textarea trigger popup ── */
 .wm-cell-trigger-popup {
+  position: fixed;
+  z-index: 10001;
+  transform: translateY(-100%);
   background: var(--background-primary);
   border: 1px solid var(--background-modifier-border);
   border-radius: var(--radius-m, 6px);
@@ -5720,6 +5743,8 @@ td:hover .wm-plot-actions {
 
 /* ── Shortcut dropdown ── */
 .wm-plot-shortcut-dropdown {
+  position: fixed;
+  z-index: 10000;
   background: var(--background-primary);
   border: 1px solid var(--background-modifier-border);
   border-radius: 8px;
@@ -5756,6 +5781,11 @@ td:hover .wm-plot-actions {
 
 /* ── Info popup ── */
 .wm-plot-info-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10001;
   background: var(--background-primary);
   border: 1px solid var(--background-modifier-border);
   border-radius: 10px;
@@ -5872,6 +5902,8 @@ td:hover .wm-plot-actions {
   cursor: pointer;
 }
 .wm-plot-bulk-dropdown {
+  position: fixed;
+  z-index: 10001;
   box-shadow: 0 4px 16px rgba(0,0,0,0.2);
   padding: 10px 12px;
   min-width: 200px;
@@ -6026,6 +6058,11 @@ td:hover .wm-plot-actions {
 
 /* ── Character visibility popup ── */
 .wm-plot-char-vis-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10001;
   background: var(--background-primary);
   border: 1px solid var(--background-modifier-border);
   border-radius: 10px;
@@ -6424,6 +6461,7 @@ td:hover .wm-plot-actions {
 
 /* Card — matches wm-wt-mode-card.is-selected style */
 .wm-tl-card {
+  cursor: pointer;
   border: 2px solid color-mix(in srgb, var(--interactive-accent) 40%, transparent);
   border-radius: 9px;
   display: flex;

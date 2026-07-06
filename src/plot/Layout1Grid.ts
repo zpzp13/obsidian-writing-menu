@@ -183,10 +183,10 @@ export class Layout1Grid {
 		(Array.from(this.wrapper.querySelectorAll('tbody td')) as HTMLElement[])
 			.filter(td => td.style.top !== '')
 			.forEach(td => {
-				td.style.top = '';
-				td.style.zIndex = '';
+				td.style.removeProperty('top');
+				td.style.removeProperty('z-index');
 				if (!td.classList.contains('wm-plot-sticky-col')) {
-					td.style.position = '';
+					td.classList.remove('wm-plot-sticky-td');
 				}
 			});
 
@@ -196,7 +196,7 @@ export class Layout1Grid {
 		for (const row of pinnedRows) {
 			const cells = Array.from(row.querySelectorAll('td')) as HTMLElement[];
 			cells.forEach((td: HTMLElement, i: number) => {
-				td.style.position = 'sticky';
+				td.classList.add('wm-plot-sticky-td');
 				td.style.top = `${offset}px`;
 				td.style.zIndex = i === 0 ? '6' : '5';
 			});
@@ -1026,11 +1026,8 @@ export class Layout1Grid {
 		document.querySelectorAll('.wm-cell-trigger-popup').forEach(el => el.remove());
 		const popup = document.body.createDiv({ cls: 'wm-cell-trigger-popup' });
 		const rect = textarea.getBoundingClientRect();
-		popup.style.position = 'fixed';
 		popup.style.left = `${rect.left}px`;
 		popup.style.top = `${rect.top - 4}px`;
-		popup.style.transform = 'translateY(-100%)';
-		popup.style.zIndex = '10001';
 
 		for (const opt of options) {
 			const btn = popup.createEl('button', { cls: 'wm-cell-trigger-btn', text: opt.open + opt.close });
@@ -1322,10 +1319,8 @@ export class Layout1Grid {
 		document.querySelector('.wm-plot-subtitle-popup')?.remove();
 		const rect = anchor.getBoundingClientRect();
 		const popup = document.body.createDiv({ cls: 'wm-plot-subtitle-popup' });
-		popup.style.position = 'fixed';
 		popup.style.top = `${rect.bottom + 4}px`;
 		popup.style.left = `${Math.max(4, rect.left - 80)}px`;
-		popup.style.zIndex = '10000';
 
 		const input = popup.createEl('input', { cls: 'wm-plot-subtitle-input', attr: { type: 'text', placeholder: '소제목 입력…', spellcheck: 'false' } }) as HTMLInputElement;
 		input.value = ep.subtitle ?? '';
@@ -1352,8 +1347,6 @@ export class Layout1Grid {
 		document.querySelector('.wm-plot-sort-popup')?.remove();
 		const rect = anchor.getBoundingClientRect();
 		const popup = document.body.createDiv({ cls: 'wm-plot-sort-popup' });
-		popup.style.position = 'fixed';
-		popup.style.zIndex = '10000';
 		popup.style.top = `${rect.bottom + 4}px`;
 		popup.style.left = `${Math.max(4, rect.left)}px`;
 		requestAnimationFrame(() => {
@@ -1778,8 +1771,6 @@ export class Layout1Grid {
 		document.querySelector('.wm-bulk-create-popup')?.remove();
 		document.querySelector('.wm-bulk-delete-popup')?.remove();
 		const popup = document.body.createDiv({ cls: 'wm-plot-addchar-popup wm-plot-bulk-popup wm-plot-bulk-dropdown' });
-		popup.style.position = 'fixed';
-		popup.style.zIndex = '10001';
 
 		const root = this.plugin.settings.plotManagerFolder?.trim() ?? '';
 		const charSub = this.plugin.settings.plotCharFolder?.trim() ?? '';
@@ -2285,8 +2276,6 @@ export class Layout1Grid {
 		document.querySelector('.wm-plot-addchar-popup')?.remove();
 
 		const popup = document.body.createDiv({ cls: 'wm-bulk-create-popup wm-plot-bulk-popup wm-plot-bulk-dropdown' });
-		popup.style.position = 'fixed';
-		popup.style.zIndex = '10001';
 
 		const makeRow = (label: string, value: string) => {
 			const row = popup.createDiv({ cls: 'wm-plot-bulk-row' });
@@ -2377,8 +2366,6 @@ export class Layout1Grid {
 		const lastNum  = parseInt(sortedAll[sortedAll.length - 1].ch.name) || sortedAll.length;
 
 		const popup = document.body.createDiv({ cls: 'wm-bulk-delete-popup wm-plot-bulk-popup wm-plot-bulk-dropdown' });
-		popup.style.position = 'fixed';
-		popup.style.zIndex = '10001';
 
 		const rangeRow = popup.createDiv({ cls: 'wm-plot-bulk-row' });
 		rangeRow.createEl('label', { text: '삭제 범위' });
@@ -2469,11 +2456,6 @@ export class Layout1Grid {
 		if (existingVis) { existingVis.remove(); return; }
 
 		const popup = document.body.createDiv({ cls: 'wm-plot-char-vis-popup' });
-		popup.style.position = 'fixed';
-		popup.style.top = '50%';
-		popup.style.left = '50%';
-		popup.style.transform = 'translate(-50%, -50%)';
-		popup.style.zIndex = '10001';
 
 		popup.createEl('h3', { cls: 'wm-plot-bulk-title', text: '선택 보기' });
 

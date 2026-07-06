@@ -88,19 +88,19 @@ export class DashboardSection {
 			const logoEl = compact.createDiv({ cls: 'wm-dash-hdr-compact-logo' });
 			logoEl.appendChild(sanitizeHTMLToDom(mode === 'munpia' ? MUNPIA_SVG : NOVELPIA_SVG));
 			compactNumEl = compact.createSpan({ cls: 'wm-dash-hdr-compact-num' });
-			compact.style.visibility = 'hidden';
+			compact.classList.add('is-hidden');
 		}
 
 		const refreshChars = () => {
 			const view = plugin.app.workspace.getActiveViewOfType(MarkdownView);
 			if (!view?.file) {
 				updateChars(null);
-				if (compact) compact.style.visibility = 'hidden';
+				if (compact) compact.classList.add('is-hidden');
 				return;
 			}
 			const counts = calcAllCharCounts(view.editor.getValue());
 			updateChars(counts);
-			if (compact) compact.style.visibility = '';
+			if (compact) compact.classList.remove('is-hidden');
 			if (compactNumEl) {
 				const mode = plugin.settings.charCountMode ?? 'munpia';
 				compactNumEl.textContent = `${counts[mode].toLocaleString()}자`;

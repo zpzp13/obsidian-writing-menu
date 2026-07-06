@@ -31,16 +31,13 @@ function getFrontmatterOffset(text: string): number {
 }
 
 function decodeEntities(html: string): string {
-	const div = document.createElement('div');
-	div.innerHTML = html;
-	return div.textContent ?? html;
+	const doc = new DOMParser().parseFromString(html, 'text/html');
+	return doc.body.textContent ?? html;
 }
 
 function decodeHtmlToText(html: string): string {
-	const div = document.createElement('div');
-	div.innerHTML = html.replace(/<br\s*\/?>/gi, '\n');
-	div.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
-	return div.textContent ?? html;
+	const doc = new DOMParser().parseFromString(html.replace(/<br\s*\/?>/gi, '\n'), 'text/html');
+	return doc.body.textContent ?? html;
 }
 
 // ── Daum 검사 ─────────────────────────────────────────────────────────────

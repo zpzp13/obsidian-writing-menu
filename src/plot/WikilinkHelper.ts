@@ -52,9 +52,7 @@ export function attachWikilinkAutocomplete(textarea: HTMLTextAreaElement, app: A
 		items = filtered.slice(0, 50).map(f => ({ name: f.basename, path: f.path }));
 		if (items.length === 0) return;
 
-		dropdown = document.body.createDiv({ cls: 'suggestion-container mod-small' });
-		dropdown.style.maxHeight = '240px';
-		dropdown.style.overflowY = 'auto';
+		dropdown = document.body.createDiv({ cls: 'suggestion-container mod-small wm-wikilink-dropdown' });
 		selectedIdx = 0;
 
 		items.forEach(({ name, path }, i) => {
@@ -64,9 +62,7 @@ export function attachWikilinkAutocomplete(textarea: HTMLTextAreaElement, app: A
 			item.createDiv({ cls: 'suggestion-title', text: name });
 			const folderPath = path.includes('/') ? path.substring(0, path.lastIndexOf('/')) + '/' : '';
 			if (folderPath) {
-				const note = item.createDiv({ cls: 'suggestion-note', text: folderPath });
-				note.style.color = 'var(--text-muted)';
-				note.style.fontSize = '13px';
+				item.createDiv({ cls: 'suggestion-note wm-wikilink-suggestion-note', text: folderPath });
 			}
 			item.addEventListener('mousedown', (e) => {
 				e.preventDefault();
@@ -75,12 +71,8 @@ export function attachWikilinkAutocomplete(textarea: HTMLTextAreaElement, app: A
 		});
 
 		const rect = textarea.getBoundingClientRect();
-		Object.assign((dropdown as HTMLElement).style, {
-			position: 'fixed',
-			zIndex: '10002',
-			left: `${rect.left}px`,
-			minWidth: `${rect.width}px`,
-		});
+		dropdown.style.left = `${rect.left}px`;
+		dropdown.style.minWidth = `${rect.width}px`;
 
 		requestAnimationFrame(() => {
 			if (!dropdown) return;
