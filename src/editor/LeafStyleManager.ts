@@ -43,7 +43,7 @@ export class LeafStyleManager {
 		const base = lines.join('');
 
 		if (this.plugin.settings.charCountMode === 'novelpia') {
-			return base.replace(/ /g, '').replace(/[.,!?"']/g, '').replace(/[\s ]/g, '').length;
+			return base.replace(/ /g, '').replace(/[.,!?"']/g, '').replace(/[\s\u00A0]/g, '').length;
 		} else {
 			const ellipsisCount = (base.match(/…/g) || []).length;
 			return base.length + (ellipsisCount * 2);
