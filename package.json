@@ -16,7 +16,6 @@
 		"@codemirror/state": "^6.0.0",
 		"@codemirror/view": "^6.0.0",
 		"@types/diff-match-patch": "^1.0.36",
-		"@types/node": "^16.11.6",
 		"@typescript-eslint/eslint-plugin": "5.29.0",
 		"@typescript-eslint/parser": "5.29.0",
 		"esbuild": "0.17.3",
@@ -26,6 +25,7 @@
 		"typescript": "4.7.4"
 	},
 	"dependencies": {
+		"@types/node": "^16.11.6",
 		"diff-match-patch": "^1.0.5",
 		"hanspell": "^1.0.1",
 		"ical.js": "^2.2.1",
