@@ -1,5 +1,6 @@
 import { App, Modal, SuggestModal, TFile, normalizePath } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
+import { fireAndForget } from '../utils/asyncUtils';
 
 interface CharSuggestion {
 	file: TFile | null;
@@ -65,7 +66,11 @@ export class CharacterNoteModal extends SuggestModal<CharSuggestion> {
 		el.createEl('div', { text: item.label, cls: item.isCreate ? 'wm-char-modal-create' : '' });
 	}
 
-	async onChooseSuggestion(item: CharSuggestion) {
+	onChooseSuggestion(item: CharSuggestion): void {
+		fireAndForget(() => this.doChooseSuggestion(item));
+	}
+
+	private async doChooseSuggestion(item: CharSuggestion) {
 		const root = this.plugin.settings.plotManagerFolder?.trim() ?? '';
 		const charSub = this.plugin.settings.plotCharFolder?.trim() ?? '';
 		const targetFolder = charSub && root
@@ -82,15 +87,17 @@ export class CharacterNoteModal extends SuggestModal<CharSuggestion> {
 					this.app,
 					file.basename,
 					targetFolder,
-					async () => {
-						const newPath = normalizePath(targetFolder + '/' + file.name);
-						try {
-							await this.ensureFolder(targetFolder);
-							await this.app.fileManager.renameFile(file, newPath);
-							this.onConfirm(file.basename, newPath);
-						} catch {
-							this.onConfirm(file.basename, file.path);
-						}
+					() => {
+						fireAndForget(async () => {
+							const newPath = normalizePath(targetFolder + '/' + file.name);
+							try {
+								await this.ensureFolder(targetFolder);
+								await this.app.fileManager.renameFile(file, newPath);
+								this.onConfirm(file.basename, newPath);
+							} catch {
+								this.onConfirm(file.basename, file.path);
+							}
+						});
 					},
 					() => this.onConfirm(file.basename, file.path),
 				).open();

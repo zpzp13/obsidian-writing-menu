@@ -7,6 +7,7 @@ import { PlotManager } from './PlotManager';
 import { Layout1Grid } from './Layout1Grid';
 import type { PlotTimelineView } from './PlotTimelineView';
 import { addOutsideClickListener, openChapterSearchPopup } from './PlotUtils';
+import { fireAndForget } from '../utils/asyncUtils';
 
 export { PLOT_VIEW_TYPE };
 
@@ -111,7 +112,7 @@ export class PlotManagerView extends ItemView {
 		);
 		// 테마 전환 시 row 색상 opacity를 재계산하기 위해 re-render
 		this.registerEvent(
-			(this.app.workspace as any).on('css-change', () => { this.render(); })
+			this.app.workspace.on('css-change', () => { this.render(); })
 		);
 	}
 
@@ -418,11 +419,13 @@ export class PlotManagerView extends ItemView {
 	}
 
 	private openFolderPicker() {
-		new FolderSuggestModal(this.app, async (folder) => {
-			this.plugin.settings.plotManagerFolder = folder.path;
-			await this.plugin.saveSettings();
-			new Notice(`플롯 폴더: ${folder.path}`);
-			await this.reload();
+		new FolderSuggestModal(this.app, (folder) => {
+			fireAndForget(async () => {
+				this.plugin.settings.plotManagerFolder = folder.path;
+				await this.plugin.saveSettings();
+				new Notice(`플롯 폴더: ${folder.path}`);
+				await this.reload();
+			});
 		}).open();
 	}
 
