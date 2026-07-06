@@ -1,7 +1,11 @@
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fsRaw from 'fs';
+import * as pathRaw from 'path';
 import { FileSystemAdapter, requestUrl } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
+import type { FsLike, PathLike } from '../utils/nodeShims';
+
+const fs = fsRaw as unknown as FsLike;
+const path = pathRaw as unknown as PathLike;
 
 // garu-ko의 WASM 엔진(~390KB)/모델(~1MB)은 main.js에 내장하면 설치 용량이 3배 가까이
 // 뛰기 때문에, 대신 npm 패키지를 그대로 미러링하는 jsDelivr CDN에서 처음 사용할 때만
@@ -36,7 +40,7 @@ export function isGaruAssetsDownloaded(plugin: WritingMenuPlugin): boolean {
 async function downloadFile(url: string, destPath: string): Promise<void> {
 	const res = await requestUrl({ url, throw: false });
 	if (res.status !== 200) throw new Error(`다운로드 실패 (HTTP ${res.status}): ${url}`);
-	fs.writeFileSync(destPath, Buffer.from(res.arrayBuffer));
+	fs.writeFileSync(destPath, new Uint8Array(res.arrayBuffer));
 }
 
 export async function downloadGaruAssets(plugin: WritingMenuPlugin, onProgress?: (step: string) => void): Promise<void> {

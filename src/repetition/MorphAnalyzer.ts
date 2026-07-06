@@ -1,7 +1,10 @@
-import * as fs from 'fs';
+import * as fsRaw from 'fs';
 import { Platform } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { MorphToken } from './types';
+import type { FsLike } from '../utils/nodeShims';
+
+const fs = fsRaw as unknown as FsLike;
 // @ts-ignore 타입 없는 vendored wasm-bindgen glue (garu_wasm.d.ts는 참고용, import는 값만 사용)
 import initGaruWasm, { GaruWasm } from './vendor/garu_wasm.js';
 import { getAssetPaths, isGaruAssetsDownloaded } from './GaruAssets';
