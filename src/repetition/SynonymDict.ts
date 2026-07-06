@@ -1,4 +1,5 @@
-import type { App, TFile } from 'obsidian';
+import { TFile } from 'obsidian';
+import type { App } from 'obsidian';
 import type { DictEntry } from './types';
 
 function isSeparatorRow(cells: string[]): boolean {
@@ -37,7 +38,7 @@ export function buildDictLookup(entries: DictEntry[]): Map<string, string[]> {
 export async function loadSynonymDict(app: App, notePath: string): Promise<Map<string, string[]>> {
 	if (!notePath) return new Map();
 	const file = app.vault.getAbstractFileByPath(notePath);
-	if (!file || !('extension' in file)) return new Map();
-	const text = await app.vault.cachedRead(file as TFile);
+	if (!(file instanceof TFile)) return new Map();
+	const text = await app.vault.cachedRead(file);
 	return buildDictLookup(parseDictText(text));
 }

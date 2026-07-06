@@ -1200,7 +1200,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		};
 
 		submitBtn.addEventListener('click', () => fireAndForget(doAdd));
-		descInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doAdd(); });
+		descInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') fireAndForget(doAdd); });
 		charInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') descInput.focus(); });
 
 		if (customs.length > 0) {
@@ -1240,7 +1240,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		setIcon(addBtn, 'plus');
 		addWrap.appendChild(popup);
 		addBtn.addEventListener('click', (e) => { e.stopPropagation(); popupOpen ? hidePopup() : showPopup(); });
-		document.addEventListener('mousedown', (e) => {
+		activeDocument.addEventListener('mousedown', (e) => {
 			if (popupOpen && !addWrap.contains(e.target as Node)) hidePopup();
 		});
 	}

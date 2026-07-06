@@ -52,5 +52,5 @@ export function renderKindDropdown(
 		menu.toggleClass('is-hidden', !menu.hasClass('is-hidden'));
 	});
 	const closeOnOutsideClick = () => menu.addClass('is-hidden');
-	document.addEventListener('click', closeOnOutsideClick);
+	activeDocument.addEventListener('click', closeOnOutsideClick);
 }

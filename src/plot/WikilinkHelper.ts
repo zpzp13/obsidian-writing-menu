@@ -52,7 +52,7 @@ export function attachWikilinkAutocomplete(textarea: HTMLTextAreaElement, app: A
 		items = filtered.slice(0, 50).map(f => ({ name: f.basename, path: f.path }));
 		if (items.length === 0) return;
 
-		dropdown = document.body.createDiv({ cls: 'suggestion-container mod-small wm-wikilink-dropdown' });
+		dropdown = activeDocument.body.createDiv({ cls: 'suggestion-container mod-small wm-wikilink-dropdown' });
 		selectedIdx = 0;
 
 		items.forEach(({ name, path }, i) => {
@@ -74,7 +74,7 @@ export function attachWikilinkAutocomplete(textarea: HTMLTextAreaElement, app: A
 		dropdown.style.left = `${rect.left}px`;
 		dropdown.style.minWidth = `${rect.width}px`;
 
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			if (!dropdown) return;
 			const dh = dropdown.getBoundingClientRect().height;
 			const top = rect.bottom + 2 + dh > window.innerHeight
@@ -118,7 +118,7 @@ export function attachWikilinkAutocomplete(textarea: HTMLTextAreaElement, app: A
 	});
 
 	// Delay dismiss so mousedown on item fires before blur
-	textarea.addEventListener('blur', () => { setTimeout(dismiss, 150); });
+	textarea.addEventListener('blur', () => { window.setTimeout(dismiss, 150); });
 
 	return { isOpen, dismiss };
 }

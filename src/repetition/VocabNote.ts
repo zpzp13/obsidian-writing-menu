@@ -1,5 +1,5 @@
-import type { App, TFile } from 'obsidian';
-import { normalizePath } from 'obsidian';
+import { normalizePath, TFile } from 'obsidian';
+import type { App } from 'obsidian';
 import { parseDictText } from './SynonymDict';
 
 const TABLE_HEADER = '| 단어 | 유의어 후보 |\n| --- | --- |\n';
@@ -14,14 +14,15 @@ export async function saveToVocabNote(app: App, notePath: string, word: string):
 		file = await app.vault.create(path, TABLE_HEADER + row);
 		return 'added';
 	}
+	if (!(file instanceof TFile)) throw new Error(`${path}는 노트가 아닙니다.`);
 
-	const text = await app.vault.cachedRead(file as TFile);
+	const text = await app.vault.cachedRead(file);
 	const exists = parseDictText(text).some(e => e.word === word);
 	if (exists) return 'duplicate';
 
 	const needsTable = !text.includes('|');
 	const needsNewline = text.length > 0 && !text.endsWith('\n');
 	const prefix = (needsNewline ? '\n' : '') + (needsTable ? TABLE_HEADER : '');
-	await app.vault.append(file as TFile, prefix + row);
+	await app.vault.append(file, prefix + row);
 	return 'added';
 }

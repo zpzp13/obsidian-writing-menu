@@ -189,7 +189,7 @@ export class PlotTimelineView extends ItemView {
 		const scrollToActive = !this.selfClicked;
 		this.selfClicked = false;
 		if (scrollToActive) {
-			requestAnimationFrame(() => {
+			window.requestAnimationFrame(() => {
 				const activeCard = el.querySelector<HTMLElement>('.wm-tl-card.is-active');
 				if (activeCard) activeCard.scrollIntoView({ block: 'center' });
 			});
@@ -224,7 +224,7 @@ export class PlotTimelineView extends ItemView {
 			const card = n.querySelector('.wm-tl-card');
 			if (!card) return;
 			card.classList.add('wm-tl-card-flash');
-			setTimeout(() => card.classList.remove('wm-tl-card-flash'), 1400);
+			window.setTimeout(() => card.classList.remove('wm-tl-card-flash'), 1400);
 		});
 	}
 
@@ -232,9 +232,9 @@ export class PlotTimelineView extends ItemView {
 
 	private openRowPicker() {
 		if (!this.project || !this.selection) return;
-		document.querySelector('.wm-tl-row-picker')?.remove();
+		activeDocument.querySelector('.wm-tl-row-picker')?.remove();
 
-		const popup = document.body.createDiv({ cls: 'wm-tl-row-picker' });
+		const popup = activeDocument.body.createDiv({ cls: 'wm-tl-row-picker' });
 
 		const searchWrap = popup.createDiv({ cls: 'wm-tl-row-picker-search' });
 		const searchIconEl = searchWrap.createDiv({ cls: 'wm-tl-row-picker-search-icon' });
@@ -298,7 +298,7 @@ export class PlotTimelineView extends ItemView {
 
 		// Position below row-name element
 		const rowNameEl = (this.containerEl.children[1] as HTMLElement).querySelector('.wm-tl-row-name-btn');
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			const rect = rowNameEl?.getBoundingClientRect();
 			if (rect) {
 				const dh = popup.getBoundingClientRect().height;
@@ -308,7 +308,7 @@ export class PlotTimelineView extends ItemView {
 			}
 		});
 
-		setTimeout(() => searchInput.focus(), 0);
+		window.setTimeout(() => searchInput.focus(), 0);
 		addOutsideClickListener(popup, () => popup.remove());
 	}
 }
