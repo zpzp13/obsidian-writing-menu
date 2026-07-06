@@ -1,6 +1,7 @@
 import { Setting, TextComponent } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { NoteSuggestModal, FolderSuggestModal } from '../wiki/WikiModals';
+import { fireAndForget } from '../utils/asyncUtils';
 
 export function renderPlotSettingsPage(containerEl: HTMLElement, plugin: WritingMenuPlugin): void {
 	const box = containerEl.createDiv({ cls: 'wm-settings-group-box' });
@@ -13,10 +14,12 @@ export function renderPlotSettingsPage(containerEl: HTMLElement, plugin: Writing
 			.setIcon('folder')
 			.setTooltip('폴더 선택')
 			.onClick(() => {
-				new FolderSuggestModal(plugin.app, async (folder) => {
-					plugin.settings.plotManagerFolder = folder.path;
-					await plugin.saveSettings();
-					rootTextComp.setValue(folder.path);
+				new FolderSuggestModal(plugin.app, (folder) => {
+					fireAndForget(async () => {
+						plugin.settings.plotManagerFolder = folder.path;
+						await plugin.saveSettings();
+						rootTextComp.setValue(folder.path);
+					});
 				}).open();
 			}))
 		.addText(text => {
@@ -59,10 +62,12 @@ export function renderPlotSettingsPage(containerEl: HTMLElement, plugin: Writing
 			.setIcon('document')
 			.setTooltip('파일 선택')
 			.onClick(() => {
-				new NoteSuggestModal(plugin.app, async (file) => {
-					plugin.settings.plotCharNoteTemplate = file.path;
-					await plugin.saveSettings();
-					templateTextComp.setValue(file.path);
+				new NoteSuggestModal(plugin.app, (file) => {
+					fireAndForget(async () => {
+						plugin.settings.plotCharNoteTemplate = file.path;
+						await plugin.saveSettings();
+						templateTextComp.setValue(file.path);
+					});
 				}).open();
 			}))
 		.addText(text => {

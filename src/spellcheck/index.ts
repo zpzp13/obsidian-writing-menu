@@ -1,6 +1,7 @@
 import { Editor, Notice, requestUrl } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { CorrectionModal } from './CorrectionModal';
+import { fireAndForget } from '../utils/asyncUtils';
 
 export interface Correction {
 	original: string;
@@ -309,10 +310,12 @@ export class SpellCheckerService {
 				bodyOffset,
 				editor,
 				corrections,
-				onIgnoredWordAdded: async (words) => {
-					const current = plugin.settings.spellCheckIgnoredWords ?? [];
-					plugin.settings.spellCheckIgnoredWords = [...new Set([...current, ...words])];
-					await plugin.saveSettings();
+				onIgnoredWordAdded: (words) => {
+					fireAndForget(async () => {
+						const current = plugin.settings.spellCheckIgnoredWords ?? [];
+						plugin.settings.spellCheckIgnoredWords = [...new Set([...current, ...words])];
+						await plugin.saveSettings();
+					});
 				},
 			}).open();
 		} catch {

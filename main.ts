@@ -158,9 +158,9 @@ export default class WritingMenuPlugin extends Plugin {
 		this.app.workspace.onLayoutReady(() => {
 			const note = getLatestReleaseNote();
 			if (note && shouldShowWhatsNew(this.settings.lastSeenVersion, note.version)) {
-				new WhatsNewModal(this.app, note, async () => {
+				new WhatsNewModal(this.app, note, () => {
 					this.settings.lastSeenVersion = note.version;
-					await this.saveSettings();
+					void this.saveSettings();
 				}).open();
 			}
 		});
@@ -266,14 +266,12 @@ export default class WritingMenuPlugin extends Plugin {
 		this.addCommand({
 			id: 'toggle-plot-manager',
 			name: '플롯 매니저 열기/닫기',
-			hotkeys: [{ modifiers: [], key: 'F9' }],
 			callback: () => { void this.togglePlotManagerView(); }
 		});
 
 		this.addCommand({
 			id: 'toggle-plot-timeline',
 			name: '플롯 타임라인 사이드바 열기/닫기',
-			hotkeys: [{ modifiers: [], key: 'F11' }],
 			callback: () => { void this.togglePlotTimelineView(); }
 		});
 
@@ -311,7 +309,6 @@ export default class WritingMenuPlugin extends Plugin {
 		this.addCommand({
 			id: 'copy-without-excluded',
 			name: '복사하기 (헤딩·각주 제외)',
-			hotkeys: [{ modifiers: ['Alt'], key: 'c' }],
 			callback: async () => {
 				const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
 				if (activeView?.leaf) await this.copyWithOptions(activeView.leaf);
@@ -321,7 +318,6 @@ export default class WritingMenuPlugin extends Plugin {
 		this.addCommand({
 			id: 'run-spell-check',
 			name: '맞춤법 검사',
-			hotkeys: [{ modifiers: [], key: 'F8' }],
 			editorCallback: (editor) => {
 				new SpellCheckerService().run(editor, this).catch(() => {});
 			}
@@ -336,14 +332,12 @@ export default class WritingMenuPlugin extends Plugin {
 		this.addCommand({
 			id: 'hanja-convert',
 			name: '사전 / 한자 변환',
-			hotkeys: [{ modifiers: [], key: 'F3' }],
 			callback: () => openDictionary(this),
 		});
 
 		this.addCommand({
 			id: 'special-chars',
 			name: '특수문자',
-			hotkeys: [{ modifiers: [], key: 'F10' }],
 			callback: () => openSpecialChars(this),
 		});
 

@@ -8,6 +8,7 @@ import { FolderSuggestModal, NoteSuggestModal } from '../wiki/WikiModals';
 import { attachWikilinkAutocomplete, renderWithWikilinks } from './WikilinkHelper';
 import { getToneColor } from '../wiki/WikiTypes';
 import { addOutsideClickListener, openChapterSearchPopup } from './PlotUtils';
+import { fireAndForget } from '../utils/asyncUtils';
 
 interface Layout1Callbacks {
 	onSave(): void;
@@ -1828,43 +1829,45 @@ export class Layout1Grid {
 
 		const dismiss = () => popup.remove();
 
-		confirmBtn.addEventListener('click', async () => {
-			const name = nameInp.value.trim();
-			if (!name) { nameInp.focus(); return; }
-			this.pushStructUndo();
+		confirmBtn.addEventListener('click', () => {
+			fireAndForget(async () => {
+				const name = nameInp.value.trim();
+				if (!name) { nameInp.focus(); return; }
+				this.pushStructUndo();
 
-			const sub = subInp.value.trim();
-			const folder = charRoot && sub ? normalizePath(charRoot + '/' + sub) : (charRoot || sub || '');
-			const filePath = folder ? normalizePath(folder + '/' + name + '.md') : (name + '.md');
+				const sub = subInp.value.trim();
+				const folder = charRoot && sub ? normalizePath(charRoot + '/' + sub) : (charRoot || sub || '');
+				const filePath = folder ? normalizePath(folder + '/' + name + '.md') : (name + '.md');
 
-			let content = '';
-			const tmplPath = tmplInp.value.trim();
-			if (tmplPath) {
-				const tmplFile = this.plugin.app.vault.getAbstractFileByPath(tmplPath);
-				if (tmplFile instanceof TFile) {
-					content = await this.plugin.app.vault.read(tmplFile);
+				let content = '';
+				const tmplPath = tmplInp.value.trim();
+				if (tmplPath) {
+					const tmplFile = this.plugin.app.vault.getAbstractFileByPath(tmplPath);
+					if (tmplFile instanceof TFile) {
+						content = await this.plugin.app.vault.read(tmplFile);
+					}
 				}
-			}
 
-			if (folder) {
-				const existing = this.plugin.app.vault.getAbstractFileByPath(folder);
-				if (!existing) {
-					try { await this.plugin.app.vault.createFolder(folder); } catch { /* already exists */ }
+				if (folder) {
+					const existing = this.plugin.app.vault.getAbstractFileByPath(folder);
+					if (!existing) {
+						try { await this.plugin.app.vault.createFolder(folder); } catch { /* already exists */ }
+					}
 				}
-			}
 
-			let file = this.plugin.app.vault.getAbstractFileByPath(filePath);
-			if (!(file instanceof TFile)) {
-				file = await this.plugin.app.vault.create(filePath, content);
-			}
+				let file = this.plugin.app.vault.getAbstractFileByPath(filePath);
+				if (!(file instanceof TFile)) {
+					file = await this.plugin.app.vault.create(filePath, content);
+				}
 
-			const cfm = this.plugin.app.metadataCache.getFileCache(file as TFile)?.frontmatter;
-			const color = typeof cfm?.['wikiColor'] === 'string' ? cfm['wikiColor'] : undefined;
+				const cfm = this.plugin.app.metadataCache.getFileCache(file as TFile)?.frontmatter;
+				const color = typeof cfm?.['wikiColor'] === 'string' ? cfm['wikiColor'] : undefined;
 
-			this.project.characters.push({ id: newId(), name, color, filePath });
-			this.callbacks.onSave();
-			this.render();
-			dismiss();
+				this.project.characters.push({ id: newId(), name, color, filePath });
+				this.callbacks.onSave();
+				this.render();
+				dismiss();
+			});
 		});
 
 		nameInp.addEventListener('keydown', (e) => {

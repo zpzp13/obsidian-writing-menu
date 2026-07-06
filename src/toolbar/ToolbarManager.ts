@@ -1,6 +1,15 @@
-import { MarkdownView, WorkspaceLeaf, setIcon, Platform, Notice } from 'obsidian';
+import { MarkdownView, WorkspaceLeaf, setIcon, Platform, Notice, App } from 'obsidian';
 import { HwpExportModal, TxtExportModal } from '../export';
 import type WritingMenuPlugin from '../../main';
+
+interface SettingTabLike {
+	searchInputEl?: HTMLInputElement;
+	searchComponent?: { inputEl?: HTMLInputElement };
+}
+
+interface AppWithSettings extends App {
+	setting?: { open(): void; openTabById(id: string): SettingTabLike | null };
+}
 
 export class ToolbarManager {
 	constructor(private plugin: WritingMenuPlugin) {}
@@ -117,18 +126,34 @@ export class ToolbarManager {
 
 		{
 			const copyDiv = container.createDiv('writing-menu-control');
+			copyDiv.setCssStyles({ cursor: 'pointer' });
 			const copyLabelGroup = copyDiv.createDiv('writing-menu-control-label-group');
 			setIcon(copyLabelGroup.createSpan('writing-menu-icon'), 'copy');
 			copyLabelGroup.createEl('label', { text: '복사하기' });
-			const copyBtn = copyDiv.createDiv();
-			copyBtn.setCssStyles({ display: 'flex', alignItems: 'center', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '12px' });
-			copyBtn.setText('Alt + C');
-			copyBtn.onclick = () => {
+			const copyHotkeyLink = copyDiv.createDiv();
+			copyHotkeyLink.setCssStyles({ display: 'flex', alignItems: 'center', cursor: 'pointer', color: 'var(--text-muted)' });
+			setIcon(copyHotkeyLink, 'keyboard');
+			copyHotkeyLink.setAttribute('aria-label', '단축키 설정');
+			copyHotkeyLink.addEventListener('click', (e) => {
+				e.stopPropagation();
+				const setting = (this.plugin.app as AppWithSettings).setting;
+				setting?.open();
+				const tab = setting?.openTabById('hotkeys');
+				window.setTimeout(() => {
+					const input = tab?.searchInputEl ?? tab?.searchComponent?.inputEl;
+					if (input) {
+						input.value = 'Writing Menu: 복사하기';
+						input.dispatchEvent(new Event('input'));
+					}
+				}, 20);
+				(activeDocument.querySelector('.writing-menu-dropdown') as HTMLElement)?.remove();
+			});
+			copyDiv.addEventListener('click', () => {
 				void this.plugin.copyWithOptions(leaf).then(() => {
 					const dropdown = activeDocument.querySelector('.writing-menu-dropdown');
 					if (dropdown) dropdown.remove();
 				});
-			};
+			});
 		}
 
 		if (Platform.isDesktopApp) {
@@ -237,14 +262,6 @@ export class ToolbarManager {
 		}, 'minus');
 
 		this.addSeparator(container);
-
-		const shortcutRow = container.createDiv('writing-menu-control');
-		const shortcutLabel = shortcutRow.createDiv('writing-menu-control-label-group');
-		setIcon(shortcutLabel.createSpan('writing-menu-icon'), 'keyboard');
-		shortcutLabel.createEl('label', { text: '단축키' });
-		const f4Badge = shortcutRow.createDiv();
-		f4Badge.setCssStyles({ display: 'flex', alignItems: 'center', cursor: 'default', color: 'var(--text-muted)', fontSize: '12px' });
-		f4Badge.setText('F4');
 
 		void this.plugin.addCompactToggle(container, '길게 보기', this.plugin.settings.zenWideEnabled, async (v) => {
 			this.plugin.settings.zenWideEnabled = v;

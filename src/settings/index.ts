@@ -5,6 +5,7 @@ import { renderPlotSettingsPage } from '../plot/PlotSettings';
 import { NoteSuggestModal } from '../wiki/WikiModals';
 import { isGaruAssetsDownloaded, downloadGaruAssets } from '../repetition/GaruAssets';
 import { isMorphAnalysisSupported } from '../repetition/MorphAnalyzer';
+import { fireAndForget } from '../utils/asyncUtils';
 
 
 export class WritingMenuSettingTab extends PluginSettingTab {
@@ -852,11 +853,13 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		const addModeIcon = addModeRow.createDiv({ cls: 'clickable-icon wm-muted-icon' });
 		setIcon(addModeIcon, 'plus');
 		addModeIcon.setAttribute('aria-label', '모드 추가');
-		addModeIcon.addEventListener('click', async () => {
-			const newId = `mode_${Date.now()}`;
-			ensureModes().push({ id: newId, label: '', frontmatterKey: '', goalSeconds: 0 });
-			await this.plugin.saveSettings();
-			renderModeList();
+		addModeIcon.addEventListener('click', () => {
+			fireAndForget(async () => {
+				const newId = `mode_${Date.now()}`;
+				ensureModes().push({ id: newId, label: '', frontmatterKey: '', goalSeconds: 0 });
+				await this.plugin.saveSettings();
+				renderModeList();
+			});
 		});
 
 		containerEl.createDiv({ cls: 'wm-settings-subgroup-title', text: '총 시간' });
@@ -1052,10 +1055,12 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		const addStageIcon = addStageIconRow.createDiv({ cls: 'clickable-icon wm-muted-icon' });
 		setIcon(addStageIcon, 'plus');
 		addStageIcon.setAttribute('aria-label', '상태 추가');
-		addStageIcon.addEventListener('click', async () => {
-			(this.plugin.settings.versionStages ?? []).push({ name: '새 상태', color: '#6366f1' });
-			await this.plugin.saveSettings();
-			renderStageList();
+		addStageIcon.addEventListener('click', () => {
+			fireAndForget(async () => {
+				(this.plugin.settings.versionStages ?? []).push({ name: '새 상태', color: '#6366f1' });
+				await this.plugin.saveSettings();
+				renderStageList();
+			});
 		});
 	}
 
@@ -1134,10 +1139,12 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			const trashFavs = favHdrBtns.createDiv({ cls: 'clickable-icon wm-muted-icon' });
 			setIcon(trashFavs, 'trash-2');
 			trashFavs.setAttribute('aria-label', '전체 삭제');
-			trashFavs.addEventListener('click', async () => {
-				this.plugin.settings.specialCharFavorites = [];
-				await this.plugin.saveSettings();
-				this.renderPage('special-chars');
+			trashFavs.addEventListener('click', () => {
+				fireAndForget(async () => {
+					this.plugin.settings.specialCharFavorites = [];
+					await this.plugin.saveSettings();
+					this.renderPage('special-chars');
+				});
 			});
 		}
 		const favBox = this.createGroupBox(containerEl);
@@ -1192,7 +1199,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			this.renderPage('special-chars');
 		};
 
-		submitBtn.addEventListener('click', doAdd);
+		submitBtn.addEventListener('click', () => fireAndForget(doAdd));
 		descInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doAdd(); });
 		charInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') descInput.focus(); });
 
@@ -1200,10 +1207,12 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			const trashCustoms = customHdrBtns.createDiv({ cls: 'clickable-icon wm-muted-icon' });
 			setIcon(trashCustoms, 'trash-2');
 			trashCustoms.setAttribute('aria-label', '전체 삭제');
-			trashCustoms.addEventListener('click', async () => {
-				this.plugin.settings.specialCharCustom = [];
-				await this.plugin.saveSettings();
-				this.renderPage('special-chars');
+			trashCustoms.addEventListener('click', () => {
+				fireAndForget(async () => {
+					this.plugin.settings.specialCharCustom = [];
+					await this.plugin.saveSettings();
+					this.renderPage('special-chars');
+				});
 			});
 		}
 		const customBox = this.createGroupBox(containerEl);
@@ -1269,10 +1278,12 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			const trashBtn = ignoredHdrBtns.createDiv({ cls: 'clickable-icon wm-muted-icon' });
 			setIcon(trashBtn, 'trash-2');
 			trashBtn.setAttribute('aria-label', '전체 삭제');
-			trashBtn.addEventListener('click', async () => {
-				this.plugin.settings.spellCheckIgnoredWords = [];
-				await this.plugin.saveSettings();
-				this.renderPage('spellcheck');
+			trashBtn.addEventListener('click', () => {
+				fireAndForget(async () => {
+					this.plugin.settings.spellCheckIgnoredWords = [];
+					await this.plugin.saveSettings();
+					this.renderPage('spellcheck');
+				});
 			});
 		}
 
@@ -1307,11 +1318,13 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				const tag = tagsEl.createSpan({ cls: 'wm-settings-dict-tag' });
 				tag.createSpan({ text: word });
 				tag.createSpan({ cls: 'wm-settings-dict-tag-remove', text: '×' })
-					.addEventListener('click', async () => {
-						const idx = this.plugin.settings.spellCheckIgnoredWords.indexOf(word);
-						if (idx >= 0) this.plugin.settings.spellCheckIgnoredWords.splice(idx, 1);
-						await this.plugin.saveSettings();
-						this.renderPage('spellcheck');
+					.addEventListener('click', () => {
+						fireAndForget(async () => {
+							const idx = this.plugin.settings.spellCheckIgnoredWords.indexOf(word);
+							if (idx >= 0) this.plugin.settings.spellCheckIgnoredWords.splice(idx, 1);
+							await this.plugin.saveSettings();
+							this.renderPage('spellcheck');
+						});
 					});
 			}
 		}
@@ -1332,15 +1345,17 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				modelSetting.addExtraButton(btn => btn.setIcon('check').setTooltip('다운로드됨').setDisabled(true));
 			} else {
 				modelSetting.addButton(btn => btn.setButtonText('다운로드').setCta()
-					.onClick(async () => {
-						btn.setDisabled(true);
-						try {
-							await downloadGaruAssets(this.plugin, step => btn.setButtonText(step));
-							this.renderPage('repetition');
-						} catch (e) {
-							btn.setDisabled(false).setButtonText('다운로드');
-							modelBox.createDiv({ cls: 'wm-settings-item-desc', text: `실패: ${e instanceof Error ? e.message : String(e)}` });
-						}
+					.onClick(() => {
+						fireAndForget(async () => {
+							btn.setDisabled(true);
+							try {
+								await downloadGaruAssets(this.plugin, step => { btn.setButtonText(step); });
+								this.renderPage('repetition');
+							} catch (e) {
+								btn.setDisabled(false).setButtonText('다운로드');
+								modelBox.createDiv({ cls: 'wm-settings-item-desc', text: `실패: ${e instanceof Error ? e.message : String(e)}` });
+							}
+						});
 					}));
 			}
 			const engineDesc = modelBox.createDiv({ cls: 'wm-settings-item-desc' });
@@ -1357,10 +1372,12 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			.setDesc('반복어 카드의 노트북 아이콘을 누르면 이 노트에 단어가 표 형태로 한 행씩 추가됩니다(형태소 분석기가 이미 정규화한 형태이므로 활용형은 따로 만들지 않고 그대로 매칭합니다). 같은 표에 유의어 후보를 적어두면 카드를 펼쳤을 때 칩으로 표시되어 클릭 한 번으로 본문 치환도 가능합니다.')
 			.addExtraButton(btn => btn.setIcon('file-text').setTooltip('노트 선택')
 				.onClick(() => {
-					new NoteSuggestModal(this.app, async (file) => {
-						this.plugin.settings.repetitionVocabNotePath = file.path;
-						await this.plugin.saveSettings();
-						vocabText.setValue(file.path);
+					new NoteSuggestModal(this.app, (file) => {
+						fireAndForget(async () => {
+							this.plugin.settings.repetitionVocabNotePath = file.path;
+							await this.plugin.saveSettings();
+							vocabText.setValue(file.path);
+						});
 					}).open();
 				}))
 			.addText(text => {
