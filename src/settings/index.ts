@@ -2,6 +2,9 @@ import { App, PluginSettingTab, Setting, setIcon, Platform } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { renderWikiSettingsPage } from '../wiki/WikiSettings';
 import { renderPlotSettingsPage } from '../plot/PlotSettings';
+import { NoteSuggestModal } from '../wiki/WikiModals';
+import { isGaruAssetsDownloaded, downloadGaruAssets } from '../repetition/GaruAssets';
+import { isMorphAnalysisSupported } from '../repetition/MorphAnalyzer';
 
 
 export class WritingMenuSettingTab extends PluginSettingTab {
@@ -39,6 +42,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			case 'plot':             this.renderPlotPage(containerEl); break;
 			case 'special-chars':    this.renderSpecialCharsPage(containerEl); break;
 			case 'spellcheck':       this.renderSpellCheckPage(containerEl); break;
+			case 'repetition':       this.renderRepetitionPage(containerEl); break;
 		}
 	}
 
@@ -50,6 +54,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		setIcon(iconEl, icon);
 		const body = card.createDiv({ cls: 'wm-settings-nav-card-body' });
 		body.createEl('div', { cls: 'wm-settings-nav-card-title', text: title });
+		body.createEl('div', { cls: 'wm-settings-nav-card-desc', text: desc });
 		const chevron = card.createDiv({ cls: 'wm-settings-nav-card-chevron' });
 		setIcon(chevron, 'chevron-right');
 		card.addEventListener('click', () => this.renderPage(page));
@@ -93,6 +98,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		this.addNavCard(etcBox, '타이머', '카운트다운 시간 · 알람 설정', 'timer', 'stopwatch');
 		this.addNavCard(etcBox, '사전', '표준국어대사전 API 키', 'book-open', 'dictionary');
 		this.addNavCard(etcBox, '맞춤법 검사', '한국어 맞춤법 검사 엔진 · 무시 단어', 'spell-check', 'spellcheck');
+		this.addNavCard(etcBox, '퇴고 매니저', '반복 표현 탐지 · 단어장 노트', 'book-check', 'repetition');
 		this.addNavCard(etcBox, '음악 플레이어', '음악 폴더 · 볼륨 · 재생 모드', 'music', 'music');
 		this.addNavCard(etcBox, '특수문자', '삽입 후 닫기 · 즐겨찾기 관리', 'omega', 'special-chars');
 	}
@@ -1309,6 +1315,63 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					});
 			}
 		}
+	}
+
+	// ── 퇴고 매니저 ────────────────────────────────────────────────────────
+	private renderRepetitionPage(containerEl: HTMLElement) {
+		this.addBackButton(containerEl, '퇴고 매니저');
+
+		if (isMorphAnalysisSupported()) {
+			this.addGroupTitle(containerEl, '형태소 분석 모델');
+			const modelBox = this.createGroupBox(containerEl);
+			const downloaded = isGaruAssetsDownloaded(this.plugin);
+			const modelSetting = new Setting(modelBox)
+				.setName('오프라인 형태소 분석 모델')
+				.setDesc(downloaded ? '다운로드 완료 · 완전히 오프라인으로 동작합니다.' : '반복 표현 탐지에 필요합니다. 최초 1회만 다운로드하면 됩니다 (약 1.4MB).');
+			if (downloaded) {
+				modelSetting.addExtraButton(btn => btn.setIcon('check').setTooltip('다운로드됨').setDisabled(true));
+			} else {
+				modelSetting.addButton(btn => btn.setButtonText('다운로드').setCta()
+					.onClick(async () => {
+						btn.setDisabled(true);
+						try {
+							await downloadGaruAssets(this.plugin, step => btn.setButtonText(step));
+							this.renderPage('repetition');
+						} catch (e) {
+							btn.setDisabled(false).setButtonText('다운로드');
+							modelBox.createDiv({ cls: 'wm-settings-item-desc', text: `실패: ${e instanceof Error ? e.message : String(e)}` });
+						}
+					}));
+			}
+			const engineDesc = modelBox.createDiv({ cls: 'wm-settings-item-desc' });
+			engineDesc.appendText('형태소 분석 엔진: ');
+			engineDesc.createEl('a', { text: 'garu-ko', href: 'https://github.com/ongjin/garu', attr: { target: '_blank', rel: 'noopener' } });
+			engineDesc.appendText(' (오프라인 WASM, 서버 전송 없음)');
+		}
+
+		this.addGroupTitle(containerEl, '단어장');
+		const vocabBox = this.createGroupBox(containerEl);
+		let vocabText: import('obsidian').TextComponent;
+		new Setting(vocabBox)
+			.setName('경로')
+			.setDesc('반복어 카드의 노트북 아이콘을 누르면 이 노트에 단어가 표 형태로 한 행씩 추가됩니다(형태소 분석기가 이미 정규화한 형태이므로 활용형은 따로 만들지 않고 그대로 매칭합니다). 같은 표에 유의어 후보를 적어두면 카드를 펼쳤을 때 칩으로 표시되어 클릭 한 번으로 본문 치환도 가능합니다.')
+			.addExtraButton(btn => btn.setIcon('file-text').setTooltip('노트 선택')
+				.onClick(() => {
+					new NoteSuggestModal(this.app, async (file) => {
+						this.plugin.settings.repetitionVocabNotePath = file.path;
+						await this.plugin.saveSettings();
+						vocabText.setValue(file.path);
+					}).open();
+				}))
+			.addText(text => {
+				vocabText = text;
+				text.setPlaceholder('예: 단어장.md')
+					.setValue(this.plugin.settings.repetitionVocabNotePath)
+					.onChange(async value => { this.plugin.settings.repetitionVocabNotePath = value.trim(); await this.plugin.saveSettings(); });
+			});
+		const formatDesc = vocabBox.createDiv({ cls: 'wm-settings-item-desc' });
+		formatDesc.createEl('div', { text: '형식(마크다운 표): | 단어 | 유의어 후보 |' });
+		formatDesc.createEl('div', { text: '· 유의어 후보는 콤마로 구분, 비워둬도 됩니다. 예: | 구멍 | 틈, 공백 |' });
 	}
 
 	// ── 자동완성 심볼 ────────────────────────────────────────────────────

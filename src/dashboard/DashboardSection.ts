@@ -9,6 +9,7 @@ import { TasksRenderer } from './TasksRenderer';
 import { WritingTimeSection } from './WritingTimeSection';
 import { MusicPlayerSection } from './MusicPlayerSection';
 import { VersionPanel } from '../version/VersionPanel';
+import { RepetitionSection } from '../repetition/RepetitionSection';
 import type { DailyCharStore } from './data/DailyCharStore';
 import type { DashSectionConfig } from '../types';
 import { calcAllCharCounts } from '../version/charCount';
@@ -61,6 +62,10 @@ export class DashboardSection {
 					body.addClass('wm-dash-panel-single', 'version-control-view');
 					VersionPanel.render(body, plugin, compact);
 				}, 'version-control', plugin);
+			} else if (sec.id === 'repetition') {
+				this.renderSection(wrap, '퇴고 매니저', (body, compact) => {
+					RepetitionSection.render(body, plugin, compact);
+				}, 'repetition', plugin);
 			}
 		}
 	}

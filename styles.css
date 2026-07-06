@@ -3052,6 +3052,8 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 .obsiwiki-rendered-body h4,
 .obsiwiki-rendered-body h5,
 .obsiwiki-rendered-body h6 {
+    display: flex;
+    align-items: center;
     border-bottom: 1px solid var(--background-modifier-border);
     width: 100%;
     padding-bottom: 4px;
@@ -3678,6 +3680,16 @@ button[aria-label="규칙 추가"] {
 .obsiwiki-rendered-body a.internal-link:hover { text-decoration: underline; }
 .obsiwiki-rendered-body .heading-collapse-indicator,
 .obsiwiki-rendered-body a.heading-link { display: none !important; }
+.wiki-heading-chevron {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    margin-left: auto;
+    color: var(--text-faint);
+    cursor: pointer;
+}
+.wiki-heading-chevron:hover { color: var(--text-normal); }
+.wiki-heading-chevron svg { width: 15px; height: 15px; }
 .obsiwiki-rendered-body table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 14.5px; }
 .obsiwiki-rendered-body th,
 .obsiwiki-rendered-body td { border: 1px solid var(--background-modifier-border); padding: 5px 10px; text-align: left; }
@@ -5155,9 +5167,9 @@ button[aria-label="규칙 추가"] {
 
 /* ── Cells ── */
 .wm-plot-cell {
-  width: 200px;
-  min-width: 130px;
-  max-width: 200px;
+  width: var(--wm-plot-cell-width, 200px);
+  min-width: 120px;
+  max-width: var(--wm-plot-cell-width, 200px);
   height: 120px;        /* baseline; cell grows with content */
   padding: 0;           /* inner div handles padding */
   vertical-align: top;
@@ -5202,10 +5214,16 @@ button[aria-label="규칙 추가"] {
   resize: vertical;
   font-size: 12px;
   background: var(--background-primary);
-  border: 1px solid var(--interactive-accent);
+  border: none;
   border-radius: 0;
   padding: 6px 8px;
   box-sizing: border-box;
+}
+.wm-plot-cell textarea.wm-plot-cell-editor,
+.wm-plot-cell textarea.wm-plot-cell-editor:focus {
+  outline: none;
+  box-shadow: none;
+  border: none;
 }
 
 .wm-plot-collapsed-row {
@@ -5571,6 +5589,134 @@ td:hover .wm-plot-actions {
 .wm-plot-subtitle-input:focus {
   border-color: var(--interactive-accent);
 }
+
+/* ── Sort popup ── */
+.wm-plot-sort-popup {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+  min-width: 260px;
+  max-height: 60vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.wm-plot-sort-popup button {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+.wm-sort-page-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 0px 4px 7px;
+  position: sticky;
+  top: 0;
+  background: var(--background-primary);
+  z-index: 1;
+}
+.wm-sort-page-nav {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: 2px solid var(--background-modifier-border);
+  border-radius: 6px;
+  padding: 3px 7px;
+}
+.wm-sort-page-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  min-width: 80px;
+  text-align: center;
+}
+.wm-sort-body {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0;
+}
+.wm-plot-sort-popup .wm-sort-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  align-self: center;
+  padding: 0;
+  line-height: 0;
+  color: var(--icon-color, var(--text-muted));
+  border-radius: var(--radius-s, 3px);
+}
+.wm-plot-sort-popup .wm-sort-btn svg { width: 14px; height: 14px; }
+.wm-plot-sort-popup .wm-sort-btn:hover:not(:disabled) {
+  color: var(--icon-color-hover, var(--text-normal));
+  background: var(--background-modifier-hover);
+}
+.wm-plot-sort-popup .wm-sort-btn:disabled { opacity: 0.3; pointer-events: none; }
+.wm-sort-ch-row.wm-sort-ch-flash,
+.wm-sort-sc-row.wm-sort-ch-flash {
+  animation: wm-sort-flash 1.2s ease-out;
+}
+@keyframes wm-sort-flash {
+  0% { background: var(--interactive-accent); color: var(--text-on-accent); }
+  80% { background: color-mix(in srgb, var(--interactive-accent) 20%, transparent); }
+  100% { background: transparent; }
+}
+.wm-sort-ep-row,
+.wm-sort-ch-row,
+.wm-sort-sc-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 18px;
+  min-height: 26px;
+}
+.wm-sort-ch-row { padding-left: 45px; cursor: grab; }
+.wm-sort-sc-row { padding-left: 55px; cursor: grab; }
+.wm-sort-label {
+  flex: 1;
+  font-size: 14px;
+  color: var(--text-normal);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wm-sort-ep-label { font-weight: bold; cursor: pointer; }
+.wm-sort-ep-label:hover { color: var(--text-accent); }
+.wm-sort-ch-row .wm-sort-label { font-weight: bold; }
+.wm-sort-ch-row.wm-sort-dragging,
+.wm-sort-sc-row.wm-sort-dragging { opacity: 0.4; }
+.wm-sort-ch-row.wm-sort-drop-over,
+.wm-sort-sc-row.wm-sort-drop-over { border-top: 2px solid var(--interactive-accent); }
+
+/* ── Cell textarea trigger popup ── */
+.wm-cell-trigger-popup {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m, 6px);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  padding: 6px 8px;
+}
+.wm-cell-trigger-popup button { all: unset; box-sizing: border-box; cursor: pointer; }
+.wm-cell-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  font-size: 14px;
+  border-radius: var(--radius-s, 4px);
+  color: var(--text-normal);
+  background: var(--background-secondary);
+}
+.wm-cell-trigger-btn:hover,
+.wm-cell-trigger-btn.is-selected { background: var(--background-modifier-hover); color: var(--text-accent); }
 
 /* ── Shortcut dropdown ── */
 .wm-plot-shortcut-dropdown {
@@ -6347,4 +6493,339 @@ td:hover .wm-plot-actions {
 }
 .wm-plot-wikilink:hover {
   color: var(--link-color-hover);
+}
+
+/* ── 퇴고 매니저 (Revision Manager) ───────────────────────────────────────── */
+.wm-rep-root { padding: 20px 10px 0px; }
+.wm-rep-empty { padding: 12px 4px; color: var(--text-faint); font-size: 0.85em; }
+
+.wm-rep-btn {
+    font-size: 0.8em;
+    padding: 4px 10px;
+    border-radius: var(--radius-s, 4px);
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border: none;
+    cursor: pointer;
+}
+.wm-rep-btn:hover { background: var(--interactive-accent-hover); }
+.wm-rep-btn:disabled { opacity: 0.6; cursor: default; }
+.wm-rep-btn-muted {
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
+}
+
+/* 강조색 레벨 히트맵 팔레트 + 도넛 간격 — 개발자 도구에서 이 변수들만 바꾸면 전체가 바뀐다 */
+.wm-rep-root {
+    --wm-rep-level-1: color-mix(in srgb, var(--interactive-accent) 15%, var(--background-primary));
+    --wm-rep-level-2: color-mix(in srgb, var(--interactive-accent) 32%, var(--background-primary));
+    --wm-rep-level-3: color-mix(in srgb, var(--interactive-accent) 49%, var(--background-primary));
+    --wm-rep-level-4: color-mix(in srgb, var(--interactive-accent) 66%, var(--background-primary));
+    --wm-rep-level-5: color-mix(in srgb, var(--interactive-accent) 83%, var(--background-primary));
+    --wm-rep-level-6: var(--interactive-accent);
+    --wm-rep-c-other: var(--text-faint);
+    /* 도넛 세그먼트 사이 여백 (SVG path 단위) */
+    --wm-rep-donut-gap: 20;
+    /* 카드 안의 "검은 글자" 톤 — wm-dash-group-label과 동일 */
+    --wm-rep-text-color: var(--text-muted);
+    --wm-rep-stat-bg: color-mix(in srgb, var(--background-modifier-form-field) 60%, var(--background-secondary) 40%);
+    /* 막대 라벨은 fill 색상에 따라 --text-on-accent가 순검정/순백으로 튀는데, 완전 검정보다는 살짝 옅게 */
+    --wm-rep-bar-label-color: color-mix(in srgb, var(--text-on-accent) 85%, gray 15%);
+}
+
+/* ── 반복 표현 통계 카드 ── */
+.wm-rep-stat-card {
+    background: var(--wm-rep-stat-bg);
+    border-radius: 15px;
+    padding: 14px;
+    margin-bottom: 10px;
+}
+.wm-rep-stat-header { display: flex; align-items: center; justify-content: space-between; }
+/* 컨테이너 배경/테두리/그림자 제거 — 클래스 2개 조합으로 특이성을 높여 .wm-rep-btn/.wm-rep-btn-muted와
+   기본 button 스타일을 !important 없이 이긴다 */
+.wm-rep-btn.wm-rep-reanalyze-btn {
+    font-size: 0.75em;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    color: var(--wm-rep-text-color);
+}
+.wm-rep-btn.wm-rep-reanalyze-btn:hover { background: var(--background-modifier-hover); box-shadow: none; }
+
+.wm-rep-stat-empty-body { display: flex; justify-content: center; padding: 18px; }
+
+/* ── 커스텀 드롭다운 (select 대체) — 색 점 + 라벨 + 화살표, 알약 모양 ── */
+.wm-rep-dropdown { position: relative; }
+.wm-rep-dropdown-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.68em;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 999px;
+    border: none;
+    background: var(--background-primary);
+    color: var(--wm-rep-text-color);
+    cursor: pointer;
+}
+.wm-rep-dropdown-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--wm-rep-color); }
+.wm-rep-dropdown-chevron { display: flex; align-items: center; color: var(--text-faint); }
+.wm-rep-dropdown-chevron svg { width: 13px; height: 13px; }
+.wm-rep-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 20;
+    min-width: 120px;
+    max-width: calc(100vw - 32px);
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    box-shadow: var(--shadow-s);
+    padding: 4px;
+}
+.wm-rep-dropdown-menu.is-hidden { display: none; }
+.wm-rep-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8em;
+    padding: 5px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--wm-rep-text-color);
+}
+.wm-rep-dropdown-item:hover { background: var(--background-modifier-hover); }
+.wm-rep-dropdown-item.is-active { background: color-mix(in srgb, var(--interactive-accent) 12%, transparent); }
+
+/* 색상 클래스 — 인라인 스타일 대신 클래스로 지정해 개발자 도구에 규칙이 그대로 보인다.
+   실제 색값은 위 --wm-rep-level-1..6 / --wm-rep-c-other 변수를 바꾸면 다 같이 바뀐다. */
+.wm-rep-color-1 { --wm-rep-color: var(--wm-rep-level-1); }
+.wm-rep-color-2 { --wm-rep-color: var(--wm-rep-level-2); }
+.wm-rep-color-3 { --wm-rep-color: var(--wm-rep-level-3); }
+.wm-rep-color-4 { --wm-rep-color: var(--wm-rep-level-4); }
+.wm-rep-color-5 { --wm-rep-color: var(--wm-rep-level-5); }
+.wm-rep-color-6 { --wm-rep-color: var(--wm-rep-level-6); }
+.wm-rep-color-other { --wm-rep-color: var(--wm-rep-c-other); }
+
+/* ── 2열 개요: 왼쪽 막대그래프 / 오른쪽 도넛 ── */
+.wm-rep-overview { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.wm-rep-overview-col { min-width: 0; display: flex; flex-direction: column; }
+.wm-rep-overview-col-bars { justify-content: center; }
+.wm-rep-overview-col-donut { align-items: center; justify-content: flex-start; }
+
+/* "Heart Rate Training Zones" 스타일 가로 막대 — 두껍게, 배지 없이 */
+.wm-rep-bar-list { display: flex; flex-direction: column; width: 100%; }
+.wm-rep-bar-row { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
+.wm-rep-bar-row:first-child { margin-top: 7px; }
+.wm-rep-bar-track { position: relative; flex: 1; min-width: 0; height: 26px; border-radius: 9px; overflow: hidden; background: transparent; }
+.wm-rep-bar-track.wm-rep-bar-track-other { background: var(--background-modifier-border); }
+.wm-rep-bar-fill { position: absolute; left: 0; top: 0; height: 100%; border-radius: 9px; background: var(--wm-rep-color); width: var(--wm-rep-bar-width, 0%); }
+.wm-rep-bar-label-row {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+}
+.wm-rep-bar-label { font-size: 0.78em; font-weight: 700; color: var(--wm-rep-bar-label-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 레벨 1~3은 배경이 옅어(accent 15~49%) 페이지 배경과 가까우므로 일반 텍스트색을,
+   레벨 4~6/기타는 배경이 짙어(accent 66~100%) --text-on-accent 계열을 쓴다. 하나의 색으로는
+   양쪽 다 만족시킬 수 없어(옅은 배경엔 흰 글자가, 짙은 배경엔 어두운 글자가 안 보임) 레벨별로 분기한다. */
+.wm-rep-bar-fill.wm-rep-color-1 .wm-rep-bar-label,
+.wm-rep-bar-fill.wm-rep-color-2 .wm-rep-bar-label,
+.wm-rep-bar-fill.wm-rep-color-3 .wm-rep-bar-label { color: var(--wm-rep-text-color); }
+.wm-rep-bar-fill.wm-rep-color-4 .wm-rep-bar-label,
+.wm-rep-bar-fill.wm-rep-color-5 .wm-rep-bar-label,
+.wm-rep-bar-fill.wm-rep-color-6 .wm-rep-bar-label,
+.wm-rep-bar-fill.wm-rep-color-other .wm-rep-bar-label { color: var(--wm-rep-bar-label-color); }
+.wm-rep-bar-count { font-size: 0.72em; color: var(--wm-rep-text-color); white-space: nowrap; flex-shrink: 0; }
+
+/* 도넛(위) + 범례(아래) — 도넛 컬럼은 세로 중앙이 아니라 상단에 고정 */
+.wm-rep-donut-wrap { display: flex; justify-content: center; }
+.wm-rep-donut-svg-wrap { position: relative; flex-shrink: 0; }
+.wm-rep-donut-svg { width: 120px; height: 120px; display: block; }
+.wm-rep-donut-svg .wm-rep-donut-track { stroke: var(--wm-rep-stat-bg); fill: none; }
+.wm-rep-donut-svg .wm-rep-donut-seg { fill: none; }
+.wm-rep-donut-svg .wm-rep-donut-seg.wm-rep-color-1 { stroke: var(--wm-rep-level-1); }
+.wm-rep-donut-svg .wm-rep-donut-seg.wm-rep-color-2 { stroke: var(--wm-rep-level-2); }
+.wm-rep-donut-svg .wm-rep-donut-seg.wm-rep-color-3 { stroke: var(--wm-rep-level-3); }
+.wm-rep-donut-svg .wm-rep-donut-seg.wm-rep-color-4 { stroke: var(--wm-rep-level-4); }
+.wm-rep-donut-svg .wm-rep-donut-seg.wm-rep-color-5 { stroke: var(--wm-rep-level-5); }
+.wm-rep-donut-svg .wm-rep-donut-seg.wm-rep-color-6 { stroke: var(--wm-rep-level-6); }
+.wm-rep-donut-svg .wm-rep-donut-seg.wm-rep-color-other { stroke: var(--wm-rep-c-other); }
+.wm-rep-donut-center {
+    position: absolute;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+.wm-rep-donut-center-value { font-size: 14px; font-weight: 700; color: var(--wm-rep-text-color); line-height: 1.2; }
+
+.wm-rep-donut-legend { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.wm-rep-donut-legend-row { display: flex; align-items: center; gap: 6px; font-size: 0.78em; }
+.wm-rep-donut-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; background: var(--wm-rep-color); }
+.wm-rep-donut-legend-label { font-size: 11px; color: var(--wm-rep-text-color); white-space: nowrap; }
+.wm-rep-donut-legend-value { font-size: 11px; color: var(--text-faint); margin-left: 4px; }
+
+.wm-tasks-add-btn.is-disabled { opacity: 0.6; pointer-events: none; }
+
+/* ── 반복어 카드 리스트 — 1열, wm-wt-mc-chip-wrap과 동일한 톤의 토스트형 카드 ── */
+.wm-rep-list { display: flex; flex-direction: column; gap: 8px; }
+.wm-rep-card {
+    cursor: pointer;
+    border-radius: 9px;
+    padding: 6px;
+    background: none;
+    border: 2px solid color-mix(in srgb, var(--interactive-accent) 15%, var(--background-primary));
+    transition: opacity 0.12s;
+}
+.wm-rep-card:hover { opacity: 0.85; }
+/* 펼쳤을 때: 강조색 2px 테두리만 */
+.wm-rep-card.is-expanded { border-color: var(--interactive-accent); }
+.wm-rep-card-row { display: flex; align-items: center; gap: 7px; }
+
+/* 배지(반복 횟수) + 단어를 하나의 알약형 테두리로 묶는다 — 세로 구분선 대신 이 테두리 자체가
+   배지/단어 묶음과 문장 미리보기 영역을 구분해줘서, 가변 폭 단어 때문에 생기던 얇은 선의
+   서브픽셀 굵기 문제를 아예 피할 수 있다. */
+.wm-rep-card-word-group {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px;
+    border-radius: 12px;
+    border: 2px solid color-mix(in srgb, var(--interactive-accent) 15%, var(--background-primary));
+}
+
+/* 왼쪽 배지(반복 횟수) — 테두리 없이 카드보다 옅은 배경색, radius 9px */
+.wm-rep-count-badge {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    border: none;
+    background: color-mix(in srgb, var(--interactive-accent) 20%, var(--background-primary));
+    color: var(--wm-rep-text-color);
+    font-size: 0.8em;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.wm-rep-word { flex-shrink: 0; font-weight: 700; color: var(--wm-rep-text-color); padding-right: 6px; }
+.wm-rep-card-line2 {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.78em;
+    line-height: 1.4;
+    color: var(--text-faint);
+}
+
+.wm-rep-save-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    color: var(--text-faint);
+    cursor: pointer;
+}
+.wm-rep-save-btn:hover { color: var(--interactive-accent); }
+.wm-rep-save-btn svg { width: 15px; height: 15px; }
+
+/* 펼침 영역은 세로 최대 길이를 두고 등장 위치 목록만 스크롤한다 — 단어장은 항상 하단에 고정 */
+.wm-rep-detail {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--background-modifier-border);
+    display: flex;
+    flex-direction: column;
+    max-height: 260px;
+}
+.wm-rep-detail.is-collapsed { display: none; }
+
+/* 등장 문장 미리보기 — 번호(배지와 동일 스타일) + 문장(하이라이트, 한 줄 축약) */
+.wm-rep-ctx-list { display: flex; flex-direction: column; gap: 4px; overflow-y: auto; min-height: 0; }
+.wm-rep-ctx-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8em;
+    padding: 4px 6px;
+    border-radius: var(--radius-s, 4px);
+    cursor: pointer;
+    line-height: 1.5;
+}
+.wm-rep-ctx-item:hover { background: var(--background-modifier-hover); }
+.wm-rep-ctx-num {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    border-radius: 5px;
+    border: 1px solid;
+    background: none;
+    color: var(--wm-rep-text-color);
+    font-size: 0.68em;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.wm-rep-ctx-text {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.wm-rep-inline-hl {
+    background: color-mix(in srgb, var(--interactive-accent) 20%, transparent);
+    color: var(--text-accent);
+    border-radius: 2px;
+    padding: 0 1px;
+    font-weight: 600;
+}
+
+/* 단어장(유의어) 영역 — 등장 위치 목록과 시각적으로 구분되게 border 중간에 라벨을 얹는다 */
+.wm-rep-detail-footer { flex-shrink: 0; }
+.wm-rep-vocab-divider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0;
+    color: var(--text-faint);
+    font-size: 0.72em;
+}
+.wm-rep-vocab-divider::before,
+.wm-rep-vocab-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--background-modifier-border);
+}
+
+.wm-rep-chip-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.wm-rep-chip {
+    font-size: 0.78em;
+    padding: 2px 8px;
+    border-radius: 9px;
+    background: color-mix(in srgb, var(--interactive-accent) 15%, var(--background-primary));
+    color: var(--wm-rep-text-color);
+    cursor: pointer;
+}
+.wm-rep-chip:hover { background: var(--interactive-accent); color: var(--text-on-accent); }
+
+.wm-rep-sense-empty { font-size: 0.75em; color: var(--text-faint); margin-top: 4px; text-align: center; }
+
+/* 에디터 본문에 실제로 표시되는 반복 표현 하이라이트 (카드 펼침 중에만 표시) */
+.wm-rep-editor-hl {
+    background: color-mix(in srgb, var(--interactive-accent) 20%, transparent);
+    color: var(--text-accent);
+    border-radius: 2px;
 }

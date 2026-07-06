@@ -208,6 +208,9 @@ export class PlotManagerView extends ItemView {
 		const searchBtn = baseGroup.createEl('button', { cls: 'wm-plot-tool-btn', attr: { title: '회차 검색 (Shift+F)' } });
 		setIcon(searchBtn, 'search');
 		searchBtn.addEventListener('click', () => this.openChapterSearch());
+		const sortBtn = baseGroup.createEl('button', { cls: 'wm-plot-tool-btn', attr: { title: '구조 정렬' } });
+		setIcon(sortBtn, 'list-tree');
+		sortBtn.addEventListener('click', () => this.grid?.openSortPopup(sortBtn));
 		const shortcutBtn = baseGroup.createEl('button', { cls: 'wm-plot-tool-btn', attr: { title: '단축키' } });
 		setIcon(shortcutBtn, 'keyboard');
 		shortcutBtn.addEventListener('click', () => this.openShortcutDropdown(shortcutBtn));

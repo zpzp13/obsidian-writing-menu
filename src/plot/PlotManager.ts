@@ -17,13 +17,6 @@ export class PlotManager {
 		return sub ? normalizePath(root + '/' + sub) : root;
 	}
 
-	private getCharFolder(): string {
-		const root = this.getRootFolder();
-		if (!root) return '';
-		const sub = this.plugin.settings.plotCharFolder?.trim() ?? '';
-		return sub ? normalizePath(root + '/' + sub) : root;
-	}
-
 	private getConfigPath(): string {
 		const folder = this.getFolder();
 		if (!folder) return '';

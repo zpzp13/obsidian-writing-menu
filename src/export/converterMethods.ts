@@ -150,7 +150,7 @@ export function getDefaultExportPath(plugin: WritingMenuPlugin): string{
 	return '';
 }
 
-export function cleanMarkdownFrontmatter(plugin: WritingMenuPlugin, content: string): string{
+export function cleanMarkdownFrontmatter(_plugin: WritingMenuPlugin, content: string): string{
 	const pattern = /^---\s*\n.*?\n---\s*\n?/s;
 	return content.replace(pattern, '').trim();
 }
@@ -185,7 +185,7 @@ export async function copyWithOptions(plugin: WritingMenuPlugin, leaf: Workspace
 	new Notice(msg);
 }
 
-export function applySpaceIndent(plugin: WritingMenuPlugin, text: string): string{
+export function applySpaceIndent(_plugin: WritingMenuPlugin, text: string): string{
 	return text.split('\n').map(line => line.trim() ? ' ' + line : line).join('\n');
 }
 

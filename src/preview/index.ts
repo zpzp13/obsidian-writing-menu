@@ -20,7 +20,6 @@ export class MobilePreviewFloating {
 	private floatEl: HTMLElement | null = null;
 	private refreshTimer: number | null = null;
 	private contentEl: HTMLElement | null = null;
-	private bottomNotchEl: HTMLElement | null = null;
 	private minimizeBtnEl: HTMLElement | null = null;
 	private titleEl: HTMLElement | null = null;
 	private previewFile: TFile | null = null;
@@ -83,7 +82,6 @@ export class MobilePreviewFloating {
 
 		// ── Bottom notch (44px) — hover reveals: [prev | settings | next] ──
 		const bottomNotch = el.createDiv('wm-float-bottom-notch');
-		this.bottomNotchEl = bottomNotch;
 		const bottomMenu = bottomNotch.createDiv('wm-float-bottom-menu');
 
 		const prevCol = bottomMenu.createDiv('wm-float-notch-col');
@@ -267,6 +265,7 @@ export class MobilePreviewFloating {
 	async renderContent() {
 		const el = this.contentEl;
 		if (!el) return;
+		const prevScrollTop = el.scrollTop;
 		el.empty();
 
 		const pt = this.plugin.settings.previewTypography;
@@ -294,6 +293,9 @@ export class MobilePreviewFloating {
 			: await this.plugin.app.vault.read(file);
 
 		await MarkdownRenderer.render(this.plugin.app, content, el, file.path, this.plugin);
+
+		el.scrollTop = prevScrollTop;
+		window.requestAnimationFrame(() => { el.scrollTop = prevScrollTop; });
 
 		// Double-click: jump to source line in editor
 		el.addEventListener('dblclick', (e) => { void (async () => {

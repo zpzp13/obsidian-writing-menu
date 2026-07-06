@@ -164,15 +164,19 @@ export interface WritingMenuSettings {
 	plotHiddenCharIds: string[];
 	plotCharNoteOpenMode: 'current' | 'tab' | 'window';
 	plotLinkOpenMode: 'current' | 'tab' | 'window';
+	plotSortPageSize: number;
+	plotCellWidth: number;
 	// ── Spell Check ────────────────────────────────────────────────────────────
 	spellCheckEngine: 'daum' | 'pnu';
 	spellCheckIgnoredWords: string[];
+	// ── 퇴고 매니저 (Revision Manager) ─────────────────────────────────────────
+	repetitionVocabNotePath: string;
 	// ── Update ────────────────────────────────────────────────────────────────
 	lastSeenVersion?: string;
 }
 
 export interface DashSectionConfig {
-	id: 'chars' | 'time' | 'tasks' | 'music' | 'version';
+	id: 'chars' | 'time' | 'tasks' | 'music' | 'version' | 'repetition';
 	label: string;
 	visible: boolean;
 }
@@ -293,6 +297,7 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 		{ id: 'tasks',   label: '할 일',    visible: true },
 		{ id: 'music',   label: '음악',     visible: true },
 		{ id: 'version', label: '버전관리', visible: true },
+		{ id: 'repetition', label: '퇴고 매니저', visible: true },
 	],
 	musicFolderPaths: [],
 	musicVolume: 1.0,
@@ -341,8 +346,11 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	plotHiddenCharIds: [],
 	plotCharNoteOpenMode: 'tab',
 	plotLinkOpenMode: 'tab',
+	plotSortPageSize: 5,
+	plotCellWidth: 200,
 	spellCheckEngine: 'daum',
 	spellCheckIgnoredWords: [],
+	repetitionVocabNotePath: '',
 };
 import type { Component } from 'obsidian';
 

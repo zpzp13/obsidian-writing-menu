@@ -33,7 +33,6 @@ export function renderTaskItem(
 	container: HTMLElement,
 	task: ParsedTask,
 	plugin: WritingMenuPlugin,
-	scheduleReload: () => void,
 ): void {
 	const item = container.createDiv({ cls: 'wm-task-item' });
 	const dkDate = task.tasksMeta?.due

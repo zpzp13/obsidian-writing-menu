@@ -12,7 +12,7 @@ export class Layout2Canvas {
 	private wrapper: HTMLElement;
 
 	constructor(
-		private container: HTMLElement,
+		container: HTMLElement,
 		private project: PlotProject,
 		private plugin: WritingMenuPlugin,
 		private callbacks: Layout2Callbacks,

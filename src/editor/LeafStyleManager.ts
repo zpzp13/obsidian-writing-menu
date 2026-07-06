@@ -104,27 +104,20 @@ export class LeafStyleManager {
 		if (hrType === 'svg' && hrSvg) {
 			activeDocument.body.style.setProperty('--wm-hr-svg-url', `url("data:image/svg+xml,${encodeURIComponent(hrSvg)}")`);
 		}
+		activeDocument.body.style.setProperty('--wm-plot-cell-width', `${this.plugin.settings.plotCellWidth ?? 200}px`);
 
 		const activeLeaf = this.plugin.app.workspace.getMostRecentLeaf();
 		this.updateHrClasses(activeLeaf);
 	}
 
-	updateHrClasses(leaf: WorkspaceLeaf | null): void {
+	updateHrClasses(_leaf?: WorkspaceLeaf | null): void {
+		const { hrEnabled, hrType } = this.plugin.settings;
 		this.plugin.app.workspace.getLeavesOfType('markdown').forEach(l => {
-			if (l.view instanceof MarkdownView) {
-				l.view.containerEl.classList.remove('wm-hr-custom', 'wm-hr-svg');
-			}
+			if (!(l.view instanceof MarkdownView)) return;
+			const shouldApply = hrEnabled && this.shouldApplyToFile(l.view.file);
+			l.view.containerEl.classList.toggle('wm-hr-custom', shouldApply);
+			l.view.containerEl.classList.toggle('wm-hr-svg', shouldApply && hrType === 'svg');
 		});
-
-		if (!leaf || !this.plugin.settings.hrEnabled) return;
-		if (!(leaf.view instanceof MarkdownView)) return;
-
-		const file = leaf.view.file;
-		if (!this.shouldApplyToFile(file)) return;
-
-		const { hrType } = this.plugin.settings;
-		leaf.view.containerEl.classList.add('wm-hr-custom');
-		if (hrType === 'svg') leaf.view.containerEl.classList.add('wm-hr-svg');
 	}
 
 	regenerateCSSTemplate(): void {

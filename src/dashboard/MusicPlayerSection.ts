@@ -122,7 +122,7 @@ function openPlaylistPopup(anchor: HTMLElement, plugin: WritingMenuPlugin) {
 			return;
 		}
 		popup.createDiv({ cls: 'wm-music-list-section-label', text: '음악 선택' });
-		if (folders.length === 1) { renderFolderLevel(folders[0]); return; }
+		if (folders.length === 1) { renderFolderLevel(folders[0], false); return; }
 		for (const folder of folders) {
 			const item = popup.createDiv({ cls: 'wm-music-list-item' });
 			setIcon(item.createDiv({ cls: 'wm-music-list-item-icon' }), 'folder');
@@ -147,10 +147,14 @@ function openPlaylistPopup(anchor: HTMLElement, plugin: WritingMenuPlugin) {
 		}
 	};
 
-	const renderFolderLevel = (folderPath: string) => {
-		state.level = 'folder';
-		state.currentFolder = folderPath;
-		popup.empty();
+	// standalone=false: 루트에서 "등록 폴더가 1개뿐이라 자동으로 펼쳐 보여주는" 경우 — 팝업을 비우지 않고
+	// 즐겨찾기 섹션 뒤에 이어서 그린다 (등록 폴더가 1개일 때 즐겨찾기 목록이 즉시 지워져 안 보이던 버그 수정)
+	const renderFolderLevel = (folderPath: string, standalone: boolean = true) => {
+		if (standalone) {
+			state.level = 'folder';
+			state.currentFolder = folderPath;
+			popup.empty();
+		}
 		const norm      = folderPath.replace(/\\/g, '/').replace(/\/?$/, '/');
 		const allTracks = mp.playlist.filter(t => t.path.replace(/\\/g, '/').startsWith(norm));
 
@@ -167,11 +171,13 @@ function openPlaylistPopup(anchor: HTMLElement, plugin: WritingMenuPlugin) {
 					const fn = f.replace(/\\/g, '/').replace(/\/?$/, '/');
 					return norm.startsWith(fn) && fn !== norm;
 				});
+				// 등록 폴더가 1개뿐이면 최상위 폴더로 돌아가는 것은 곧 루트(즐겨찾기 포함)로 돌아가는 것
+				if (parentFolder && folders.length === 1) { renderRootLevel(); return; }
 				if (parentFolder) renderFolderLevel(parentFolder);
 				else renderRootLevel();
 			});
 			hdr.createDiv({ cls: 'wm-music-list-hdr-title', text: folderPath.split('/').pop() ?? folderPath });
-		} else {
+		} else if (standalone) {
 			popup.createDiv({ cls: 'wm-music-list-section-label', text: folderPath.split('/').pop() ?? folderPath });
 		}
 

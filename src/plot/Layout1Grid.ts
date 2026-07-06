@@ -1,12 +1,13 @@
-import { setIcon, TFile, TFolder, normalizePath, Modal } from 'obsidian';
+﻿import { setIcon, TFile, TFolder, normalizePath, Modal } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { PlotProject, PlotLine, PlotScene, PlotEpisode, PlotCharacter } from './PlotTypes';
+import type { SymbolOption } from '../types';
 import { CellSelection, newId } from './PlotTypes';
 import { CharacterNoteModal } from './CharacterNoteModal';
 import { FolderSuggestModal, NoteSuggestModal } from '../wiki/WikiModals';
 import { attachWikilinkAutocomplete, renderWithWikilinks } from './WikilinkHelper';
 import { getToneColor } from '../wiki/WikiTypes';
-import { addOutsideClickListener } from './PlotUtils';
+import { addOutsideClickListener, openChapterSearchPopup } from './PlotUtils';
 
 interface Layout1Callbacks {
 	onSave(): void;
@@ -83,7 +84,7 @@ export class Layout1Grid {
 	private readonly STRUCT_UNDO_MAX = 20;
 
 	constructor(
-		private container: HTMLElement,
+		container: HTMLElement,
 		private project: PlotProject,
 		private plugin: WritingMenuPlugin,
 		private callbacks: Layout1Callbacks,
@@ -479,7 +480,7 @@ export class Layout1Grid {
 			fmtBtn.addEventListener('click', (e) => {
 				e.stopPropagation();
 				this.openFormatPopup(
-					fmtBtn, tr,
+					fmtBtn,
 					() => ({
 						rowHeight: line.rowHeight, fontSize: line.fontSize,
 						fontColor: line.fontColor, fontColorDark: line.fontColorDark,
@@ -613,6 +614,8 @@ export class Layout1Grid {
 		const ac = attachWikilinkAutocomplete(textarea, this.plugin.app);
 		textarea.focus();
 
+		this.attachCellInputFeatures(textarea, () => ac.isOpen());
+
 		let saved = false;
 		const save = () => {
 			if (saved) return;
@@ -735,7 +738,7 @@ export class Layout1Grid {
 			fmtBtn.addEventListener('click', (e) => {
 				e.stopPropagation();
 				this.openFormatPopup(
-					fmtBtn, tr,
+					fmtBtn,
 					() => ({
 						rowHeight: char.rowHeight, fontSize: char.fontSize,
 						fontColor: char.fontColor, fontColorDark: char.fontColorDark,
@@ -879,6 +882,8 @@ export class Layout1Grid {
 		const ac = attachWikilinkAutocomplete(textarea, this.plugin.app);
 		textarea.focus();
 
+		this.attachCellInputFeatures(textarea, () => ac.isOpen());
+
 		let saved = false;
 		const save = () => {
 			if (saved) return;
@@ -901,6 +906,152 @@ export class Layout1Grid {
 			if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this.render(); }
 			if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); save(); }
 		});
+	}
+
+	// ── Textarea input features ──────────────────────────────────────────────
+
+	private attachCellInputFeatures(textarea: HTMLTextAreaElement, acIsOpen: () => boolean) {
+		const plugin = this.plugin;
+		if (!plugin.settings.enableSmartInput) return;
+
+		// Trigger popup state
+		let trigPopup: HTMLElement | null = null;
+		let trigBtns: HTMLElement[] = [];
+		let trigFocusIdx = 0;
+		let trigCharPos = -1; // position of the trigger character in textarea
+
+		const updateTrigHighlight = () => {
+			trigBtns.forEach((b, i) => b.classList.toggle('is-selected', i === trigFocusIdx));
+		};
+
+		const dismissTrigPopup = () => {
+			trigPopup?.remove();
+			trigPopup = null;
+			trigBtns = [];
+			trigFocusIdx = 0;
+			trigCharPos = -1;
+		};
+
+		// Text substitution + trigger detection (input event)
+		const triggerMap = new Map(
+			(plugin.settings.symbolTriggers ?? [])
+				.filter(t => t.enabled && t.options?.length > 0)
+				.map(t => [t.trigger, t])
+		);
+
+		let subSorted: typeof plugin.settings.textSubstitutions = [];
+		let subMaxLen = 0;
+		if (plugin.settings.enableTextSubstitution) {
+			const enabled = plugin.settings.textSubstitutions.filter(s => s.enabled && s.from && s.to);
+			if (enabled.length > 0) {
+				subSorted = [...enabled].sort((a, b) => b.from.length - a.from.length);
+				subMaxLen = subSorted[0].from.length;
+			}
+		}
+
+		textarea.addEventListener('input', () => {
+			if (acIsOpen()) { dismissTrigPopup(); return; }
+
+			const pos = textarea.selectionStart ?? 0;
+			const val = textarea.value;
+
+			// Text substitution
+			if (subSorted.length > 0) {
+				const recent = val.slice(Math.max(0, pos - subMaxLen), pos);
+				const match = subSorted.find(s => recent.endsWith(s.from));
+				if (match) {
+					textarea.setRangeText(match.to, pos - match.from.length, pos, 'end');
+					dismissTrigPopup();
+					return;
+				}
+			}
+
+			// Trigger detection: check if last typed character is a trigger key
+			if (triggerMap.size > 0 && pos > 0) {
+				const lastChar = val[pos - 1];
+				const trig = triggerMap.get(lastChar);
+				if (trig) {
+					trigCharPos = pos - 1;
+					if (trig.options.length === 1) {
+						const { open, close } = trig.options[0];
+						textarea.setRangeText(open + close, trigCharPos, pos, 'end');
+						textarea.setSelectionRange(trigCharPos + open.length, trigCharPos + open.length);
+						trigCharPos = -1;
+					} else {
+						trigPopup = this.showTriggerOptionPopup(textarea, trig.options, trigCharPos, pos, dismissTrigPopup);
+						trigBtns = Array.from(trigPopup.querySelectorAll<HTMLElement>('.wm-cell-trigger-btn'));
+						trigFocusIdx = 0;
+						updateTrigHighlight();
+					}
+					return;
+				}
+			}
+
+			// Any other input: dismiss trigger popup
+			dismissTrigPopup();
+		});
+
+		// Trigger popup keyboard navigation
+		textarea.addEventListener('keydown', (e) => {
+			if (!trigPopup) return;
+			if (e.key === 'Escape') {
+				e.preventDefault(); e.stopImmediatePropagation();
+				dismissTrigPopup();
+			} else if (e.key === 'Enter') {
+				e.preventDefault(); e.stopImmediatePropagation();
+				trigBtns[trigFocusIdx]?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+			} else if (e.key === 'ArrowRight' || e.key === 'Tab') {
+				e.preventDefault();
+				trigFocusIdx = (trigFocusIdx + 1) % trigBtns.length;
+				updateTrigHighlight();
+			} else if (e.key === 'ArrowLeft') {
+				e.preventDefault();
+				trigFocusIdx = (trigFocusIdx - 1 + trigBtns.length) % trigBtns.length;
+				updateTrigHighlight();
+			} else {
+				dismissTrigPopup();
+			}
+		});
+
+		textarea.addEventListener('blur', dismissTrigPopup);
+	}
+
+	private showTriggerOptionPopup(
+		textarea: HTMLTextAreaElement,
+		options: SymbolOption[],
+		trigStart: number,  // position of trigger character
+		trigEnd: number,    // position after trigger character
+		onDismiss: () => void,
+	): HTMLElement {
+		document.querySelectorAll('.wm-cell-trigger-popup').forEach(el => el.remove());
+		const popup = document.body.createDiv({ cls: 'wm-cell-trigger-popup' });
+		const rect = textarea.getBoundingClientRect();
+		popup.style.position = 'fixed';
+		popup.style.left = `${rect.left}px`;
+		popup.style.top = `${rect.top - 4}px`;
+		popup.style.transform = 'translateY(-100%)';
+		popup.style.zIndex = '10001';
+
+		for (const opt of options) {
+			const btn = popup.createEl('button', { cls: 'wm-cell-trigger-btn', text: opt.open + opt.close });
+			btn.addEventListener('mousedown', (e) => {
+				e.preventDefault();
+				// Replace trigger character with bracket pair, cursor inside
+				textarea.setRangeText(opt.open + opt.close, trigStart, trigEnd, 'end');
+				textarea.setSelectionRange(trigStart + opt.open.length, trigStart + opt.open.length);
+				onDismiss();
+				textarea.focus();
+			});
+		}
+
+		const outsideHandler = (e: MouseEvent) => {
+			if (!popup.contains(e.target as Node)) {
+				onDismiss();
+				document.removeEventListener('mousedown', outsideHandler, true);
+			}
+		};
+		setTimeout(() => document.addEventListener('mousedown', outsideHandler, true), 0);
+		return popup;
 	}
 
 	// ── Cell selection ────────────────────────────────────────────────────────
@@ -978,16 +1129,6 @@ export class Layout1Grid {
 				} as NonNullable<CellSelection>);
 			}
 		}, 80);
-	}
-
-	private clearSelection() {
-		if (this.cellSelectDebounce) { clearTimeout(this.cellSelectDebounce); this.cellSelectDebounce = null; }
-		this.selectedCell?.el.classList.remove('is-selected');
-		this.selectedCell = null;
-		this.lastReorderedCol = -1;
-		this.restoreCharOrder();
-		this.updateHiddenCharVisibility(null);
-		this.callbacks.onCellSelect(null);
 	}
 
 	private updateHiddenCharVisibility(sceneId: string | null) {
@@ -1128,14 +1269,6 @@ export class Layout1Grid {
 		this.updateCharDomOrder();
 	}
 
-	private restoreCharOrder() {
-		if (this.charTbodyRows.length === 0 || !this.charsTbody) return;
-		for (const tr of this.charTbodyRows) {
-			this.charsTbody.appendChild(tr);
-		}
-		this.updateCharDomOrder();
-	}
-
 	private readonly onKeydown = (e: KeyboardEvent) => {
 		// When a textarea (cell editor) is active, let all keys pass through natively.
 		if ((e.target as HTMLElement).tagName === 'TEXTAREA') return;
@@ -1213,7 +1346,328 @@ export class Layout1Grid {
 		input.select();
 	}
 
+	// ── Sort Popup ───────────────────────────────────────────────────────────
+
+	openSortPopup(anchor: HTMLElement): void {
+		document.querySelector('.wm-plot-sort-popup')?.remove();
+		const rect = anchor.getBoundingClientRect();
+		const popup = document.body.createDiv({ cls: 'wm-plot-sort-popup' });
+		popup.style.position = 'fixed';
+		popup.style.zIndex = '10000';
+		popup.style.top = `${rect.bottom + 4}px`;
+		popup.style.left = `${Math.max(4, rect.left)}px`;
+		requestAnimationFrame(() => {
+			const pw = popup.offsetWidth;
+			const ph = popup.offsetHeight;
+			popup.style.left = `${Math.max(4, Math.min(rect.left, window.innerWidth - pw - 8))}px`;
+			if (rect.bottom + 4 + ph > window.innerHeight)
+				popup.style.top = `${Math.max(4, rect.top - ph - 4)}px`;
+		});
+
+		const eps = this.project.episodes;
+		const PAGE_SIZE = this.plugin.settings.plotSortPageSize ?? 5;
+		let currentPage = 0;
+		const collapsedEps = new Set<string>();
+
+		let dragType: 'ch' | 'sc' | null = null;
+		let dragEpFromIdx = -1;
+		let dragChFromIdx = -1;
+		let dragFromIdx = -1;
+
+		const clearDrop = () => {
+			popup.querySelectorAll('.wm-sort-drop-over').forEach(el => el.classList.remove('wm-sort-drop-over'));
+		};
+
+		const renderTree = (container: HTMLElement) => {
+			container.empty();
+			if (eps.length === 0) return;
+
+			const totalPages = Math.ceil(eps.length / PAGE_SIZE);
+			const startIdx = currentPage * PAGE_SIZE;
+			const endIdx = Math.min(startIdx + PAGE_SIZE, eps.length);
+
+			// ── Page navigation (toolbar style) ──
+			const navRow = container.createDiv({ cls: 'wm-sort-page-nav-row' });
+			const nav = navRow.createDiv({ cls: 'wm-sort-page-nav' });
+			const prevBtn = nav.createEl('button', { cls: 'wm-sort-btn', attr: { title: '이전 페이지' } });
+			setIcon(prevBtn, 'chevron-left');
+			if (currentPage === 0) prevBtn.disabled = true;
+			prevBtn.addEventListener('click', () => { currentPage--; renderTree(container); });
+			const pageLabel = nav.createSpan({ cls: 'wm-sort-page-label' });
+			pageLabel.textContent = eps[startIdx].name + (endIdx > startIdx + 1 ? ` ~ ${eps[endIdx - 1].name}` : '');
+			const nextBtn = nav.createEl('button', { cls: 'wm-sort-btn', attr: { title: '다음 페이지' } });
+			setIcon(nextBtn, 'chevron-right');
+			if (currentPage >= totalPages - 1) nextBtn.disabled = true;
+			nextBtn.addEventListener('click', () => { currentPage++; renderTree(container); });
+
+			// Search button (right of nav)
+			const searchBtn = navRow.createEl('button', { cls: 'wm-sort-btn', attr: { title: '회차 검색' } });
+			setIcon(searchBtn, 'search');
+			searchBtn.addEventListener('click', (e) => {
+				e.stopPropagation();
+				openChapterSearchPopup('wm-plot-ch-search-popup', (q) => {
+					const trimmed = q.trim();
+					if (!trimmed) return;
+					for (let ei = 0; ei < eps.length; ei++) {
+						const ep = eps[ei];
+						const ch = ep.chapters.find(c => c.name === trimmed || c.name.includes(trimmed));
+						if (ch) {
+							currentPage = Math.floor(ei / PAGE_SIZE);
+							collapsedEps.delete(ep.id);
+							renderTree(container);
+							requestAnimationFrame(() => {
+								const rows = container.querySelectorAll<HTMLElement>('.wm-sort-ch-row');
+								for (const row of Array.from(rows)) {
+									const lbl = row.querySelector('.wm-sort-label');
+									if (lbl && (lbl.textContent === trimmed || lbl.textContent?.includes(trimmed))) {
+										row.scrollIntoView({ block: 'nearest' });
+										row.classList.remove('wm-sort-ch-flash');
+										void row.offsetWidth;
+										row.classList.add('wm-sort-ch-flash');
+										setTimeout(() => row.classList.remove('wm-sort-ch-flash'), 1200);
+										break;
+									}
+								}
+							});
+							return;
+						}
+					}
+				});
+			});
+
+			// ── Episodes on current page ──
+			const body = container.createDiv({ cls: 'wm-sort-body' });
+
+			for (let epIdx = startIdx; epIdx < endIdx; epIdx++) {
+				const ep = eps[epIdx];
+				const isCollapsed = collapsedEps.has(ep.id);
+
+				const epRow = body.createDiv({ cls: 'wm-sort-ep-row' });
+				const toggleBtn = epRow.createEl('button', { cls: 'wm-sort-btn', attr: { title: isCollapsed ? '펼치기' : '접기' } });
+				setIcon(toggleBtn, isCollapsed ? 'chevron-down' : 'chevron-up');
+				toggleBtn.addEventListener('click', () => {
+					if (collapsedEps.has(ep.id)) collapsedEps.delete(ep.id); else collapsedEps.add(ep.id);
+					renderTree(container);
+				});
+				const epLabel = epRow.createSpan({ cls: 'wm-sort-label wm-sort-ep-label' });
+				epLabel.textContent = ep.name;
+				epLabel.addEventListener('click', () => {
+					if (collapsedEps.has(ep.id)) collapsedEps.delete(ep.id); else collapsedEps.add(ep.id);
+					renderTree(container);
+				});
+				const epUpBtn = epRow.createEl('button', { cls: 'wm-sort-btn', attr: { title: '위로' } });
+				setIcon(epUpBtn, 'arrow-up');
+				if (epIdx === 0) epUpBtn.disabled = true;
+				epUpBtn.addEventListener('click', () => {
+					this.pushStructUndo();
+					[eps[epIdx - 1], eps[epIdx]] = [eps[epIdx], eps[epIdx - 1]];
+					if (epIdx === startIdx && currentPage > 0) currentPage--;
+					this.renumberSortOrder(); this.callbacks.onSave(); this.render();
+					renderTree(container);
+				});
+				const epDownBtn = epRow.createEl('button', { cls: 'wm-sort-btn', attr: { title: '아래로' } });
+				setIcon(epDownBtn, 'arrow-down');
+				if (epIdx === eps.length - 1) epDownBtn.disabled = true;
+				epDownBtn.addEventListener('click', () => {
+					this.pushStructUndo();
+					[eps[epIdx], eps[epIdx + 1]] = [eps[epIdx + 1], eps[epIdx]];
+					if (epIdx === endIdx - 1 && currentPage < totalPages - 1) currentPage++;
+					this.renumberSortOrder(); this.callbacks.onSave(); this.render();
+					renderTree(container);
+				});
+
+				if (isCollapsed) continue;
+
+				ep.chapters.forEach((ch, chIdx) => {
+					const chRow = body.createDiv({ cls: 'wm-sort-ch-row' });
+					chRow.createSpan({ cls: 'wm-sort-label', text: ch.name });
+
+					const chUpBtn = chRow.createEl('button', { cls: 'wm-sort-btn', attr: { title: '위로' } });
+					setIcon(chUpBtn, 'arrow-up');
+					if (chIdx === 0 && epIdx === 0) chUpBtn.disabled = true;
+					chUpBtn.addEventListener('click', () => {
+						this.pushStructUndo();
+						if (chIdx === 0) {
+							const [moved] = ep.chapters.splice(0, 1);
+							eps[epIdx - 1].chapters.push(moved);
+							const pg = Math.floor((epIdx - 1) / PAGE_SIZE);
+							if (pg !== currentPage) currentPage = pg;
+						} else {
+							[ep.chapters[chIdx - 1], ep.chapters[chIdx]] = [ep.chapters[chIdx], ep.chapters[chIdx - 1]];
+						}
+						this.renumberSortOrder(); this.callbacks.onSave(); this.render();
+						renderTree(container);
+					});
+
+					const chDownBtn = chRow.createEl('button', { cls: 'wm-sort-btn', attr: { title: '아래로' } });
+					setIcon(chDownBtn, 'arrow-down');
+					if (chIdx === ep.chapters.length - 1 && epIdx === eps.length - 1) chDownBtn.disabled = true;
+					chDownBtn.addEventListener('click', () => {
+						this.pushStructUndo();
+						if (chIdx === ep.chapters.length - 1) {
+							const [moved] = ep.chapters.splice(ep.chapters.length - 1, 1);
+							eps[epIdx + 1].chapters.unshift(moved);
+							const pg = Math.floor((epIdx + 1) / PAGE_SIZE);
+							if (pg !== currentPage) currentPage = pg;
+						} else {
+							[ep.chapters[chIdx], ep.chapters[chIdx + 1]] = [ep.chapters[chIdx + 1], ep.chapters[chIdx]];
+						}
+						this.renumberSortOrder(); this.callbacks.onSave(); this.render();
+						renderTree(container);
+					});
+
+					chRow.draggable = true;
+					chRow.addEventListener('dragstart', (e) => {
+						dragType = 'ch'; dragEpFromIdx = epIdx; dragChFromIdx = -1; dragFromIdx = chIdx;
+						e.dataTransfer!.effectAllowed = 'move';
+						e.dataTransfer!.setData('text/plain', '');
+						setTimeout(() => chRow.classList.add('wm-sort-dragging'), 0);
+					});
+					chRow.addEventListener('dragend', () => {
+						dragType = null; dragEpFromIdx = -1; dragChFromIdx = -1; dragFromIdx = -1;
+						chRow.classList.remove('wm-sort-dragging'); clearDrop();
+					});
+					chRow.addEventListener('dragover', (e) => {
+						if (dragType !== 'ch') return;
+						if (dragEpFromIdx === epIdx && dragFromIdx === chIdx) return;
+						e.preventDefault(); clearDrop(); chRow.classList.add('wm-sort-drop-over');
+					});
+					chRow.addEventListener('dragleave', (e) => {
+						if (!chRow.contains(e.relatedTarget as Node)) chRow.classList.remove('wm-sort-drop-over');
+					});
+					chRow.addEventListener('drop', (e) => {
+						e.preventDefault(); chRow.classList.remove('wm-sort-drop-over');
+						if (dragType !== 'ch') return;
+						const fromEp = dragEpFromIdx; const from = dragFromIdx; const to = chIdx;
+						if (fromEp < 0 || (fromEp === epIdx && from === to)) return;
+						this.pushStructUndo();
+						const [moved] = eps[fromEp].chapters.splice(from, 1);
+						const sameEp = fromEp === epIdx;
+						ep.chapters.splice(sameEp && to > from ? to - 1 : to, 0, moved);
+						this.renumberSortOrder(); this.callbacks.onSave(); this.render();
+						renderTree(container);
+					});
+
+					ch.scenes.forEach((sc, scIdx) => {
+						const scRow = body.createDiv({ cls: 'wm-sort-sc-row' });
+						scRow.createSpan({ cls: 'wm-sort-label', text: sc.name });
+
+						const scUpBtn = scRow.createEl('button', { cls: 'wm-sort-btn', attr: { title: '위로' } });
+						setIcon(scUpBtn, 'arrow-up');
+						if (scIdx === 0 && chIdx === 0 && epIdx === 0) scUpBtn.disabled = true;
+						scUpBtn.addEventListener('click', () => {
+							this.pushStructUndo();
+							if (scIdx === 0) {
+								if (chIdx === 0) {
+									const prevEp = eps[epIdx - 1];
+									const lastCh = prevEp.chapters[prevEp.chapters.length - 1];
+									const [moved] = ch.scenes.splice(0, 1);
+									lastCh.scenes.push(moved);
+									const pg = Math.floor((epIdx - 1) / PAGE_SIZE);
+									if (pg !== currentPage) currentPage = pg;
+								} else {
+									const [moved] = ch.scenes.splice(0, 1);
+									ep.chapters[chIdx - 1].scenes.push(moved);
+								}
+							} else {
+								[ch.scenes[scIdx - 1], ch.scenes[scIdx]] = [ch.scenes[scIdx], ch.scenes[scIdx - 1]];
+							}
+							this.renumberSortOrder(); this.callbacks.onSave(); this.render();
+							renderTree(container);
+						});
+
+						const scDownBtn = scRow.createEl('button', { cls: 'wm-sort-btn', attr: { title: '아래로' } });
+						setIcon(scDownBtn, 'arrow-down');
+						const atLastSc = scIdx === ch.scenes.length - 1;
+						const atLastCh = chIdx === ep.chapters.length - 1;
+						if (atLastSc && atLastCh && epIdx === eps.length - 1) scDownBtn.disabled = true;
+						scDownBtn.addEventListener('click', () => {
+							this.pushStructUndo();
+							if (atLastSc) {
+								if (atLastCh) {
+									const nextEp = eps[epIdx + 1];
+									const [moved] = ch.scenes.splice(ch.scenes.length - 1, 1);
+									nextEp.chapters[0].scenes.unshift(moved);
+									const pg = Math.floor((epIdx + 1) / PAGE_SIZE);
+									if (pg !== currentPage) currentPage = pg;
+								} else {
+									const [moved] = ch.scenes.splice(ch.scenes.length - 1, 1);
+									ep.chapters[chIdx + 1].scenes.unshift(moved);
+								}
+							} else {
+								[ch.scenes[scIdx], ch.scenes[scIdx + 1]] = [ch.scenes[scIdx + 1], ch.scenes[scIdx]];
+							}
+							this.renumberSortOrder(); this.callbacks.onSave(); this.render();
+							renderTree(container);
+						});
+
+						scRow.draggable = true;
+						scRow.addEventListener('dragstart', (e) => {
+							dragType = 'sc'; dragEpFromIdx = epIdx; dragChFromIdx = chIdx; dragFromIdx = scIdx;
+							e.dataTransfer!.effectAllowed = 'move';
+							e.dataTransfer!.setData('text/plain', '');
+							setTimeout(() => scRow.classList.add('wm-sort-dragging'), 0);
+						});
+						scRow.addEventListener('dragend', () => {
+							dragType = null; dragEpFromIdx = -1; dragChFromIdx = -1; dragFromIdx = -1;
+							scRow.classList.remove('wm-sort-dragging'); clearDrop();
+						});
+						scRow.addEventListener('dragover', (e) => {
+							if (dragType !== 'sc') return;
+							if (dragEpFromIdx === epIdx && dragChFromIdx === chIdx && dragFromIdx === scIdx) return;
+							e.preventDefault(); clearDrop(); scRow.classList.add('wm-sort-drop-over');
+						});
+						scRow.addEventListener('dragleave', (e) => {
+							if (!scRow.contains(e.relatedTarget as Node)) scRow.classList.remove('wm-sort-drop-over');
+						});
+						scRow.addEventListener('drop', (e) => {
+							e.preventDefault(); scRow.classList.remove('wm-sort-drop-over');
+							if (dragType !== 'sc') return;
+							const fromEp = dragEpFromIdx; const fromCh = dragChFromIdx; const fromSc = dragFromIdx;
+							if (fromEp < 0 || (fromEp === epIdx && fromCh === chIdx && fromSc === scIdx)) return;
+							this.pushStructUndo();
+							const [moved] = eps[fromEp].chapters[fromCh].scenes.splice(fromSc, 1);
+							const sameCh = fromEp === epIdx && fromCh === chIdx;
+							ch.scenes.splice(sameCh && scIdx > fromSc ? scIdx - 1 : scIdx, 0, moved);
+							this.renumberSortOrder(); this.callbacks.onSave(); this.render();
+							renderTree(container);
+						});
+					});
+				});
+			}
+		};
+
+		renderTree(popup);
+		// Outside-click: also allow clicks inside the chapter search popup
+		setTimeout(() => {
+			const handler = (e: MouseEvent) => {
+				const searchPop = document.querySelector('.wm-plot-ch-search-popup');
+				if (popup.contains(e.target as Node) || (searchPop && searchPop.contains(e.target as Node))) return;
+				popup.remove();
+				document.removeEventListener('click', handler, true);
+			};
+			document.addEventListener('click', handler, true);
+		}, 0);
+	}
+
 	// ── Renumbering ──────────────────────────────────────────────────────────
+
+	// Renumber by array order (used by sort popup so grid column order reflects the new array order)
+	private renumberSortOrder() {
+		let epNum = 0;
+		let chNum = 0;
+		for (const ep of this.project.episodes) {
+			epNum++;
+			ep.name = `EPISODE ${epNum}`;
+			for (const ch of ep.chapters) {
+				chNum++;
+				ch.name = `${chNum}화`;
+				ch.scenes.forEach((sc, scIdx) => {
+					sc.name = `${chNum}-${scIdx + 1}`;
+				});
+			}
+		}
+	}
 
 	private renumberAll() {
 		// Use sorted display order so chapter names always match what the grid shows
@@ -1625,7 +2079,6 @@ export class Layout1Grid {
 
 	private openFormatPopup(
 		anchor: HTMLElement,
-		tr: HTMLElement,
 		getSnap: () => FormatFields,
 		applySnap: (f: FormatFields) => void,
 		popupClass: string,

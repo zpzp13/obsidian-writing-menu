@@ -35,6 +35,8 @@ const context = await esbuild.context({
 	format: 'cjs',
 	target: 'es2018',
 	logLevel: "info",
+	// garu_wasm.js의 import.meta.url 사용은 우리가 호출하지 않는 URL-fetch 폴백 경로에만 있음 (항상 initSync에 bytes를 직접 넘김)
+	logOverride: { 'empty-import-meta': 'silent' },
 	sourcemap: prod ? false : 'inline',
 	treeShaking: true,
 	outfile: 'main.js',

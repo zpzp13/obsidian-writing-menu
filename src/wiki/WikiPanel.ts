@@ -22,7 +22,6 @@ export class WikiPanel {
 	private rerenderTimer = 0;
 	private stripScrollLeft = -1;
 	private relListScrollTop = 0;
-	private transitionActive = false;
 	private collapsedRelGroups = new Set<string>();
 	private stripCollapsed = false;
 	private tocCollapsed = false;
@@ -145,7 +144,6 @@ export class WikiPanel {
 
 	async render(outerContainer: HTMLElement) {
 		this.registerEvents();
-		this.transitionActive = false;
 		this.renderSeq++;
 		const mySeq = this.renderSeq;
 		this.container = outerContainer;
@@ -214,9 +212,6 @@ export class WikiPanel {
 		setIcon(navBtns.lastElementChild as HTMLElement, 'chevrons-down');
 		(navBtns.lastElementChild as HTMLElement).onclick = () => scrollArea.scrollTo({ top: scrollArea.scrollHeight, behavior: 'smooth' });
 
-		// transitionActive 해제: DOM 변화 없으므로 즉시 해제해도 spurious scroll 없음
-		window.setTimeout(() => { if (this.renderSeq === mySeq) this.transitionActive = false; }, 50);
-
 		// TOC + 프로필 병렬 빌드 (detached 상태에서)
 		await Promise.all([
 			this.createTOC(infoRow, scrollArea, file),
@@ -268,6 +263,22 @@ export class WikiPanel {
 				}
 			});
 			header.prepend(numSpan);
+
+			const chevron = createSpan({ cls: 'wiki-heading-chevron' });
+			setIcon(chevron, 'chevron-down');
+			chevron.addEventListener('click', (e) => {
+				e.stopPropagation();
+				const collapsed = header.classList.toggle('is-heading-collapsed');
+				setIcon(chevron, collapsed ? 'chevron-right' : 'chevron-down');
+				let sib = header.nextElementSibling;
+				while (sib) {
+					const m = /^H([1-6])$/.exec(sib.tagName);
+					if (m && Number(m[1]) <= level) break;
+					(sib as HTMLElement).style.display = collapsed ? 'none' : '';
+					sib = sib.nextElementSibling;
+				}
+			});
+			header.append(chevron);
 		});
 
 		this.setupFootnotes(body, scrollArea);
@@ -436,10 +447,7 @@ export class WikiPanel {
 			previewSelect(idx);
 			this.renderSeq++;
 			const seq = this.renderSeq;
-			this.transitionActive = true;
-			this.buildScrollArea(outerContainer, seq).catch(() => {
-				if (this.renderSeq === seq) this.transitionActive = false;
-			});
+			this.buildScrollArea(outerContainer, seq).catch(() => { /* intentional */ });
 		};
 		// 현재 중앙에 가장 가까운 카드 인덱스 감지
 		const snapIdx = (): number => {

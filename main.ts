@@ -22,6 +22,7 @@ import { StopwatchManager } from './src/dashboard/StopwatchManager';
 import { StatusBarManager } from './src/ui/StatusBarManager';
 import { SpellCheckerService } from './src/spellcheck/index';
 import { getSmartEnterExtension, getSmartQuoteExtension, getTypewriterExtension, getTextSubstitutionExtension, getBackspaceUndoExtension, createHeadingLinkFixExtension, createSelectionExtension, createFocusExtension, updateEditorExtensions } from './src/editor/extensions';
+import { repetitionHighlightExtension } from './src/editor/repetitionHighlight';
 
 export default class WritingMenuPlugin extends Plugin {
 	settings: WritingMenuSettings;
@@ -38,6 +39,7 @@ export default class WritingMenuPlugin extends Plugin {
 	cssSettingsVersion: number = 0;
 	leafStyleVersions: Map<WorkspaceLeaf, number> = new Map();
 	pendingTimeUpdates: Map<string, { file: TFile; mode: string; seconds: number }> = new Map();
+	lastTimeAccumAt: number = 0;
 	private nnMenuUnregisterFns: Array<() => void> = [];
 	stopwatchSeconds: number = 0;
 	stopwatchInterval: number | null = null;
@@ -138,6 +140,7 @@ export default class WritingMenuPlugin extends Plugin {
 		this.registerEditorExtension(createFocusExtension(this));
 		this.registerEditorExtension(createSelectionExtension(this));
 		this.registerEditorExtension(createHeadingLinkFixExtension());
+		this.registerEditorExtension(repetitionHighlightExtension());
 		this.registerEditorSuggest(new SymbolSuggester(this));
 
 		this.registerEditorExtension(this.smartEnterCompartment.of(getSmartEnterExtension(this)));
@@ -586,18 +589,6 @@ export default class WritingMenuPlugin extends Plugin {
 		return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 	}
 
-	private parseTime(timeStr: string): number {
-		if (!timeStr) return 0;
-		const parts = timeStr.split(':');
-		if (parts.length === 2) {
-			const [m, s] = parts.map(p => parseInt(p, 10) || 0);
-			return m * 60 + s;
-		} else if (parts.length === 3) {
-			const [h, m, s] = parts.map(p => parseInt(p, 10) || 0);
-			return h * 3600 + m * 60 + s;
-		}
-		return 0;
-	}
 
 	async loadSettings() {
 		const savedData = await this.loadData() as Partial<WritingMenuSettings>;
@@ -654,6 +645,9 @@ export default class WritingMenuPlugin extends Plugin {
 			}
 			if (!existingIds.has('version')) {
 				this.settings.dashboardSections.push({ id: 'version', label: '버전관리', visible: true });
+			}
+			if (!existingIds.has('repetition')) {
+				this.settings.dashboardSections.push({ id: 'repetition', label: '퇴고 매니저', visible: true });
 			}
 		}
 	}
@@ -720,7 +714,7 @@ export default class WritingMenuPlugin extends Plugin {
 	showDropdown(button: HTMLElement, leaf: WorkspaceLeaf) { this.toolbarManager.showDropdown(button, leaf); }
 	buildDropdownMenu(container: HTMLElement, leaf: WorkspaceLeaf) { this.toolbarManager.buildDropdownMenu(container, leaf); }
 	renderMenuPage(container: HTMLElement, page: string, leaf: WorkspaceLeaf) { this.toolbarManager.renderMenuPage(container, page, leaf); }
-	addMenuNavCard(container: HTMLElement, title: string, desc: string, icon: string, onClick: () => void) { this.toolbarManager.addMenuNavCard(container, title, desc, icon, onClick); }
+	addMenuNavCard(container: HTMLElement, title: string, icon: string, onClick: () => void) { this.toolbarManager.addMenuNavCard(container, title, icon, onClick); }
 	addMenuBackButton(container: HTMLElement, title: string, onBack: () => void) { this.toolbarManager.addMenuBackButton(container, title, onBack); }
 	addSeparator(container: HTMLElement) { this.toolbarManager.addSeparator(container); }
 

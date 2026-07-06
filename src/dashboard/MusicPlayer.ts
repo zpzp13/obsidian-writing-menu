@@ -243,15 +243,18 @@ export class MusicPlayer {
 		const favs: string[] = this.plugin.settings.musicFavorites ?? [];
 		const idx = favs.indexOf(track.path);
 		if (idx >= 0) favs.splice(idx, 1);
-		else favs.push(track.path);
+		else favs.unshift(track.path); // 최근 추가한 곡이 항상 즐겨찾기 목록 맨 위(표시 우선순위)에 오도록
 		this.plugin.settings.musicFavorites = favs;
 		await this.plugin.saveSettings();
 		this.notifyCallbacks();
 	}
 
 	get favoriteTracks(): Track[] {
-		const favs = new Set(this.plugin.settings.musicFavorites ?? []);
-		return this.playlist.filter(t => favs.has(t.path));
+		// musicFavorites 배열의 순서(최근 추가 순)를 그대로 유지 — 재생목록 순서로 필터링하면
+		// "최대 표시 수" 초과 시 방금 추가한 곡이 잘려서 안 보이는 문제가 있었음
+		const byPath = new Map(this.playlist.map(t => [t.path, t]));
+		const favs = this.plugin.settings.musicFavorites ?? [];
+		return favs.map(p => byPath.get(p)).filter((t): t is Track => !!t);
 	}
 
 	// ── 앨범아트 ──────────────────────────────────────────────────────────
