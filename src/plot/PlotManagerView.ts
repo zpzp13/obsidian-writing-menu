@@ -265,9 +265,9 @@ export class PlotManagerView extends ItemView {
 		wrappers.forEach(w => {
 			// CSS zoom (not transform) preserves position:sticky behaviour
 			(w.style as CSSStyleDeclaration & { zoom: string }).zoom = String(this.zoom);
-			w.style.transform = '';
-			w.style.width = '';
-			w.style.height = '';
+			w.style.removeProperty('transform');
+			w.style.removeProperty('width');
+			w.style.removeProperty('height');
 		});
 		// Pinned row sticky top values must be recalculated after zoom changes row heights
 		this.grid?.refreshPinnedSticky();
@@ -341,8 +341,6 @@ export class PlotManagerView extends ItemView {
 		if (existing) { existing.remove(); return; }
 		const rect = anchor.getBoundingClientRect();
 		const dropdown = document.body.createDiv({ cls: 'wm-plot-shortcut-dropdown' });
-		dropdown.style.position = 'fixed';
-		dropdown.style.zIndex = '10000';
 
 		const shortcuts: [string, string][] = [
 			['Shift+F', '회차 검색'],
@@ -379,11 +377,6 @@ export class PlotManagerView extends ItemView {
 		const existing = document.querySelector('.wm-plot-info-popup');
 		if (existing) { existing.remove(); return; }
 		const popup = document.body.createDiv({ cls: 'wm-plot-info-popup' });
-		popup.style.position = 'fixed';
-		popup.style.top = '50%';
-		popup.style.left = '50%';
-		popup.style.transform = 'translate(-50%, -50%)';
-		popup.style.zIndex = '10001';
 
 		const sections: { title: string; items: string[] }[] = [
 			{
