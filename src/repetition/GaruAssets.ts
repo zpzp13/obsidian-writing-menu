@@ -10,9 +10,11 @@ declare const require: (id: string) => unknown;
 // 해석하지 못해 "Failed to resolve module specifier" 오류가 나므로 require 사용)
 let fsModule: FsLike | null = null;
 async function getFs(): Promise<FsLike> {
-	if (!Platform.isDesktop) throw new Error('데스크톱 전용 기능입니다.');
-	if (!fsModule) fsModule = require('fs') as FsLike;
-	return fsModule;
+	if (Platform.isDesktop) {
+		if (!fsModule) fsModule = require('fs') as FsLike;
+		return fsModule;
+	}
+	throw new Error('데스크톱 전용 기능입니다.');
 }
 
 // path 모듈은 세그먼트를 구분자로 이어붙이는 것뿐이라 Node 의존 없이 직접 구현한다.

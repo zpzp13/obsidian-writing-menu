@@ -14,9 +14,11 @@ import { getAssetPaths, isGaruAssetsDownloaded } from './GaruAssets';
 declare const require: (id: string) => unknown;
 let fsModule: FsLike | null = null;
 async function getFs(): Promise<FsLike> {
-	if (!Platform.isDesktop) throw new Error('데스크톱 전용 기능입니다.');
-	if (!fsModule) fsModule = require('fs') as FsLike;
-	return fsModule;
+	if (Platform.isDesktop) {
+		if (!fsModule) fsModule = require('fs') as FsLike;
+		return fsModule;
+	}
+	throw new Error('데스크톱 전용 기능입니다.');
 }
 
 export class ModelNotDownloadedError extends Error {
