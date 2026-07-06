@@ -89,7 +89,7 @@ export class ToolbarManager {
 		else if (page === 'time-tracking') this.renderTimeTrackingPage(container, leaf);
 	}
 
-	addMenuNavCard(container: HTMLElement, title: string, desc: string, icon: string, onClick: () => void) {
+	addMenuNavCard(container: HTMLElement, title: string, icon: string, onClick: () => void) {
 		const card = container.createDiv({ cls: 'wm-menu-nav-card' });
 		const iconEl = card.createDiv({ cls: 'wm-menu-nav-icon' });
 		setIcon(iconEl, icon);
@@ -169,11 +169,11 @@ export class ToolbarManager {
 
 		this.addSeparator(container);
 
-		this.addMenuNavCard(container, '서식', '', 'type', () => this.renderMenuPage(container, 'typography', leaf));
-		this.addMenuNavCard(container, '색상', '', 'palette', () => this.renderMenuPage(container, 'color', leaf));
-		this.addMenuNavCard(container, '입력 보조', '', 'keyboard', () => this.renderMenuPage(container, 'input', leaf));
-		this.addMenuNavCard(container, '스톱워치', '', 'clock', () => this.renderMenuPage(container, 'time-tracking', leaf));
-		this.addMenuNavCard(container, '보기', '', 'eye', () => this.renderMenuPage(container, 'view', leaf));
+		this.addMenuNavCard(container, '서식', 'type', () => this.renderMenuPage(container, 'typography', leaf));
+		this.addMenuNavCard(container, '색상', 'palette', () => this.renderMenuPage(container, 'color', leaf));
+		this.addMenuNavCard(container, '입력 보조', 'keyboard', () => this.renderMenuPage(container, 'input', leaf));
+		this.addMenuNavCard(container, '스톱워치', 'clock', () => this.renderMenuPage(container, 'time-tracking', leaf));
+		this.addMenuNavCard(container, '보기', 'eye', () => this.renderMenuPage(container, 'view', leaf));
 
 		this.addSeparator(container);
 

@@ -8,7 +8,6 @@ import type { DiffHunk } from './diff';
 type VersionOption = VersionEntry | 'current';
 
 export class DiffModal extends Modal {
-	private plugin: WritingMenuPlugin;
 	private file: TFile;
 	private manager: VersionManager;
 	private editor: Editor | null;
@@ -23,7 +22,6 @@ export class DiffModal extends Modal {
 
 	constructor(app: App, plugin: WritingMenuPlugin, file: TFile, versionA: VersionEntry, editor: Editor | null) {
 		super(app);
-		this.plugin = plugin;
 		this.file = file;
 		this.manager = new VersionManager(app, plugin);
 		this.versionA = versionA;

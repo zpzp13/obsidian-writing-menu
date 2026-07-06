@@ -6,7 +6,7 @@
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
-		"postbuild": "node -e \"const fs=require('fs');const d='C:/Users/82109/Desktop/Obsidian/Test/.obsidian/plugins/writing-menu/';['main.js','styles.css','manifest.json'].forEach(f=>{try{fs.copyFileSync(f,d+f);console.log('copied',f);}catch(e){console.error('skip',f,e.message);}})\"",
+		"postbuild": "node scripts/postbuild.mjs",
 		"version": "node version-bump.mjs && git add manifest.json versions.json"
 	},
 	"keywords": [],
@@ -20,6 +20,7 @@
 		"@typescript-eslint/eslint-plugin": "5.29.0",
 		"@typescript-eslint/parser": "5.29.0",
 		"esbuild": "0.17.3",
+		"garu-ko": "^0.9.8",
 		"obsidian": "latest",
 		"tslib": "2.4.0",
 		"typescript": "4.7.4"

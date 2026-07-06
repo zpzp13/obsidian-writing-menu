@@ -208,7 +208,7 @@ export class TasksRenderer {
 					return;
 				}
 				for (const task of [...incomplete, ...complete]) {
-					renderTaskItem(bodyEl, task, plugin, scheduleReload);
+					renderTaskItem(bodyEl, task, plugin);
 				}
 			};
 

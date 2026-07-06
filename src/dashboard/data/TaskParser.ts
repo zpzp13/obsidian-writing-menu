@@ -222,8 +222,8 @@ export class TaskParser {
 		await plugin.app.vault.modify(file, lines.join('\n'));
 	}
 
-	static async addTaskToDailyNote(text: string, plugin: WritingMenuPlugin, subItems: string[] = []): Promise<void> {
-		const file = await ensureDailyNote(plugin, new Date());
+	static async addTaskToDailyNote(text: string, plugin: WritingMenuPlugin, subItems: string[] = [], date: Date = new Date()): Promise<void> {
+		const file = await ensureDailyNote(plugin, date);
 		if (!(file instanceof TFile)) return;
 
 		const content  = await plugin.app.vault.read(file);

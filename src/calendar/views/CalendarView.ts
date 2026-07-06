@@ -112,7 +112,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 			const year    = this.selectedDate.getFullYear();
 			const currMon = this.selectedDate.getMonth();
 
-			this.monthScroller = new MonthScroller(wrap, currMon, year,
+			this.monthScroller = new MonthScroller(wrap, currMon,
 				(mon) => this.navigateToMonth(mon, year),
 				this.viewMode === 'full',
 			);

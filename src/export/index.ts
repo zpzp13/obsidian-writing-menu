@@ -251,7 +251,6 @@ export class BatchExportModal extends Modal {
 	private excludeHeadings: boolean;
 	private mergeFiles: boolean = false;
 	private pathComponent: TextComponent | null = null;
-	private nameComponent: TextComponent | null = null;
 	private fileNameSetting: Setting | null = null;
 	private sortedFiles: TFile[] = [];
 	private removedFiles: TFile[] = [];
@@ -361,7 +360,6 @@ export class BatchExportModal extends Modal {
 				.onChange((value: string) => {
 					this.resultName = value;
 				});
-			this.nameComponent = text;
 		});
 
 		const extEl = this.fileNameSetting.controlEl.createEl('span', {

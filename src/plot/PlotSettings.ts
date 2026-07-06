@@ -100,4 +100,32 @@ export function renderPlotSettingsPage(containerEl: HTMLElement, plugin: Writing
 				plugin.settings.plotLinkOpenMode = val as 'current' | 'tab' | 'window';
 				await plugin.saveSettings();
 			}));
+
+	new Setting(box)
+		.setName('셀 너비')
+		.setDesc('플롯 그리드 각 셀의 너비 (px, 120~400)')
+		.addSlider(sl => sl
+			.setLimits(120, 400, 10)
+			.setValue(plugin.settings.plotCellWidth ?? 200)
+			.setDynamicTooltip()
+			.onChange(async (val) => {
+				plugin.settings.plotCellWidth = val;
+				activeDocument.body.style.setProperty('--wm-plot-cell-width', `${val}px`);
+				await plugin.saveSettings();
+			}));
+
+	new Setting(box)
+		.setName('정렬 팝업 페이지 단위')
+		.setDesc('구조 정렬 팝업에서 한 페이지에 표시할 에피소드 수')
+		.addDropdown(dd => dd
+			.addOption('3', '3개')
+			.addOption('5', '5개')
+			.addOption('10', '10개')
+			.addOption('20', '20개')
+			.addOption('25', '25개')
+			.setValue(String(plugin.settings.plotSortPageSize ?? 5))
+			.onChange(async (val) => {
+				plugin.settings.plotSortPageSize = parseInt(val);
+				await plugin.saveSettings();
+			}));
 }

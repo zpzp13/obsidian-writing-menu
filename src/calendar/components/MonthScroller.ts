@@ -9,7 +9,6 @@ export class MonthScroller {
 	constructor(
 		container: HTMLElement,
 		currMon: number,
-		year: number,
 		onSelect: (month: number) => void,
 		isFullMode: boolean,
 	) {

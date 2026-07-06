@@ -6,7 +6,7 @@ import { VersionManager } from './manager';
 export class EditVersionModal extends Modal {
 	constructor(
 		app: App,
-		private plugin: WritingMenuPlugin,
+		_plugin: WritingMenuPlugin,
 		private file: import('obsidian').TFile,
 		private entry: VersionEntry,
 		private manager: VersionManager,

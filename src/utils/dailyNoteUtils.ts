@@ -3,12 +3,25 @@ import type WritingMenuPlugin from '../../main';
 
 interface AppWithInternalPlugins extends App {
 	internalPlugins?: { plugins?: Record<string, { enabled?: boolean; instance?: { options?: { folder?: string; format?: string; template?: string } } }> };
+	plugins?: { plugins?: Record<string, { settings?: { daily?: { enabled?: boolean; folder?: string; format?: string; template?: string } } }> };
 }
 
 declare const moment: (date?: unknown, fmt?: string) => { format(f: string): string };
 
 export function getDnConfig(plugin: WritingMenuPlugin): { folder: string; format: string; template: string } {
-	const dnPlugin = (plugin.app as AppWithInternalPlugins).internalPlugins?.plugins?.['daily-notes'];
+	const app = plugin.app as AppWithInternalPlugins;
+
+	// "Periodic Notes" 커뮤니티 플러그인이 데일리노트를 관리하는 경우, 그 설정(폴더/포맷/템플릿)이 우선
+	const periodicDaily = app.plugins?.plugins?.['periodic-notes']?.settings?.daily;
+	if (periodicDaily?.enabled) {
+		return {
+			folder:   periodicDaily.folder   ?? plugin.settings.dailyNotesFolder ?? '',
+			format:   periodicDaily.format   ?? plugin.settings.dailyNotesFormat ?? 'YYYY-MM-DD',
+			template: periodicDaily.template ?? '',
+		};
+	}
+
+	const dnPlugin = app.internalPlugins?.plugins?.['daily-notes'];
 	const dnOpts   = dnPlugin?.enabled ? dnPlugin?.instance?.options : null;
 	return {
 		folder:   dnOpts?.folder   ?? plugin.settings.dailyNotesFolder ?? '',

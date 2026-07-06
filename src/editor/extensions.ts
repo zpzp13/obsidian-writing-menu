@@ -148,7 +148,7 @@ export function getTextSubstitutionExtension(plugin: WritingMenuPlugin): Extensi
 	const sortedSubs = enabledSubs.sort((a, b) => b.from.length - a.from.length);
 	const maxLength = sortedSubs[0].from.length;
 
-	return EditorView.inputHandler.of((view, from, to, text) => {
+	return EditorView.inputHandler.of((view, _from, to, text) => {
 		if (text.length !== 1) return false;
 
 		const start = Math.max(0, to - maxLength + 1);

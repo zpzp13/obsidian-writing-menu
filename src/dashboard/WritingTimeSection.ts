@@ -398,6 +398,10 @@ export class WritingTimeSection {
 			if (!target) return;
 			// 추적 폴더가 지정된 경우, 해당 폴더 안 파일만 시간 누적
 			if (settings.trackingFolder && !getProjectName(target)) return;
+			// 대시보드/캘린더 등 여러 인스턴스가 동시에 떠 있어도 실제 1초당 한 번만 누적되도록 공유 타임스탬프로 잠금
+			const now = Date.now();
+			if (now - plugin.lastTimeAccumAt < 900) return;
+			plugin.lastTimeAccumAt = now;
 			const mKey = `${target.path}:${selectedMode}`;
 			const tKey = `${target.path}:total`;
 			const me = plugin.pendingTimeUpdates.get(mKey) ?? { file: target, mode: selectedMode, seconds: 0 };
