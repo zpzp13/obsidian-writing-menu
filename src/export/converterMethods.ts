@@ -4,20 +4,23 @@ import type WritingMenuPlugin from '../../main';
 import type { FsLike, SpawnLike } from '../utils/nodeShims';
 
 declare const process: { env: Record<string, string | undefined> };
+declare const require: (id: string) => unknown;
 
 // fs/child_process는 데스크톱(파이썬 실행/볼트 밖 파일 접근)에서만 필요하므로,
 // 모바일에서 로드 자체가 되지 않도록 최상단 정적 import 대신 지연 로드한다.
+// (동적 import()는 Obsidian 플러그인 샌드박스에서 Node 내장 모듈 지정자를
+// 해석하지 못해 "Failed to resolve module specifier" 오류가 나므로 require 사용)
 let fsModule: FsLike | null = null;
 async function getFs(): Promise<FsLike> {
 	if (!Platform.isDesktop) throw new Error('데스크톱 전용 기능입니다.');
-	if (!fsModule) fsModule = (await import('fs')) as unknown as FsLike;
+	if (!fsModule) fsModule = require('fs') as FsLike;
 	return fsModule;
 }
 
 let spawnFn: SpawnLike | null = null;
 async function getSpawn(): Promise<SpawnLike> {
 	if (!Platform.isDesktop) throw new Error('데스크톱 전용 기능입니다.');
-	if (!spawnFn) spawnFn = (await import('child_process')).spawn;
+	if (!spawnFn) spawnFn = (require('child_process') as { spawn: SpawnLike }).spawn;
 	return spawnFn;
 }
 
