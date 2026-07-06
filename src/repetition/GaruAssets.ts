@@ -1,34 +1,6 @@
-import { FileSystemAdapter, Platform, requestUrl } from 'obsidian';
+import { FileSystemAdapter, requestUrl } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
-import type { FsLike } from '../utils/nodeShims';
-
-declare const require: (id: string) => unknown;
-
-// fs는 데스크톱(볼트 밖 플러그인 폴더 접근)에서만 필요하므로, 모바일에서 로드
-// 자체가 되지 않도록 최상단 정적 import 대신 지연 로드한다.
-// (동적 import()는 Obsidian 플러그인 샌드박스에서 Node 내장 모듈 지정자를
-// 해석하지 못해 "Failed to resolve module specifier" 오류가 나므로 require 사용)
-let fsModule: FsLike | null = null;
-async function getFs(): Promise<FsLike> {
-	if (Platform.isDesktop) {
-		if (!fsModule) fsModule = require('fs') as FsLike;
-		return fsModule;
-	}
-	throw new Error('데스크톱 전용 기능입니다.');
-}
-
-// path 모듈은 세그먼트를 구분자로 이어붙이는 것뿐이라 Node 의존 없이 직접 구현한다.
-const PATH_SEP = Platform.isWin ? '\\' : '/';
-function joinPath(...segments: string[]): string {
-	return segments
-		.filter(s => s.length > 0)
-		.map((s, i) => {
-			let seg = s.replace(/[\\/]+$/, '');
-			if (i !== 0) seg = seg.replace(/^[\\/]+/, '');
-			return seg;
-		})
-		.join(PATH_SEP);
-}
+import { joinPath, getFs } from '../utils/nodeShims';
 
 // garu-ko의 WASM 엔진(~390KB)/모델(~1MB)은 main.js에 내장하면 설치 용량이 3배 가까이
 // 뛰기 때문에, 대신 npm 패키지를 그대로 미러링하는 jsDelivr CDN에서 처음 사용할 때만
