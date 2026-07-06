@@ -360,8 +360,8 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 .wm-align-btn:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
 .wm-align-btn.is-active { background: var(--interactive-accent); color: var(--text-on-accent); border-color: var(--interactive-accent); }
 .wm-align-btn svg {
-    width: 18px !important;
-    height: 18px !important;
+    width: 18px;
+    height: 18px;
     display: block;
     flex-shrink: 0;
     stroke: currentColor;
@@ -499,11 +499,11 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     color: var(--text-muted);
     cursor: pointer;
     flex-shrink: 0;
-    background: transparent !important;
+    background: transparent;
     border-radius: 4px;
     transition: color 0.1s ease;
 }
-.wm-float-notch-btn:hover { color: var(--interactive-accent) !important; background: transparent !important; }
+.wm-float-notch-btn:hover { color: var(--interactive-accent); background: transparent; }
 .wm-float-notch-btn svg { width: 16px; height: 16px; }
 
 /* Minimized state: collapse to just top notch */
@@ -571,11 +571,11 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 
 /* Search highlight — fix mix-blend-mode, preserve theme accent color */
 .workspace-leaf [data-writing-menu-id] .obsidian-search-match-highlight {
-    mix-blend-mode: normal !important;
-    background: color-mix(in srgb, var(--text-accent) 45%, transparent) !important;
-    background-color: color-mix(in srgb, var(--text-accent) 45%, transparent) !important;
-    box-shadow: none !important;
-    border-radius: 2px !important;
+    mix-blend-mode: normal;
+    background: color-mix(in srgb, var(--text-accent) 45%, transparent);
+    background-color: color-mix(in srgb, var(--text-accent) 45%, transparent);
+    box-shadow: none;
+    border-radius: 2px;
 }
 .workspace-leaf [data-writing-menu-id] .cm-searchMatch {
     background: color-mix(in srgb, var(--text-accent) 55%, transparent) !important;
@@ -755,7 +755,7 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 /* Callout style: light accent bg + accent text */
 .wm-cal-ms-curr {
     background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
-    color: var(--interactive-accent) !important;
+    color: var(--interactive-accent);
     font-weight: 600;
 }
 .wm-cal-ms-curr:hover { color: var(--interactive-accent); }
@@ -900,7 +900,7 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 .wm-cal-cell.wm-cal-weekend:not(.wm-cal-other) {
     background: color-mix(in srgb, var(--background-secondary) 55%, var(--background-modifier-form-field));
 }
-.wm-cal-cell.wm-cal-today { background: var(--interactive-accent) !important; }
+.wm-cal-cell.wm-cal-today { background: var(--interactive-accent); }
 .wm-cal-cell.wm-cal-today .wm-cal-num { color: var(--text-on-accent, #fff); font-weight: 700; opacity: 1; }
 .wm-cal-cell.wm-cal-selected:not(.wm-cal-today)::after {
     content: '';
@@ -1188,7 +1188,7 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     transition: opacity 0.15s, background 0.15s;
 }
 .wm-dash-group-hdr:hover .wm-dash-group-cog { opacity: 0.55; }
-.wm-dash-group-cog:hover { opacity: 1 !important; background: var(--background-modifier-hover); }
+.wm-dash-group-cog:hover { opacity: 1; background: var(--background-modifier-hover); }
 .wm-dash-group-cog svg { width: 14px; height: 14px; }
 
 /* ── 접힘 헤더 컴팩트 미리보기 ── */
@@ -1691,28 +1691,28 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 .wm-task-add-textarea { resize: none; display: block; }
 .wm-task-add-input:focus,
 .wm-task-add-textarea:focus {
-    outline: none !important;
-    border-color: var(--interactive-accent) !important;
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 20%, transparent) !important;
-    animation: none !important;
+    outline: none;
+    border-color: var(--interactive-accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 20%, transparent);
+    animation: none;
 }
 .wm-task-add-footer {
     display: flex; justify-content: flex-end; gap: 6px;
     padding: 6px 8px 2px;
 }
-.wm-task-add-footer button { box-shadow: none !important; }
+.wm-task-add-footer button { box-shadow: none; }
 .wm-task-add-submit-btn {
     padding: 5px 14px; border-radius: var(--radius-s); font-size: 13px;
-    background: transparent !important; color: var(--interactive-accent);
-    cursor: pointer; border: none !important; box-shadow: none !important;
+    background: transparent; color: var(--interactive-accent);
+    cursor: pointer; border: none; box-shadow: none;
 }
-.wm-task-add-submit-btn:hover { background: transparent !important; color: var(--interactive-accent-hover); }
+.wm-task-add-submit-btn:hover { background: transparent; color: var(--interactive-accent-hover); }
 .wm-task-add-cancel-btn {
     padding: 5px 14px; border-radius: var(--radius-s); font-size: 13px;
-    background: transparent !important; color: var(--text-muted);
-    cursor: pointer; border: none !important; box-shadow: none !important;
+    background: transparent; color: var(--text-muted);
+    cursor: pointer; border: none; box-shadow: none;
 }
-.wm-task-add-cancel-btn:hover { background: transparent !important; color: var(--text-normal); }
+.wm-task-add-cancel-btn:hover { background: transparent; color: var(--text-normal); }
 
 /* ── 미니 날짜 피커 ── */
 .wm-mini-date-picker { min-width: 200px; padding: 4px; }
@@ -1870,8 +1870,8 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 
 /* 컨트롤: prev/play/next 중앙 정렬, vol-wrap 절대위치 우측 */
 .wm-dash-music-controls { display: flex; align-items: center; justify-content: center; gap: 4px; position: relative; }
-.wm-dash-music-play-btn { width: 32px !important; height: 32px !important; color: var(--interactive-accent); }
-.wm-dash-music-play-btn .svg-icon { width: 23px !important; height: 23px !important; }
+.wm-dash-music-play-btn { width: 32px; height: 32px; color: var(--interactive-accent); }
+.wm-dash-music-play-btn .svg-icon { width: 23px; height: 23px; }
 
 /* vol-wrap: absolute 배치. 본체는 pointer-events:none으로 뒤 버튼 클릭 통과시킴 */
 .wm-music-vol-wrap {
@@ -1916,9 +1916,9 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
 }
 /* 도넛 thumb: 내부 채워진 원 + gap + 바깥 링 */
 .wm-music-vol-slider::-webkit-slider-thumb {
-    background: var(--interactive-accent) !important;
-    border: 2px solid var(--background-primary) !important;
-    box-shadow: 0 0 0 2px var(--interactive-accent) !important;
+    background: var(--interactive-accent);
+    border: 2px solid var(--background-primary);
+    box-shadow: 0 0 0 2px var(--interactive-accent);
 }
 /* vol 아이콘 버튼: pointer-events 복원 */
 .wm-dash-music-vol-btn { color: var(--text-faint); flex-shrink: 0; pointer-events: auto; }
@@ -2151,7 +2151,6 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     --wiki-bg-color: var(--background-primary);
     /* Fixed default border distinct from theme */
     --wiki-border-color: rgba(136, 136, 136, 0.3);
-    --font-text-size: 13px !important;
 }
 
 /* Ensure Toolbar spans full width */
