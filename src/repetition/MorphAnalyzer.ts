@@ -1,25 +1,13 @@
 import { Platform } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { MorphToken } from './types';
-import type { FsLike } from '../utils/nodeShims';
+import { getFs } from '../utils/nodeShims';
 // @ts-ignore 타입 없는 vendored wasm-bindgen glue (garu_wasm.d.ts는 참고용, import는 값만 사용)
 import initGaruWasm, { GaruWasm } from './vendor/garu_wasm.js';
 import { getAssetPaths, isGaruAssetsDownloaded } from './GaruAssets';
 
 // WASM 엔진 JS는 번들에 포함하되(가볍다, ~14KB), 무거운 .wasm/모델 바이너리는
 // GaruAssets.ts가 첫 사용 시 CDN에서 내려받아 플러그인 폴더에 저장해둔 걸 읽어서 쓴다.
-// fs도 데스크톱 전용이므로 모바일에서 로드 자체가 안 되도록 지연 로드한다.
-// (동적 import()는 Obsidian 플러그인 샌드박스에서 Node 내장 모듈 지정자를
-// 해석하지 못해 "Failed to resolve module specifier" 오류가 나므로 require 사용)
-declare const require: (id: string) => unknown;
-let fsModule: FsLike | null = null;
-async function getFs(): Promise<FsLike> {
-	if (Platform.isDesktop) {
-		if (!fsModule) fsModule = require('fs') as FsLike;
-		return fsModule;
-	}
-	throw new Error('데스크톱 전용 기능입니다.');
-}
 
 export class ModelNotDownloadedError extends Error {
 	constructor() { super('형태소 분석 모델이 아직 다운로드되지 않았습니다.'); }
