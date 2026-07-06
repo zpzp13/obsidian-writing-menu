@@ -1,6 +1,3 @@
-/* tslint:disable */
-/* eslint-disable */
-
 export class GaruWasm {
     free(): void;
     analyze(text: string): any;
