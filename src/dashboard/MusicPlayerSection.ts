@@ -562,9 +562,10 @@ export class MusicPlayerSection {
 
 		// compact가 hidden→visible 될 때 overflow 재측정 (display:none 상태에서는 측정 불가)
 		if (compact && compactTrackEl) {
+			const trackEl = compactTrackEl;
 			const obs = new MutationObserver(() => {
 				if (compact.classList.contains('is-visible'))
-					refreshMarquee(compactTrackEl!, mp.currentTrack?.name ?? '—');
+					refreshMarquee(trackEl, mp.currentTrack?.name ?? '—');
 			});
 			obs.observe(compact, { attributes: true, attributeFilter: ['class'] });
 			watchDisconnect(player, () => { mp.unsubscribe(update); obs.disconnect(); });

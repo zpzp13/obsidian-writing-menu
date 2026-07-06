@@ -80,7 +80,7 @@ export function attachWikilinkAutocomplete(textarea: HTMLTextAreaElement, app: A
 			const top = rect.bottom + 2 + dh > window.innerHeight
 				? rect.top - dh - 2
 				: rect.bottom + 2;
-			(dropdown as HTMLElement).style.top = `${top}px`;
+			dropdown.style.top = `${top}px`;
 		});
 	};
 
@@ -146,7 +146,7 @@ export function renderWithWikilinks(
 					const resolved = app.metadataCache.getFirstLinkpathDest(linkText, '');
 					if (resolved) {
 						const leaf = app.workspace.getMostRecentLeaf() ?? app.workspace.getLeaf(false);
-						void leaf.openFile(resolved as TFile);
+						void leaf.openFile(resolved);
 					} else {
 						void app.workspace.openLinkText(linkText, '', false);
 					}

@@ -180,8 +180,8 @@ export class DashboardSection {
 		store: DailyCharStore,
 		plugin: WritingMenuPlugin,
 	): {
-		updateChars(counts: { munpia: number; novelpia: number } | null): void;
-		updateAvg(): void;
+		updateChars: (counts: { munpia: number; novelpia: number } | null) => void;
+		updateAvg: () => void;
 	} {
 		const display = plugin.settings.statCardDisplay ?? 'both';
 		const plats = display === 'munpia' ? (['munpia'] as const)

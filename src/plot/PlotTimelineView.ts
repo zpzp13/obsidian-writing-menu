@@ -208,7 +208,7 @@ export class PlotTimelineView extends ItemView {
 
 		const el = this.containerEl.children[1] as HTMLElement;
 		// Find nodes whose chapter name matches "N화"
-		const allNodes = Array.from(el.querySelectorAll('.wm-tl-node[data-ch-name]')) as HTMLElement[];
+		const allNodes = Array.from(el.querySelectorAll('.wm-tl-node[data-ch-name]'));
 		const matching = allNodes.filter(n => {
 			const chName = n.getAttribute('data-ch-name') ?? '';
 			return chName === `${num}화` || chName === `${num}` || chName.startsWith(`${num}화`);
@@ -221,7 +221,7 @@ export class PlotTimelineView extends ItemView {
 
 		// Briefly highlight all matching nodes' cards
 		matching.forEach(n => {
-			const card = n.querySelector('.wm-tl-card') as HTMLElement | null;
+			const card = n.querySelector('.wm-tl-card');
 			if (!card) return;
 			card.classList.add('wm-tl-card-flash');
 			setTimeout(() => card.classList.remove('wm-tl-card-flash'), 1400);
@@ -242,7 +242,7 @@ export class PlotTimelineView extends ItemView {
 		const searchInput = searchWrap.createEl('input', {
 			cls: 'wm-tl-row-picker-input',
 			attr: { type: 'text', placeholder: '검색…', spellcheck: 'false' },
-		}) as HTMLInputElement;
+		});
 
 		const list = popup.createDiv({ cls: 'wm-tl-row-picker-list' });
 
