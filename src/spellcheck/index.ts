@@ -187,7 +187,7 @@ function parsePnuResponse(html: string): RawResult[] {
 	const jsonStr = extractPnuJson(html);
 	if (!jsonStr) return [];
 	let arr: Array<{ errInfo?: Array<{ orgStr?: string; candWord?: string; help?: string }> }>;
-	try { arr = JSON.parse(jsonStr); } catch { return []; }
+	try { arr = JSON.parse(jsonStr) as typeof arr; } catch { return []; }
 	if (!Array.isArray(arr)) return [];
 
 	const results: RawResult[] = [];

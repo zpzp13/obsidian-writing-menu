@@ -1,9 +1,13 @@
+export interface GaruAnalyzeResult {
+    tokens: { text: string; pos: string; start: number; end: number }[];
+}
+
 export class GaruWasm {
     free(): void;
-    analyze(text: string): any;
-    analyze_topn(text: string, n: number): any;
+    analyze(text: string): GaruAnalyzeResult;
+    analyze_topn(text: string, n: number): unknown;
     constructor(model_data: Uint8Array, normalize_jamo?: boolean | null);
-    tokenize(text: string): any;
+    tokenize(text: string): unknown;
     static version(): string;
 }
 
