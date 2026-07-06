@@ -534,7 +534,7 @@ export class CorrectionModal extends Modal {
 	}
 
 	private scrollPreviewToOcc(oi: number) {
-		(this.previewEl.querySelector(`[data-occ-idx="${oi}"]`) as HTMLElement | null)
+		this.previewEl.querySelector(`[data-occ-idx="${oi}"]`)
 			?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 	}
 

@@ -181,7 +181,7 @@ export class Layout1Grid {
 
 	private applyPinnedSticky() {
 		// Clear sticky-top only from tds that had it previously applied (avoids full grid traversal)
-		(Array.from(this.wrapper.querySelectorAll('tbody td')) as HTMLElement[])
+		Array.from(this.wrapper.querySelectorAll<HTMLElement>('tbody td'))
 			.filter(td => td.style.top !== '')
 			.forEach(td => {
 				td.style.removeProperty('top');
@@ -191,11 +191,11 @@ export class Layout1Grid {
 				}
 			});
 
-		const thead = this.wrapper.querySelector('thead') as HTMLElement | null;
+		const thead = this.wrapper.querySelector('thead');
 		let offset = thead ? thead.offsetHeight : 112;
-		const pinnedRows = Array.from(this.wrapper.querySelectorAll('tbody tr.wm-plot-row-pinned')) as HTMLTableRowElement[];
+		const pinnedRows = Array.from(this.wrapper.querySelectorAll<HTMLElement>('tbody tr.wm-plot-row-pinned'));
 		for (const row of pinnedRows) {
-			const cells = Array.from(row.querySelectorAll('td')) as HTMLElement[];
+			const cells = Array.from(row.querySelectorAll('td'));
 			cells.forEach((td: HTMLElement, i: number) => {
 				td.classList.add('wm-plot-sticky-td');
 				td.style.top = `${offset}px`;
@@ -211,10 +211,10 @@ export class Layout1Grid {
 		line.pinned = !line.pinned;
 		this.callbacks.onSave();
 
-		const plotTbody = this.wrapper.querySelector('tbody.wm-plot-tbody') as HTMLElement | null;
+		const plotTbody = this.wrapper.querySelector('tbody.wm-plot-tbody');
 		if (!plotTbody) { this.render(); return; }
 
-		const tr = plotTbody.querySelector(`tr[data-line-id="${lineId}"]`) as HTMLTableRowElement | null;
+		const tr = plotTbody.querySelector(`tr[data-line-id="${lineId}"]`);
 		if (!tr) { this.render(); return; }
 
 		tr.toggleClass('wm-plot-row-pinned', !!line.pinned);
@@ -229,7 +229,7 @@ export class Layout1Grid {
 		);
 
 		// Re-sort DOM rows
-		const allRows = Array.from(plotTbody.querySelectorAll('tr[data-line-id]')) as HTMLTableRowElement[];
+		const allRows = Array.from(plotTbody.querySelectorAll<HTMLElement>('tr[data-line-id]'));
 		allRows.sort((a, b) =>
 			newSortedLines.findIndex(l => l.id === a.dataset.lineId) -
 			newSortedLines.findIndex(l => l.id === b.dataset.lineId)
@@ -816,7 +816,7 @@ export class Layout1Grid {
 	private updateCharDomOrder() {
 		if (!this.charsTbody) { this.charDomOrderedRows = []; return; }
 		this.charDomOrderedRows = [];
-		for (const tr of Array.from(this.charsTbody.rows) as HTMLTableRowElement[]) {
+		for (const tr of Array.from(this.charsTbody.rows)) {
 			const charId = tr.dataset['charId'];
 			if (!charId || tr.classList.contains('wm-plot-char-hidden')) continue;
 			const row = this.charGridRowMap.get(charId);
@@ -1323,7 +1323,7 @@ export class Layout1Grid {
 		popup.style.top = `${rect.bottom + 4}px`;
 		popup.style.left = `${Math.max(4, rect.left - 80)}px`;
 
-		const input = popup.createEl('input', { cls: 'wm-plot-subtitle-input', attr: { type: 'text', placeholder: '소제목 입력…', spellcheck: 'false' } }) as HTMLInputElement;
+		const input = popup.createEl('input', { cls: 'wm-plot-subtitle-input', attr: { type: 'text', placeholder: '소제목 입력…', spellcheck: 'false' } });
 		input.value = ep.subtitle ?? '';
 
 		const save = () => {
@@ -1793,7 +1793,7 @@ export class Layout1Grid {
 			const wrap = row.createDiv({ cls: 'wm-plot-addchar-input-wrap' });
 			const ic = wrap.createSpan({ cls: 'wm-plot-addchar-icon clickable-icon', attr: { title: '선택' } });
 			setIcon(ic, iconName);
-			const inp = wrap.createEl('input', { attr: { type: 'text', placeholder, value: initVal } }) as HTMLInputElement;
+			const inp = wrap.createEl('input', { attr: { type: 'text', placeholder, value: initVal } });
 			ic.addEventListener('click', () => onIconClick(inp));
 			return inp;
 		};
@@ -1807,7 +1807,7 @@ export class Layout1Grid {
 
 		const nameRow = popup.createDiv({ cls: 'wm-plot-bulk-row' });
 		nameRow.createEl('label', { text: '캐릭터 이름' });
-		const nameInp = nameRow.createEl('input', { attr: { type: 'text', placeholder: '이름 입력' } }) as HTMLInputElement;
+		const nameInp = nameRow.createEl('input', { attr: { type: 'text', placeholder: '이름 입력' } });
 
 		const tmplInp = makeIconRow('템플릿', '예: 템플릿/인물.md', this.plugin.settings.plotCharNoteTemplate ?? '', 'file-text', (inp) => {
 			new NoteSuggestModal(this.plugin.app, (file: TFile) => {
@@ -1888,7 +1888,7 @@ export class Layout1Grid {
 		const vault = this.plugin.app.vault;
 		const charFiles = vault.getAllLoadedFiles().filter(f =>
 			f instanceof TFile &&
-			(f as TFile).extension === 'md' &&
+			f.extension === 'md' &&
 			(f.path.startsWith(charFolder + '/') || f.path === charFolder + '.md')
 		) as TFile[];
 
@@ -2109,7 +2109,7 @@ export class Layout1Grid {
 			const ic = lg.createSpan({ cls: 'writing-menu-icon' }); setIcon(ic, icon);
 			lg.createEl('label', { text: label });
 			const grp = div.createDiv({ cls: 'writing-menu-control-group wm-stepper-group' });
-			const inp = grp.createEl('input', { type: 'number', value: String(val), cls: 'wm-stepper-input' }) as HTMLInputElement;
+			const inp = grp.createEl('input', { type: 'number', value: String(val), cls: 'wm-stepper-input' });
 
 			const change = (newVal: number) => {
 				const before = getSnap();
@@ -2143,8 +2143,8 @@ export class Layout1Grid {
 			const ic = lg.createSpan({ cls: 'writing-menu-icon' }); setIcon(ic, icon);
 			lg.createEl('label', { text: label });
 			const grp = div.createDiv({ cls: 'writing-menu-control-group wm-color-group' });
-			const li = grp.createEl('input', { type: 'color', value: lightVal, cls: 'wm-compact-color-input' }) as HTMLInputElement;
-			const di = grp.createEl('input', { type: 'color', value: darkVal, cls: 'wm-compact-color-input' }) as HTMLInputElement;
+			const li = grp.createEl('input', { type: 'color', value: lightVal, cls: 'wm-compact-color-input' });
+			const di = grp.createEl('input', { type: 'color', value: darkVal, cls: 'wm-compact-color-input' });
 			li.onchange = () => { const before = getSnap(); onLight(li.value); pushUndo(before); };
 			di.onchange = () => { const before = getSnap(); onDark(di.value); pushUndo(before); };
 		};
@@ -2283,7 +2283,7 @@ export class Layout1Grid {
 		const makeRow = (label: string, value: string) => {
 			const row = popup.createDiv({ cls: 'wm-plot-bulk-row' });
 			row.createEl('label', { text: label });
-			const inp = row.createEl('input', { attr: { type: 'number', min: '1', max: '200', value } }) as HTMLInputElement;
+			const inp = row.createEl('input', { attr: { type: 'number', min: '1', max: '200', value } });
 			return inp;
 		};
 
@@ -2373,9 +2373,9 @@ export class Layout1Grid {
 		const rangeRow = popup.createDiv({ cls: 'wm-plot-bulk-row' });
 		rangeRow.createEl('label', { text: '삭제 범위' });
 		const rangeWrap = rangeRow.createDiv({ cls: 'wm-plot-bulk-range' });
-		const fromInput = rangeWrap.createEl('input', { attr: { type: 'number', min: String(firstNum), max: String(lastNum), value: String(firstNum) } }) as HTMLInputElement;
+		const fromInput = rangeWrap.createEl('input', { attr: { type: 'number', min: String(firstNum), max: String(lastNum), value: String(firstNum) } });
 		rangeWrap.createEl('span', { text: '~' });
-		const toInput = rangeWrap.createEl('input', { attr: { type: 'number', min: String(firstNum), max: String(lastNum), value: String(lastNum) } }) as HTMLInputElement;
+		const toInput = rangeWrap.createEl('input', { attr: { type: 'number', min: String(firstNum), max: String(lastNum), value: String(lastNum) } });
 		rangeWrap.createEl('span', { text: `화`, cls: 'wm-plot-bulk-total' });
 
 		const infoEl = popup.createDiv({ cls: 'wm-plot-bulk-info' });
@@ -2469,7 +2469,7 @@ export class Layout1Grid {
 		const searchInput = searchBox.createEl('input', {
 			cls: 'wm-plot-char-vis-search',
 			attr: { type: 'text', placeholder: '인물 검색…', spellcheck: 'false' },
-		}) as HTMLInputElement;
+		});
 		const toggleAllBtn = searchBox.createEl('button', { cls: 'wm-plot-char-vis-toggle-all clickable-icon' });
 		const toggleIconEl = toggleAllBtn.createSpan({ cls: 'wm-plot-char-vis-toggle-icon' });
 
@@ -2478,7 +2478,7 @@ export class Layout1Grid {
 
 		for (const char of this.project.characters) {
 			const item = list.createDiv({ cls: 'wm-plot-char-vis-item' });
-			const cb = item.createEl('input', { attr: { type: 'checkbox' } }) as HTMLInputElement;
+			const cb = item.createEl('input', { attr: { type: 'checkbox' } });
 			cb.checked = !this.hiddenCharIds.has(char.id);
 			checkboxes.push({ cb, charId: char.id, item, name: char.name.toLowerCase() });
 			item.createEl('label', { text: char.name });

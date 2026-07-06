@@ -52,7 +52,7 @@ function renderInto(root: HTMLElement, plugin: WritingMenuPlugin, compact?: HTML
 	if (cache && filePath && cache.filePath === filePath) {
 		const statCard = root.createDiv({ cls: 'wm-rep-stat-card' });
 		const listEl = root.createDiv({ cls: 'wm-rep-list' });
-		renderWithResult(statCard, listEl, cache.result, cache.text, plugin, view!.editor, compact);
+		renderWithResult(statCard, listEl, cache.result, cache.text, plugin, view.editor, compact);
 	} else {
 		renderEmptyState(root, plugin, compact);
 	}

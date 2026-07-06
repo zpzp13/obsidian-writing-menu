@@ -24,7 +24,7 @@ export function openChapterSearchPopup(
 	const input = inputWrap.createEl('input', {
 		cls: 'wm-plot-ch-search-popup-input',
 		attr: { type: 'text', placeholder: '화 번호 입력 (예: 5)', spellcheck: 'false' },
-	}) as HTMLInputElement;
+	});
 
 	const dismiss = () => { popup.remove(); onDismiss?.(); };
 	const doSearch = () => {

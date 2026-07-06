@@ -191,7 +191,7 @@ export class PlotManager {
 					content += `#### 캐릭터\n\n`;
 					for (const char of sceneChars) {
 						const cell = charCells[`${char.id}__${sc.id}`];
-						content += `##### ${char.name}\n\n${cell!.content}\n\n`;
+						content += `##### ${char.name}\n\n${cell.content}\n\n`;
 					}
 				}
 			}
