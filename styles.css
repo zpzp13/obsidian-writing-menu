@@ -1913,10 +1913,10 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     flex-shrink: 0;
 }
 /* 도넛 thumb: 내부 채워진 원 + gap + 바깥 링 */
-.wm-music-vol-slider::-webkit-slider-thumb {
-    background: var(--interactive-accent) !important;
-    border: 2px solid var(--background-primary) !important;
-    box-shadow: 0 0 0 2px var(--interactive-accent) !important;
+input.slider.wm-music-vol-slider::-webkit-slider-thumb {
+    background: var(--interactive-accent);
+    border: 2px solid var(--background-primary);
+    box-shadow: 0 0 0 2px var(--interactive-accent);
 }
 /* vol 아이콘 버튼: pointer-events 복원 */
 .wm-dash-music-vol-btn { color: var(--text-faint); flex-shrink: 0; pointer-events: auto; }
