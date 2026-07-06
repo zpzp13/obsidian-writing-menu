@@ -1,9 +1,15 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import { spawn } from 'child_process';
+import * as fsRaw from 'fs';
+import * as pathRaw from 'path';
+import { spawn as spawnRaw } from 'child_process';
 import { TFile, Notice, WorkspaceLeaf, MarkdownView, FileSystemAdapter } from 'obsidian';
 import { CONVERTER_PY_CONTENT } from './converterScript';
 import type WritingMenuPlugin from '../../main';
+import type { FsLike, PathLike, SpawnLike } from '../utils/nodeShims';
+
+const fs = fsRaw as unknown as FsLike;
+const path = pathRaw as unknown as PathLike;
+const spawn = spawnRaw as unknown as SpawnLike;
+declare const process: { env: Record<string, string | undefined> };
 
 function getVaultBasePath(plugin: WritingMenuPlugin): string {
 	const adapter = plugin.app.vault.adapter;
@@ -50,7 +56,7 @@ export async function runPicker(plugin: WritingMenuPlugin, mode: 'folder' | 'fil
 		const proc = spawn('python', [scriptFile, ...args], { cwd: scriptDir });
 		let output = '';
 
-		proc.stdout.on('data', (data: Buffer) => {
+		proc.stdout.on('data', (data) => {
 			output += data.toString();
 		});
 
@@ -114,12 +120,12 @@ export async function convertToHwp(plugin: WritingMenuPlugin, file: TFile, fileN
 		let stderrOutput = '';
 		let stdoutOutput = '';
 
-		pythonProcess.stdout.on('data', (data: Buffer) => {
+		pythonProcess.stdout.on('data', (data) => {
 			stdoutOutput += data.toString('utf-8');
 			console.log(`[Python]: ${data.toString('utf-8')}`);
 		});
 
-		pythonProcess.stderr.on('data', (data: Buffer) => {
+		pythonProcess.stderr.on('data', (data) => {
 			stderrOutput += data.toString('utf-8');
 			console.error(`[Python Error]: ${data.toString('utf-8')}`);
 		});
@@ -320,12 +326,12 @@ export async function convertFolderToHwp(plugin: WritingMenuPlugin, folderPath: 
 
 		const pythonProcess = spawn('python', args, { cwd: scriptDir });
 
-		pythonProcess.stdout.on('data', (data: Buffer) => {
-			console.log(`[Python]: ${data}`);
+		pythonProcess.stdout.on('data', (data) => {
+			console.log(`[Python]: ${data.toString()}`);
 		});
 
-		pythonProcess.stderr.on('data', (data: Buffer) => {
-			console.error(`[Python Error]: ${data}`);
+		pythonProcess.stderr.on('data', (data) => {
+			console.error(`[Python Error]: ${data.toString()}`);
 		});
 
 		pythonProcess.on('error', (err: Error) => {
@@ -380,8 +386,8 @@ export async function convertFilesToHwp(plugin: WritingMenuPlugin, files: TFile[
 
 		const pythonProcess = spawn('python', args, { cwd: scriptDir });
 
-		pythonProcess.stderr.on('data', (data: Buffer) => {
-			console.error(`[Python Error]: ${data}`);
+		pythonProcess.stderr.on('data', (data) => {
+			console.error(`[Python Error]: ${data.toString()}`);
 		});
 
 		pythonProcess.on('close', (code: number) => {
@@ -513,8 +519,8 @@ export async function convertFolderToHwpMerged(plugin: WritingMenuPlugin, folder
 
 		const pythonProcess = spawn('python', args, { cwd: scriptDir });
 
-		pythonProcess.stderr.on('data', (data: Buffer) => {
-			console.error(`[Python Error]: ${data}`);
+		pythonProcess.stderr.on('data', (data) => {
+			console.error(`[Python Error]: ${data.toString()}`);
 		});
 
 		pythonProcess.on('error', (err: Error) => {
@@ -570,8 +576,8 @@ export async function convertFilesToHwpMerged(plugin: WritingMenuPlugin, files: 
 
 		const pythonProcess = spawn('python', args, { cwd: scriptDir });
 
-		pythonProcess.stderr.on('data', (data: Buffer) => {
-			console.error(`[Python Error]: ${data}`);
+		pythonProcess.stderr.on('data', (data) => {
+			console.error(`[Python Error]: ${data.toString()}`);
 		});
 
 		pythonProcess.on('close', (code: number) => {
