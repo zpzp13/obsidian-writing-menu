@@ -3075,9 +3075,7 @@ input.slider.wm-music-vol-slider::-webkit-slider-thumb {
 			body.wm-focus-mode .status-bar,
 			body.wm-focus-mode .workspace-tab-header-container { display: none; }
 			body.wm-focus-mode .view-header { display: none; }
-			/* width kept !important: Obsidian sets an inline width style on this
-			   split via drag-resize persistence, which only !important can beat */
-			body.wm-focus-mode .workspace-split.mod-root { width: 100vw !important; }
+			body.wm-focus-mode .workspace-split.mod-root { width: 100vw; }
 
 			/* 커스텀 구분선 — 텍스트 모드 */
 			.wm-hr-custom:not(.wm-hr-svg) .cm-content hr,
