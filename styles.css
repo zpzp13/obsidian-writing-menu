@@ -4186,7 +4186,7 @@ button.wm-plot-tool-btn:hover { background: var(--background-modifier-hover); co
 }
 
 /* Corner cell: rowspan:3 → spans all 3 rows; always top: 0 */
-.wm-plot-corner-cell {
+.wm-plot-table th.wm-plot-corner-cell {
   position: sticky;
   left: 0;
   top: 0;
@@ -4195,9 +4195,7 @@ button.wm-plot-tool-btn:hover { background: var(--background-modifier-hover); co
 }
 
 /* Episode / Chapter / Scene header */
-.wm-plot-ep-header {
-  background: var(--background-secondary-alt, var(--background-secondary));
-  position: relative;
+.wm-plot-table th.wm-plot-ep-header {
   height: 48px;
   box-sizing: border-box;
   /* box-shadow simulates bottom border — doesn't disappear with sticky */
@@ -4556,7 +4554,7 @@ button.wm-plot-act-btn {
   width: 22px;
   height: 22px;
   padding: 0;
-  background: none;
+  background: var(--background-primary);
   border: none;
   box-shadow: none;
   color: var(--text-muted);
