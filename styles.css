@@ -4645,7 +4645,14 @@ button.wm-plot-act-btn {
   flex-direction: column;
 }
 .wm-plot-sort-popup button {
-  all: unset;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  outline: none;
   box-sizing: border-box;
   cursor: pointer;
 }
@@ -4749,7 +4756,7 @@ button.wm-plot-act-btn {
   gap: 4px;
   padding: 6px 8px;
 }
-.wm-cell-trigger-popup button { all: unset; box-sizing: border-box; cursor: pointer; }
+.wm-cell-trigger-popup button { background: none; border: none; padding: 0; margin: 0; font: inherit; color: inherit; text-align: inherit; outline: none; box-sizing: border-box; cursor: pointer; }
 .wm-cell-trigger-btn {
   display: inline-flex;
   align-items: center;
