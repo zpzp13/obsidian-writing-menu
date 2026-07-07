@@ -3459,7 +3459,6 @@ input.slider.wm-music-vol-slider::-webkit-slider-thumb {
 			.wm-ver-popup-check svg { width: 13px; height: 13px; }
 			.wm-ver-popup-separator { height: 1px; background: var(--background-modifier-border); margin: 3px 2px; }
 
-			.wm-stage-del-btn.mod-warning { color: var(--background-modifier-border) !important; }
 			/* 색상 피커 크기 통일 — Obsidian Setting.addColorPicker */
 			.wm-settings-group-box .setting-item input[type=color] { width: 26px; height: 26px; padding: 0; }
 
@@ -4170,9 +4169,6 @@ button.wm-plot-tool-btn:hover { background: var(--background-modifier-hover); co
 .wm-plot-table thead tr:nth-child(1) th { top: 0; }
 .wm-plot-table thead tr:nth-child(2) th { top: 48px; }
 .wm-plot-table thead tr:nth-child(3) th { top: 80px; }
-/* Corner cell: rowspan:3 → spans all 3 rows; always top: 0 */
-.wm-plot-corner-cell { top: 0 !important; }
-
 .wm-plot-sticky-td {
   position: sticky;
 }
@@ -4189,11 +4185,12 @@ button.wm-plot-tool-btn:hover { background: var(--background-modifier-hover); co
   box-sizing: border-box;
 }
 
+/* Corner cell: rowspan:3 → spans all 3 rows; always top: 0 */
 .wm-plot-corner-cell {
   position: sticky;
   left: 0;
   top: 0;
-  z-index: 3 !important;
+  z-index: 3;
   background: var(--background-secondary);
 }
 
@@ -4201,7 +4198,7 @@ button.wm-plot-tool-btn:hover { background: var(--background-modifier-hover); co
 .wm-plot-ep-header {
   background: var(--background-secondary-alt, var(--background-secondary));
   position: relative;
-  height: 48px !important;
+  height: 48px;
   box-sizing: border-box;
   /* box-shadow simulates bottom border — doesn't disappear with sticky */
   box-shadow: 0 1px 0 0 var(--background-modifier-border);
@@ -4344,14 +4341,14 @@ button.wm-plot-tool-btn:hover { background: var(--background-modifier-hover); co
 
 
 /* Compact label for collapsed plot lines */
-.wm-plot-label-compact {
-  flex-direction: row !important;
-  align-items: center !important;
-  justify-content: center !important;
-  min-height: 0 !important;
-  height: 32px !important;
+.wm-plot-label.wm-plot-label-compact {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  height: 32px;
   gap: 0;
-  padding: 0 6px !important;
+  padding: 0 6px;
   position: relative;
 }
 .wm-plot-expand-btn {
@@ -4360,7 +4357,7 @@ button.wm-plot-tool-btn:hover { background: var(--background-modifier-hover); co
   position: absolute;
   left: 30px;
 }
-.wm-plot-expand-btn:hover { opacity: 1 !important; }
+.wm-plot-expand-btn:hover { opacity: 1; }
 /* Pin button in collapsed row: left of expand btn */
 .wm-plot-label-compact .wm-plot-pin-btn {
   flex-shrink: 0;
@@ -4369,7 +4366,7 @@ button.wm-plot-tool-btn:hover { background: var(--background-modifier-hover); co
   left: 6px;
 }
 .wm-plot-label-compact .wm-plot-pin-btn.is-pinned { opacity: 1; color: var(--interactive-accent); }
-.wm-plot-label-compact .wm-plot-pin-btn:hover { opacity: 1 !important; }
+.wm-plot-label-compact .wm-plot-pin-btn:hover { opacity: 1; }
 .wm-plot-label-compact .wm-plot-line-name {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4485,7 +4482,7 @@ button.wm-plot-tool-btn:hover { background: var(--background-modifier-hover); co
 }
 
 /* Pin button: accent color when pinned */
-.wm-plot-pin-btn.is-pinned { color: var(--interactive-accent) !important; opacity: 1 !important; }
+.wm-plot-pin-btn.is-pinned { color: var(--interactive-accent); opacity: 1; }
 
 /* Pinned rows: opaque background so sticky cells cover scrolled content */
 tr.wm-plot-row-pinned .wm-plot-cell {
@@ -4555,13 +4552,13 @@ td:hover .wm-plot-actions {
   opacity: 1;
   pointer-events: auto;
 }
-.wm-plot-act-btn {
+button.wm-plot-act-btn {
   width: 22px;
   height: 22px;
   padding: 0;
   background: none;
   border: none;
-  box-shadow: none !important;
+  box-shadow: none;
   color: var(--text-muted);
   cursor: pointer;
   display: flex;
@@ -4572,7 +4569,7 @@ td:hover .wm-plot-actions {
 }
 .wm-plot-act-btn svg { width: 13px; height: 13px; }
 .wm-plot-act-btn:hover { color: var(--interactive-accent); }
-.wm-plot-act-del:hover { color: var(--text-error, #e74c3c) !important; }
+.wm-plot-act-del:hover { color: var(--text-error, #e74c3c); }
 
 /* ── Plot row format popup ── */
 .wm-plot-line-fmt-popup,
@@ -4603,7 +4600,7 @@ td:hover .wm-plot-actions {
 
 /* ── Cell selection — inset so it's visible even in col 0 ── */
 .wm-plot-cell.is-selected {
-  box-shadow: inset 0 0 0 2px var(--interactive-accent) !important;
+  box-shadow: inset 0 0 0 2px var(--interactive-accent);
   z-index: 1;
 }
 
@@ -5043,17 +5040,20 @@ td:hover .wm-plot-actions {
   border: 2px solid var(--interactive-accent);
   padding: 0 4px;
 }
-.wm-plot-ch-search-popup-input {
+.wm-plot-ch-search-popup-wrap input.wm-plot-ch-search-popup-input {
   flex: 1;
   font-size: 14px;
   color: var(--text-normal);
   height: 26px;
   padding: 0 4px;
-  background: transparent !important;
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
+  background: transparent;
+  border: none;
+  outline: none;
+  box-shadow: none;
 }
+.wm-plot-ch-search-popup-wrap input.wm-plot-ch-search-popup-input:hover,
+.wm-plot-ch-search-popup-wrap input.wm-plot-ch-search-popup-input:focus,
+.wm-plot-ch-search-popup-wrap input.wm-plot-ch-search-popup-input:active { background: transparent; border: none; outline: none; box-shadow: none; }
 
 /* ── Chapter column flash highlight ── */
 @keyframes wm-ch-flash-anim {
@@ -5061,7 +5061,7 @@ td:hover .wm-plot-actions {
   100% { box-shadow: inset 0 0 0 9999px transparent; }
 }
 .wm-plot-ch-flash {
-  animation: wm-ch-flash-anim 1.2s ease-out !important;
+  animation: wm-ch-flash-anim 1.2s ease-out;
 }
 
 /* ── Hidden character row ── */
@@ -5107,17 +5107,17 @@ td:hover .wm-plot-actions {
 .wm-plot-char-vis-item input[type="checkbox"] { cursor: pointer; flex-shrink: 0; }
 
 /* 전체 토글 버튼 (검색창 우측 아이콘) */
-.wm-plot-char-vis-toggle-all {
+.clickable-icon.wm-plot-char-vis-toggle-all {
   display: flex;
   align-items: center;
-  background: none !important;
+  background: none;
   border: none;
   cursor: pointer;
   padding: 0 6px;
   color: var(--text-muted);
   flex-shrink: 0;
 }
-.wm-plot-char-vis-toggle-all:hover { background: transparent !important; color: var(--text-normal); }
+.clickable-icon.wm-plot-char-vis-toggle-all:hover { background: transparent; color: var(--text-normal); }
 .wm-plot-char-vis-toggle-icon {
   display: flex;
   align-items: center;
@@ -5146,17 +5146,20 @@ td:hover .wm-plot-actions {
 }
 .wm-plot-char-vis-search-box:focus-within .wm-plot-char-vis-search-icon { color: var(--interactive-accent); }
 .wm-plot-char-vis-search-icon svg { width: 14px; height: 14px; }
-.wm-plot-char-vis-search {
+.wm-plot-char-vis-search-box input.wm-plot-char-vis-search {
   flex: 1;
-  border: none !important;
-  background: transparent !important;
+  border: none;
+  background: transparent;
   color: var(--text-normal);
   font-size: 13px;
   padding: 6px 8px 6px 0;
-  outline: none !important;
-  box-shadow: none !important;
+  outline: none;
+  box-shadow: none;
   min-width: 0;
 }
+.wm-plot-char-vis-search-box input.wm-plot-char-vis-search:hover,
+.wm-plot-char-vis-search-box input.wm-plot-char-vis-search:focus,
+.wm-plot-char-vis-search-box input.wm-plot-char-vis-search:active { border: none; background: transparent; outline: none; box-shadow: none; }
 
 /* ── Confirm move modal ── */
 .wm-confirm-move-msg { font-size: 13px; color: var(--text-normal); margin-bottom: 16px; line-height: 1.5; }
@@ -5266,16 +5269,19 @@ td:hover .wm-plot-actions {
 }
 .wm-tl-row-picker-search:focus-within .wm-tl-row-picker-search-icon { color: var(--interactive-accent); }
 .wm-tl-row-picker-search-icon .svg-icon { width: 14px; height: 14px; }
-.wm-tl-row-picker-input {
+.wm-tl-row-picker-search input.wm-tl-row-picker-input {
   flex: 1;
-  border: none !important;
+  border: none;
   background: transparent;
   font-size: 13px;
   color: var(--text-normal);
   outline: none;
   padding: 6px 8px 6px 0;
-  box-shadow: none !important;
+  box-shadow: none;
 }
+.wm-tl-row-picker-search input.wm-tl-row-picker-input:hover,
+.wm-tl-row-picker-search input.wm-tl-row-picker-input:focus,
+.wm-tl-row-picker-search input.wm-tl-row-picker-input:active { border: none; background: transparent; outline: none; box-shadow: none; }
 .wm-tl-row-picker-list {
   overflow-y: auto;
   flex: 1;
