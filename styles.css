@@ -3073,8 +3073,10 @@ input.slider.wm-music-vol-slider::-webkit-slider-thumb {
 			body.wm-focus-mode .workspace-split.mod-right-split,
 			body.wm-focus-mode .workspace-ribbon.mod-left,
 			body.wm-focus-mode .status-bar,
-			body.wm-focus-mode .workspace-tab-header-container { display: none !important; }
-			body.wm-focus-mode .view-header { display: none !important; }
+			body.wm-focus-mode .workspace-tab-header-container { display: none; }
+			body.wm-focus-mode .view-header { display: none; }
+			/* width kept !important: Obsidian sets an inline width style on this
+			   split via drag-resize persistence, which only !important can beat */
 			body.wm-focus-mode .workspace-split.mod-root { width: 100vw !important; }
 
 			/* 커스텀 구분선 — 텍스트 모드 */
@@ -3116,11 +3118,11 @@ input.slider.wm-music-vol-slider::-webkit-slider-thumb {
 			}
 
 			/* 길게 보기 (hide vertical chrome, keep sidebars) */
-			body.wm-wide-mode { --titlebar-height: 0px !important; }
+			body.wm-wide-mode { --titlebar-height: 0px; }
 			body.wm-wide-mode .titlebar,
 			body.wm-wide-mode .view-header,
 			body.wm-wide-mode .workspace-tab-header-container,
-			body.wm-wide-mode .status-bar { display: none !important; }
+			body.wm-wide-mode .status-bar { display: none; }
 
 			/* Status bar stopwatch tag */
 			.status-bar-item.wm-status-bar-item {
@@ -3543,8 +3545,10 @@ input.slider.wm-music-vol-slider::-webkit-slider-thumb {
 			/* Zen mode — show only the active leaf */
 			body.wm-focus-mode.wm-has-zen-leaf .workspace-tabs:not(.wm-zen-tabs),
 			body.wm-focus-mode.wm-has-zen-leaf .workspace-split:not(.mod-root):not(.wm-zen-split) {
-				display: none !important;
+				display: none;
 			}
+			/* flex kept !important: Obsidian persists pane sizing as an inline
+			   flex/width style, which only !important can override */
 			body.wm-focus-mode.wm-has-zen-leaf .workspace-tabs.wm-zen-tabs { flex: 1 1 auto !important; }
 			body.wm-focus-mode.wm-has-zen-leaf .workspace-leaf.wm-zen-leaf { flex: 1 1 auto !important; }
 
