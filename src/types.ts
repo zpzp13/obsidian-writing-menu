@@ -347,7 +347,6 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	plotLinkOpenMode: 'tab',
 	plotSortPageSize: 5,
 	plotCellWidth: 200,
-	spellCheckEngine: 'daum',
 	spellCheckIgnoredWords: [],
 	repetitionVocabNotePath: '',
 };

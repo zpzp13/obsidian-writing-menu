@@ -36,11 +36,6 @@ function decodeEntities(html: string): string {
 	return doc.body.textContent ?? html;
 }
 
-function decodeHtmlToText(html: string): string {
-	const doc = new DOMParser().parseFromString(html.replace(/<br\s*\/?>/gi, '\n'), 'text/html');
-	return doc.body.textContent ?? html;
-}
-
 // ── Daum 검사 ─────────────────────────────────────────────────────────────
 
 const DAUM_URL = 'https://dic.daum.net/grammar_checker.do';
@@ -142,78 +137,6 @@ async function checkChunkDaum(chunk: string): Promise<RawResult[]> {
 	return parseDaumResponse(res.text);
 }
 
-
-
-function splitByWordCount(text: string, limit: number): string[] {
-	const tokens = text.split(/(\s+)/);
-	const chunks: string[] = [];
-	let current = '';
-	let wordCount = 0;
-	for (const token of tokens) {
-		current += token;
-		if (/\S/.test(token) && ++wordCount >= limit) {
-			chunks.push(current);
-			current = '';
-			wordCount = 0;
-		}
-	}
-	if (current) chunks.push(current);
-	return chunks.length ? chunks : [text];
-}
-
-	const dataIdx = html.search(/(?:var\s+)?data\s*=\s*\[/);
-	if (dataIdx === -1) return null;
-	const arrStart = html.indexOf('[', dataIdx);
-	if (arrStart === -1) return null;
-	let depth = 0, inStr = false, strChar = '';
-	for (let i = arrStart; i < html.length; i++) {
-		const ch = html[i];
-		if (inStr) {
-			if (ch === '\\') { i++; continue; }
-			if (ch === strChar) inStr = false;
-		} else {
-			if (ch === '"' || ch === "'") { inStr = true; strChar = ch; }
-			else if (ch === '[' || ch === '{') depth++;
-			else if (ch === ']' || ch === '}') { depth--; if (depth === 0) return html.substring(arrStart, i + 1); }
-		}
-	}
-	return null;
-}
-
-	if (!jsonStr) return [];
-	let arr: Array<{ errInfo?: Array<{ orgStr?: string; candWord?: string; help?: string }> }>;
-	try { arr = JSON.parse(jsonStr) as typeof arr; } catch { return []; }
-	if (!Array.isArray(arr)) return [];
-
-	const results: RawResult[] = [];
-	for (const entry of arr) {
-		for (const err of (Array.isArray(entry?.errInfo) ? entry.errInfo : [])) {
-			if (!err || typeof err !== 'object') continue;
-			const token = err.orgStr ?? '';
-			if (!token) continue;
-			const cand = typeof err.candWord === 'string' ? err.candWord : '';
-			const suggestions = cand.split('|').map((s: string) => s.trim()).filter(Boolean);
-			const info = decodeHtmlToText(err.help ?? '');
-			const e = err as Record<string, unknown>;
-			const raw = e.correctMethod ?? e.info ?? e.errorType ?? e.errType ?? e.type;
-			results.push({ token, suggestions: suggestions.length ? suggestions : [token], type, info });
-		}
-	}
-	return results;
-}
-
-	const body = new URLSearchParams({ text1: chunk, btnModeChange: 'on' }).toString();
-	const res = await requestUrl({
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-		},
-		body,
-		throw: false,
-	});
-	if (res.status < 200 || res.status >= 300) throw new Error(`HTTP ${res.status}`);
-}
-
 // ── 공통 후처리 ───────────────────────────────────────────────────────────
 
 function formatHelp(help: string): string {
@@ -268,9 +191,6 @@ export class SpellCheckerService {
 		return buildCorrections(await collectRaw(splitByLength(cleaned, '.,\n', DAUM_MAX_CHARS), checkChunkDaum, 400));
 	}
 
-		const cleaned = text.replace(/<[^ㄱ-ㅎㅏ-ㅣ가-힣>]+>/g, '');
-	}
-
 	async run(editor: Editor, plugin: WritingMenuPlugin): Promise<void> {
 		const text = editor.getValue();
 		if (!text.trim()) { new Notice('검사할 내용이 없습니다.'); return; }
@@ -280,7 +200,7 @@ export class SpellCheckerService {
 
 		const loadingNotice = new Notice('맞춤법 검사 중...', 0);
 		try {
-			const engine = plugin.settings.spellCheckEngine ?? 'daum';
+			let corrections = await this.checkByDaum(body);
 
 			const ignoredStems = plugin.settings.spellCheckIgnoredWords ?? [];
 			corrections = corrections.filter(c =>
