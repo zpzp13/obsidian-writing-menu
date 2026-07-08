@@ -1250,23 +1250,6 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 	private renderSpellCheckPage(containerEl: HTMLElement) {
 		this.addBackButton(containerEl, '맞춤법 검사');
 
-		this.addGroupTitle(containerEl, '검사 설정');
-		const engineBox = this.createGroupBox(containerEl);
-
-		new Setting(engineBox)
-			.setName('검사 엔진')
-			.setDesc('Daum은 빠른 교정을, 부산대는 더 정밀한 교정을 제공합니다. 두 엔진 모두 무료 웹 API를 활용합니다.')
-			.addDropdown(dd => dd
-				.addOption('daum', 'Daum (권장)')
-				.addOption('pnu', '부산대')
-				.setValue(this.plugin.settings.spellCheckEngine ?? 'daum')
-				.onChange(async v => {
-					this.plugin.settings.spellCheckEngine = v as 'daum' | 'pnu';
-					await this.plugin.saveSettings();
-				}));
-
-		engineBox.createDiv({ cls: 'wm-settings-item-desc', text: '본 맞춤법 검사 기능은 개인에 한해 비상업적 용도로만 이용할 수 있습니다. 검사 엔진은 비공식 API를 사용하므로 서비스 제공자의 정책 변경에 따라 사전 예고 없이 사용이 제한될 수 있습니다.' });
-
 		// 고유명사 사전
 		const ignoredHdr = containerEl.createDiv({ cls: 'wm-settings-section-hdr' });
 		ignoredHdr.createDiv({ cls: 'wm-settings-group-title', text: '고유명사 사전' });

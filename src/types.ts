@@ -167,7 +167,6 @@ export interface WritingMenuSettings {
 	plotSortPageSize: number;
 	plotCellWidth: number;
 	// ── Spell Check ────────────────────────────────────────────────────────────
-	spellCheckEngine: 'daum' | 'pnu';
 	spellCheckIgnoredWords: string[];
 	// ── 퇴고 매니저 (Revision Manager) ─────────────────────────────────────────
 	repetitionVocabNotePath: string;
@@ -348,7 +347,6 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	plotLinkOpenMode: 'tab',
 	plotSortPageSize: 5,
 	plotCellWidth: 200,
-	spellCheckEngine: 'daum',
 	spellCheckIgnoredWords: [],
 	repetitionVocabNotePath: '',
 };

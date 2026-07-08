@@ -34,8 +34,7 @@ A comprehensive writing environment plugin for Obsidian, tailored for novelists 
 ### Spell Checker
 | Feature | Description |
 |---------|-------------|
-| Daum Engine | Fast spell check via the Daum web API (recommended) |
-| PNU Engine | More thorough check via the Pusan National University web spellchecker |
+| Daum Engine | Fast spell check via the Daum web API |
 | Proper Noun Dictionary | Register words to exclude from spell check results |
 | Inline Correction UI | Review errors, apply suggestions, or manually edit — all from a single modal |
 
@@ -187,7 +186,7 @@ Settings are organized as category pages:
 | Wiki View | Card color, image/name/relation fields |
 | Plot Manager | Root folder, plot subfolder, character subfolder, character note template, open mode |
 | Dictionary | Standard Korean Dictionary API key |
-| Spell Checker | Engine selection (Daum / PNU), proper noun dictionary |
+| Spell Checker | Proper noun dictionary |
 | Special Characters | Close-on-insert behavior, favorites |
 
 ---
@@ -272,8 +271,7 @@ MIT
 ### 맞춤법 검사
 | 기능 | 설명 |
 |------|------|
-| Daum 엔진 | Daum 웹 API를 활용한 빠른 맞춤법 검사 (권장) |
-| 부산대 엔진 | 부산대학교 웹 맞춤법 검사기를 활용한 정밀 검사 |
+| Daum 엔진 | Daum 웹 API를 활용한 빠른 맞춤법 검사 |
 | 고유명사 사전 | 검사 결과에서 제외할 단어 등록 |
 | 교정 UI | 오류 검토, 제안 적용, 직접 수정을 하나의 모달에서 처리 |
 
@@ -425,7 +423,7 @@ MIT
 | 위키 뷰 | 카드 색상, 이미지·이름·관계 필드 |
 | 플롯 매니저 | 루트 폴더, 플롯 폴더명, 캐릭터 폴더명, 캐릭터 노트 템플릿, 열기 방식 |
 | 사전 | 표준국어대사전 API 키 |
-| 맞춤법 검사 | 검사 엔진 (Daum / 부산대), 고유명사 사전 |
+| 맞춤법 검사 | 고유명사 사전 |
 | 특수문자 | 삽입 후 닫기 설정, 즐겨찾기 |
 
 ---

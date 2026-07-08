@@ -29,14 +29,6 @@ const STATE_COLORS: Record<CorrectionState, string> = {
 };
 
 const TYPE_BADGE_MAP: Record<string, { label: string; color: string }> = {
-	// PNU: correctMethod (1-4)
-	'1': { label: '어법', color: '#ee335c' },
-	'2': { label: '문맥', color: '#009666' },
-	'3': { label: '흔한 실수', color: '#d69e2e' },
-	'4': { label: '분석 실패', color: '#495eff' },
-	// PNU 구버전 type 문자열
-	'SPELL': { label: '맞춤법', color: 'var(--color-red)' },
-	'SPACE': { label: '띄어쓰기', color: 'var(--color-orange)' },
 	// Daum 영문 타입
 	'space': { label: '띄어쓰기', color: 'var(--color-orange)' },
 	'spell': { label: '문법', color: 'var(--color-red)' },
@@ -55,8 +47,6 @@ const TYPE_BADGE_MAP: Record<string, { label: string; color: string }> = {
 	'띄어쓰기': { label: '띄어쓰기', color: 'var(--color-orange)' },
 	'통계적 교정': { label: '통계', color: 'var(--color-purple)' },
 	'doubt': { label: '의심', color: 'var(--color-yellow)' },
-	// PNU 폴백
-	'pnu': { label: 'PNU', color: 'var(--text-muted)' },
 };
 
 const STATE_BADGE_LABELS: Partial<Record<CorrectionState, string>> = {

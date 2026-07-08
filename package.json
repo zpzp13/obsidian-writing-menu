@@ -1,6 +1,6 @@
 {
 	"name": "writing-menu",
-	"version": "3.1.1",
+	"version": "3.1.2",
 	"description": "An Obsidian plugin for customizing editor formatting",
 	"main": "main.js",
 	"scripts": {
@@ -27,7 +27,6 @@
 	"dependencies": {
 		"@types/node": "^16.11.6",
 		"diff-match-patch": "^1.0.5",
-		"hanspell": "^1.0.1",
 		"ical.js": "^2.2.1",
 		"moment": "^2.30.1"
 	}
