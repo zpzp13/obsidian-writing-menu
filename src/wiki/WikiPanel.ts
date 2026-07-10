@@ -6,6 +6,7 @@ interface AppWithSettings extends App {
 import type WritingMenuPlugin from '../../main';
 import { getToneColor } from './WikiTypes';
 import { FolderOrNoteSuggestModal, ImageSuggestModal } from './WikiModals';
+import { getWikiImgSrc, getWikiDisplayName } from './wikiProfileUtils';
 
 
 export class WikiPanel {
@@ -25,6 +26,7 @@ export class WikiPanel {
 	private collapsedRelGroups = new Set<string>();
 	private stripCollapsed = false;
 	private tocCollapsed = false;
+	private toolbarCollapseTimer = 0;
 
 	constructor(plugin: WritingMenuPlugin, hostComponent: Component) {
 		this.plugin = plugin;
@@ -123,21 +125,11 @@ export class WikiPanel {
 	}
 
 	private getImgSrc(file: TFile): string {
-		const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
-		const val = String(fm?.[this.plugin.settings.wikiImageFieldName] || '');
-		if (!val) return '';
-		if (val.startsWith('[[') && val.endsWith(']]')) {
-			const linked = this.app.metadataCache.getFirstLinkpathDest(val.slice(2, -2), file.path);
-			return linked ? this.app.vault.getResourcePath(linked) : '';
-		}
-		const plain = this.app.vault.getAbstractFileByPath(val);
-		if (plain instanceof TFile) return this.app.vault.getResourcePath(plain);
-		return val;
+		return getWikiImgSrc(this.app, this.plugin, file);
 	}
 
 	private getDisplayName(file: TFile): string {
-		const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
-		return String(fm?.[this.plugin.settings.wikiNameFieldName] || file.basename);
+		return getWikiDisplayName(this.app, this.plugin, file);
 	}
 
 	// ── 메인 렌더 ──────────────────────────────────────────────────────────
@@ -287,7 +279,19 @@ export class WikiPanel {
 	// ── A. 툴바 ────────────────────────────────────────────────────────────
 
 	private renderToolbar(outerContainer: HTMLElement) {
-		const bar = outerContainer.createDiv({ cls: 'wiki-toolbar' });
+		const wrap = outerContainer.createDiv({ cls: 'wiki-toolbar-wrap' });
+		if (this.plugin.settings.wikiToolbarAutoHide) {
+			wrap.addClass('is-collapsed');
+			wrap.addEventListener('mouseenter', () => {
+				window.clearTimeout(this.toolbarCollapseTimer);
+				wrap.removeClass('is-collapsed');
+			});
+			wrap.addEventListener('mouseleave', () => {
+				window.clearTimeout(this.toolbarCollapseTimer);
+				this.toolbarCollapseTimer = window.setTimeout(() => wrap.addClass('is-collapsed'), 60);
+			});
+		}
+		const bar = wrap.createDiv({ cls: 'wiki-toolbar' });
 
 		// 카드 목록 접기/펼치기 (맨 좌측)
 		const collapseBtn = bar.createDiv({

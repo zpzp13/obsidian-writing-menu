@@ -6,7 +6,11 @@
       "Bash(find \"C:/Users/82109/Desktop/Obsidian/Test\" -name \"*.json\" -not -path \"*/.obsidian/*\" 2>/dev/null | head -20)",
       "Read(//c/Users/82109/Desktop/Obsidian/Test/**)",
       "Skill(code-review)",
-      "Skill(code-review:*)"
+      "Skill(code-review:*)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(gh release create 3.0.19 main.js styles.css manifest.json --title 'v3.0.19 — 플롯 매니저' --notes ' *)",
+      "Bash(gh api *)"
     ]
   }
 }

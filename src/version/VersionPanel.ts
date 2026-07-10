@@ -36,6 +36,21 @@ export class VersionPanel {
 		let page: Page = { type: 'list' };
 		let allVersions: VersionEntry[] = [];
 		let charCountMode: 'munpia' | 'novelpia' = 'munpia';
+		let toolbarCollapseTimer = 0;
+
+		// hover 시에만 펼쳐지고 평소엔 접혀있는 툴바 행 (설정에서 켠 경우에만 적용)
+		const attachToolbarCollapse = (row: HTMLElement) => {
+			if (!plugin.settings.versionToolbarAutoHide) return;
+			row.addClass('is-collapsed');
+			row.addEventListener('mouseenter', () => {
+				window.clearTimeout(toolbarCollapseTimer);
+				row.removeClass('is-collapsed');
+			});
+			row.addEventListener('mouseleave', () => {
+				window.clearTimeout(toolbarCollapseTimer);
+				toolbarCollapseTimer = window.setTimeout(() => row.addClass('is-collapsed'), 60);
+			});
+		};
 		let searchQuery = '';
 		let isSearching = false;
 		let stageFilters = new Set<string>();
@@ -343,6 +358,7 @@ export class VersionPanel {
 			const root = ct.createDiv({ cls: 'wm-vhv-root' });
 
 			const header = root.createDiv({ cls: 'wm-vhv-header' });
+			attachToolbarCollapse(header);
 			const normalRow = header.createDiv({ cls: 'wm-vhv-normal-row' });
 
 			// 파일 아이콘
@@ -584,6 +600,7 @@ export class VersionPanel {
 			const root = ct.createDiv({ cls: 'wm-vhv-root' });
 
 			const header = root.createDiv({ cls: 'wm-vhv-header' });
+			attachToolbarCollapse(header);
 			const normalRow = header.createDiv({ cls: 'wm-vhv-normal-row' });
 
 			const backBtn = normalRow.createDiv({ cls: 'wm-cal-icon-btn', attr: { 'aria-label': '목록으로' } });

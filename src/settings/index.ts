@@ -2,10 +2,12 @@ import { App, PluginSettingTab, Setting, setIcon, Platform } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { renderWikiSettingsPage } from '../wiki/WikiSettings';
 import { renderPlotSettingsPage } from '../plot/PlotSettings';
-import { NoteSuggestModal } from '../wiki/WikiModals';
+import { NoteSuggestModal, FolderSuggestModal } from '../wiki/WikiModals';
 import { isGaruAssetsDownloaded, downloadGaruAssets } from '../repetition/GaruAssets';
 import { isMorphAnalysisSupported } from '../repetition/MorphAnalyzer';
 import { fireAndForget } from '../utils/asyncUtils';
+import { AI_CHAT_MODELS } from '../aichat/AiChatApi';
+import { DEFAULT_EPISODE_PROMPT } from '../aichat/EpisodeChatEngine';
 
 
 export class WritingMenuSettingTab extends PluginSettingTab {
@@ -44,6 +46,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			case 'special-chars':    this.renderSpecialCharsPage(containerEl); break;
 			case 'spellcheck':       this.renderSpellCheckPage(containerEl); break;
 			case 'repetition':       this.renderRepetitionPage(containerEl); break;
+			case 'ai':               this.renderAiPage(containerEl); break;
 		}
 	}
 
@@ -93,6 +96,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		this.addNavCard(calBox, '버전 관리', '스냅샷 저장 위치 및 최대 보관 개수', 'history', 'version-control');
 		this.addNavCard(calBox, '위키 뷰', '위키 스타일 캐릭터 카드 뷰 설정', 'git-graph', 'wiki');
 		this.addNavCard(calBox, '플롯 매니저', '에피소드·회차·장면·인물 플롯 관리', 'network', 'plot');
+		this.addNavCard(calBox, 'AI', '캐릭터 챗 API 키 설정', 'bot', 'ai');
 
 		this.addGroupTitle(containerEl, '기타');
 		const etcBox = this.createGroupBox(containerEl);
@@ -984,6 +988,331 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				.onChange(async value => { this.plugin.settings.hanjaBracketMode = value; await this.plugin.saveSettings(); }));
 	}
 
+	// ── AI ──────────────────────────────────────────────────────────────────
+
+	private renderAiPage(containerEl: HTMLElement) {
+		this.addBackButton(containerEl, 'AI');
+
+		this.addGroupTitle(containerEl, 'API 키 등록');
+		const aiBox = this.createGroupBox(containerEl);
+		new Setting(aiBox)
+			.setName('NVIDIA Build')
+			.addText(text => text
+				.setPlaceholder('nvapi-...')
+				.setValue(this.plugin.settings.aiChatApiKey)
+				.onChange(async value => { this.plugin.settings.aiChatApiKey = value.trim(); await this.plugin.saveSettings(); }));
+		const aiDesc = aiBox.createDiv({ cls: 'wm-settings-item-desc' });
+		aiDesc.appendText('DiffusionGemma 26B 모델을 사용하려면 ');
+		aiDesc.createEl('a', { text: 'build.nvidia.com', href: 'https://build.nvidia.com', attr: { target: '_blank', rel: 'noopener' } });
+		aiDesc.appendText(' 에서 발급받은 API 키가 필요합니다. 단, 제공사의 정책에 따라 한도가 변경될 수 있음.');
+
+		new Setting(aiBox)
+			.setName('Google AI Studio')
+			.addText(text => text
+				.setPlaceholder('AQ. 또는 AIza...')
+				.setValue(this.plugin.settings.aiChatGeminiApiKey)
+				.onChange(async value => { this.plugin.settings.aiChatGeminiApiKey = value.trim(); await this.plugin.saveSettings(); }));
+		const geminiDesc = aiBox.createDiv({ cls: 'wm-settings-item-desc' });
+		geminiDesc.appendText('Gemini 3.1 Flash Lite 모델을 사용하려면 ');
+		geminiDesc.createEl('a', { text: 'aistudio.google.com', href: 'https://aistudio.google.com/apikey', attr: { target: '_blank', rel: 'noopener' } });
+		geminiDesc.appendText(' 에서 발급받은 API 키가 필요합니다. 단, 제공사의 정책에 따라 한도가 변경될 수 있음.');
+
+		new Setting(aiBox)
+			.setName('Cerebras')
+			.addText(text => text
+				.setPlaceholder('csk-...')
+				.setValue(this.plugin.settings.aiChatCerebrasApiKey)
+				.onChange(async value => { this.plugin.settings.aiChatCerebrasApiKey = value.trim(); await this.plugin.saveSettings(); }));
+		const cerebrasDesc = aiBox.createDiv({ cls: 'wm-settings-item-desc' });
+		cerebrasDesc.appendText('Gemma 4 31B 모델을 사용하려면 ');
+		cerebrasDesc.createEl('a', { text: 'cloud.cerebras.ai', href: 'https://cloud.cerebras.ai', attr: { target: '_blank', rel: 'noopener' } });
+		cerebrasDesc.appendText(' 에서 발급받은 API 키가 필요합니다. 단, 제공사의 정책에 따라 한도가 변경될 수 있음.');
+
+		const cmpBlock = aiBox.createDiv({ cls: 'wm-settings-model-cmp-block' });
+		cmpBlock.createDiv({ cls: 'wm-settings-model-cmp-title', text: '모델 비교' });
+		const cmpTable = cmpBlock.createEl('table', { cls: 'wm-settings-model-cmp-table' });
+		const thead = cmpTable.createEl('thead');
+		const headRow = thead.createEl('tr');
+		for (const h of ['모델', 'RPM', 'TPM', 'RPD', '속도', '비고']) headRow.createEl('th', { text: h });
+		const tbody = cmpTable.createEl('tbody');
+		const rows: Array<[string, string, string, string, string, string]> = [
+			['Gemma 4 31B (Cerebras)', '5', '30K', '-', '빠름', '캐릭터 챗봇/초고 모두 가장 좋은 성능을 보이나, 분당 호출 제한으로 중간에 대기가 걸릴 수 있음'],
+			['Gemini 3.1 Flash Lite (Google)', '15', '250K', '500', '가장 빠름', '균형 잡힌 모델. 캐릭터 챗봇 모델로 추천'],
+			['DiffusionGemma 26B (NVIDIA)', '40', '없음', '없음', '적당함', '텍스트 품질은 떨어지나 분당 호출수가 넉넉하고 일일 사용량 제한이 없어서 부담없이 쓰기 좋음'],
+		];
+		for (const [name, rpm, tpm, rpd, speed, note] of rows) {
+			const tr = tbody.createEl('tr');
+			tr.createEl('td', { text: name });
+			tr.createEl('td', { text: rpm });
+			tr.createEl('td', { text: tpm });
+			tr.createEl('td', { text: rpd });
+			tr.createEl('td', { text: speed });
+			tr.createEl('td', { text: note });
+		}
+		cmpBlock.createDiv({
+			cls: 'wm-settings-model-cmp-footnote',
+			text: '※ 무료 기준으로 선정된 모델들입니다. 상용 모델에 비하면 성능이 떨어지므로 AI 기능은 어디까지나 참조용으로만 활용하시기 바랍니다.',
+		});
+
+		this.addGroupTitle(containerEl, '기본 설정');
+		const baseBox = this.createGroupBox(containerEl);
+		let episodeRootText: import('obsidian').TextComponent;
+		new Setting(baseBox)
+			.setName('루트 폴더')
+			.setDesc('작품의 최상위 폴더 경로. 지정하면 활성 노트가 이 폴더 하위에 있을 때만 회차 인식/인물 스코프 기능이 동작합니다.')
+			.addExtraButton(btn => btn.setIcon('folder').setTooltip('폴더 선택')
+				.onClick(() => {
+					new FolderSuggestModal(this.app, (folder) => {
+						fireAndForget(async () => {
+							this.plugin.settings.aiEpisodeRootFolder = folder.path;
+							await this.plugin.saveSettings();
+							episodeRootText.setValue(folder.path);
+						});
+					}).open();
+				}))
+			.addText(text => {
+				episodeRootText = text;
+				text.setPlaceholder('예: 소설')
+					.setValue(this.plugin.settings.aiEpisodeRootFolder)
+					.onChange(async value => { this.plugin.settings.aiEpisodeRootFolder = value.trim(); await this.plugin.saveSettings(); });
+			});
+		const rootDesc = baseBox.createDiv({ cls: 'wm-settings-item-desc' });
+		rootDesc.createSpan({ text: '캐릭터 챗봇', attr: { style: 'color: var(--interactive-accent);' } });
+		rootDesc.appendText('과 ');
+		rootDesc.createSpan({ text: '초고', attr: { style: 'color: var(--interactive-accent);' } });
+		rootDesc.appendText('의 데이터 파싱 범위를 루트 폴더의 하위 노트로 제한합니다. AI 기능은 플롯 매니저처럼 루트 폴더-하위 폴더의 구조에서 작동합니다. 기능을 이용하기 전에 폴더링이 제대로 되어 있는지 확인하세요. 예를 들어, 루트 폴더(작품명)-하위 폴더(1. 플롯/2. 등장인물/3. 본문)로 구조를 짠 뒤 해당 폴더 이름을 아래 항목에서 지정해주면 됩니다.');
+
+		new Setting(baseBox)
+			.setName('에피소드(플롯) 폴더명')
+			.addText(text => text
+				.setPlaceholder('예: 플롯')
+				.setValue(this.plugin.settings.aiEpisodeDataFolder)
+				.onChange(async value => { this.plugin.settings.aiEpisodeDataFolder = value.trim(); await this.plugin.saveSettings(); }));
+		baseBox.createDiv({
+			cls: 'wm-settings-item-desc',
+			text: 'AI 초고/AI 챗봇 기능 이용시, 지정된 폴더에서 플롯 데이터를 가져옵니다. 플롯 매니저로 에피소드 노트를 만들고 해당 노트가 있는 상위 폴더의 이름을 입력해주세요.',
+		});
+
+		new Setting(baseBox)
+			.setName('캐릭터 노트 폴더명')
+			.addText(text => text
+				.setPlaceholder('예: 등장인물')
+				.setValue(this.plugin.settings.aiEpisodeCharFolder)
+				.onChange(async value => { this.plugin.settings.aiEpisodeCharFolder = value.trim(); await this.plugin.saveSettings(); }));
+		baseBox.createDiv({
+			cls: 'wm-settings-item-desc',
+			text: 'AI 챗봇 기능 이용시, 지정된 폴더에서 인물 데이터를 가져옵니다. 플롯 매니저로 인물 노트를 만들고 해당 노트가 있는 상위 폴더의 이름을 입력해주세요.',
+		});
+
+		new Setting(baseBox)
+			.setName('본문 폴더명')
+			.addText(text => text
+				.setPlaceholder('예: 본문')
+				.setValue(this.plugin.settings.aiEpisodeBodyFolder)
+				.onChange(async value => { this.plugin.settings.aiEpisodeBodyFolder = value.trim(); await this.plugin.saveSettings(); }));
+		baseBox.createDiv({
+			cls: 'wm-settings-item-desc',
+			text: 'AI 초고 기능 이용시, 지정된 폴더에서 지난 회차 데이터를 가져옵니다. 문체 유지를 위해 반드시 지정해주세요.',
+		});
+
+		this.addGroupTitle(containerEl, '캐릭터 챗봇');
+		const chatBox = this.createGroupBox(containerEl);
+
+		new Setting(chatBox)
+			.setName('모델')
+			.setDesc('호출할 모델을 선택하세요. (NVIDIA Build, Google AI Studio, Cerebras)')
+			.addDropdown(dd => {
+				for (const m of AI_CHAT_MODELS) dd.addOption(m.id, m.label);
+				dd.setValue(this.plugin.settings.aiChatModel)
+					.onChange(async value => { this.plugin.settings.aiChatModel = value; await this.plugin.saveSettings(); });
+			});
+
+		let promptText: import('obsidian').TextComponent;
+		new Setting(chatBox)
+			.setName('프롬프트')
+			.setDesc('선택한 노트의 내용을 시스템 프롬프트 뒤에 덧붙이고, 앞부분과 내용이 충돌하면 이 노트를 우선하도록 지시합니다. 문체·분량·톤 등을 자유롭게 지정하세요. 단, [지문]/[대사] 태그 자체는 메시지 렌더링에 쓰이니 웬만하면 유지를 권장합니다.')
+			.addExtraButton(btn => btn.setIcon('file-text').setTooltip('노트 선택')
+				.onClick(() => {
+					new NoteSuggestModal(this.app, (file) => {
+						fireAndForget(async () => {
+							this.plugin.settings.aiChatSystemPromptNotePath = file.path;
+							await this.plugin.saveSettings();
+							promptText.setValue(file.path);
+						});
+					}).open();
+				}))
+			.addText(text => {
+				promptText = text;
+				text.setPlaceholder('예: AI챗 프롬프트.md')
+					.setValue(this.plugin.settings.aiChatSystemPromptNotePath)
+					.onChange(async value => { this.plugin.settings.aiChatSystemPromptNotePath = value.trim(); await this.plugin.saveSettings(); });
+			});
+
+		new Setting(chatBox)
+			.setName('인물 노트 파싱 헤딩')
+			.setDesc('예: "성격/말투". 인물 노트에 이 이름의 헤딩이 있으면 그 섹션만 잘라서 컨텍스트로 사용하고, 없으면 노트 전체를 사용합니다. 비워두면 항상 노트 전체를 사용합니다.')
+			.addText(text => text
+				.setPlaceholder('성격/말투')
+				.setValue(this.plugin.settings.aiChatPersonaHeading)
+				.onChange(async value => { this.plugin.settings.aiChatPersonaHeading = value.trim(); await this.plugin.saveSettings(); }));
+
+		new Setting(chatBox)
+			.setName('온도 (temperature)')
+			.addText(text => {
+				text.setPlaceholder('1.0')
+					.setValue(String(this.plugin.settings.aiChatTemperature))
+					.onChange(async value => {
+						const num = parseFloat(value);
+						if (!isNaN(num) && num >= 0 && num <= 2) { this.plugin.settings.aiChatTemperature = num; await this.plugin.saveSettings(); }
+					});
+				text.inputEl.type = 'number';
+				text.inputEl.min = '0';
+				text.inputEl.max = '2';
+				text.inputEl.step = '0.1';
+			});
+		chatBox.createDiv({
+			cls: 'wm-settings-item-desc',
+			text: '모델이 다음 단어를 얼마나 과감하게 고를지 정하는 값입니다. 0에 가까울수록 안정적이지만 뻔하고 반복적인 문장이, 2에 가까울수록 신선하지만 두서없이 산으로 갈 수 있는 문장이 나옵니다. 창작 용도로는 0.8~1.3 사이를 권장합니다. 기본값 1.0',
+		});
+
+		new Setting(chatBox)
+			.setName('지문 글자 크기')
+			.setDesc('배수(em) 단위입니다. 기본값 0.9')
+			.addText(text => {
+				text.setPlaceholder('0.9')
+					.setValue(String(this.plugin.settings.aiChatNarrationFontSize))
+					.onChange(async value => {
+						const num = parseFloat(value);
+						if (!isNaN(num) && num > 0 && num <= 3) { this.plugin.settings.aiChatNarrationFontSize = num; await this.plugin.saveSettings(); }
+					});
+				text.inputEl.type = 'number';
+				text.inputEl.min = '0.1';
+				text.inputEl.max = '3';
+				text.inputEl.step = '0.1';
+			});
+
+		new Setting(chatBox)
+			.setName('대사 글자 크기')
+			.setDesc('배수(em) 단위입니다. 기본값 1.0')
+			.addText(text => {
+				text.setPlaceholder('1.0')
+					.setValue(String(this.plugin.settings.aiChatDialogueFontSize))
+					.onChange(async value => {
+						const num = parseFloat(value);
+						if (!isNaN(num) && num > 0 && num <= 3) { this.plugin.settings.aiChatDialogueFontSize = num; await this.plugin.saveSettings(); }
+					});
+				text.inputEl.type = 'number';
+				text.inputEl.min = '0.1';
+				text.inputEl.max = '3';
+				text.inputEl.step = '0.1';
+			});
+
+		new Setting(chatBox)
+			.setName('헤더 자동 숨김')
+			.setDesc('켜면 상단 툴바가 평소엔 숨겨져 있다가 마우스를 올렸을 때만 나타납니다.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.aiChatToolbarAutoHide)
+				.onChange(async value => { this.plugin.settings.aiChatToolbarAutoHide = value; await this.plugin.saveSettings(); }));
+
+		this.addGroupTitle(containerEl, '초고');
+		const episodeBox = this.createGroupBox(containerEl);
+
+		new Setting(episodeBox)
+			.setName('모델')
+			.setDesc('초고 전용 모델입니다. 캐릭터 챗봇의 모델 설정과 별개로 지정할 수 있습니다.')
+			.addDropdown(dd => {
+				for (const m of AI_CHAT_MODELS) dd.addOption(m.id, m.label);
+				dd.setValue(this.plugin.settings.aiEpisodeModel)
+					.onChange(async value => { this.plugin.settings.aiEpisodeModel = value; await this.plugin.saveSettings(); });
+			});
+
+		let episodePromptText: import('obsidian').TextComponent;
+		new Setting(episodeBox)
+			.setName('프롬프트')
+			.setDesc('회차챗 초안 생성에 쓰이는 톤·문체·전개 원칙입니다. 노트를 처음 선택하면 기본 지침이 그대로 채워지니, 그 내용을 직접 수정해서 쓰세요 (빈 노트를 새로 만든 뒤 선택해야 자동으로 채워집니다). 비워두면 기본 지침을 그대로 사용합니다.')
+			.addExtraButton(btn => btn.setIcon('file-text').setTooltip('노트 선택')
+				.onClick(() => {
+					new NoteSuggestModal(this.app, (file) => {
+						fireAndForget(async () => {
+							this.plugin.settings.aiEpisodeSystemPromptNotePath = file.path;
+							await this.plugin.saveSettings();
+							episodePromptText.setValue(file.path);
+							const raw = await this.app.vault.read(file);
+							const fmMatch = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/.exec(raw);
+							const bodyOnly = (fmMatch ? raw.slice(fmMatch[0].length) : raw).trim();
+							if (!bodyOnly) {
+								const prefix = fmMatch ? fmMatch[0] : '';
+								await this.app.vault.modify(file, prefix + DEFAULT_EPISODE_PROMPT);
+							}
+						});
+					}).open();
+				}))
+			.addText(text => {
+				episodePromptText = text;
+				text.setPlaceholder('예: 회차챗 프롬프트.md')
+					.setValue(this.plugin.settings.aiEpisodeSystemPromptNotePath)
+					.onChange(async value => { this.plugin.settings.aiEpisodeSystemPromptNotePath = value.trim(); await this.plugin.saveSettings(); });
+			});
+
+		new Setting(episodeBox)
+			.setName('온도 (temperature)')
+			.addText(text => {
+				text.setPlaceholder('1.0')
+					.setValue(String(this.plugin.settings.aiChatTemperature))
+					.onChange(async value => {
+						const num = parseFloat(value);
+						if (!isNaN(num) && num >= 0 && num <= 2) { this.plugin.settings.aiChatTemperature = num; await this.plugin.saveSettings(); }
+					});
+				text.inputEl.type = 'number';
+				text.inputEl.min = '0';
+				text.inputEl.max = '2';
+				text.inputEl.step = '0.1';
+			});
+		episodeBox.createDiv({
+			cls: 'wm-settings-item-desc',
+			text: '모델이 다음 단어를 얼마나 과감하게 고를지 정하는 값입니다. 0에 가까울수록 안정적이지만 뻔하고 반복적인 문장이, 2에 가까울수록 신선하지만 두서없이 산으로 갈 수 있는 문장이 나옵니다. 창작 용도로는 0.8~1.3 사이를 권장합니다. 캐릭터 챗봇과 같은 값을 공유합니다. 기본값 1.0',
+		});
+
+		new Setting(episodeBox)
+			.setName('지문 글자 크기')
+			.setDesc('배수(em) 단위입니다. 캐릭터 챗봇과 같은 값을 공유합니다. 기본값 0.9')
+			.addText(text => {
+				text.setPlaceholder('0.9')
+					.setValue(String(this.plugin.settings.aiChatNarrationFontSize))
+					.onChange(async value => {
+						const num = parseFloat(value);
+						if (!isNaN(num) && num > 0 && num <= 3) { this.plugin.settings.aiChatNarrationFontSize = num; await this.plugin.saveSettings(); }
+					});
+				text.inputEl.type = 'number';
+				text.inputEl.min = '0.1';
+				text.inputEl.max = '3';
+				text.inputEl.step = '0.1';
+			});
+
+		new Setting(episodeBox)
+			.setName('대사 글자 크기')
+			.setDesc('배수(em) 단위입니다. 캐릭터 챗봇과 같은 값을 공유합니다. 기본값 1.0')
+			.addText(text => {
+				text.setPlaceholder('1.0')
+					.setValue(String(this.plugin.settings.aiChatDialogueFontSize))
+					.onChange(async value => {
+						const num = parseFloat(value);
+						if (!isNaN(num) && num > 0 && num <= 3) { this.plugin.settings.aiChatDialogueFontSize = num; await this.plugin.saveSettings(); }
+					});
+				text.inputEl.type = 'number';
+				text.inputEl.min = '0.1';
+				text.inputEl.max = '3';
+				text.inputEl.step = '0.1';
+			});
+
+		new Setting(episodeBox)
+			.setName('헤더 자동 숨김')
+			.setDesc('켜면 상단 툴바가 평소엔 숨겨져 있다가 마우스를 올렸을 때만 나타납니다. 캐릭터 챗봇과 같은 값을 공유합니다.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.aiChatToolbarAutoHide)
+				.onChange(async value => { this.plugin.settings.aiChatToolbarAutoHide = value; await this.plugin.saveSettings(); }));
+	}
+
 	// ── 버전 관리 ─────────────────────────────────────────────────────────
 
 	private renderVersionPage(containerEl: HTMLElement) {
@@ -1016,6 +1345,13 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					}
 				}));
+
+		new Setting(verBox)
+			.setName('헤더 자동 숨김')
+			.setDesc('켜면 상단 툴바가 평소엔 숨겨져 있다가 마우스를 올렸을 때만 나타납니다.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.versionToolbarAutoHide)
+				.onChange(async value => { this.plugin.settings.versionToolbarAutoHide = value; await this.plugin.saveSettings(); }));
 
 		this.addGroupTitle(containerEl, '상태');
 		const stageBox = this.createGroupBox(containerEl);

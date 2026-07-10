@@ -18,6 +18,12 @@ export function renderWikiSettingsPage(containerEl: HTMLElement, plugin: Writing
 		.addToggle(t => t.setValue(plugin.settings.wikiStripCollapsedDefault ?? false)
 			.onChange(async v => { plugin.settings.wikiStripCollapsedDefault = v; await plugin.saveSettings(); }));
 
+	new Setting(basicBox)
+		.setName('헤더 자동 숨김')
+		.setDesc('켜면 상단 툴바가 평소엔 숨겨져 있다가 마우스를 올렸을 때만 나타납니다.')
+		.addToggle(t => t.setValue(plugin.settings.wikiToolbarAutoHide ?? false)
+			.onChange(async v => { plugin.settings.wikiToolbarAutoHide = v; await plugin.saveSettings(); }));
+
 	groupTitle(containerEl, '속성');
 	const propBox = groupBox(containerEl);
 
