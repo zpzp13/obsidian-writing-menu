@@ -8,6 +8,7 @@ import { isMorphAnalysisSupported } from '../repetition/MorphAnalyzer';
 import { fireAndForget } from '../utils/asyncUtils';
 import { AI_CHAT_MODELS } from '../aichat/AiChatApi';
 import { DEFAULT_EPISODE_PROMPT } from '../aichat/EpisodeChatEngine';
+import { DEFAULT_CHAT_STYLE_NOTE } from '../aichat/AiChatContext';
 
 
 export class WritingMenuSettingTab extends PluginSettingTab {
@@ -1130,7 +1131,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		let promptText: import('obsidian').TextComponent;
 		new Setting(chatBox)
 			.setName('프롬프트')
-			.setDesc('선택한 노트의 내용을 시스템 프롬프트 뒤에 덧붙이고, 앞부분과 내용이 충돌하면 이 노트를 우선하도록 지시합니다. 문체·분량·톤 등을 자유롭게 지정하세요. 단, [지문]/[대사] 태그 자체는 메시지 렌더링에 쓰이니 웬만하면 유지를 권장합니다.')
+			.setDesc('선택한 노트의 내용을 시스템 프롬프트 뒤에 덧붙이고, 앞부분과 내용이 충돌하면 이 노트를 우선하도록 지시합니다. 노트를 처음 선택하면 기본 지침이 그대로 채워지니, 그 내용을 직접 수정해서 쓰세요 (빈 노트를 새로 만든 뒤 선택해야 자동으로 채워집니다). 단, [지문]/[대사] 태그 자체는 메시지 렌더링에 쓰이니 웬만하면 유지를 권장합니다.')
 			.addExtraButton(btn => btn.setIcon('file-text').setTooltip('노트 선택')
 				.onClick(() => {
 					new NoteSuggestModal(this.app, (file) => {
@@ -1138,6 +1139,13 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 							this.plugin.settings.aiChatSystemPromptNotePath = file.path;
 							await this.plugin.saveSettings();
 							promptText.setValue(file.path);
+							const raw = await this.app.vault.read(file);
+							const fmMatch = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/.exec(raw);
+							const bodyOnly = (fmMatch ? raw.slice(fmMatch[0].length) : raw).trim();
+							if (!bodyOnly) {
+								const prefix = fmMatch ? fmMatch[0] : '';
+								await this.app.vault.modify(file, prefix + DEFAULT_CHAT_STYLE_NOTE);
+							}
 						});
 					}).open();
 				}))
