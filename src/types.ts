@@ -98,6 +98,7 @@ export interface WritingMenuSettings {
 	versionStoragePath: string;
 	versionMaxCount: number;
 	versionStages: { name: string; color: string }[];
+	versionToolbarAutoHide: boolean;
 	trackingFolder: string;
 	dailyNotesFolder: string;
 	dailyNotesFormat: string;
@@ -145,6 +146,7 @@ export interface WritingMenuSettings {
 	wikiStripCollapsedDefault: boolean;
 	wikiLastFilePath: string;
 	wikiLastFolderPath: string;
+	wikiToolbarAutoHide: boolean;
 	calendarPreviewItems: {
 		tasks: boolean;
 		charCount: boolean;
@@ -168,6 +170,31 @@ export interface WritingMenuSettings {
 	plotCellWidth: number;
 	// ── Spell Check ────────────────────────────────────────────────────────────
 	spellCheckIgnoredWords: string[];
+	// ── AI 챗 ──────────────────────────────────────────────────────────────────
+	aiChatApiKey: string;
+	aiChatGeminiApiKey: string;
+	aiChatCerebrasApiKey: string;
+	aiChatModel: string;
+	aiChatLastCharacterPath: string;
+	aiChatLastSpeakerPath: string;
+	aiChatSystemPromptNotePath: string;
+	/** 작품 루트 폴더 (에피소드/캐릭터 노트 자동 스코프용, Plot Manager 설정과는 별개) */
+	aiEpisodeRootFolder: string;
+	/** 루트 폴더 하위 에피소드(플롯) 노트 폴더명 */
+	aiEpisodeDataFolder: string;
+	/** 루트 폴더 하위 캐릭터 노트 폴더명 */
+	aiEpisodeCharFolder: string;
+	/** 루트 폴더 하위 완성 본문 노트 폴더명 (직전 회차의 실제 문체를 참고용으로 먹이기 위함) */
+	aiEpisodeBodyFolder: string;
+	/** 회차챗 초안 패스의 톤/전개 지침 노트. 지정하면 노트를 선택할 때 기본 지침이 자동으로 채워지고, 그 내용을 직접 수정해서 쓸 수 있다. */
+	aiEpisodeSystemPromptNotePath: string;
+	/** 회차챗 전용 모델 (캐릭터 챗의 aiChatModel과 분리) */
+	aiEpisodeModel: string;
+	aiChatPersonaHeading: string;
+	aiChatTemperature: number;
+	aiChatNarrationFontSize: number;
+	aiChatDialogueFontSize: number;
+	aiChatToolbarAutoHide: boolean;
 	// ── 퇴고 매니저 (Revision Manager) ─────────────────────────────────────────
 	repetitionVocabNotePath: string;
 	// ── Update ────────────────────────────────────────────────────────────────
@@ -267,6 +294,7 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 		{ name: '퇴고', color: '#f0c8a8' },
 		{ name: '연출', color: '#c8a8f0' },
 	],
+	versionToolbarAutoHide: false,
 	previewTypography: {
 		fontFamily: 'inherit',
 		fontSize: 16,
@@ -328,6 +356,7 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	wikiStripCollapsedDefault: false,
 	wikiLastFilePath: '',
 	wikiLastFolderPath: '',
+	wikiToolbarAutoHide: false,
 	calendarPreviewItems: {
 		tasks: true,
 		charCount: true,
@@ -348,6 +377,24 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	plotSortPageSize: 5,
 	plotCellWidth: 200,
 	spellCheckIgnoredWords: [],
+	aiChatApiKey: '',
+	aiChatGeminiApiKey: '',
+	aiChatCerebrasApiKey: '',
+	aiChatModel: 'google/diffusiongemma-26b-a4b-it',
+	aiChatLastCharacterPath: '',
+	aiChatLastSpeakerPath: '',
+	aiChatSystemPromptNotePath: '',
+	aiEpisodeRootFolder: '',
+	aiEpisodeDataFolder: '',
+	aiEpisodeCharFolder: '',
+	aiEpisodeBodyFolder: '',
+	aiEpisodeSystemPromptNotePath: '',
+	aiEpisodeModel: 'google/diffusiongemma-26b-a4b-it',
+	aiChatPersonaHeading: '',
+	aiChatTemperature: 1.0,
+	aiChatNarrationFontSize: 0.9,
+	aiChatDialogueFontSize: 1.0,
+	aiChatToolbarAutoHide: false,
 	repetitionVocabNotePath: '',
 };
 import type { Component } from 'obsidian';

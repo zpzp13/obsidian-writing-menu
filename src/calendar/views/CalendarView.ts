@@ -13,6 +13,7 @@ import { DateStrip } from '../components/DateStrip';
 import { showDatePickerPopup } from '../components/DatePickerPopup';
 import type { DashSectionConfig } from '../../types';
 import { WikiPanel } from '../../wiki/WikiPanel';
+import { AiChatPanel } from '../../aichat/AiChatPanel';
 import { formatDateKey } from '../../utils/dateUtils';
 import { getDnConfig, ensureDailyNote } from '../../utils/dailyNoteUtils';
 
@@ -20,15 +21,15 @@ export const VIEW_TYPE_CALENDAR = 'writing-menu-calendar';
 
 const DOW_KO_FULL = ['일','월','화','수','목','금','토'];
 
-type DashTab = 'main' | 'tasks' | 'chars' | 'time' | 'wiki' | 'version';
+type DashTab = 'main' | 'tasks' | 'time' | 'wiki' | 'version' | 'ai';
 
 const TABS: Array<{ id: DashTab; icon: string; label: string }> = [
 	{ id: 'main',    icon: 'layout-dashboard',  label: '메인 대시보드' },
 	{ id: 'tasks',   icon: 'list-todo',         label: '할 일' },
-	{ id: 'chars',   icon: 'square-chart-gantt', label: '글자수' },
 	{ id: 'time',    icon: 'clock-fading',      label: '작업시간' },
-	{ id: 'wiki',    icon: 'git-graph',         label: '위키' },
 	{ id: 'version', icon: 'history',           label: '버전관리' },
+	{ id: 'wiki',    icon: 'git-graph',         label: '위키' },
+	{ id: 'ai',      icon: 'bot',               label: 'AI' },
 ];
 
 export class CalendarView extends ItemView {
@@ -41,6 +42,7 @@ export class CalendarView extends ItemView {
 	private dashTab: DashTab = 'main';
 	private dashSubView: 'content' | 'sort' = 'content';
 	private wikiPanel: WikiPanel | null = null;
+	private aiChatPanel: AiChatPanel | null = null;
 
 	private popup:         HTMLElement   | null = null;
 	private monthScroller: MonthScroller | null = null;
@@ -103,7 +105,9 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 		this.removePopup();
 		const content = this.containerEl.children[1] as HTMLElement;
 		content.empty();
-		content.className = this.dashTab === 'wiki' ? 'wm-cal-content wm-wiki-mode' : 'wm-cal-content';
+		content.className = this.dashTab === 'wiki' ? 'wm-cal-content wm-wiki-mode'
+			: this.dashTab === 'ai' ? 'wm-cal-content wm-aichat-mode'
+			: 'wm-cal-content';
 
 		const wrap = content.createDiv({ cls: 'wm-cal-wrapper' });
 		this.renderTopBar(wrap);
@@ -315,10 +319,10 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 				else this.renderMainDashboard(panel);
 				break;
 			case 'tasks':   this.renderTasksPanel(panel);   break;
-			case 'chars':   this.renderCharsPanel(panel);   break;
 			case 'time':    this.renderTimePanel(panel);    break;
 			case 'wiki':    this.renderWikiPanel(panel);    break;
 			case 'version': this.renderVersionPanel(panel); break;
+			case 'ai':      this.renderAiChatPanel(panel);  break;
 		}
 	}
 
@@ -337,11 +341,6 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 			.catch(() => {});
 	}
 
-	private renderCharsPanel(panel: HTMLElement) {
-		panel.addClass('wm-dash-panel-single');
-		DashboardSection.renderCharsOnly(panel, this.plugin);
-	}
-
 	private renderTimePanel(panel: HTMLElement) {
 		panel.addClass('wm-dash-panel-single');
 		WritingTimeSection.render(panel, this.plugin).catch(() => {});
@@ -354,6 +353,14 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 			this.plugin.wikiPanelRerender = () => this.wikiPanel?.rerender();
 		}
 		void this.wikiPanel.render(panel);
+	}
+
+	private renderAiChatPanel(panel: HTMLElement) {
+		panel.addClass('wm-dash-panel-single', 'wm-aichat-panel');
+		if (!this.aiChatPanel) {
+			this.aiChatPanel = new AiChatPanel(this.plugin, this);
+		}
+		void this.aiChatPanel.render(panel);
 	}
 
 	private renderVersionPanel(panel: HTMLElement) {

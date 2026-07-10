@@ -980,7 +980,7 @@ body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6 {
     overflow-x: hidden;
 }
 .wm-dash-panel-single {
-    padding: 20px 10px;
+    padding: 10px;
 }
 
 /* ── Sort Board ── */
@@ -2431,6 +2431,25 @@ input.slider.wm-music-vol-slider::-webkit-slider-thumb {
     min-height: 0;
 }
 
+/* AI 챗 모드: wm-cal-content에 .wm-aichat-mode가 붙으면 fixed-height flex 체인으로 전환 */
+.wm-aichat-mode {
+    overflow-y: hidden;
+}
+.wm-aichat-mode .wm-cal-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    max-width: none;
+}
+.wm-aichat-mode .wm-dash-panel {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
 /* wiki 패널: flex:1 + min-height:0 로 scrollArea가 실제로 스크롤되도록 함 */
 .wm-wiki-panel {
     display: flex;
@@ -2483,11 +2502,21 @@ input.slider.wm-music-vol-slider::-webkit-slider-thumb {
 
 .wiki-strip-collapse-btn { flex-shrink: 0; }
 
-/* ── 툴바 ── */
+/* ── 툴바 (평소엔 접혀있다가 hover 시 펼쳐짐) ── */
+.wiki-toolbar-wrap {
+    flex-shrink: 0;
+    position: relative;
+    overflow: visible;
+    max-height: 48px;
+    transition: max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.wiki-toolbar-wrap.is-collapsed { max-height: 14px; overflow: hidden; }
+.wiki-toolbar-wrap .wiki-toolbar { opacity: 1; transition: opacity 0.15s ease; }
+.wiki-toolbar-wrap.is-collapsed .wiki-toolbar { opacity: 0; pointer-events: none; }
 .wiki-toolbar {
     display: flex;
     align-items: center;
-    padding: 0 0 20px 0;
+    padding: 0 0 5px 0;
     min-width: 0;
     flex-shrink: 0;
     gap: 4px;
@@ -2629,7 +2658,7 @@ input.slider.wm-music-vol-slider::-webkit-slider-thumb {
     flex: 1;
     overflow-y: auto;
     overflow-x: clip;
-    padding: 20px 11px 12px;
+    padding: 15px 11px 12px;
     container-type: inline-size;
     animation: wiki-fadein 0.18s ease;
     position: relative;
@@ -3344,8 +3373,10 @@ input.slider.wm-music-vol-slider::-webkit-slider-thumb {
 			/* ── 버전 패널 (대시보드 탭) ─────────────────────────────────── */
 
 			.wm-vhv-root { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
-			.wm-vhv-header { flex-shrink: 0; position: relative; overflow: visible; }
-			.wm-vhv-normal-row { display: flex; align-items: center; padding: 10px 10px; gap: 4px; }
+			.wm-vhv-header { flex-shrink: 0; position: relative; overflow: visible; max-height: 44px; transition: max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+			.wm-vhv-header.is-collapsed { max-height: 14px; overflow: hidden; }
+			.wm-vhv-normal-row { display: flex; align-items: center; padding: 10px; gap: 4px; opacity: 1; transition: opacity 0.15s ease; }
+			.wm-vhv-header.is-collapsed .wm-vhv-normal-row { opacity: 0; pointer-events: none; }
 			.wm-vhv-title-group { display: flex; align-items: center; flex: 1; min-width: 0; overflow: hidden; }
 			.wm-vhv-title-group .wiki-bc-seg { overflow: hidden; text-overflow: ellipsis; }
 			.wm-vhv-search-wrap { display: flex; align-items: center; flex-shrink: 0; border-radius: var(--radius-s); border: 2.5px solid transparent; }
@@ -4043,6 +4074,20 @@ svg.svg-icon.wm-icon-15 { width: 15px; height: 15px; }
 /* 설정 페이지 알림 / 항목 개별 설명 */
 .wm-settings-item-desc { padding: 0 16px 10px; margin-right: 150px; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
 .wm-settings-item-desc p { font-size: 13px; color: var(--text-muted); margin: 0 0 4px; line-height: 1.5; }
+
+/* AI 설정 — 모델 비교표 (Setting 컨트롤 레이아웃을 쓰지 않는 일반 블록) */
+.wm-settings-model-cmp-block { padding: 12px 16px; border-top: 1px solid var(--background-modifier-border); }
+.wm-settings-model-cmp-title { font-size: 14px; font-weight: 600; color: var(--text-normal); margin-bottom: 6px; }
+.wm-settings-model-cmp-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 6px; }
+.wm-settings-model-cmp-table th, .wm-settings-model-cmp-table td {
+    text-align: left;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+.wm-settings-model-cmp-table th { color: var(--text-muted); font-weight: 600; }
+.wm-settings-model-cmp-table td { color: var(--text-normal); }
+.wm-settings-model-cmp-table tr:last-child td { border-bottom: none; }
+.wm-settings-model-cmp-footnote { font-size: 12px; color: var(--text-faint); margin-top: 8px; line-height: 1.5; }
 
 /* ════════════════════════════════════════════════════════════════════
    Plot Manager
@@ -5815,4 +5860,464 @@ button.wm-plot-act-btn {
     background: color-mix(in srgb, var(--interactive-accent) 20%, transparent);
     color: var(--text-accent);
     border-radius: 2px;
+}
+
+/* ── AI 챗 ─────────────────────────────────────────────────────────────── */
+
+.wm-aichat-root { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.wm-aichat-body { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+
+.wm-aichat-placeholder {
+    padding: 16px;
+    color: var(--text-muted);
+}
+
+/* 상단 툴바 (요약/캐릭터챗/AI설정) — 평소엔 접혀있다가 hover 시 펼쳐짐 */
+.wm-aichat-toolbar-header {
+    flex-shrink: 0;
+    position: relative;
+    max-height: 40px;
+    overflow: hidden;
+    transition: max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.wm-aichat-toolbar-header.is-collapsed { max-height: 14px; }
+.wm-aichat-toolbar-row { display: flex; align-items: center; justify-content: flex-end; padding: 0; gap: 4px; opacity: 1; transition: opacity 0.15s ease; }
+.wm-aichat-toolbar-header.is-collapsed .wm-aichat-toolbar-row { opacity: 0; pointer-events: none; }
+.wm-aichat-toolbar-actions { display: flex; align-items: center; gap: 0; flex-shrink: 0; }
+.wm-aichat-toolbar-actions .wm-cal-icon-btn.is-active { color: var(--text-normal); opacity: 1; }
+
+.wm-aichat-chat { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+
+/* 메신저 스타일 헤더 — 최상단 고정, 스크롤은 wm-aichat-messages 내부에서만 일어남 */
+.wm-aichat-chat-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0px 12px 10px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.wm-aichat-suggest-avatar,
+.wm-aichat-suggest-avatar img {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+.wm-aichat-header-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    overflow: hidden;
+}
+.wm-aichat-header-avatar img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    object-position: center;
+}
+.wm-aichat-header-avatar,
+.wm-aichat-suggest-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    font-size: 0.8em;
+    font-weight: 600;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+.wm-aichat-header-title { font-size: 0.95em; font-weight: 600; }
+
+.wm-aichat-messages-wrap {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+.wm-aichat-messages {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
+.wm-aichat-empty {
+    margin: auto;
+    color: var(--text-faint);
+    font-size: 0.85em;
+    text-align: center;
+}
+
+/* 스크롤 최상단/최하단 이동 버튼 — 위키 뷰의 wiki-nav-buttons 참고 */
+.wm-aichat-nav-buttons {
+    position: absolute;
+    bottom: 12px;
+    right: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    z-index: 5;
+    opacity: 0.3;
+    transition: opacity 0.2s;
+}
+.wm-aichat-nav-buttons:hover { opacity: 0.85; }
+.wm-aichat-nav-btn {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 3px;
+    cursor: pointer;
+    color: var(--text-muted);
+}
+.wm-aichat-nav-btn:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.wm-aichat-nav-btn svg { width: 13px; height: 13px; }
+
+/* 지문(narration) — 말풍선과 별개로, wm-aichat-messages 폭 전체를 쓰는 이탤릭체 한 줄 */
+.wm-aichat-narration-row {
+    width: 100%;
+    max-width: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px 0;
+}
+.wm-aichat-narration-text {
+    flex: 1;
+    font-style: italic;
+    font-size: 0.9em;
+    color: var(--text-muted);
+    text-align: justify;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+    padding: 0px 10px;
+    user-select: text;
+    -webkit-user-select: text;
+    cursor: text;
+}
+
+.wm-aichat-msg-row { display: flex; flex-direction: column; max-width: 78%; }
+.wm-aichat-msg-row.is-assistant { align-self: flex-start; align-items: flex-start; }
+.wm-aichat-msg-row.is-user { align-self: flex-end; align-items: flex-end; }
+
+.wm-aichat-msg-speaker {
+    font-size: 0.72em;
+    color: var(--text-faint);
+    margin-bottom: 2px;
+    padding: 0 4px;
+}
+
+.wm-aichat-msg-bubble-wrap { display: flex; align-items: flex-end; gap: 4px; }
+.wm-aichat-msg-row.is-user .wm-aichat-msg-bubble-wrap { flex-direction: row-reverse; }
+
+/* 배경색은 인물별 wikiColor를 기반으로 JS에서 인라인으로 설정함 (color-mix) */
+.wm-aichat-msg-bubble {
+    padding: 8px 12px;
+    border-radius: 14px;
+    font-size: 1em;
+    line-height: 1.5;
+    text-align: justify;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text-normal);
+    background: var(--background-modifier-hover);
+    user-select: text;
+    -webkit-user-select: text;
+    cursor: text;
+}
+.wm-aichat-msg-row.is-assistant .wm-aichat-msg-bubble { border-bottom-left-radius: 4px; }
+.wm-aichat-msg-row.is-user .wm-aichat-msg-bubble { border-bottom-right-radius: 4px; }
+
+/* "(...)" 괄호로 표현된 인물의 속마음 — 위아래 여백을 둔 독립된 줄, 대사 말풍선처럼 둥글지만 배경은 비우고
+ * 인물 위키 컬러의 점선 테두리+글자색만 입힌다. 캐릭터 챗 말풍선과 회차챗 지문/대사 양쪽에서 공유.
+ * 특정 인물 색이 없을 때(회차챗 지문 등)는 아래 기본값(text-muted 톤) 사용. */
+.wm-aichat-thought {
+    display: block;
+    margin: 25px 0;
+    padding: 8px 12px;
+    border-radius: 14px;
+    border: 1px dashed var(--text-muted);
+    background: transparent;
+    color: var(--text-muted);
+}
+.wm-aichat-thought:first-child { margin-top: 0; }
+.wm-aichat-thought:last-child { margin-bottom: 0; }
+.wm-aichat-typing-bubble { background: transparent; border: none; box-shadow: none; padding: 4px 2px; }
+.wm-aichat-typing-dots { display: flex; align-items: center; gap: 4px; padding: 2px 0; }
+.wm-aichat-typing-dots span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-faint);
+    animation: wm-aichat-typing-bounce 1.2s infinite ease-in-out;
+}
+.wm-aichat-typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+.wm-aichat-typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes wm-aichat-typing-bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+    30% { transform: translateY(-4px); opacity: 1; }
+}
+
+.wm-aichat-msg-paste-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    border-radius: 4px;
+    color: var(--text-faint);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.1s ease, color 0.1s ease, background 0.1s ease;
+}
+.wm-aichat-msg-bubble-wrap:hover .wm-aichat-msg-paste-btn { opacity: 1; }
+.wm-aichat-msg-paste-btn:hover { color: var(--text-normal); }
+.wm-aichat-msg-paste-btn svg { width: 14px; height: 14px; }
+
+.wm-aichat-error-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8em;
+    color: var(--text-error);
+    padding: 6px 4px;
+}
+.wm-aichat-retry-btn {
+    font-size: 0.78em;
+    padding: 2px 10px;
+    border-radius: 6px;
+    background: var(--interactive-normal);
+    cursor: pointer;
+}
+.wm-aichat-retry-btn:hover { background: var(--interactive-hover); }
+
+/* 입력 영역 — claudian-input-wrapper 스타일 참고, 최하단 고정 */
+.wm-aichat-input-area {
+    position: relative;
+    flex-shrink: 0;
+    padding: 8px 10px 10px 10px;
+}
+
+/* 히스토리 드롭다운 — claudian-model-dropdown 참고, 입력창 바로 위에 뜸 */
+.wm-aichat-history-dropdown {
+    position: absolute;
+    bottom: 100%;
+    left: 10px;
+    right: 10px;
+    margin-bottom: 4px;
+    max-height: 320px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    background: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15);
+    z-index: 50;
+    padding: 4px;
+}
+.wm-aichat-history-dropdown .wm-aichat-suggest-item {
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.wm-aichat-history-dropdown .wm-aichat-suggest-item:hover { background: var(--background-modifier-hover); }
+.wm-aichat-input-nav-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    padding: 0 0 4px 0;
+}
+.wm-aichat-title-group { display: flex; align-items: center; flex: 1; min-width: 0; overflow: hidden; }
+.wm-aichat-title-group span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1em; color: var(--text-muted); }
+.wm-aichat-input-nav-actions { display: flex; align-items: center; gap: 0; flex-shrink: 0; }
+
+.wm-aichat-input-wrapper {
+    display: flex;
+    flex-direction: column;
+    min-height: 116px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    transition: border-color 0.12s ease;
+}
+.wm-aichat-input-wrapper.wm-aichat-input-narration-mode {
+    border-color: var(--interactive-accent);
+}
+.wm-aichat-textarea {
+    width: 100%;
+    flex: 1 1 0;
+    min-height: 80px;
+    max-height: 160px;
+    resize: none;
+    padding: 8px 10px 4px 10px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-normal);
+    font-size: 0.88em;
+    font-family: inherit;
+    line-height: 1.4;
+}
+.wm-aichat-textarea:hover,
+.wm-aichat-textarea:focus {
+    outline: none;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+}
+
+.wm-aichat-input-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    flex-shrink: 0;
+    padding: 4px 6px 6px 6px;
+}
+
+.wm-aichat-speaker-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 4px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--interactive-accent);
+    font-size: 0.78em;
+}
+.wm-aichat-speaker-btn:hover { background: var(--background-modifier-hover); }
+.wm-aichat-speaker-label { font-weight: 500; }
+
+/* 대사/지문 모드 라벨 — wm-aichat-speaker-btn과 동일 크기, 텍스트만 */
+.wm-aichat-mode-label {
+    margin-left: auto;
+    padding: 1px 4px;
+    font-size: 11.7px;
+    color: var(--text-faint);
+}
+.wm-aichat-mode-label.is-active {
+    color: var(--interactive-accent);
+}
+
+.wm-aichat-suggest-item { display: flex; align-items: center; gap: 8px; }
+.wm-aichat-suggest-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.wm-aichat-suggest-name { font-size: 0.9em; }
+.wm-aichat-suggest-preview { font-size: 0.75em; color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wm-aichat-suggest-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.wm-aichat-suggest-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    border-radius: 4px;
+    color: var(--text-faint);
+    cursor: pointer;
+}
+.wm-aichat-suggest-action:hover { color: var(--text-normal); background: var(--background-modifier-hover); }
+.wm-aichat-suggest-action.is-danger:hover { color: var(--text-error); }
+.wm-aichat-suggest-action svg { width: 14px; height: 14px; }
+
+/* ── 회차 챗 ── */
+.wm-episodechat { display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 12px; gap: 10px; }
+.wm-episodechat-header {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
+    background: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 10px;
+    padding: 10px 12px;
+}
+.wm-episodechat-header-row { display: flex; align-items: center; gap: 10px; }
+.wm-episodechat-status-wrap { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+.wm-episodechat-status-icon { display: flex; align-items: center; flex-shrink: 0; color: var(--text-faint); cursor: help; }
+.wm-episodechat-status-icon .svg-icon { width: 14px; height: 14px; }
+.wm-episodechat-status { display: flex; align-items: center; gap: 5px; font-size: 0.85em; color: var(--text-muted); overflow-wrap: break-word; }
+.wm-episodechat-status-check { display: flex; align-items: center; color: var(--color-green, #3cb371); }
+.wm-episodechat-status-check .svg-icon { width: 13px; height: 13px; }
+.wm-episodechat-progress { display: flex; align-items: center; gap: 6px; font-size: 0.8em; color: var(--text-accent); }
+.wm-episodechat-progress.is-hidden { display: none; }
+.wm-episodechat-progress-icon { display: flex; align-items: center; animation: wm-episodechat-spin 1s linear infinite; }
+.wm-episodechat-progress-icon .svg-icon { width: 13px; height: 13px; }
+@keyframes wm-episodechat-spin { to { transform: rotate(360deg); } }
+.wm-episodechat-gen-btn.wm-tasks-add-btn { flex-shrink: 0; }
+.wm-episodechat-list-wrap { flex: 1; min-height: 0; position: relative; display: flex; }
+.wm-episodechat-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 25px; padding: 4px 2px; }
+
+.wm-episodechat-row { display: flex; align-items: flex-start; gap: 8px; max-width: 90%; }
+.wm-episodechat-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    color: var(--text-on-accent);
+    font-weight: 600;
+}
+.wm-episodechat-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wm-episodechat-avatar .svg-icon { width: 100%; height: 100%; color: color-mix(in srgb, var(--text-muted) 55%, transparent); }
+.wm-episodechat-content { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.wm-episodechat-name { font-size: 0.78em; font-weight: 600; padding: 0 2px; }
+.wm-episodechat-bubble {
+    padding: 8px 12px;
+    border-radius: 14px;
+    font-size: 1em;
+    line-height: 1.5;
+    text-align: justify;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text-normal);
+    background: var(--background-modifier-hover);
+    user-select: text;
+    -webkit-user-select: text;
+    cursor: text;
+}
+
+/* 장면번호 구분선 — 씬이 바뀌는 지점에 "----- 3-1 -----" 형태로 표시 */
+.wm-episodechat-scene-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 14px 0;
+}
+.wm-episodechat-scene-divider::before,
+.wm-episodechat-scene-divider::after {
+    content: "";
+    flex: 1 1 auto;
+    height: 1px;
+    background: color-mix(in srgb, var(--interactive-accent) 45%, white 25%);
+}
+.wm-episodechat-scene-divider-label {
+    flex: 0 0 auto;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: color-mix(in srgb, var(--interactive-accent) 55%, white 30%);
+    white-space: nowrap;
+}
+
+/* 지문 안에서 장소 전환/중요 대목을 나타내는 **~** 인라인 강조 */
+.wm-episodechat-transition {
+    font-weight: 600;
+    color: var(--interactive-accent);
 }

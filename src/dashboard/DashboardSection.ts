@@ -70,10 +70,6 @@ export class DashboardSection {
 		}
 	}
 
-	static renderCharsOnly(container: HTMLElement, plugin: WritingMenuPlugin) {
-		this.renderCharsContent(container, plugin);
-	}
-
 	private static renderCharsContent(root: HTMLElement, plugin: WritingMenuPlugin, compact?: HTMLElement) {
 		const store = plugin.charStore;
 		const statsItem = root.createDiv({ cls: 'wm-dash-group-item' });
