@@ -5581,7 +5581,11 @@ svg.svg-icon.wm-icon-15 { width: 15px; height: 15px; }
 .wm-spell-mobile-list-item .wm-spell-type-tag { height: 21px; font-size: 12px; }
 .wm-spell-mobile-list-chevron { display: grid; flex: 0 0 16px; place-items: center; color: var(--text-faint); }
 .wm-spell-mobile-list-chevron svg { width: 15px; height: 15px; }
-.wm-spell-mobile-orig-card { margin: 8px 10px 4px; background: var(--background-primary); }
+.wm-spell-mobile-orig-card {
+    margin: 8px 10px 4px;
+    border-width: 1px;
+    background: var(--background-primary);
+}
 .wm-spell-mobile-orig-card .wm-spell-orig-card-row {
     min-height: 46px;
     padding: 7px 10px;
