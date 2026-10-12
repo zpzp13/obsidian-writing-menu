@@ -13,51 +13,60 @@ export function showDatePickerPopup(
 	let py = selectedDate.getFullYear();
 	let pm = selectedDate.getMonth();
 
-	const popup  = anchorDoc.body.createDiv({ cls: 'wm-cal-picker' });
-	const hdr    = popup.createDiv({ cls: 'wm-cal-picker-hdr' });
-	const prevBtn = hdr.createDiv({ cls: 'wm-cal-icon-btn' });
-	setIcon(prevBtn, 'chevron-left');
-	const titleEl = hdr.createSpan({ cls: 'wm-cal-picker-title' });
-	const nextBtn = hdr.createDiv({ cls: 'wm-cal-icon-btn' });
-	setIcon(nextBtn, 'chevron-right');
-	const gridEl = popup.createDiv({ cls: 'wm-cal-picker-grid' });
+	const popup = anchorDoc.body.createDiv({ cls: 'wm-cal-picker' });
+	const header = popup.createDiv({ cls: 'wm-cal-picker-hdr' });
+	const previous = header.createDiv({ cls: 'wm-cal-icon-btn' });
+	setIcon(previous, 'chevron-left');
+	const title = header.createSpan({ cls: 'wm-cal-picker-title' });
+	const next = header.createDiv({ cls: 'wm-cal-icon-btn' });
+	setIcon(next, 'chevron-right');
+	const grid = popup.createDiv({ cls: 'wm-cal-picker-grid' });
 
-	const buildCells = () => {
-		titleEl.textContent = `${py}년 ${MONTH_KO[pm]}`;
-		gridEl.empty();
-		for (const wd of ['월','화','수','목','금','토','일']) {
-			gridEl.createDiv({ cls: 'wm-cal-picker-wd', text: wd });
+	const renderMonth = () => {
+		title.textContent = `${py}년 ${MONTH_KO[pm]}`;
+		grid.empty();
+		for (const weekday of ['월','화','수','목','금','토','일']) {
+			grid.createDiv({ cls: 'wm-cal-picker-wd', text: weekday });
 		}
-		const today = new Date(); today.setHours(0, 0, 0, 0);
-		const dow   = new Date(py, pm, 1).getDay();
-		const back  = (dow + 6) % 7;
-		const sy = py, sm = pm;
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+		const offset = (new Date(py, pm, 1).getDay() + 6) % 7;
 		for (let i = 0; i < 42; i++) {
-			const d    = new Date(sy, sm, 1 - back + i);
-			const cell = gridEl.createDiv({ cls: 'wm-cal-picker-day', text: String(d.getDate()) });
-			if (d.getMonth() !== sm)                                    cell.addClass('wm-cal-picker-other');
-			if (d.toDateString() === today.toDateString())              cell.addClass('wm-cal-picker-today');
-			if (d.toDateString() === selectedDate.toDateString())       cell.addClass('wm-cal-picker-sel');
-			cell.addEventListener('click', e => {
-				e.stopPropagation();
+			const date = new Date(py, pm, 1 - offset + i);
+			const cell = grid.createDiv({ cls: 'wm-cal-picker-day', text: String(date.getDate()) });
+			if (date.getMonth() !== pm) cell.addClass('wm-cal-picker-other');
+			if (date.toDateString() === today.toDateString()) cell.addClass('wm-cal-picker-today');
+			if (date.toDateString() === selectedDate.toDateString()) cell.addClass('wm-cal-picker-sel');
+			cell.addEventListener('click', event => {
+				event.stopPropagation();
 				popup.remove();
-				onPick(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
+				onPick(new Date(date.getFullYear(), date.getMonth(), date.getDate()));
 			});
 		}
 	};
 
-	prevBtn.addEventListener('click', e => { e.stopPropagation(); pm--; if (pm < 0) { pm = 11; py--; } buildCells(); });
-	nextBtn.addEventListener('click', e => { e.stopPropagation(); pm++; if (pm > 11) { pm = 0; py++; } buildCells(); });
-	buildCells();
+	previous.addEventListener('click', event => {
+		event.stopPropagation();
+		pm--;
+		if (pm < 0) { pm = 11; py--; }
+		renderMonth();
+	});
+	next.addEventListener('click', event => {
+		event.stopPropagation();
+		pm++;
+		if (pm > 11) { pm = 0; py++; }
+		renderMonth();
+	});
+	renderMonth();
 
 	const rect = anchor.getBoundingClientRect();
-	const pw   = 224;
-	let left   = rect.left;
-	if (left + pw > anchorWin.innerWidth - 8) left = anchorWin.innerWidth - pw - 8;
-	popup.setCssStyles({ left: `${left}px`, top: `${rect.bottom + 6}px`, width: `${pw}px` });
+	const width = 224;
+	let left = rect.left;
+	if (left + width > anchorWin.innerWidth - 8) left = anchorWin.innerWidth - width - 8;
+	popup.setCssStyles({ left: `${left}px`, top: `${rect.bottom + 6}px`, width: `${width}px` });
 
-	const close = (e: MouseEvent) => {
-		if (anchor.contains(e.target as Node) || popup.contains(e.target as Node)) return;
+	const close = (event: MouseEvent) => {
+		if (anchor.contains(event.target as Node) || popup.contains(event.target as Node)) return;
 		popup.remove();
 		anchorDoc.removeEventListener('click', close, true);
 	};

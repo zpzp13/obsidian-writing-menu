@@ -2,11 +2,12 @@ import { App, PluginSettingTab, Setting, setIcon, Platform } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { renderWikiSettingsPage } from '../wiki/WikiSettings';
 import { renderPlotSettingsPage } from '../plot/PlotSettings';
-import { NoteSuggestModal, FolderSuggestModal } from '../wiki/WikiModals';
-import { isGaruAssetsDownloaded, downloadGaruAssets } from '../repetition/GaruAssets';
+import { NoteSuggestModal, FolderSuggestModal, ImageSuggestModal } from '../wiki/WikiModals';
+import { downloadGaruAssets, GARU_VERSION, getGaruAssetStatus } from '../repetition/GaruAssets';
 import { isMorphAnalysisSupported } from '../repetition/MorphAnalyzer';
 import { fireAndForget } from '../utils/asyncUtils';
 import { AI_CHAT_MODELS } from '../aichat/AiChatApi';
+import { AI_IMAGE_MODELS, IMAGE_ASPECT_RATIOS } from '../aichat/AiImageApi';
 import { DEFAULT_EPISODE_PROMPT } from '../aichat/EpisodeChatEngine';
 import { DEFAULT_CHAT_STYLE_NOTE } from '../aichat/AiChatContext';
 
@@ -619,7 +620,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			.addToggle(toggle => toggle.setValue(this.plugin.settings.copyExcludeFootnotes)
 				.onChange(async value => { this.plugin.settings.copyExcludeFootnotes = value; await this.plugin.saveSettings(); }));
 
-		if (Platform.isDesktopApp) {
+		if (Platform.isDesktop) {
 			this.addGroupTitle(containerEl, '내보내기 기본값');
 			const exportBox = this.createGroupBox(containerEl);
 
@@ -631,7 +632,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				.addToggle(toggle => toggle.setValue(this.plugin.settings.exportDefaultExcludeHeadings)
 					.onChange(async value => { this.plugin.settings.exportDefaultExcludeHeadings = value; await this.plugin.saveSettings(); }));
 
-			if (Platform.isWin) {
+			if (Platform.isDesktop && Platform.isWin) {
 				this.addGroupTitle(containerEl, 'HWP 변환');
 
 				containerEl.createDiv({ cls: 'wm-settings-subgroup-title', text: '한컴오피스 한글, Python, pywin32 필요' });
@@ -726,6 +727,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.trackingFolder ?? '')
 				.onChange(async v => {
 					this.plugin.settings.trackingFolder = v.trim();
+					await this.plugin.charStore.reinitSnapshot();
 					await this.plugin.saveSettings();
 				}));
 		commonBox.createDiv({ cls: 'wm-settings-item-desc', text: '추적 범위를 지정된 폴더로 제한합니다. 글자수와 작업 시간은 해당 폴더의 하위 노트에서만 누적 계산됩니다.' });
@@ -752,6 +754,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.charCountMode ?? 'munpia')
 				.onChange(async v => {
 					this.plugin.settings.charCountMode = v as 'munpia' | 'novelpia';
+					await this.plugin.charStore.reinitSnapshot();
 					await this.plugin.saveSettings();
 				}));
 		new Setting(charsBox)
@@ -768,17 +771,17 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				}));
 		new Setting(charsBox)
 			.setName('목표 글자수')
-			.setDesc('일일 목표 글자수 (0 = 비활성)')
+			.setDesc('대시보드 목표 막대에 표시할 일일 목표 글자수')
 			.addText(t => {
 				t.setPlaceholder('예: 2000')
-				 .setValue(String(this.plugin.settings.writingGoalChars ?? 0))
+				 .setValue(String(this.plugin.settings.writingGoalChars || 10000))
 				 .onChange(async v => {
-					const n = parseInt(v) || 0;
+					const n = Math.max(1, parseInt(v) || 10000);
 					this.plugin.settings.writingGoalChars = n;
 					await this.plugin.saveSettings();
 				 });
 				t.inputEl.type = 'number';
-				t.inputEl.min = '0';
+				t.inputEl.min = '1';
 			});
 		new Setting(charsBox)
 			.setName('데일리노트 글자수 키')
@@ -1014,46 +1017,85 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.aiChatGeminiApiKey)
 				.onChange(async value => { this.plugin.settings.aiChatGeminiApiKey = value.trim(); await this.plugin.saveSettings(); }));
 		const geminiDesc = aiBox.createDiv({ cls: 'wm-settings-item-desc' });
-		geminiDesc.appendText('Gemini 3.1 Flash Lite 모델을 사용하려면 ');
+		geminiDesc.appendText('Gemini 3.8 Flash, Gemma 4 31B IT, Gemini 3.1 Flash-Lite를 사용하려면 ');
 		geminiDesc.createEl('a', { text: 'aistudio.google.com', href: 'https://aistudio.google.com/apikey', attr: { target: '_blank', rel: 'noopener' } });
-		geminiDesc.appendText(' 에서 발급받은 API 키가 필요합니다. 단, 제공사의 정책에 따라 한도가 변경될 수 있음.');
-
-		new Setting(aiBox)
-			.setName('Cerebras')
-			.addText(text => text
-				.setPlaceholder('csk-...')
-				.setValue(this.plugin.settings.aiChatCerebrasApiKey)
-				.onChange(async value => { this.plugin.settings.aiChatCerebrasApiKey = value.trim(); await this.plugin.saveSettings(); }));
-		const cerebrasDesc = aiBox.createDiv({ cls: 'wm-settings-item-desc' });
-		cerebrasDesc.appendText('Gemma 4 31B 모델을 사용하려면 ');
-		cerebrasDesc.createEl('a', { text: 'cloud.cerebras.ai', href: 'https://cloud.cerebras.ai', attr: { target: '_blank', rel: 'noopener' } });
-		cerebrasDesc.appendText(' 에서 발급받은 API 키가 필요합니다. 단, 제공사의 정책에 따라 한도가 변경될 수 있음.');
+		geminiDesc.appendText(' 에서 발급받은 API 키가 필요합니다. 무료 등급의 요청은 Google 제품 개선에 사용될 수 있으며, 모델별 한도는 AI Studio에서 확인하세요.');
 
 		const cmpBlock = aiBox.createDiv({ cls: 'wm-settings-model-cmp-block' });
 		cmpBlock.createDiv({ cls: 'wm-settings-model-cmp-title', text: '모델 비교' });
 		const cmpTable = cmpBlock.createEl('table', { cls: 'wm-settings-model-cmp-table' });
 		const thead = cmpTable.createEl('thead');
 		const headRow = thead.createEl('tr');
-		for (const h of ['모델', 'RPM', 'TPM', 'RPD', '속도', '비고']) headRow.createEl('th', { text: h });
+		for (const h of ['모델', '제공처', '주 용도', '품질', '속도', '추천']) headRow.createEl('th', { text: h });
 		const tbody = cmpTable.createEl('tbody');
 		const rows: Array<[string, string, string, string, string, string]> = [
-			['Gemma 4 31B (Cerebras)', '5', '30K', '-', '빠름', '캐릭터 챗봇/초고 모두 가장 좋은 성능을 보이나, 분당 호출 제한으로 중간에 대기가 걸릴 수 있음'],
-			['Gemini 3.1 Flash Lite (Google)', '15', '250K', '500', '가장 빠름', '균형 잡힌 모델. 캐릭터 챗봇 모델로 추천'],
-			['DiffusionGemma 26B (NVIDIA)', '40', '없음', '없음', '적당함', '텍스트 품질은 떨어지나 분당 호출수가 넉넉하고 일일 사용량 제한이 없어서 부담없이 쓰기 좋음'],
+			['Gemini 3.8 Flash', 'Google', '챗봇·초고 전반', '최상', '빠름', '기본 추천'],
+			['Gemma 4 31B IT', 'Google', '창작·역할극', '높음', '보통', '오픈 모델 선호 시'],
+			['Gemini 3.1 Flash-Lite', 'Google', '짧고 잦은 작업', '보통', '매우 빠름', '속도 우선 시'],
+			['DiffusionGemma 26B', 'NVIDIA', '실험적 창작', '보통', '보통', 'NVIDIA 키 유지 시'],
 		];
-		for (const [name, rpm, tpm, rpd, speed, note] of rows) {
+		for (const [name, provider, purpose, quality, speed, note] of rows) {
 			const tr = tbody.createEl('tr');
 			tr.createEl('td', { text: name });
-			tr.createEl('td', { text: rpm });
-			tr.createEl('td', { text: tpm });
-			tr.createEl('td', { text: rpd });
+			tr.createEl('td', { text: provider });
+			tr.createEl('td', { text: purpose });
+			tr.createEl('td', { text: quality });
 			tr.createEl('td', { text: speed });
 			tr.createEl('td', { text: note });
 		}
 		cmpBlock.createDiv({
 			cls: 'wm-settings-model-cmp-footnote',
-			text: '※ 무료 기준으로 선정된 모델들입니다. 상용 모델에 비하면 성능이 떨어지므로 AI 기능은 어디까지나 참조용으로만 활용하시기 바랍니다.',
+			text: '※ 2026년 10월 Google 공식 문서의 무료 등급과 모델 특성을 기준으로 선정했습니다. 실제 호출 한도와 제공 정책은 계정·지역·시점에 따라 바뀔 수 있습니다.',
 		});
+
+		this.addGroupTitle(containerEl, '위키 프로필 이미지 생성');
+		const imgGenBox = this.createGroupBox(containerEl);
+		new Setting(imgGenBox)
+			.setName('OpenAI (GPT Image)')
+			.addText(text => text
+				.setPlaceholder('sk-...')
+				.setValue(this.plugin.settings.aiImageOpenaiApiKey)
+				.onChange(async value => { this.plugin.settings.aiImageOpenaiApiKey = value.trim(); await this.plugin.saveSettings(); }));
+		const openaiDesc = imgGenBox.createDiv({ cls: 'wm-settings-item-desc' });
+		openaiDesc.appendText('GPT Image 1, 2 모델을 사용하려면 ');
+		openaiDesc.createEl('a', { text: 'platform.openai.com', href: 'https://platform.openai.com/api-keys', attr: { target: '_blank', rel: 'noopener' } });
+		openaiDesc.appendText(' 에서 발급받은 API 키가 필요합니다. Nano Banana 계열은 위에서 등록한 Google AI Studio 키를 그대로 사용합니다. 이미지 생성은 각 API 제공사(OpenAI, Google)에서 유료로 제공하는 기능입니다.');
+		new Setting(imgGenBox)
+			.setName('모델')
+			.setDesc('위키뷰의 인물 노트에서 AI로 프로필 이미지를 생성할 때 사용할 모델을 선택하세요.')
+			.addDropdown(dd => {
+				for (const m of AI_IMAGE_MODELS) dd.addOption(m.id, m.label);
+				dd.setValue(this.plugin.settings.aiImageModel)
+					.onChange(async value => { this.plugin.settings.aiImageModel = value; await this.plugin.saveSettings(); });
+			});
+		new Setting(imgGenBox)
+			.setName('종횡비')
+			.setDesc('Nano Banana가 지원하는 종횡비만 선택 가능합니다 (4:5는 지원 목록에 없어 가장 가까운 3:4가 기본값).')
+			.addDropdown(dd => {
+				for (const r of IMAGE_ASPECT_RATIOS) dd.addOption(r.id, r.label);
+				dd.setValue(this.plugin.settings.aiImageAspectRatio)
+					.onChange(async value => { this.plugin.settings.aiImageAspectRatio = value; await this.plugin.saveSettings(); });
+			});
+		let imageRefText: import('obsidian').TextComponent;
+		new Setting(imgGenBox)
+			.setName('그림체 샘플')
+			.setDesc('볼트 내 이미지를 지정하면 생성 시 해당 이미지를 화풍/구도 참고용으로 함께 전달합니다.')
+			.addExtraButton(btn => btn.setIcon('image').setTooltip('이미지 선택')
+				.onClick(() => {
+					new ImageSuggestModal(this.app, (file) => {
+						fireAndForget(async () => {
+							this.plugin.settings.aiImageStyleReferencePath = file.path;
+							await this.plugin.saveSettings();
+							imageRefText.setValue(file.path);
+						});
+					}).open();
+				}))
+			.addText(text => {
+				imageRefText = text;
+				text.setPlaceholder('예) 폴더/이미지.png')
+					.setValue(this.plugin.settings.aiImageStyleReferencePath)
+					.onChange(async value => { this.plugin.settings.aiImageStyleReferencePath = value.trim(); await this.plugin.saveSettings(); });
+			});
 
 		this.addGroupTitle(containerEl, '기본 설정');
 		const baseBox = this.createGroupBox(containerEl);
@@ -1121,7 +1163,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 
 		new Setting(chatBox)
 			.setName('모델')
-			.setDesc('호출할 모델을 선택하세요. (NVIDIA Build, Google AI Studio, Cerebras)')
+			.setDesc('호출할 모델을 선택하세요. 기본 추천 모델은 Google AI Studio의 Gemini 3.8 Flash입니다.')
 			.addDropdown(dd => {
 				for (const m of AI_CHAT_MODELS) dd.addOption(m.id, m.label);
 				dd.setValue(this.plugin.settings.aiChatModel)
@@ -1668,12 +1710,17 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				.setName('오프라인 형태소 분석 모델')
 				.setDesc('확인 중…');
 			fireAndForget(async () => {
-				const downloaded = await isGaruAssetsDownloaded(this.plugin);
-				modelSetting.setDesc(downloaded ? '다운로드 완료 · 완전히 오프라인으로 동작합니다.' : '반복 표현 탐지에 필요합니다. 최초 1회만 다운로드하면 됩니다 (약 1.4MB).');
+				const assetStatus = await getGaruAssetStatus(this.plugin);
+				const downloaded = assetStatus === 'current';
+				modelSetting.setDesc(downloaded
+					? `v${GARU_VERSION} 설치 완료 · 완전히 오프라인으로 동작합니다.`
+					: assetStatus === 'outdated'
+						? `새 엔진 v${GARU_VERSION} 업데이트가 있습니다.`
+						: `반복 표현 탐지에 필요합니다. 최초 1회만 다운로드하면 됩니다 (약 1.6MB).`);
 				if (downloaded) {
 					modelSetting.addExtraButton(btn => btn.setIcon('check').setTooltip('다운로드됨').setDisabled(true));
 				} else {
-					modelSetting.addButton(btn => btn.setButtonText('다운로드').setCta()
+					modelSetting.addButton(btn => btn.setButtonText(assetStatus === 'outdated' ? '업데이트' : '다운로드').setCta()
 						.onClick(() => {
 							fireAndForget(async () => {
 								btn.setDisabled(true);
@@ -1681,7 +1728,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 									await downloadGaruAssets(this.plugin, step => { btn.setButtonText(step); });
 									this.renderPage('repetition');
 								} catch (e) {
-									btn.setDisabled(false).setButtonText('다운로드');
+									btn.setDisabled(false).setButtonText(assetStatus === 'outdated' ? '업데이트' : '다운로드');
 									modelBox.createDiv({ cls: 'wm-settings-item-desc', text: `실패: ${e instanceof Error ? e.message : String(e)}` });
 								}
 							});
@@ -1691,7 +1738,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			const engineDesc = modelBox.createDiv({ cls: 'wm-settings-item-desc' });
 			engineDesc.appendText('형태소 분석 엔진: ');
 			engineDesc.createEl('a', { text: 'garu-ko', href: 'https://github.com/ongjin/garu', attr: { target: '_blank', rel: 'noopener' } });
-			engineDesc.appendText(' (오프라인 WASM, 서버 전송 없음)');
+			engineDesc.appendText(` v${GARU_VERSION} (오프라인 WASM, 서버 전송 없음)`);
 		}
 
 		this.addGroupTitle(containerEl, '단어장');

@@ -12,6 +12,11 @@ export interface ModeStat {
 	count: Record<string, number>;
 }
 
+export interface DailyModeTime {
+	date: string;
+	values: Record<string, number>;
+}
+
 export class WritingTimeStore {
 	/** "HH:MM:SS" 또는 "MM:SS" 문자열 → seconds */
 	static parseTime(val: unknown): number {
@@ -142,8 +147,9 @@ export class WritingTimeStore {
 		format: string,
 		modes: TimeModeConfig[],
 		days = 30,
-	): Promise<Array<Record<string, number | string>>> {
-		const result: Array<Record<string, number | string>> = [];
+		projectName?: string | null,
+	): Promise<DailyModeTime[]> {
+		const result: DailyModeTime[] = [];
 		const today = new Date();
 		for (let i = days - 1; i >= 0; i--) {
 			const d = new Date(today);
@@ -154,9 +160,12 @@ export class WritingTimeStore {
 			const fm = (file instanceof TFile)
 				? app.metadataCache.getFileCache(file)?.frontmatter ?? {}
 				: {};
-			const entry: Record<string, number | string> = { date: name };
-			for (const m of modes) entry[m.id] = this.parseTime(fm[m.frontmatterKey]);
-			result.push(entry);
+			const values: Record<string, number> = {};
+			for (const mode of modes) {
+				const key = projectName ? `${projectName}_${mode.frontmatterKey}` : mode.frontmatterKey;
+				values[mode.id] = this.parseTime(fm[key]);
+			}
+			result.push({ date: moment(d).format('YYYY-MM-DD'), values });
 		}
 		return result;
 	}
@@ -173,12 +182,11 @@ export class WritingTimeStore {
 		pending: WritingMenuPlugin['pendingTimeUpdates'],
 	): ModeTime {
 		const fm = app.metadataCache.getFileCache(file)?.frontmatter ?? {};
-		const result: ModeTime = { total: this.parseTime(fm[totalKey]) };
-		for (const m of modes) result[m.id] = this.parseTime(fm[m.frontmatterKey]);
-
-		for (const [, entry] of pending) {
-			if (entry.file.path !== file.path) continue;
-			if (entry.mode in result) result[entry.mode] += entry.seconds;
+		const totalPending = pending.get(`${file.path}:total`)?.seconds ?? 0;
+		const result: ModeTime = { total: this.parseTime(fm[totalKey]) + totalPending };
+		for (const mode of modes) {
+			const modePending = pending.get(`${file.path}:${mode.id}`)?.seconds ?? 0;
+			result[mode.id] = this.parseTime(fm[mode.frontmatterKey]) + modePending;
 		}
 		return result;
 	}

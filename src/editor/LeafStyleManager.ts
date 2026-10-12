@@ -1,9 +1,13 @@
 import { MarkdownView, WorkspaceLeaf, setIcon, sanitizeHTMLToDom } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
-import { cleanMarkdownFrontmatter } from '../export/converterMethods';
 import { MUNPIA_SVG, NOVELPIA_SVG } from '../assets/platformLogos';
+import { calcAllCharCounts } from '../version/charCount';
+
+type PlatformCharCounts = { munpia: number; novelpia: number };
 
 export class LeafStyleManager {
+	private charCountCache: { path: string; text: string; counts: PlatformCharCounts } | null = null;
+
 	constructor(private plugin: WritingMenuPlugin) {}
 
 	shouldApplyToFile(file: { path: string } | null): boolean {
@@ -33,21 +37,17 @@ export class LeafStyleManager {
 	}
 
 	calculateCharCount(text: string): number {
-		const withoutFrontmatter = cleanMarkdownFrontmatter(this.plugin, text);
-		const lines = withoutFrontmatter.split('\n')
-			.filter(l => !l.trim().match(/^#{1,6}\s/))
-			.filter(l => !l.trim().match(/^\[\^[^\]]+\]:/))
-			.map(l => l.replace(/\[\^[^\]]+\]/g, ''))
-			.map(l => l.trim())
-			.filter(l => l);
-		const base = lines.join('');
+		const counts = calcAllCharCounts(text);
+		return counts[this.plugin.settings.charCountMode ?? 'munpia'];
+	}
 
-		if (this.plugin.settings.charCountMode === 'novelpia') {
-			return base.replace(/ /g, '').replace(/[.,!?"']/g, '').replace(/[\s\u00A0]/g, '').length;
-		} else {
-			const ellipsisCount = (base.match(/…/g) || []).length;
-			return base.length + (ellipsisCount * 2);
+	calculateAllCharCounts(text: string, path?: string): PlatformCharCounts {
+		if (path && this.charCountCache?.path === path && this.charCountCache.text === text) {
+			return this.charCountCache.counts;
 		}
+		const counts = calcAllCharCounts(text);
+		if (path) this.charCountCache = { path, text, counts };
+		return counts;
 	}
 
 	formatCharCount(count: number): string {
@@ -61,7 +61,9 @@ export class LeafStyleManager {
 			if (!(view instanceof MarkdownView)) return;
 			if (!view.editor) return;
 			const selectedText = view.editor.getSelection();
-			const totalCount = this.calculateCharCount(view.editor.getValue());
+			const text = view.editor.getValue();
+			const counts = this.calculateAllCharCounts(text, view.file?.path);
+			const totalCount = counts[this.plugin.settings.charCountMode ?? 'munpia'];
 			const totalFormatted = this.formatCharCount(totalCount);
 			let displayText: string;
 			if (selectedText) {
@@ -86,7 +88,7 @@ export class LeafStyleManager {
 		const timer = window.setTimeout(() => {
 			this.updateCharCount(leaf);
 			this.plugin.charCountDebounceTimers.delete(leaf);
-		}, 150);
+		}, 350);
 		this.plugin.charCountDebounceTimers.set(leaf, timer);
 	}
 
@@ -320,7 +322,7 @@ export class LeafStyleManager {
 		if (isMunpia) mBtn.addClass('is-active');
 		mBtn.onclick = () => {
 			this.plugin.settings.charCountMode = 'munpia';
-			void this.plugin.saveSettings().then(() => {
+			void this.plugin.charStore.reinitSnapshot().then(() => this.plugin.saveSettings()).then(() => {
 				this.updateAllCharCounts();
 				mBtn.addClass('is-active');
 				nBtn.removeClass('is-active');
@@ -337,7 +339,7 @@ export class LeafStyleManager {
 		if (!isMunpia) nBtn.addClass('is-active');
 		nBtn.onclick = () => {
 			this.plugin.settings.charCountMode = 'novelpia';
-			void this.plugin.saveSettings().then(() => {
+			void this.plugin.charStore.reinitSnapshot().then(() => this.plugin.saveSettings()).then(() => {
 				this.updateAllCharCounts();
 				nBtn.addClass('is-active');
 				mBtn.removeClass('is-active');

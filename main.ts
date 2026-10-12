@@ -5,6 +5,7 @@ import { SymbolSuggester } from './SymbolSuggester';
 import { WritingMenuSettings, DEFAULT_SETTINGS } from './src/types';
 import { MobilePreviewFloating } from './src/preview';
 import { TimeTrackingView, TIME_TRACKING_VIEW_TYPE } from './src/views/TimeTrackingView';
+import { MusicLibraryView, MUSIC_LIBRARY_VIEW_TYPE } from './src/views/MusicLibraryView';
 import { HwpExportModal, TxtExportModal, BatchExportModal } from './src/export';
 import { WritingMenuSettingTab } from './src/settings';
 import { ensureConverterScript, openFolderPicker, openTemplatePicker, runPicker, convertToHwp, getDefaultExportPath, cleanMarkdownFrontmatter, removeHeadings, copyWithOptions, applySpaceIndent, convertToTxt, convertFolderToTxt, convertFilesToTxt, convertFolderToHwp, convertFilesToHwp, convertFolderToTxtMerged, convertFilesToTxtMerged, convertFolderToHwpMerged, convertFilesToHwpMerged } from './src/export/converterMethods';
@@ -15,6 +16,7 @@ import { CalendarView, VIEW_TYPE_CALENDAR } from './src/calendar/views/CalendarV
 import { PlotManagerView, PLOT_VIEW_TYPE } from './src/plot/PlotManagerView';
 import { PlotTimelineView, PLOT_TIMELINE_VIEW_TYPE } from './src/plot/PlotTimelineView';
 import { DailyCharStore } from './src/dashboard/data/DailyCharStore';
+import { stripTrackedTimeFieldsFromPaste } from './src/utils/timeUtils';
 import { MusicPlayer } from './src/dashboard/MusicPlayer';
 import { LeafStyleManager } from './src/editor/LeafStyleManager';
 import { ToolbarManager } from './src/toolbar/ToolbarManager';
@@ -23,6 +25,7 @@ import { StatusBarManager } from './src/ui/StatusBarManager';
 import { SpellCheckerService } from './src/spellcheck/index';
 import { getSmartEnterExtension, getSmartQuoteExtension, getTypewriterExtension, getTextSubstitutionExtension, getBackspaceUndoExtension, createHeadingLinkFixExtension, createSelectionExtension, createFocusExtension, updateEditorExtensions } from './src/editor/extensions';
 import { repetitionHighlightExtension } from './src/editor/repetitionHighlight';
+import { spellcheckHighlightExtension } from './src/editor/spellcheckHighlight';
 
 export default class WritingMenuPlugin extends Plugin {
 	settings: WritingMenuSettings;
@@ -38,14 +41,13 @@ export default class WritingMenuPlugin extends Plugin {
 	cachedCSSTemplate: string = '';
 	cssSettingsVersion: number = 0;
 	leafStyleVersions: Map<WorkspaceLeaf, number> = new Map();
-	pendingTimeUpdates: Map<string, { file: TFile; mode: string; seconds: number }> = new Map();
+	pendingTimeUpdates: Map<string, { file: TFile; mode: string; seconds: number; dailySavedSeconds: number }> = new Map();
+	pendingTimeSaveInFlight: Set<string> = new Set();
 	lastTimeAccumAt: number = 0;
+	timeTrackingRevision: number = 0;
 	private nnMenuUnregisterFns: Array<() => void> = [];
 	stopwatchSeconds: number = 0;
 	stopwatchInterval: number | null = null;
-	stopwatchDisplayEl: HTMLElement | null = null;
-	stopwatchDashboardEl: HTMLElement | null = null;
-	stopwatchDashboardSegs: HTMLElement[] = [];
 	smartEnterCompartment = new Compartment();
 	smartQuoteCompartment = new Compartment();
 	typewriterCompartment = new Compartment();
@@ -88,7 +90,7 @@ export default class WritingMenuPlugin extends Plugin {
 			if (file instanceof TFile) void this.charStore.onFileModify(file);
 		}));
 
-		if (Platform.isWin) {
+		if (Platform.isDesktop && Platform.isWin) {
 			await this.ensureConverterScript();
 		}
 
@@ -121,6 +123,24 @@ export default class WritingMenuPlugin extends Plugin {
 			}
 		}));
 
+		this.registerEvent(this.app.workspace.on('editor-paste', (evt, editor) => {
+			const from = editor.getCursor('from');
+			if (from.line !== 0 || from.ch !== 0) return;
+			const pastedText = evt.clipboardData?.getData('text/plain');
+			if (!pastedText) return;
+
+			const timeKeys = [
+				...(this.settings.timeModes ?? []).map(mode => mode.frontmatterKey),
+				this.settings.timeTotalKey,
+			];
+			const sanitized = stripTrackedTimeFieldsFromPaste(pastedText, timeKeys);
+			if (sanitized === pastedText) return;
+
+			evt.preventDefault();
+			editor.replaceSelection(sanitized);
+			new Notice('붙여넣은 문서의 작업시간 메타데이터를 제외했습니다.');
+		}));
+
 		this.updateAllToolbars();
 		this.updateAllLeafStyles();
 
@@ -141,6 +161,7 @@ export default class WritingMenuPlugin extends Plugin {
 		this.registerEditorExtension(createSelectionExtension(this));
 		this.registerEditorExtension(createHeadingLinkFixExtension());
 		this.registerEditorExtension(repetitionHighlightExtension());
+		this.registerEditorExtension(spellcheckHighlightExtension());
 		this.registerEditorSuggest(new SymbolSuggester(this));
 
 		this.registerEditorExtension(this.smartEnterCompartment.of(getSmartEnterExtension(this)));
@@ -168,7 +189,7 @@ export default class WritingMenuPlugin extends Plugin {
 		this.registerEvent(
 			this.app.workspace.on('file-menu', (menu, file) => {
 				if (file instanceof TFile && file.extension === 'md') {
-					if (Platform.isDesktopApp) {
+					if (Platform.isDesktop) {
 						menu.addItem((item) => {
 							item
 								.setTitle('TXT로 내보내기')
@@ -178,7 +199,7 @@ export default class WritingMenuPlugin extends Plugin {
 								});
 						});
 					}
-					if (Platform.isWin) {
+					if (Platform.isDesktop && Platform.isWin) {
 						menu.addItem((item) => {
 							item
 								.setTitle('HWP로 내보내기')
@@ -189,7 +210,7 @@ export default class WritingMenuPlugin extends Plugin {
 						});
 					}
 				} else if (file instanceof TFolder) {
-					if (Platform.isDesktopApp) {
+					if (Platform.isDesktop) {
 						menu.addItem((item) => {
 							item
 								.setTitle('폴더를 TXT로 내보내기')
@@ -200,7 +221,7 @@ export default class WritingMenuPlugin extends Plugin {
 						});
 					}
 
-					if (Platform.isWin) {
+					if (Platform.isDesktop && Platform.isWin) {
 						menu.addItem((item) => {
 							item
 								.setTitle('폴더를 HWP로 내보내기')
@@ -218,7 +239,7 @@ export default class WritingMenuPlugin extends Plugin {
 			this.app.workspace.on('files-menu', (menu, files) => {
 				const mdFiles = files.filter((f): f is TFile => f instanceof TFile && f.extension === 'md');
 				if (mdFiles.length > 0) {
-					if (Platform.isDesktopApp) {
+					if (Platform.isDesktop) {
 						menu.addItem((item) => {
 							item
 								.setTitle(`${mdFiles.length}개 파일을 TXT로 내보내기`)
@@ -229,7 +250,7 @@ export default class WritingMenuPlugin extends Plugin {
 						});
 					}
 
-					if (Platform.isWin) {
+					if (Platform.isDesktop && Platform.isWin) {
 						menu.addItem((item) => {
 							item
 								.setTitle(`${mdFiles.length}개 파일을 HWP로 내보내기`)
@@ -251,6 +272,11 @@ export default class WritingMenuPlugin extends Plugin {
 		this.registerView(
 			VIEW_TYPE_CALENDAR,
 			(leaf) => new CalendarView(leaf, this)
+		);
+
+		this.registerView(
+			MUSIC_LIBRARY_VIEW_TYPE,
+			(leaf) => new MusicLibraryView(leaf, this)
 		);
 
 		this.registerView(
@@ -418,26 +444,26 @@ export default class WritingMenuPlugin extends Plugin {
 			const isMulti = mdFiles.length > 1;
 
 			if (isMulti) {
-				if (Platform.isDesktopApp) {
+				if (Platform.isDesktop) {
 					ctx.addItem(item => item
 						.setTitle(`${mdFiles.length}개 파일을 TXT로 내보내기`)
 						.setIcon('files')
 						.onClick(() => new BatchExportModal(this.app, this, mdFiles, 'txt').open()));
 				}
-				if (Platform.isWin) {
+				if (Platform.isDesktop && Platform.isWin) {
 					ctx.addItem(item => item
 						.setTitle(`${mdFiles.length}개 파일을 HWP로 내보내기`)
 						.setIcon('files')
 						.onClick(() => new BatchExportModal(this.app, this, mdFiles, 'hwp').open()));
 				}
 			} else if (ctx.file.extension === 'md') {
-				if (Platform.isDesktopApp) {
+				if (Platform.isDesktop) {
 					ctx.addItem(item => item
 						.setTitle('TXT로 내보내기')
 						.setIcon('file-text')
 						.onClick(() => new TxtExportModal(this.app, this, ctx.file).open()));
 				}
-				if (Platform.isWin) {
+				if (Platform.isDesktop && Platform.isWin) {
 					ctx.addItem(item => item
 						.setTitle('HWP로 내보내기')
 						.setIcon('file')
@@ -450,13 +476,13 @@ export default class WritingMenuPlugin extends Plugin {
 			addItem: (fn: (item: MenuItem) => void) => void;
 			folder: TFolder;
 		}) => {
-			if (Platform.isDesktopApp) {
+			if (Platform.isDesktop) {
 				ctx.addItem(item => item
 					.setTitle('폴더를 TXT로 내보내기')
 					.setIcon('folder-output')
 					.onClick(() => new BatchExportModal(this.app, this, ctx.folder, 'txt').open()));
 			}
-			if (Platform.isWin) {
+			if (Platform.isDesktop && Platform.isWin) {
 				ctx.addItem(item => item
 					.setTitle('폴더를 HWP로 내보내기')
 					.setIcon('folder-output')
@@ -536,7 +562,21 @@ export default class WritingMenuPlugin extends Plugin {
 		}
 	}
 
+	async openMusicLibrarySidebar() {
+		const existing = this.app.workspace.getLeavesOfType(MUSIC_LIBRARY_VIEW_TYPE);
+		if (existing.length > 0) {
+			await this.app.workspace.revealLeaf(existing[0]);
+			return;
+		}
+		const leaf = this.app.workspace.getLeftLeaf(false);
+		if (!leaf) return;
+		await leaf.setViewState({ type: MUSIC_LIBRARY_VIEW_TYPE, active: true });
+		await this.app.workspace.revealLeaf(leaf);
+	}
+
 	onunload(): void {
+		this.stopwatchManager?.destroy();
+		this.charStore?.destroy();
 		this.musicPlayer?.destroy();
 		this.musicPlayer = null;
 
@@ -587,6 +627,27 @@ export default class WritingMenuPlugin extends Plugin {
 	async loadSettings() {
 		const savedData = await this.loadData() as Partial<WritingMenuSettings>;
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, savedData);
+		const legacyAiSettings = this.settings as WritingMenuSettings & { aiChatCerebrasApiKey?: string };
+		let aiSettingsMigrated = false;
+		if (legacyAiSettings.aiChatCerebrasApiKey !== undefined) {
+			delete legacyAiSettings.aiChatCerebrasApiKey;
+			aiSettingsMigrated = true;
+		}
+		if (this.settings.aiChatModel === 'gemma-4-31b') {
+			this.settings.aiChatModel = 'gemma-4-31b-it';
+			aiSettingsMigrated = true;
+		} else if (this.settings.aiChatModel === 'google/diffusiongemma-26b-a4b-it') {
+			this.settings.aiChatModel = 'gemini-3.8-flash';
+			aiSettingsMigrated = true;
+		}
+		if (this.settings.aiEpisodeModel === 'gemma-4-31b') {
+			this.settings.aiEpisodeModel = 'gemma-4-31b-it';
+			aiSettingsMigrated = true;
+		} else if (this.settings.aiEpisodeModel === 'google/diffusiongemma-26b-a4b-it') {
+			this.settings.aiEpisodeModel = 'gemini-3.8-flash';
+			aiSettingsMigrated = true;
+		}
+		if (aiSettingsMigrated) void this.saveSettings();
 		// @ts-ignore
 		if (this.settings.symbolPairs && !this.settings.symbolTriggers) {
 			this.settings.symbolTriggers = [];
@@ -631,17 +692,30 @@ export default class WritingMenuPlugin extends Plugin {
 			void this.saveSettings();
 		}
 
-		// dashboardSections에 새 섹션 누락 시 추가 (마이그레이션)
+		// MAIN에는 이동 가능한 다섯 개 대시보드 섹션만 유지한다.
 		if (this.settings.dashboardSections) {
-			const existingIds = new Set(this.settings.dashboardSections.map(s => s.id));
-			if (!existingIds.has('music')) {
-				this.settings.dashboardSections.push({ id: 'music', label: '음악', visible: true });
-			}
-			if (!existingIds.has('version')) {
-				this.settings.dashboardSections.push({ id: 'version', label: '버전관리', visible: true });
-			}
-			if (!existingIds.has('repetition')) {
-				this.settings.dashboardSections.push({ id: 'repetition', label: '퇴고 매니저', visible: true });
+			const labels = { calendar: '일정', chars: '글자수', timer: '타이머', time: '작업 시간', music: '음악' } as const;
+			const allowed = new Set(Object.keys(labels));
+			const migrated = this.settings.dashboardSections
+				.map(section => section.id === 'tasks' ? { ...section, id: 'calendar' as const, label: labels.calendar } : section)
+				.filter(section => allowed.has(section.id));
+			const seen = new Set<string>();
+			this.settings.dashboardSections = migrated.filter(section => {
+				if (seen.has(section.id)) return false;
+				seen.add(section.id);
+				return true;
+			});
+			const defaults: Array<keyof typeof labels> = ['calendar', 'chars', 'timer', 'time', 'music'];
+			for (const id of defaults) {
+				if (seen.has(id)) continue;
+				const section = { id, label: labels[id], visible: true };
+				if (id === 'timer') {
+					const charIndex = this.settings.dashboardSections.findIndex(item => item.id === 'chars');
+					this.settings.dashboardSections.splice(charIndex >= 0 ? charIndex + 1 : 0, 0, section);
+				} else {
+					this.settings.dashboardSections.push(section);
+				}
+				seen.add(id);
 			}
 		}
 	}
@@ -657,7 +731,6 @@ export default class WritingMenuPlugin extends Plugin {
 	}
 
 	async refreshDashboardView() {
-		await this.charStore.reinitSnapshot().catch(() => {});
 		const { VIEW_TYPE_CALENDAR: VTC } = await import('./src/calendar/views/CalendarView');
 		this.app.workspace.iterateAllLeaves((leaf: WorkspaceLeaf) => {
 			if (leaf.view.getViewType() === VTC) {
@@ -669,6 +742,9 @@ export default class WritingMenuPlugin extends Plugin {
 	// ── LeafStyleManager wrappers ──
 	shouldApplyToFile(file: { path: string } | null): boolean { return this.leafStyleManager.shouldApplyToFile(file); }
 	calculateCharCount(text: string): number { return this.leafStyleManager.calculateCharCount(text); }
+	calculateAllCharCounts(text: string, path?: string): { munpia: number; novelpia: number } {
+		return this.leafStyleManager.calculateAllCharCounts(text, path);
+	}
 	formatCharCount(count: number): string { return this.leafStyleManager.formatCharCount(count); }
 	updateCharCount(leaf: WorkspaceLeaf) { this.leafStyleManager.updateCharCount(leaf); }
 	updateCharCountDebounced(leaf: WorkspaceLeaf) { this.leafStyleManager.updateCharCountDebounced(leaf); }
@@ -693,9 +769,7 @@ export default class WritingMenuPlugin extends Plugin {
 	stopStopwatch() { this.stopwatchManager.stopStopwatch(); }
 	resetStopwatch() { this.stopwatchManager.resetStopwatch(); }
 	updateStopwatchDisplay() { this.stopwatchManager.updateStopwatchDisplay(); }
-	updateStopwatchSegments() { this.stopwatchManager.updateStopwatchSegments(); }
 	buildStatusPopup(container: HTMLElement) { this.stopwatchManager.buildStatusPopup(container); }
-	toggleDashboardStopwatchPopup(anchor: HTMLElement) { this.stopwatchManager.toggleDashboardStopwatchPopup(anchor); }
 	playAlarm() { this.stopwatchManager.playAlarm(); }
 
 	// ── StatusBarManager wrappers ──

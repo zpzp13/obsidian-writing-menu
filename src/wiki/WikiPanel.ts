@@ -5,8 +5,8 @@ interface AppWithSettings extends App {
 }
 import type WritingMenuPlugin from '../../main';
 import { getToneColor } from './WikiTypes';
-import { FolderOrNoteSuggestModal, ImageSuggestModal } from './WikiModals';
-import { getWikiImgSrc, getWikiDisplayName } from './wikiProfileUtils';
+import { FolderOrNoteSuggestModal, ImageSuggestModal, GenerateImageModal } from './WikiModals';
+import { getWikiImgSrc, getWikiDisplayName, saveGeneratedProfileImage, applyProfileImage } from './wikiProfileUtils';
 
 
 export class WikiPanel {
@@ -788,6 +788,9 @@ export class WikiPanel {
 			ph.createSpan({ text: displayName.charAt(0).toUpperCase() });
 			ph.onclick = () => this.openImagePicker(file);
 		}
+		const genBtn = imgCon.createDiv({ cls: 'wiki-profile-genimg-btn', attr: { 'aria-label': 'AI로 이미지 생성' } });
+		setIcon(genBtn, 'sparkles');
+		genBtn.onclick = (e) => { e.stopPropagation(); this.openGenerateImageModal(file); };
 
 		// 속성 (div 기반)
 		const props = pCon.createDiv({ cls: 'wiki-props' });
@@ -838,26 +841,36 @@ export class WikiPanel {
 
 	private openImagePicker(file: TFile) {
 		new ImageSuggestModal(this.app, (f) => { void (async () => {
-			const key = this.plugin.settings.wikiImageFieldName;
-			if (!key) {
-				new Notice('플러그인 설정에서 이미지 필드를 먼저 지정하세요.');
-				return;
-			}
 			try {
-				const linktext = this.app.metadataCache.fileToLinktext(f, file.path, false);
-				await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => { fm[key.trim()] = `[[${linktext}]]`; });
-				new Notice(`이미지 업데이트: ${key} = [[${f.name}]]`);
-				// DOM 즉시 업데이트 (metadataCache 갱신 전에도 반영)
-				const imgSrc = this.app.vault.getResourcePath(f);
-				if (this.container) {
-					this.container.querySelectorAll<HTMLImageElement>('.wiki-profile-image').forEach(img => { img.src = imgSrc; });
-					this.container.querySelectorAll<HTMLImageElement>('.wiki-card.is-selected .wiki-card-img').forEach(img => { img.src = imgSrc; });
-				}
+				await applyProfileImage(this.app, this.plugin, file, f, this.container);
 			} catch (e) {
 				console.error('[wiki] processFrontMatter 실패:', e);
 				new Notice('이미지 프론트매터 업데이트 실패. 콘솔을 확인하세요.');
 			}
 		})(); }).open();
+	}
+
+	private openGenerateImageModal(file: TFile) {
+		if (!this.plugin.settings.aiChatGeminiApiKey && !this.plugin.settings.aiImageOpenaiApiKey) {
+			new Notice('플러그인 설정 > AI 페이지에서 Google AI Studio 또는 OpenAI 키를 먼저 등록하세요.');
+			return;
+		}
+		new GenerateImageModal(
+			this.app,
+			{ gemini: this.plugin.settings.aiChatGeminiApiKey, openai: this.plugin.settings.aiImageOpenaiApiKey },
+			this.plugin.settings.aiImageModel,
+			this.plugin.settings.aiImageAspectRatio,
+			this.plugin.settings.aiImageStyleReferencePath,
+			async (base64) => {
+				try {
+					const imgFile = await saveGeneratedProfileImage(this.app, file, base64);
+					await applyProfileImage(this.app, this.plugin, file, imgFile, this.container);
+				} catch (e) {
+					console.error('[wiki] 이미지 저장/적용 실패:', e);
+					new Notice('이미지 저장 또는 프론트매터 업데이트 실패. 콘솔을 확인하세요.');
+				}
+			},
+		).open();
 	}
 
 	private findScrollableParent(el: HTMLElement): HTMLElement | null {

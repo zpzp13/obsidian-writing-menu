@@ -26,11 +26,13 @@ export class MusicPlayer {
 	volume: number;
 	currentFolderPath: string | null = null; // 현재 재생 범위 폴더 (셔플 범위 유지용)
 	readonly coverCache = new Map<string, string | null>();
+	readonly waveformCache = new Map<string, Promise<number[]>>();
 
 	private callbacks = new Set<() => void>();
 	private boundEnded: () => void;
 	private boundTimeUpdate: () => void;
 	private viewScopeFingerprint: string = '';
+	private waveformAudioContext: AudioContext | null = null;
 
 	constructor(private plugin: WritingMenuPlugin) {
 		this.audio = new Audio();
@@ -146,6 +148,8 @@ export class MusicPlayer {
 		if (this.audio.src !== track.resourcePath) {
 			this.audio.src = track.resourcePath;
 		}
+		// 곡이 바뀐 사실을 play() 완료보다 먼저 알려 앨범아트와 파형을 즉시 교체한다.
+		this.notifyCallbacks();
 		if (autoPlay) {
 			this.audio.play().then(() => {
 				this.isPlaying = true;
@@ -272,6 +276,122 @@ export class MusicPlayer {
 		}
 	}
 
+	async getWaveform(track: Track, length = 48): Promise<number[]> {
+		const barCount = Math.max(8, Math.min(256, Math.floor(length)));
+		const cacheKey = `${track.path}:${barCount}`;
+		const cached = this.waveformCache.get(cacheKey);
+		if (cached) return cached;
+		const task = (async () => {
+			try {
+				const encoded = await this.plugin.app.vault.adapter.readBinary(track.path);
+				this.waveformAudioContext ??= new AudioContext();
+				const isLargeMp3 = track.path.toLowerCase().endsWith('.mp3') && encoded.byteLength >= 40 * 1024 * 1024;
+				if (isLargeMp3) return await this.decodeSampledMp3Waveform(encoded, barCount);
+				const decoded = await this.waveformAudioContext.decodeAudioData(encoded);
+				return this.normalizeWaveform(this.measureAudioBuffer(decoded, barCount));
+			} catch {
+				return [];
+			}
+		})();
+		this.waveformCache.set(cacheKey, task);
+		return task;
+	}
+
+	private measureAudioBuffer(decoded: AudioBuffer, barCount: number): number[] {
+		const strengths = new Array<number>(barCount).fill(0);
+		const channelCount = Math.max(1, Math.min(2, decoded.numberOfChannels));
+		for (let channelIndex = 0; channelIndex < channelCount; channelIndex++) {
+			const channel = decoded.getChannelData(channelIndex);
+			for (let barIndex = 0; barIndex < barCount; barIndex++) {
+				const start = Math.floor(barIndex * channel.length / barCount);
+				const end = Math.max(start + 1, Math.floor((barIndex + 1) * channel.length / barCount));
+				const stride = Math.max(1, Math.floor((end - start) / 2048));
+				let peak = 0;
+				let squareSum = 0;
+				let sampleCount = 0;
+				for (let sampleIndex = start; sampleIndex < end; sampleIndex += stride) {
+					const sample = Math.abs(channel[sampleIndex] ?? 0);
+					peak = Math.max(peak, sample);
+					squareSum += sample * sample;
+					sampleCount++;
+				}
+				const rms = sampleCount > 0 ? Math.sqrt(squareSum / sampleCount) : 0;
+				// WaveSurfer exportPeaks와 같은 peak envelope를 중심으로 하되,
+				// RMS를 소량 섞어 지나치게 날카로운 단일 샘플 스파이크를 억제한다.
+				strengths[barIndex] += peak * .84 + rms * .16;
+			}
+		}
+		return strengths.map(value => value / channelCount);
+	}
+
+	private normalizeWaveform(strengths: number[]): number[] {
+		if (strengths.length === 0) return [];
+		const ordered = [...strengths].sort((a, b) => a - b);
+		const floor = ordered[Math.floor((ordered.length - 1) * .04)] ?? 0;
+		const ceiling = ordered[Math.floor((ordered.length - 1) * .96)] ?? 0;
+		const range = Math.max(.0001, ceiling - floor);
+		const normalized = strengths.map(strength => {
+			const normalized = Math.max(0, Math.min(1, (strength - floor) / range));
+			return .04 + .96 * Math.pow(normalized, 1.12);
+		});
+		return normalized.map((value, index) => {
+			const previous = normalized[Math.max(0, index - 1)] ?? value;
+			const next = normalized[Math.min(normalized.length - 1, index + 1)] ?? value;
+			return value * .7 + previous * .15 + next * .15;
+		});
+	}
+
+	/** 긴 MP3를 거대한 PCM 버퍼 하나로 만들지 않고 파일 전 구간을 분산 표본화한다. */
+	private async decodeSampledMp3Waveform(encoded: ArrayBuffer, barCount: number): Promise<number[]> {
+		if (!this.waveformAudioContext) return [];
+		const bytes = new Uint8Array(encoded);
+		const chunkCount = 14;
+		const barsPerChunk = Math.ceil(barCount / chunkCount);
+		const chunkSize = Math.max(192 * 1024, Math.min(1024 * 1024, Math.floor(encoded.byteLength / chunkCount / 2)));
+		const strengths = new Array<number | null>(barCount).fill(null);
+		let decodedChunks = 0;
+
+		for (let chunkIndex = 0; chunkIndex < chunkCount; chunkIndex++) {
+			const startBar = chunkIndex * barsPerChunk;
+			const barsHere = Math.min(barsPerChunk, barCount - startBar);
+			const centerRatio = (startBar + barsHere / 2) / barCount;
+			const approximateStart = Math.max(0, Math.floor(encoded.byteLength * centerRatio - chunkSize / 2));
+			const start = this.findMp3Frame(bytes, approximateStart, Math.min(bytes.length - 2, approximateStart + 64 * 1024));
+			const end = Math.min(encoded.byteLength, start + chunkSize);
+			try {
+				const decoded = await this.waveformAudioContext.decodeAudioData(encoded.slice(start, end));
+				const measured = this.measureAudioBuffer(decoded, barsHere);
+				measured.forEach((value, index) => { strengths[startBar + index] = value; });
+				decodedChunks++;
+			} catch {
+				// 일부 MP3 프레임이 독립 디코딩되지 않아도 나머지 구간으로 보간한다.
+			}
+			await new Promise<void>(resolve => window.setTimeout(resolve, 0));
+		}
+
+		if (decodedChunks < Math.max(2, Math.ceil(chunkCount * .3))) return [];
+		for (let index = 0; index < strengths.length; index++) {
+			if (strengths[index] !== null) continue;
+			let left = index - 1;
+			let right = index + 1;
+			while (left >= 0 && strengths[left] === null) left--;
+			while (right < strengths.length && strengths[right] === null) right++;
+			const leftValue = left >= 0 ? strengths[left] : null;
+			const rightValue = right < strengths.length ? strengths[right] : null;
+			strengths[index] = leftValue !== null && rightValue !== null
+				? leftValue + (rightValue - leftValue) * ((index - left) / (right - left))
+				: leftValue ?? rightValue ?? 0;
+		}
+		return this.normalizeWaveform(strengths.map(value => value ?? 0));
+	}
+
+	private findMp3Frame(bytes: Uint8Array, start: number, end: number): number {
+		for (let index = start; index < end; index++) {
+			if (bytes[index] === 0xff && (bytes[index + 1] & 0xe0) === 0xe0) return index;
+		}
+		return start;
+	}
+
 	// ── 이벤트 ──────────────────────────────────────────────────────────
 
 	private onTrackEnd() {
@@ -294,6 +414,9 @@ export class MusicPlayer {
 		this.audio.removeEventListener('timeupdate', this.boundTimeUpdate);
 		this.callbacks.clear();
 		this.coverCache.clear();
+		this.waveformCache.clear();
+		void this.waveformAudioContext?.close();
+		this.waveformAudioContext = null;
 	}
 }
 

@@ -1,34 +1,28 @@
 import { ItemView, WorkspaceLeaf, setIcon, TFile, Notice } from 'obsidian';
 
 declare const moment: (date?: unknown, fmt?: string) => { format(f: string): string };
-import { showDayPreview, removeDayPreview } from '../components/DayPreviewPopup';
 import type WritingMenuPlugin from '../../../main';
 import { DashboardSection } from '../../dashboard/DashboardSection';
 import { TaskParser } from '../../dashboard/data/TaskParser';
 import { TasksRenderer } from '../../dashboard/TasksRenderer';
-import { WritingTimeSection } from '../../dashboard/WritingTimeSection';
+import { showTaskAddPopup } from '../../dashboard/TaskAddPopup';
 import { VersionPanel } from '../../version/VersionPanel';
-import { MonthScroller } from '../components/MonthScroller';
-import { DateStrip } from '../components/DateStrip';
-import { showDatePickerPopup } from '../components/DatePickerPopup';
+import { RepetitionSection } from '../../repetition/RepetitionSection';
 import type { DashSectionConfig } from '../../types';
 import { WikiPanel } from '../../wiki/WikiPanel';
 import { AiChatPanel } from '../../aichat/AiChatPanel';
 import { formatDateKey } from '../../utils/dateUtils';
 import { getDnConfig, ensureDailyNote } from '../../utils/dailyNoteUtils';
+import { showDatePickerPopup } from '../components/DatePickerPopup';
 
 export const VIEW_TYPE_CALENDAR = 'writing-menu-calendar';
 
-const DOW_KO_FULL = ['일','월','화','수','목','금','토'];
-
-type DashTab = 'main' | 'tasks' | 'time' | 'wiki' | 'version' | 'ai';
+type DashTab = 'main' | 'wiki' | 'version' | 'ai';
 
 const TABS: Array<{ id: DashTab; icon: string; label: string }> = [
-	{ id: 'main',    icon: 'layout-dashboard',  label: '메인 대시보드' },
-	{ id: 'tasks',   icon: 'list-todo',         label: '할 일' },
-	{ id: 'time',    icon: 'clock-fading',      label: '작업시간' },
-	{ id: 'version', icon: 'history',           label: '버전관리' },
-	{ id: 'wiki',    icon: 'git-graph',         label: '위키' },
+	{ id: 'main',    icon: 'house',              label: 'MAIN' },
+	{ id: 'wiki',    icon: 'git-graph',          label: 'WIKI' },
+	{ id: 'version', icon: 'shield',             label: 'REVISION' },
 	{ id: 'ai',      icon: 'bot',               label: 'AI' },
 ];
 
@@ -36,21 +30,16 @@ export class CalendarView extends ItemView {
 	plugin: WritingMenuPlugin;
 
 	private selectedDate: Date;
-	private viewMode: 'strip' | 'full' = 'strip';
-	private collapsed = false;
-
 	private dashTab: DashTab = 'main';
 	private dashSubView: 'content' | 'sort' = 'content';
 	private wikiPanel: WikiPanel | null = null;
 	private aiChatPanel: AiChatPanel | null = null;
 
-	private popup:         HTMLElement   | null = null;
-	private monthScroller: MonthScroller | null = null;
-	private dateStrip:     DateStrip     | null = null;
 	private dateDisplayEl: HTMLElement   | null = null;
-
-	private navDebounceTimer = 0;
+	private calendarTaskSlot: HTMLElement | null = null;
 	private badgeDebounceTimer = 0;
+	private calendarClickBlockUntil = 0;
+	private calendarTaskDockCollapsed = false;
 	private taskCounts = new Map<string, number>();
 
 constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
@@ -71,13 +60,15 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 		this.selectedDate = now;
 		this.render();
 		// 태스크 파일 변경 시 배지 자동 갱신
-		this.registerEvent(this.app.vault.on('modify', () => {
+		this.registerEvent(this.app.vault.on('modify', (file) => {
+			if (!(file instanceof TFile) || !TaskParser.isDailyNoteFile(file, this.plugin)) return;
 			window.clearTimeout(this.badgeDebounceTimer);
 			this.badgeDebounceTimer = window.window.setTimeout(() => { void this.loadAndApplyTasks().catch(() => {}); }, 300);
 		}));
 	}
 
-	async onClose() { this.removePopup(); }
+	async onClose() {
+	}
 
 	activateWikiPicker() {
 		this.dashTab = 'wiki';
@@ -102,39 +93,11 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 	// ── Root render ─────────────────────────────────────────────────
 
 	render() {
-		this.removePopup();
 		const content = this.containerEl.children[1] as HTMLElement;
 		content.empty();
-		content.className = this.dashTab === 'wiki' ? 'wm-cal-content wm-wiki-mode'
-			: this.dashTab === 'ai' ? 'wm-cal-content wm-aichat-mode'
-			: 'wm-cal-content';
+		this.updateDashboardContentClass();
 
 		const wrap = content.createDiv({ cls: 'wm-cal-wrapper' });
-		this.renderTopBar(wrap);
-
-		if (!this.collapsed) {
-			const year    = this.selectedDate.getFullYear();
-			const currMon = this.selectedDate.getMonth();
-
-			this.monthScroller = new MonthScroller(wrap, currMon,
-				(mon) => this.navigateToMonth(mon, year),
-				this.viewMode === 'full',
-			);
-
-			if (this.viewMode === 'strip') {
-				this.dateStrip = new DateStrip(wrap, year, this.selectedDate, {
-					onDateChange:  (d) => { this.selectedDate = d; this.updateDateDisplay(); },
-					onMonthChange: (m) => this.monthScroller?.sync(m),
-					openDailyNote: (d) => { void this.openOrCreateDailyNote(d); },
-					onHover:    (d, el) => showDayPreview(el, d, this.plugin),
-					onHoverEnd: ()     => removeDayPreview(),
-				});
-			} else {
-				this.renderFullGrid(wrap);
-			}
-		}
-
-		this.renderCollapseHandle(wrap);
 		this.renderDashboardTabBar(wrap);
 		this.renderDashboardPanel(wrap);
 
@@ -144,158 +107,153 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 	// ── Top bar ─────────────────────────────────────────────────────
 
 	private renderTopBar(container: HTMLElement) {
-		const bar  = container.createDiv({ cls: 'wm-cal-topbar' });
+		const bar  = container.createDiv({ cls: 'wm-cal-topbar wm-cal-agenda-topbar' });
 		const left = bar.createDiv({ cls: 'wm-cal-topbar-left' });
 
-		const pickerBtn = left.createDiv({ cls: 'wm-cal-icon-btn' });
+		const pickerBtn = left.createEl('button', {
+			cls: 'wm-cal-icon-btn',
+			attr: { type: 'button', 'aria-label': '날짜 선택' },
+		});
 		setIcon(pickerBtn, 'calendar');
 		pickerBtn.addEventListener('click', e => {
 			e.stopPropagation();
-			if (this.popup?.isConnected) {
-				this.removePopup();
-				return;
-			}
-			this.popup = null;
-			this.popup = showDatePickerPopup(pickerBtn, this.selectedDate, (d) => {
-				this.selectedDate = d;
-				this.popup = null;
+			pickerBtn.ownerDocument.querySelector('.wm-cal-picker')?.remove();
+			showDatePickerPopup(pickerBtn, this.selectedDate, date => {
+				this.selectedDate = date;
+				this.calendarTaskDockCollapsed = false;
 				this.render();
 			});
 		});
 
 		this.dateDisplayEl = left.createSpan({ cls: 'wm-cal-date-display' });
 		this.updateDateDisplay();
-		this.dateDisplayEl.addEventListener('click', () => this.goToToday());
 
-		const toggleBtn = left.createDiv({ cls: 'wm-cal-icon-btn wm-cal-toggle-btn' });
-		setIcon(toggleBtn, this.viewMode === 'full' ? 'chevron-up' : 'chevron-down');
-		toggleBtn.addEventListener('click', e => {
-			e.stopPropagation();
-			this.viewMode = this.viewMode === 'strip' ? 'full' : 'strip';
-			this.render();
+		const nav = bar.createDiv({ cls: 'wm-cal-agenda-nav' });
+		const prev = nav.createEl('button', {
+			cls: 'wm-cal-icon-btn',
+			attr: { type: 'button', 'aria-label': '이전 달' },
 		});
-
-		const right = bar.createDiv({ cls: 'wm-cal-topbar-right' });
-
-		if (this.plugin.settings.showTimeInDashboard) {
-			if (this.plugin.stopwatchSeconds <= 0) this.plugin.initStopwatch();
-			const swBadge = right.createDiv({ cls: 'wm-cal-stopwatch-badge' });
-
-			const battery = swBadge.createDiv({ cls: 'wm-cal-sw-battery' });
-			const segs: HTMLElement[] = [];
-			for (let i = 0; i < 4; i++) {
-				segs.push(battery.createDiv({ cls: 'wm-cal-sw-seg' }));
-			}
-			this.plugin.stopwatchDashboardSegs = segs;
-
-			const swText = swBadge.createSpan({ cls: 'wm-cal-sw-time' });
-			swText.textContent = this.plugin.formatTime(this.plugin.stopwatchSeconds);
-			this.plugin.stopwatchDashboardEl = swText;
-
-			this.plugin.updateStopwatchSegments();
-
-			swBadge.addEventListener('click', e => {
-				e.stopPropagation();
-				this.plugin.toggleDashboardStopwatchPopup(swBadge);
-			});
-		}
+		setIcon(prev, 'chevron-left');
+		const today = nav.createEl('button', {
+			cls: 'wm-cal-today-btn', text: 'TODAY', attr: { type: 'button' },
+		});
+		const next = nav.createEl('button', {
+			cls: 'wm-cal-icon-btn',
+			attr: { type: 'button', 'aria-label': '다음 주' },
+		});
+		setIcon(next, 'chevron-right');
+		prev.setAttribute('aria-label', '이전 주');
+		prev.addEventListener('click', () => this.shiftWeek(-1));
+		today.addEventListener('click', () => this.goToToday());
+		next.addEventListener('click', () => this.shiftWeek(1));
 	}
 
 	private updateDateDisplay() {
 		if (!this.dateDisplayEl) return;
 		const d  = this.selectedDate;
 		const y  = d.getFullYear();
-		const mm = String(d.getMonth() + 1).padStart(2, '0');
-		const dd = String(d.getDate()).padStart(2, '0');
-		const dw = DOW_KO_FULL[d.getDay()];
-		this.dateDisplayEl.textContent = `${y}-${mm}-${dd}(${dw})`;
+		this.dateDisplayEl.textContent = `${y}년 ${d.getMonth() + 1}월`;
 	}
 
 	// ── Month navigation ─────────────────────────────────────────────
 
-	private navigateToMonth(mon: number, year: number) {
-		window.clearTimeout(this.navDebounceTimer);
-		this.navDebounceTimer = 0;
-		const maxDay = new Date(year, mon + 1, 0).getDate();
-		const day    = Math.min(this.selectedDate.getDate(), maxDay);
-		this.selectedDate = new Date(year, mon, day);
-		this.updateDateDisplay();
-
-		if (this.viewMode === 'full') { this.render(); return; }
-		this.dateStrip?.goTo(this.selectedDate, false);
+	private shiftWeek(offset: number) {
+		const next = new Date(this.selectedDate);
+		next.setDate(next.getDate() + offset * 7);
+		this.selectedDate = next;
+		this.calendarTaskDockCollapsed = false;
+		this.render();
 	}
 
 	private goToToday() {
 		const now = new Date();
 		now.setHours(0, 0, 0, 0);
 		this.selectedDate = now;
-		this.updateDateDisplay();
-
-		if (this.viewMode === 'full') { this.render(); return; }
-		this.dateStrip?.goTo(now, true);
+		this.calendarTaskDockCollapsed = false;
+		this.render();
 	}
 
-	// ── Full grid ────────────────────────────────────────────────────
+	// ── Selected week ────────────────────────────────────────────────
 
-	private renderFullGrid(container: HTMLElement) {
-		const year  = this.selectedDate.getFullYear();
-		const month = this.selectedDate.getMonth();
-
-		const wdRow = container.createDiv({ cls: 'wm-cal-weekdays' });
-		for (const d of ['일','월','화','수','목','금','토']) {
-			wdRow.createDiv({ cls: 'wm-cal-weekday', text: d });
-		}
-
-		const grid  = container.createDiv({ cls: 'wm-cal-grid' });
-		const dow   = new Date(year, month, 1).getDay();
+	private renderWeekGrid(container: HTMLElement) {
+		const grid = container.createDiv({ cls: 'wm-cal-grid wm-cal-week-grid' });
+		const weekStart = new Date(this.selectedDate);
+		weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+		weekStart.setHours(0, 0, 0, 0);
+		const dayLabels = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
 
-		for (let i = 0; i < 42; i++) {
-			const d = new Date(year, month, 1 - dow + i);
-
-			const col       = i % 7;
-			const isWeekend = col === 0 || col === 6;
-			const isCurr    = d.getMonth() === month;
+		for (let i = 0; i < 7; i++) {
+			const d = new Date(weekStart);
+			d.setDate(weekStart.getDate() + i);
+			const isWeekend = i === 0 || i === 6;
 			const isToday   = d.toDateString() === today.toDateString();
 			const isSel     = d.toDateString() === this.selectedDate.toDateString();
 
-			const cell = grid.createDiv({ cls: 'wm-cal-cell' });
+			const cell = grid.createDiv({
+				cls: 'wm-cal-cell wm-cal-week-cell',
+				attr: { role: 'button', tabindex: '0', 'aria-label': `${d.getMonth() + 1}월 ${d.getDate()}일` },
+			});
 			if (isWeekend) cell.addClass('wm-cal-weekend');
-			if (!isCurr)   cell.addClass('wm-cal-other');
 			if (isToday)   cell.addClass('wm-cal-today');
 			if (isSel)     cell.addClass('wm-cal-selected');
-			if (isCurr)    cell.dataset.datekey = formatDateKey(d);
+			cell.dataset.datekey = formatDateKey(d);
 
+			cell.createDiv({ cls: 'wm-cal-weekday', text: dayLabels[i] });
 			cell.createDiv({ cls: 'wm-cal-num', text: String(d.getDate()) });
 
-			if (isCurr) {
-				cell.addEventListener('mouseenter', () => showDayPreview(cell, new Date(d.getFullYear(), d.getMonth(), d.getDate()), this.plugin));
-				cell.addEventListener('mouseleave', () => removeDayPreview());
-			}
-
-			cell.addEventListener('click', (e) => {
-				if (e.ctrlKey || e.metaKey) {
-					void this.openOrCreateDailyNote(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
-					return;
+			const selectDate = (e: MouseEvent | KeyboardEvent) => {
+				if (Date.now() < this.calendarClickBlockUntil) return;
+				if ('key' in e && e.key !== 'Enter' && e.key !== ' ') return;
+				if ('key' in e) e.preventDefault();
+				e.stopPropagation();
+				const selected = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+				const isSameDate = formatDateKey(selected) === formatDateKey(this.selectedDate);
+				const shouldOpenTaskPopup = e.ctrlKey || e.metaKey || ('detail' in e && e.detail >= 2);
+				if (!shouldOpenTaskPopup) {
+					this.calendarTaskDockCollapsed = isSameDate
+						? !this.calendarTaskDockCollapsed
+						: false;
 				}
-				this.selectedDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-				const dk = formatDateKey(this.selectedDate);
-				const hasTask = (this.taskCounts.get(dk) ?? 0) > 0;
-				this.render();
-				if (hasTask) window.requestAnimationFrame(() => this.scrollToTasksSection(dk));
-			});
+				this.selectedDate = selected;
+				this.updateDateDisplay();
+				grid.querySelectorAll<HTMLElement>('.wm-cal-week-cell').forEach(day => {
+					day.toggleClass('wm-cal-selected', day === cell);
+				});
+				this.calendarTaskSlot?.toggleClass('is-collapsed', this.calendarTaskDockCollapsed);
+				this.calendarTaskSlot?.setAttribute('aria-hidden', String(this.calendarTaskDockCollapsed));
+				void this.loadAndApplyTasks().catch(() => {});
+				if (shouldOpenTaskPopup) {
+					showTaskAddPopup(cell, this.plugin, () => { void this.loadAndApplyTasks(); }, selected);
+				}
+			};
+			cell.addEventListener('click', selectDate);
+			cell.addEventListener('keydown', selectDate);
 		}
 	}
 
 	// ── Dashboard tab bar ────────────────────────────────────────────
 
 	private renderDashboardTabBar(container: HTMLElement) {
-		const bar = container.createDiv({ cls: 'wm-dash-tab-bar' });
+		const row = container.createDiv({ cls: 'wm-dash-tab-row' });
+		const bar = row.createDiv({ cls: 'wm-dash-tab-bar', attr: { role: 'tablist', 'aria-label': '대시보드 메뉴' } });
+		const buttons = new Map<DashTab, HTMLButtonElement>();
 		for (const tab of TABS) {
-			const btn = bar.createDiv({ cls: 'wm-dash-tab-btn' + (this.dashTab === tab.id ? ' is-active' : '') });
-			btn.setAttribute('aria-label', tab.label);
-			setIcon(btn, tab.icon);
+			const btn = bar.createEl('button', {
+				cls: 'wm-dash-tab-btn',
+				attr: {
+					type: 'button',
+					role: 'tab',
+					'aria-label': tab.label,
+					'aria-selected': String(this.dashTab === tab.id),
+					'aria-pressed': String(this.dashTab === tab.id),
+				},
+			});
+			const icon = btn.createSpan({ cls: 'wm-dash-tab-icon' });
+			setIcon(icon, tab.icon);
+			btn.createSpan({ cls: 'wm-dash-tab-label', text: tab.label });
+			buttons.set(tab.id, btn);
 			btn.addEventListener('click', () => {
 				if (this.dashTab === tab.id && tab.id === 'main' && this.dashSubView === 'content') {
 					// 이미 main content → 정렬보드로 드릴다운
@@ -304,9 +262,24 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 					this.dashTab = tab.id;
 					this.dashSubView = 'content';
 				}
-				this.render();
+				for (const [id, other] of buttons) {
+					const active = id === this.dashTab;
+					other.setAttribute('aria-selected', String(active));
+					other.setAttribute('aria-pressed', String(active));
+				}
+				this.updateDashboardContentClass();
+				const panel = container.querySelector<HTMLElement>(':scope > .wm-dash-panel');
+				panel?.remove();
+				this.renderDashboardPanel(container);
 			});
 		}
+	}
+
+	private updateDashboardContentClass() {
+		const content = this.containerEl.children[1] as HTMLElement;
+		content.className = this.dashTab === 'wiki' ? 'wm-cal-content wm-wiki-mode'
+			: this.dashTab === 'ai' ? 'wm-cal-content wm-aichat-mode'
+			: 'wm-cal-content';
 	}
 
 	// ── Dashboard panel ──────────────────────────────────────────────
@@ -318,8 +291,6 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 				if (this.dashSubView === 'sort') this.renderSortBoard(panel);
 				else this.renderMainDashboard(panel);
 				break;
-			case 'tasks':   this.renderTasksPanel(panel);   break;
-			case 'time':    this.renderTimePanel(panel);    break;
 			case 'wiki':    this.renderWikiPanel(panel);    break;
 			case 'version': this.renderVersionPanel(panel); break;
 			case 'ai':      this.renderAiChatPanel(panel);  break;
@@ -327,23 +298,81 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 	}
 
 	private renderMainDashboard(panel: HTMLElement) {
-		const cfg = this.plugin.settings.dashboardSections;
-		DashboardSection.render(panel, this.plugin, cfg);
+		const fallback: DashSectionConfig[] = [
+			{ id: 'calendar', label: '일정', visible: true },
+			{ id: 'chars', label: '글자수', visible: true },
+			{ id: 'timer', label: '타이머', visible: true },
+			{ id: 'time', label: '작업 시간', visible: true },
+			{ id: 'music', label: '음악', visible: true },
+		];
+		const sections = panel.createDiv({ cls: 'wm-dash wm-dash-main-sections' });
+		for (const configured of this.plugin.settings.dashboardSections ?? fallback) {
+			if (!configured.visible) continue;
+			const id = configured.id === 'tasks' ? 'calendar' : configured.id;
+			if (!['calendar', 'chars', 'timer', 'time', 'music'].includes(id)) continue;
+			const section = sections.createDiv({ cls: `wm-dash-section wm-dash-section-${id}` });
+			if (id === 'calendar') this.renderCalendarPanel(section);
+			else DashboardSection.renderDashboardSection(section, this.plugin, id);
+		}
 	}
 
-	private renderTasksPanel(panel: HTMLElement) {
-		panel.addClass('wm-dash-panel-single');
-		TaskParser.loadTasks(this.plugin)
-			.then(tasks => {
-				panel.empty();
-				TasksRenderer.render(panel, tasks, this.plugin);
-			})
-			.catch(() => {});
+	private renderCalendarPanel(panel: HTMLElement) {
+		const calendar = panel.createDiv({ cls: 'wm-dash-calendar wm-calendar-agenda' });
+		this.renderTopBar(calendar);
+		const viewport = calendar.createDiv({ cls: 'wm-cal-month-viewport' });
+		this.renderWeekGrid(viewport);
+		this.bindWeekSwipe(viewport);
+		this.calendarTaskSlot = calendar.createDiv({ cls: 'wm-cal-task-dock' });
+		this.calendarTaskSlot.toggleClass('is-collapsed', this.calendarTaskDockCollapsed);
+		this.calendarTaskSlot.setAttribute('aria-hidden', String(this.calendarTaskDockCollapsed));
 	}
 
-	private renderTimePanel(panel: HTMLElement) {
-		panel.addClass('wm-dash-panel-single');
-		WritingTimeSection.render(panel, this.plugin).catch(() => {});
+	private bindWeekSwipe(viewport: HTMLElement) {
+		let pointerId: number | null = null;
+		let startX = 0;
+		let startY = 0;
+		let deltaX = 0;
+		let horizontal = false;
+		const grid = viewport.querySelector<HTMLElement>('.wm-cal-grid');
+		if (!grid) return;
+
+		const finish = () => {
+			if (pointerId === null) return;
+			const shift = Math.abs(deltaX) > Math.min(72, viewport.clientWidth * 0.18)
+				? (deltaX < 0 ? 1 : -1)
+				: 0;
+			if (shift !== 0) this.calendarClickBlockUntil = Date.now() + 350;
+			pointerId = null;
+			grid.style.transition = 'transform 240ms cubic-bezier(.2,.8,.2,1), opacity 180ms ease';
+			grid.style.transform = shift === 0 ? 'translateX(0)' : `translateX(${shift > 0 ? '-24%' : '24%'})`;
+			grid.style.opacity = shift === 0 ? '1' : '0';
+			if (shift !== 0) window.setTimeout(() => this.shiftWeek(shift), 170);
+		};
+
+		viewport.addEventListener('pointerdown', (event) => {
+			pointerId = event.pointerId;
+			startX = event.clientX;
+			startY = event.clientY;
+			deltaX = 0;
+			horizontal = false;
+			grid.style.transition = 'none';
+		});
+		viewport.addEventListener('pointermove', (event) => {
+			if (pointerId !== event.pointerId) return;
+			const dx = event.clientX - startX;
+			const dy = event.clientY - startY;
+			if (!horizontal && Math.abs(dx) < 7) return;
+			if (!horizontal && Math.abs(dy) > Math.abs(dx)) return;
+			if (!horizontal && !viewport.hasPointerCapture(event.pointerId)) {
+				viewport.setPointerCapture(event.pointerId);
+			}
+			horizontal = true;
+			deltaX = dx;
+			grid.style.transform = `translateX(${dx * 0.72}px)`;
+			grid.style.opacity = String(Math.max(0.72, 1 - Math.abs(dx) / Math.max(1, viewport.clientWidth) * 0.35));
+		});
+		viewport.addEventListener('pointerup', finish);
+		viewport.addEventListener('pointercancel', finish);
 	}
 
 	private renderWikiPanel(panel: HTMLElement) {
@@ -364,8 +393,21 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 	}
 
 	private renderVersionPanel(panel: HTMLElement) {
-		panel.addClass('wm-dash-panel-single', 'version-control-view');
-		VersionPanel.render(panel, this.plugin);
+		panel.addClass('wm-dash-panel-single', 'wm-revision-panel');
+		const wrap = panel.createDiv({ cls: 'wm-dash wm-dash-revision' });
+		const addSection = (title: string, renderBody: (body: HTMLElement) => void) => {
+			const group = wrap.createDiv({ cls: 'wm-dash-group' });
+			const header = group.createDiv({ cls: 'wm-dash-group-hdr' });
+			header.createSpan({ cls: 'wm-dash-group-marker' });
+			header.createSpan({ cls: 'wm-dash-group-label', text: title });
+			const body = group.createDiv({ cls: 'wm-dash-group-body' });
+			renderBody(body);
+		};
+		addSection('버전 관리', body => {
+			body.addClass('version-control-view');
+			VersionPanel.render(body, this.plugin);
+		});
+		addSection('퇴고 매니저', body => RepetitionSection.render(body, this.plugin));
 	}
 
 	// ── Sort board (main tab drill-down) ─────────────────────────────
@@ -380,11 +422,13 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 		backBtn.addEventListener('click', () => { this.dashSubView = 'content'; this.render(); });
 		header.createDiv({ cls: 'wm-dash-sort-title', text: '섹션 구성' });
 
-		const cfg: DashSectionConfig[] = this.plugin.settings.dashboardSections ?? [
-			{ id: 'chars',  label: '글자수',   visible: true },
-			{ id: 'time',   label: '작업시간', visible: true },
-			{ id: 'tasks',  label: '할 일',    visible: true },
-		];
+		const cfg: DashSectionConfig[] = (this.plugin.settings.dashboardSections ?? [
+			{ id: 'calendar', label: '일정', visible: true },
+			{ id: 'chars', label: '글자수', visible: true },
+			{ id: 'timer', label: '타이머', visible: true },
+			{ id: 'time', label: '작업 시간', visible: true },
+			{ id: 'music', label: '음악', visible: true },
+		]).filter(sec => ['calendar', 'chars', 'timer', 'time', 'music'].includes(sec.id));
 
 		const list = panel.createDiv({ cls: 'wm-dash-sort-list' });
 
@@ -454,7 +498,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 	// ── Task data: load & apply ──────────────────────────────────────
 
 	private async loadAndApplyTasks(): Promise<void> {
-		const tasks = await TaskParser.loadTasks(this.plugin);
+		const tasks = await TaskParser.loadTasks(this.plugin, this.selectedDate);
 		this.taskCounts.clear();
 		for (const t of tasks) {
 			if (t.completed) continue;
@@ -488,30 +532,19 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 			const level = count >= 4 ? 3 : count >= 2 ? 2 : 1;
 			cell.classList.add(`wm-cal-task-level-${level}`);
 		});
+
+		if (this.calendarTaskSlot?.isConnected) {
+			this.calendarTaskSlot.empty();
+			TasksRenderer.render(this.calendarTaskSlot, tasks, this.plugin, undefined, this.selectedDate, true);
+		}
 	}
 
 	private scrollToTasksSection(dateKey?: string) {
 		const content = this.containerEl.children[1] as HTMLElement;
-		const tasksWrap = content.querySelector('.wm-tasks-wrap');
+		const tasksWrap = content.querySelector<HTMLElement>('.wm-cal-task-dock .wm-tasks-wrap');
 		if (!tasksWrap) return;
-		const groupBody = tasksWrap.closest('.wm-dash-group-body');
-		let expandDelay = 0;
-		if (groupBody?.classList.contains('is-collapsed')) {
-			(groupBody.previousElementSibling as HTMLElement)?.click();
-			expandDelay = 200;
-		}
 		window.setTimeout(() => {
-			let section: HTMLElement | null = null;
-			if (dateKey) {
-				const targetItem = content.querySelector<HTMLElement>(`.wm-task-item[data-datekey="${dateKey}"]`);
-				section = targetItem?.closest('.wm-tasks-section') as HTMLElement ?? null;
-			}
-			if (!section) section = content.querySelector('.wm-tasks-section');
-			if (!section) return;
-			if (section.classList.contains('is-collapsed')) {
-				(section.querySelector('.wm-tasks-section-toggle') as HTMLElement)?.click();
-			}
-			section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+			tasksWrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 			if (dateKey) {
 				window.setTimeout(() => {
 					content.querySelectorAll<HTMLElement>(`.wm-task-item[data-datekey="${dateKey}"]`).forEach(el => {
@@ -522,7 +555,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 					});
 				}, 350);
 			}
-		}, expandDelay);
+		}, 0);
 	}
 
 	// ── Daily note ───────────────────────────────────────────────────
@@ -546,21 +579,4 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 		}
 	}
 
-	// ── Collapse handle ──────────────────────────────────────────────
-
-	private renderCollapseHandle(container: HTMLElement) {
-		const handle = container.createDiv({ cls: 'wm-cal-collapse-handle' });
-		handle.createDiv({ cls: 'wm-cal-collapse-bar' });
-		handle.addEventListener('click', () => {
-			this.collapsed = !this.collapsed;
-			this.render();
-		});
-	}
-
-	// ── Utilities ────────────────────────────────────────────────────
-
-	private removePopup() {
-		this.popup?.remove();
-		this.popup = null;
-	}
 }

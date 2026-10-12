@@ -3,7 +3,7 @@ import type { EditorView } from '@codemirror/view';
 import type WritingMenuPlugin from '../../main';
 import type { RepetitionEntry, RepetitionKind, RepetitionResult } from './types';
 import { analyzeText, isMorphAnalysisSupported } from './MorphAnalyzer';
-import { downloadGaruAssets, isGaruAssetsDownloaded } from './GaruAssets';
+import { downloadGaruAssets, GARU_VERSION, getGaruAssetStatus } from './GaruAssets';
 import { classifyTokens } from './analyzer';
 import { buildOccurrenceContexts, clipAroundHighlight } from './sentenceContext';
 import { loadSynonymDict } from './SynonymDict';
@@ -42,8 +42,9 @@ async function renderInto(root: HTMLElement, plugin: WritingMenuPlugin, compact?
 
 	if (compact) compact.classList.add('is-hidden');
 
-	if (!(await isGaruAssetsDownloaded(plugin))) {
-		renderDownloadPrompt(root, plugin, compact);
+	const assetStatus = await getGaruAssetStatus(plugin);
+	if (assetStatus !== 'current') {
+		renderDownloadPrompt(root, plugin, compact, assetStatus === 'outdated');
 		return;
 	}
 
@@ -58,15 +59,20 @@ async function renderInto(root: HTMLElement, plugin: WritingMenuPlugin, compact?
 	}
 }
 
-function renderDownloadPrompt(root: HTMLElement, plugin: WritingMenuPlugin, compact?: HTMLElement) {
-	root.createDiv({ cls: 'wm-rep-empty', text: '형태소 분석 모델이 아직 없습니다. 처음 한 번만 내려받으면 이후 완전히 오프라인으로 동작합니다. (약 1.4MB)' });
-	const btn = root.createEl('button', { cls: 'wm-rep-btn', text: '모델 다운로드' });
+function renderDownloadPrompt(root: HTMLElement, plugin: WritingMenuPlugin, compact?: HTMLElement, isUpdate = false) {
+	root.createDiv({
+		cls: 'wm-rep-empty',
+		text: isUpdate
+			? `형태소 분석 엔진 업데이트가 있습니다. v${GARU_VERSION} 설치 후에는 완전히 오프라인으로 동작합니다.`
+			: `형태소 분석 모델 v${GARU_VERSION}이 필요합니다. 처음 한 번만 내려받으면 이후 완전히 오프라인으로 동작합니다. (약 1.6MB)`,
+	});
+	const btn = root.createEl('button', { cls: 'wm-rep-btn', text: isUpdate ? '엔진 업데이트' : '모델 다운로드' });
 	btn.addEventListener('click', () => void (async () => {
 		btn.disabled = true;
 		const originalText = btn.textContent ?? '';
 		try {
 			await downloadGaruAssets(plugin, step => btn.setText(step));
-			new Notice('형태소 분석 모델을 내려받았습니다.');
+			new Notice(`형태소 분석 엔진 v${GARU_VERSION} 설치를 완료했습니다.`);
 			await renderInto(root, plugin, compact);
 		} catch (e) {
 			new Notice(`다운로드 실패: ${e instanceof Error ? e.message : String(e)}`);

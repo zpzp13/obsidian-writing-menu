@@ -54,7 +54,7 @@ function closePopup() {
 
 // ── 재생목록 팝업 ────────────────────────────────────────────────────
 
-function togglePlaylistPopup(anchor: HTMLElement, plugin: WritingMenuPlugin) {
+export function togglePlaylistPopup(anchor: HTMLElement, plugin: WritingMenuPlugin) {
 	if (activePopup) { closePopup(); return; }
 	openPlaylistPopup(anchor, plugin);
 }

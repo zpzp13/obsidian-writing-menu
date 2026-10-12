@@ -1,12 +1,15 @@
 {
 	"compilerOptions": {
 		"baseUrl": ".",
+		"ignoreDeprecations": "6.0",
 		"inlineSourceMap": true,
 		"inlineSources": true,
 		"module": "ESNext",
-		"target": "ES6",
+		"target": "ES2018",
 		"allowJs": true,
 		"noImplicitAny": true,
+		"strictPropertyInitialization": false,
+		"strictFunctionTypes": false,
 		"moduleResolution": "node",
 		"importHelpers": true,
 		"isolatedModules": true,
