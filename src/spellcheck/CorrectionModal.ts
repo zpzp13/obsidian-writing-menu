@@ -511,7 +511,8 @@ export class CorrectionModal extends Modal {
 			const maxScrollTop = Math.max(0, list.scrollHeight - list.clientHeight);
 			let targetScrollTop = list.scrollTop;
 			if (shouldCenter) {
-				targetScrollTop = itemTop - (list.clientHeight - itemRect.height) / 2;
+				const focusAnchor = list.clientHeight * 0.36;
+				targetScrollTop = itemTop + itemRect.height / 2 - focusAnchor;
 			} else if (itemRect.top < listRect.top) {
 				targetScrollTop = itemTop;
 			} else if (itemRect.bottom > listRect.bottom) {
