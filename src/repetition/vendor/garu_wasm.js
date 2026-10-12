@@ -1,4 +1,4 @@
-// Vendored from garu-ko@0.9.8 (pkg/garu_wasm.js) — https://github.com/ongjin/garu
+// Vendored from garu-ko@0.9.18 (pkg/garu_wasm.js) — https://github.com/ongjin/garu
 // 이 파일만 번들에 포함하고, 무거운 .wasm/모델 바이너리는 첫 사용 시 CDN에서 내려받는다.
 // garu-ko 버전을 올릴 때는 이 파일도 함께 갱신해야 한다.
 /* @ts-self-types="./garu_wasm.d.ts" */
@@ -13,6 +13,29 @@ export class GaruWasm {
     free() {
         const ptr = this.__destroy_into_raw();
         wasm.__wbg_garuwasm_free(ptr, 0);
+    }
+    /**
+     * 사용자 단어 등록 — 모델 리빌드 없이 도메인 어휘를 인식시킨다.
+     * @param {string} surface
+     * @param {string} pos
+     * @param {number | null} [freq]
+     */
+    add_user_word(surface, pos, freq) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            const ptr0 = passStringToWasm0(surface, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+            const len0 = WASM_VECTOR_LEN;
+            const ptr1 = passStringToWasm0(pos, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+            const len1 = WASM_VECTOR_LEN;
+            wasm.garuwasm_add_user_word(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1, isLikeNone(freq) ? 0x100000001 : (freq) >>> 0);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            if (r1) {
+                throw takeObject(r0);
+            }
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
     }
     /**
      * @param {string} text
@@ -56,6 +79,12 @@ export class GaruWasm {
         } finally {
             wasm.__wbindgen_add_to_stack_pointer(16);
         }
+    }
+    /**
+     * 등록된 사용자 단어를 모두 제거.
+     */
+    clear_user_words() {
+        wasm.garuwasm_clear_user_words(this.__wbg_ptr);
     }
     /**
      * @param {Uint8Array} model_data
@@ -102,6 +131,14 @@ export class GaruWasm {
         }
     }
     /**
+     * 등록된 사용자 단어 수.
+     * @returns {number}
+     */
+    user_word_count() {
+        const ret = wasm.garuwasm_user_word_count(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
      * @returns {string}
      */
     static version() {
@@ -122,7 +159,7 @@ export class GaruWasm {
     }
 }
 if (Symbol.dispose) GaruWasm.prototype[Symbol.dispose] = GaruWasm.prototype.free;
-import * as import1 from "./snippets/garu-core-e02b009bbd613198/inline0.js"
+import * as import1 from "./snippets/garu-core-3a4d93314cfd3300/inline0.js"
 
 function __wbg_get_imports() {
     const import0 = {
@@ -181,7 +218,7 @@ function __wbg_get_imports() {
     return {
         __proto__: null,
         "./garu_wasm_bg.js": import0,
-        "./snippets/garu-core-e02b009bbd613198/inline0.js": import1,
+        "./snippets/garu-core-3a4d93314cfd3300/inline0.js": import1,
     };
 }
 

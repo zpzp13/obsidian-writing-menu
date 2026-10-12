@@ -17,7 +17,7 @@ let garuInstance: InstanceType<typeof GaruWasm> | null = null;
 let loadingPromise: Promise<InstanceType<typeof GaruWasm>> | null = null;
 
 export function isMorphAnalysisSupported(): boolean {
-	return Platform.isDesktopApp;
+	return Platform.isDesktop && Platform.isDesktopApp;
 }
 
 async function getGaru(plugin: WritingMenuPlugin): Promise<InstanceType<typeof GaruWasm>> {

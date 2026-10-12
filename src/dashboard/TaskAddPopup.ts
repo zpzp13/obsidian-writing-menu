@@ -12,22 +12,27 @@ export function showTaskAddPopup(
 	anchor: HTMLElement,
 	plugin: WritingMenuPlugin,
 	scheduleReload: () => void,
+	initialDate = new Date(),
 ): void {
-	activeDocument.querySelector('.wm-task-add-popup')?.remove();
+	const popupDocument = anchor.ownerDocument;
+	const popupWindow = popupDocument.defaultView ?? window;
+	popupDocument.querySelector('.wm-task-add-popup')?.remove();
 
-	const popup = activeDocument.body.createDiv({ cls: 'wm-task-add-popup wm-ver-popup' });
+	const popup = popupDocument.body.createDiv({ cls: 'wm-task-add-popup wm-ver-popup' });
 	const rect  = anchor.getBoundingClientRect();
+	const viewportGap = 10;
+	const initialLeft = Math.max(viewportGap, Math.min(rect.left, popupWindow.innerWidth - 310));
 	popup.setCssStyles({ top: `${rect.bottom + 6}px` });
-	popup.setCssStyles({ right: `${window.innerWidth - rect.right}px` });
+	popup.setCssStyles({ left: `${initialLeft}px` });
 
 	// ── 날짜 선택 ──
 	const todayStr = moment().format('YYYY-MM-DD');
-	let selectedDate = todayStr;
+	let selectedDate = formatDateKey(initialDate);
 
 	const dateRow = popup.createDiv({ cls: 'wm-task-add-field wm-task-add-date-row' });
 	const dateInput = dateRow.createEl('input', {
 		type: 'text', cls: 'wm-task-add-input wm-task-add-date-input',
-		attr: { placeholder: 'YYYY-MM-DD (오늘)', value: todayStr },
+		attr: { placeholder: 'YYYY-MM-DD', value: selectedDate },
 	});
 	const calBtn = dateRow.createDiv({ cls: 'wm-task-add-cal-btn' });
 	setIcon(calBtn, 'calendar');
@@ -39,13 +44,13 @@ export function showTaskAddPopup(
 
 	calBtn.addEventListener('click', (e) => {
 		e.stopPropagation();
-		activeDocument.querySelector('.wm-mini-date-picker')?.remove();
+		popupDocument.querySelector('.wm-mini-date-picker')?.remove();
 
 		let py = parseInt(selectedDate.slice(0, 4));
 		let pm = parseInt(selectedDate.slice(5, 7)) - 1;
 		const today2 = new Date();
 
-		const dpop = activeDocument.body.createDiv({ cls: 'wm-mini-date-picker wm-ver-popup' });
+		const dpop = popupDocument.body.createDiv({ cls: 'wm-mini-date-picker wm-ver-popup' });
 		const dhdr = dpop.createDiv({ cls: 'wm-mini-picker-hdr' });
 		const dprev = dhdr.createDiv({ cls: 'wm-cal-icon-btn' });
 		setIcon(dprev, 'chevron-left');
@@ -84,16 +89,16 @@ export function showTaskAddPopup(
 		const cr = calBtn.getBoundingClientRect();
 		dpop.setCssStyles({ top: `${cr.bottom + 4}px` });
 		dpop.setCssStyles({ left: `${cr.left}px` });
-		window.requestAnimationFrame(() => {
+		popupWindow.requestAnimationFrame(() => {
 			const pr = dpop.getBoundingClientRect();
-			if (pr.right > window.innerWidth - 10) dpop.setCssStyles({ left: `${window.innerWidth - pr.width - 10}px` });
-			if (pr.bottom > window.innerHeight - 10) dpop.setCssStyles({ top: `${cr.top - pr.height - 4}px` });
+			if (pr.right > popupWindow.innerWidth - 10) dpop.setCssStyles({ left: `${popupWindow.innerWidth - pr.width - 10}px` });
+			if (pr.bottom > popupWindow.innerHeight - 10) dpop.setCssStyles({ top: `${cr.top - pr.height - 4}px` });
 		});
-		window.setTimeout(() => {
+		popupWindow.setTimeout(() => {
 			const closePicker = (ev: MouseEvent) => {
-				if (!dpop.contains(ev.target as Node)) { dpop.remove(); activeDocument.removeEventListener('click', closePicker); }
+				if (!dpop.contains(ev.target as Node)) { dpop.remove(); popupDocument.removeEventListener('click', closePicker); }
 			};
-			activeDocument.addEventListener('click', closePicker);
+			popupDocument.addEventListener('click', closePicker);
 		}, 10);
 	});
 
@@ -154,6 +159,19 @@ export function showTaskAddPopup(
 	const submitBtn = footer.createEl('button', { cls: 'wm-task-add-submit-btn', text: '추가' });
 	cancelBtn.addEventListener('click', (e) => { e.stopPropagation(); close(); });
 	submitBtn.addEventListener('click', (e) => { e.stopPropagation(); void submit(); });
+
+	popupWindow.requestAnimationFrame(() => {
+		const popupRect = popup.getBoundingClientRect();
+		const left = Math.max(
+			viewportGap,
+			Math.min(rect.left, popupWindow.innerWidth - popupRect.width - viewportGap),
+		);
+		const preferredTop = rect.bottom + 6;
+		const top = preferredTop + popupRect.height <= popupWindow.innerHeight - viewportGap
+			? preferredTop
+			: Math.max(viewportGap, rect.top - popupRect.height - 6);
+		popup.setCssStyles({ left: `${left}px`, top: `${top}px` });
+	});
 
 	openPopupAutoClose(popup);
 	contentInput.focus();

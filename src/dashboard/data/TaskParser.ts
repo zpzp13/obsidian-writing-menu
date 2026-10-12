@@ -3,7 +3,11 @@ import type WritingMenuPlugin from '../../../main';
 import { formatDateKey } from '../../utils/dateUtils';
 import { getDnConfig, ensureDailyNote } from '../../utils/dailyNoteUtils';
 
-declare const moment: (date?: unknown, fmt?: string) => { format(f: string): string };
+declare const moment: (date?: unknown, fmt?: string, strict?: boolean) => {
+	format(f: string): string;
+	isValid(): boolean;
+	toDate(): Date;
+};
 
 function escapeRegex(s: string): string {
 	return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -31,51 +35,79 @@ export interface ParsedTask {
 }
 
 export class TaskParser {
-	static async loadTasks(plugin: WritingMenuPlugin): Promise<ParsedTask[]> {
+	static isDailyNoteFile(file: TFile, plugin: WritingMenuPlugin): boolean {
+		const { folder, format } = getDnConfig(plugin);
+		const dailyFolder = folder.replace(/^\/+|\/+$/g, '');
+		const parentPath = (file.parent?.path ?? '').replace(/^\/+|\/+$/g, '');
+		return parentPath === dailyFolder && moment(file.basename, format, true).isValid();
+	}
+
+	static async loadTasks(plugin: WritingMenuPlugin, focusDate?: Date): Promise<ParsedTask[]> {
 		const { folder, format } = getDnConfig(plugin);
 
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
-		const todayStr = formatDateKey(today);
+		const completionFocusStr = formatDateKey(focusDate ?? today);
 
 		const results: ParsedTask[] = [];
 
-		for (let i = -30; i <= 7; i++) {
-			const date = new Date(today);
-			date.setDate(date.getDate() + i);
+		// 파일명 형식으로 데일리 노트 후보만 먼저 선별한다. 이전 구현처럼
+		// 미래 7일을 순회하지 않으므로, 먼 미래에 '+ 할 일'으로 만든 항목도
+		// 예정 목록에서 누락되지 않는다.
+		const dailyFolder = folder.replace(/^\/+|\/+$/g, '');
+		const recentFloor = today.getTime() - 30 * 24 * 60 * 60 * 1000;
+		const focusTime = focusDate?.getTime();
+		const focusFloor = focusTime === undefined ? null : focusTime - 14 * 24 * 60 * 60 * 1000;
+		const focusCeil = focusTime === undefined ? null : focusTime + 14 * 24 * 60 * 60 * 1000;
+		const dailyFiles = plugin.app.vault.getMarkdownFiles().filter(file => {
+			const parentPath = (file.parent?.path ?? '').replace(/^\/+|\/+$/g, '');
+			if (parentPath !== dailyFolder) return false;
+			const parsed = moment(file.basename, format, true);
+			if (!parsed.isValid()) return false;
+			const date = parsed.toDate();
+			date.setHours(0, 0, 0, 0);
+			const time = date.getTime();
+			return time >= recentFloor
+				|| (focusFloor !== null && focusCeil !== null && time >= focusFloor && time <= focusCeil);
+		}).sort((a, b) => a.basename.localeCompare(b.basename));
 
-			const path     = this.datePath(date, folder, format);
-			const abstract = plugin.app.vault.getAbstractFileByPath(path);
-			if (!(abstract instanceof TFile)) continue;
+		for (const abstract of dailyFiles) {
+			const date = moment(abstract.basename, format, true).toDate();
+			date.setHours(0, 0, 0, 0);
 
 			try {
 				const content = await plugin.app.vault.cachedRead(abstract);
 				const tasks   = this.parseTasks(content);
-				const diff    = i;
+				const diff    = Math.round((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
 				for (const { text, rawText, tasksMeta, tags, completed, completedDate, subItems } of tasks) {
-					// 완료 항목은 오늘 완료한 것만 포함 (다음날 자동 소멸)
-					if (completed && completedDate !== todayStr) continue;
+					const resolvedCompletedDate = completed
+						? (completedDate ?? formatDateKey(date))
+						: undefined;
+					// 완료 레이어는 선택 날짜에 완료한 항목만 읽는다. 날짜를 넘겨도
+					// 해당 날짜의 완료 이력을 다시 확인할 수 있어야 한다.
+					if (completed && resolvedCompletedDate !== completionFocusStr) continue;
 
 					let category: ParsedTask['category'];
 					let displayDate = date;
 
-					if (tasksMeta?.due) {
-						const dueDate = new Date(tasksMeta.due + 'T00:00:00');
-						dueDate.setHours(0, 0, 0, 0);
-						const dueDiff = Math.round(
-							(dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+					const effectiveDateKey = tasksMeta?.scheduled ?? tasksMeta?.start ?? tasksMeta?.due;
+					if (effectiveDateKey) {
+						const effectiveDate = new Date(effectiveDateKey + 'T00:00:00');
+						effectiveDate.setHours(0, 0, 0, 0);
+						const effectiveDiff = Math.round(
+							(effectiveDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
 						);
-						category    = dueDiff === 0 ? 'today' : dueDiff > 0 ? 'upcoming' : 'overdue';
-						displayDate = dueDate;
+						category = effectiveDiff === 0 ? 'today' : effectiveDiff > 0 ? 'upcoming' : 'overdue';
+						displayDate = effectiveDate;
 					} else {
 						category = diff === 0 ? 'today' : diff > 0 ? 'upcoming' : 'overdue';
 					}
 
 					results.push({
-						text, rawText, sourcePath: path, sourceDate: displayDate,
+						text, rawText, sourcePath: abstract.path, sourceDate: displayDate,
 						category, tasksMeta, tags, completed: completed || undefined,
-						completedDate,
+						completedDate: resolvedCompletedDate,
 						subItems,
 					});
 				}
@@ -261,8 +293,4 @@ export class TaskParser {
 		await plugin.app.vault.modify(file, newContent);
 	}
 
-	private static datePath(date: Date, folder: string, format: string): string {
-		const name = moment(date).format(format);
-		return folder ? `${folder}/${name}.md` : `${name}.md`;
-	}
 }

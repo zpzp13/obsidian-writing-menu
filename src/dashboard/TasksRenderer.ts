@@ -1,219 +1,165 @@
-import { setIcon } from 'obsidian';
+import { setIcon, TFile } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { ParsedTask } from './data/TaskParser';
 import { TaskParser } from './data/TaskParser';
-import { renderTaskItem, openPopupAutoClose } from './TaskItem';
+import { renderTaskItem } from './TaskItem';
 import { showTaskAddPopup } from './TaskAddPopup';
+import { formatDateKey } from '../utils/dateUtils';
 
-const collapsedCats = new Set<string>();
-
-type TaskSortField = 'title' | 'date' | 'priority';
-type TaskSortDir   = 'asc' | 'desc';
-interface SectionSort { field: TaskSortField; dir: TaskSortDir; }
-
-const SECTIONS: Array<{ cat: ParsedTask['category']; label: string; icon: string }> = [
-	{ cat: 'today',    label: '오늘', icon: 'calendar' },
-	{ cat: 'upcoming', label: '예정', icon: 'clock' },
-	{ cat: 'overdue',  label: '지연', icon: 'alert-circle' },
-];
+type AgendaFilter = 'all' | 'open' | 'done';
+type AgendaSort = 'default' | 'priority' | 'title';
 
 const PRIORITY_RANK: Record<string, number> = {
-	'최고': 5, '높음': 4, '보통': 3, '낮음': 2, '최저': 1,
+	'최고': 5,
+	'높음': 4,
+	'보통': 3,
+	'낮음': 2,
+	'최저': 1,
 };
 
-function applySort(items: ParsedTask[], s: SectionSort): ParsedTask[] {
-	const d = s.dir === 'asc' ? 1 : -1;
+function sortTasks(items: ParsedTask[], sort: AgendaSort): ParsedTask[] {
 	return [...items].sort((a, b) => {
-		if (s.field === 'title')
-			return d * a.text.localeCompare(b.text, 'ko');
-		if (s.field === 'date')
-			return d * (a.sourceDate.getTime() - b.sourceDate.getTime());
-		if (s.field === 'priority')
-			return d * ((PRIORITY_RANK[a.tasksMeta?.priority ?? ''] ?? 0)
-			          - (PRIORITY_RANK[b.tasksMeta?.priority ?? ''] ?? 0));
-		return 0;
+		if (sort === 'priority') {
+			return (PRIORITY_RANK[b.tasksMeta?.priority ?? ''] ?? 0)
+				- (PRIORITY_RANK[a.tasksMeta?.priority ?? ''] ?? 0);
+		}
+		if (sort === 'title') return a.text.localeCompare(b.text, 'ko');
+		return Number(Boolean(a.completed)) - Number(Boolean(b.completed));
 	});
 }
 
 export class TasksRenderer {
-	static render(container: HTMLElement, tasks: ParsedTask[], plugin: WritingMenuPlugin, compact?: HTMLElement) {
+	static render(
+		container: HTMLElement,
+		tasks: ParsedTask[],
+		plugin: WritingMenuPlugin,
+		compact?: HTMLElement,
+		selectedDate = new Date(),
+		docked = false,
+	) {
 		let liveTasks = [...tasks];
-		const wrap = container.createDiv({ cls: 'wm-tasks-wrap' });
+		let filter: AgendaFilter = 'all';
+		let sort: AgendaSort = 'default';
+		const selectedKey = formatDateKey(selectedDate);
+		const wrap = container.createDiv({ cls: 'wm-tasks-wrap wm-tasks-agenda' });
+		if (docked) wrap.addClass('is-calendar-docked');
+		wrap.dataset.selectedDate = selectedKey;
 
-		// ── 컴팩트 뱃지 (오늘/예정/지연) ──
-		const compactEls = new Map<ParsedTask['category'], HTMLElement>();
-		if (compact) {
-			const colors: Record<string, string> = {
-				today:    'var(--color-blue)',
-				upcoming: 'var(--color-green)',
-				overdue:  'var(--color-red)',
-			};
-			for (const { cat } of SECTIONS) {
-				const badge = compact.createSpan({ cls: 'wm-tasks-section-count' });
-				badge.style.setProperty('--section-color', colors[cat]);
-				badge.textContent = '0';
-				compactEls.set(cat, badge);
-			}
-		}
-
-		// ── reload helpers ──
 		let reloadTimer: number | null = null;
-
-		const reloadAndRender = async () => {
-			if (!wrap.isConnected) return;
-			const newTasks = await TaskParser.loadTasks(plugin);
-			if (!wrap.isConnected) return;
-			liveTasks = [...newTasks];
-			sectionRenders.forEach(fn => fn());
-		};
-
 		const scheduleReload = () => {
 			if (reloadTimer) window.clearTimeout(reloadTimer);
-			reloadTimer = window.setTimeout(() => { void reloadAndRender(); }, 300);
+			reloadTimer = window.setTimeout(() => {
+				void TaskParser.loadTasks(plugin, selectedDate).then(next => {
+					if (!wrap.isConnected) return;
+					liveTasks = next;
+					renderList();
+				});
+			}, 220);
 		};
 
-		const modifyRef = plugin.app.vault.on('modify', () => {
-			if (!wrap.isConnected) { plugin.app.vault.offref(modifyRef); return; }
+		const modifyRef = plugin.app.vault.on('modify', (file) => {
+			if (!wrap.isConnected) {
+				plugin.app.vault.offref(modifyRef);
+				return;
+			}
+			if (!(file instanceof TFile) || !TaskParser.isDailyNoteFile(file, plugin)) return;
 			scheduleReload();
 		});
 		plugin.registerEvent(modifyRef);
 
-		// ── 헤더 ──
-		const header = wrap.createDiv({ cls: 'wm-tasks-header' });
+		const header = wrap.createDiv({ cls: 'wm-tasks-header wm-tasks-agenda-header' });
 		const titleGroup = header.createDiv({ cls: 'wm-tasks-title-group' });
-		titleGroup.createDiv({ cls: 'wm-tasks-title', text: "Today's Task" });
-		const now = new Date();
+		titleGroup.createDiv({ cls: 'wm-tasks-agenda-kicker', text: 'SELECTED DAY' });
 		titleGroup.createDiv({
-			cls: 'wm-tasks-date',
-			text: `${now.getMonth() + 1}월 ${now.getDate()}일, ${now.getFullYear()}`,
+			cls: 'wm-tasks-title',
+			text: selectedDate.toLocaleDateString('ko-KR', {
+				month: 'long', day: 'numeric', weekday: 'long',
+			}),
 		});
-
-		const addBtn = header.createDiv({ cls: 'wm-tasks-add-btn' });
+		const addBtn = header.createEl('button', {
+			cls: 'wm-tasks-add-btn',
+			attr: { type: 'button', 'aria-label': '선택한 날짜에 할 일 추가' },
+		});
 		const addIcon = addBtn.createSpan({ cls: 'wm-tasks-add-icon' });
 		setIcon(addIcon, 'plus');
-		addBtn.createSpan({ cls: 'wm-tasks-add-label', text: '할 일' });
-		addBtn.addEventListener('click', (e) => {
-			e.stopPropagation();
-			showTaskAddPopup(addBtn, plugin, scheduleReload);
+		addBtn.createSpan({ cls: 'wm-tasks-add-label', text: 'TASK' });
+		addBtn.addEventListener('click', (event) => {
+			event.stopPropagation();
+			showTaskAddPopup(addBtn, plugin, scheduleReload, selectedDate);
 		});
 
-		// ── 섹션 정렬 상태 ──
-		const sectionSorts = new Map<ParsedTask['category'], SectionSort>();
-		for (const { cat } of SECTIONS) sectionSorts.set(cat, { field: 'date', dir: 'asc' });
-
-		const sectionRenders = new Map<ParsedTask['category'], () => void>();
-
-		// ── 섹션 루프 ──
-		for (const { cat, label, icon } of SECTIONS) {
-			const sectionEl = wrap.createDiv({ cls: 'wm-tasks-section' });
-			sectionEl.dataset.cat = cat;
-			if (collapsedCats.has(cat)) sectionEl.classList.add('is-collapsed');
-
-			const sectionHeader = sectionEl.createDiv({ cls: 'wm-tasks-section-header' });
-			const headerLeft = sectionHeader.createDiv({ cls: 'wm-tasks-section-header-left' });
-			const toggleEl = headerLeft.createDiv({ cls: 'wm-tasks-section-toggle' });
-			setIcon(toggleEl, 'chevron-down');
-			const iconEl = headerLeft.createDiv({ cls: 'wm-tasks-section-icon' });
-			setIcon(iconEl, icon);
-			headerLeft.createSpan({ cls: 'wm-tasks-section-label', text: label });
-			const countEl = headerLeft.createSpan({ cls: 'wm-tasks-section-count' });
-
-			const filterBtn = sectionHeader.createDiv({ cls: 'wm-tasks-section-filter-btn' });
-			setIcon(filterBtn, 'list-filter');
-
-			const bodyEl = sectionEl.createDiv({ cls: 'wm-tasks-section-body' });
-
-			sectionHeader.addEventListener('click', () => {
-				sectionEl.classList.toggle('is-collapsed');
-				collapsedCats[sectionEl.classList.contains('is-collapsed') ? 'add' : 'delete'](cat);
+		const toolbar = wrap.createDiv({ cls: 'wm-tasks-agenda-toolbar' });
+		const filters = toolbar.createDiv({ cls: 'wm-tasks-agenda-filters', attr: { role: 'group', 'aria-label': '할 일 필터' } });
+		const filterButtons = new Map<AgendaFilter, HTMLButtonElement>();
+		for (const item of [
+			{ id: 'all' as const, label: 'ALL' },
+			{ id: 'open' as const, label: 'TODO' },
+			{ id: 'done' as const, label: 'DONE' },
+		]) {
+			const button = filters.createEl('button', {
+				text: item.label,
+				attr: { type: 'button', 'aria-pressed': String(filter === item.id) },
 			});
-
-			// ── filter 드롭다운 ──
-			filterBtn.addEventListener('click', (e) => {
-				e.stopPropagation();
-				const btnDoc = filterBtn.ownerDocument;
-				const btnWin = btnDoc.defaultView ?? window;
-				const existingPop = btnDoc.querySelector('.wm-tasks-sort-popup');
-				if (existingPop) { existingPop.remove(); return; }
-
-				const sort = sectionSorts.get(cat)!;
-				const fpop = btnDoc.body.createDiv({ cls: 'wm-tasks-sort-popup wm-ver-popup' });
-				const r    = filterBtn.getBoundingClientRect();
-				fpop.setCssStyles({ top: `${r.bottom + 4}px` });
-				fpop.setCssStyles({ left: `${r.left}px` });
-
-				fpop.createDiv({ cls: 'wm-ver-popup-section-label', text: '정렬 기준' });
-				const FIELDS: { label: string; value: TaskSortField; icon: string }[] = [
-					{ label: '제목',   value: 'title',    icon: 'type' },
-					{ label: '날짜',   value: 'date',     icon: 'calendar' },
-					{ label: '중요도', value: 'priority', icon: 'flag' },
-				];
-				for (const f of FIELDS) {
-					const fi = fpop.createDiv({ cls: 'wm-ver-popup-item' + (sort.field === f.value ? ' is-active' : '') });
-					const fiIcon = fi.createDiv({ cls: 'wm-ver-popup-icon' });
-					setIcon(fiIcon, f.icon);
-					fi.createSpan({ text: f.label });
-					if (sort.field === f.value) { const chk = fi.createDiv({ cls: 'wm-ver-popup-check' }); setIcon(chk, 'check'); }
-					fi.addEventListener('click', (e2) => {
-						e2.stopPropagation();
-						sectionSorts.set(cat, { ...sort, field: f.value });
-						fpop.remove();
-						sectionRenders.get(cat)?.();
-					});
-				}
-
-				fpop.createDiv({ cls: 'wm-ver-popup-separator' });
-
-				fpop.createDiv({ cls: 'wm-ver-popup-section-label', text: '순서' });
-				const DIRS: { label: string; value: TaskSortDir; icon: string }[] = [
-					{ label: '오름차순', value: 'asc',  icon: 'arrow-up-narrow-wide' },
-					{ label: '내림차순', value: 'desc', icon: 'arrow-down-wide-narrow' },
-				];
-				for (const dir of DIRS) {
-					const di = fpop.createDiv({ cls: 'wm-ver-popup-item' + (sort.dir === dir.value ? ' is-active' : '') });
-					const diIcon = di.createDiv({ cls: 'wm-ver-popup-icon' });
-					setIcon(diIcon, dir.icon);
-					di.createSpan({ text: dir.label });
-					if (sort.dir === dir.value) { const chk = di.createDiv({ cls: 'wm-ver-popup-check' }); setIcon(chk, 'check'); }
-					di.addEventListener('click', (e2) => {
-						e2.stopPropagation();
-						sectionSorts.set(cat, { ...sectionSorts.get(cat)!, dir: dir.value });
-						fpop.remove();
-						sectionRenders.get(cat)?.();
-					});
-				}
-
-				window.requestAnimationFrame(() => {
-					const pr = fpop.getBoundingClientRect();
-					if (pr.right  > btnWin.innerWidth  - 10) fpop.setCssStyles({ left: `${btnWin.innerWidth  - pr.width  - 10}px` });
-					if (pr.bottom > btnWin.innerHeight - 10) fpop.setCssStyles({ top: `${r.top - pr.height - 4}px` });
-				});
-				openPopupAutoClose(fpop);
+			filterButtons.set(item.id, button);
+			button.addEventListener('click', () => {
+				filter = item.id;
+				for (const [id, other] of filterButtons) other.setAttribute('aria-pressed', String(id === filter));
+				renderList();
 			});
-
-			const renderSection = () => {
-				bodyEl.empty();
-				const sort       = sectionSorts.get(cat)!;
-				const all        = liveTasks.filter(t => t.category === cat);
-				const incomplete = applySort(all.filter(t => !t.completed), sort);
-				const complete   = all.filter(t => t.completed);
-
-				countEl.textContent = String(incomplete.length);
-				const cb = compactEls.get(cat);
-				if (cb) cb.textContent = String(incomplete.length);
-				filterBtn.classList.toggle('is-active', sort.field !== 'date' || sort.dir !== 'asc');
-
-				if (incomplete.length === 0 && complete.length === 0) {
-					bodyEl.createDiv({ cls: 'wm-tasks-section-empty', text: '할 일이 없습니다.' });
-					return;
-				}
-				for (const task of [...incomplete, ...complete]) {
-					renderTaskItem(bodyEl, task, plugin);
-				}
-			};
-
-			renderSection();
-			sectionRenders.set(cat, renderSection);
 		}
+
+		const sortBtn = toolbar.createEl('button', {
+			cls: 'wm-tasks-agenda-sort',
+			attr: { type: 'button', 'aria-label': '기본 순서' },
+		});
+		setIcon(sortBtn, 'arrow-up-down');
+		sortBtn.addEventListener('click', () => {
+			sort = sort === 'default' ? 'priority' : sort === 'priority' ? 'title' : 'default';
+			sortBtn.setAttribute('aria-label', sort === 'priority' ? '우선순위 순' : sort === 'title' ? '제목 순' : '기본 순서');
+			sortBtn.toggleClass('is-active', sort !== 'default');
+			renderList();
+		});
+
+		const count = toolbar.createSpan({ cls: 'wm-tasks-agenda-count' });
+		const body = wrap.createDiv({ cls: 'wm-tasks-agenda-list' });
+
+		const renderCompact = (dayTasks: ParsedTask[]) => {
+			if (!compact) return;
+			compact.empty();
+			compact.createSpan({
+				cls: 'wm-tasks-section-count',
+				text: String(dayTasks.filter(task => !task.completed).length),
+			});
+		};
+
+		function renderList() {
+			body.empty();
+			const dayTasks = liveTasks.filter(task => formatDateKey(task.sourceDate) === selectedKey);
+			const openCount = dayTasks.filter(task => !task.completed).length;
+			count.textContent = `${openCount} LEFT`;
+			renderCompact(dayTasks);
+
+			const visible = sortTasks(dayTasks.filter(task => {
+				if (filter === 'open') return !task.completed;
+				if (filter === 'done') return Boolean(task.completed);
+				return true;
+			}), sort);
+			wrap.toggleClass('is-empty', visible.length === 0);
+
+			if (visible.length === 0) {
+				if (docked) return;
+				const empty = body.createDiv({ cls: 'wm-tasks-agenda-empty' });
+				const icon = empty.createSpan({ cls: 'wm-tasks-agenda-empty-icon' });
+				setIcon(icon, 'circle-check-big');
+				empty.createSpan({
+					text: filter === 'all' ? '이 날짜에는 할 일이 없습니다.' : '표시할 할 일이 없습니다.',
+				});
+				return;
+			}
+
+			for (const task of visible) renderTaskItem(body, task, plugin);
+		}
+
+		renderList();
 	}
 }

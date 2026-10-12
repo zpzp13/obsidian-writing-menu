@@ -70,9 +70,9 @@ export interface WritingMenuSettings {
 	textSubstitutions: TextSubstitution[];
 	charCountMode: 'munpia' | 'novelpia';
 	statCardDisplay: 'munpia' | 'novelpia' | 'both';
+	dashboardCharRange: '7' | '30' | '90' | '365';
 	enableTimeTracking: boolean;
 	showTimeInStatusBar: boolean;
-	showTimeInDashboard: boolean;
 	currentTimeMode: string;
 	stopwatchMinutes: number;
 	enableStopwatchAlarm: boolean;
@@ -173,8 +173,15 @@ export interface WritingMenuSettings {
 	// ── AI 챗 ──────────────────────────────────────────────────────────────────
 	aiChatApiKey: string;
 	aiChatGeminiApiKey: string;
-	aiChatCerebrasApiKey: string;
 	aiChatModel: string;
+	/** 인물 노트 프로필 이미지 생성에 사용할 모델 (Nano Banana 계열은 aiChatGeminiApiKey 재사용, GPT Image는 aiImageOpenaiApiKey 사용) */
+	aiImageModel: string;
+	/** GPT Image(OpenAI) 이미지 생성 전용 API 키 */
+	aiImageOpenaiApiKey: string;
+	/** 이미지 생성 요청 시 사용할 종횡비 (Nano Banana가 지원하는 값만: 1:1, 3:4, 4:3, 9:16, 16:9) */
+	aiImageAspectRatio: string;
+	/** 화풍 참고 이미지 기본 경로 (볼트 내 이미지 파일, Nano Banana 계열 모델에서만 사용됨) */
+	aiImageStyleReferencePath: string;
 	aiChatLastCharacterPath: string;
 	aiChatLastSpeakerPath: string;
 	aiChatSystemPromptNotePath: string;
@@ -202,7 +209,7 @@ export interface WritingMenuSettings {
 }
 
 export interface DashSectionConfig {
-	id: 'chars' | 'time' | 'tasks' | 'music' | 'version' | 'repetition';
+	id: 'calendar' | 'chars' | 'timer' | 'time' | 'music' | 'tasks' | 'version' | 'repetition';
 	label: string;
 	visible: boolean;
 }
@@ -263,9 +270,9 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	],
 	charCountMode: 'munpia',
 	statCardDisplay: 'both',
+	dashboardCharRange: '30',
 	enableTimeTracking: true,
 	showTimeInStatusBar: false,
-	showTimeInDashboard: true,
 	currentTimeMode: 'draft',
 	stopwatchMinutes: 25,
 	enableStopwatchAlarm: true,
@@ -308,7 +315,7 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	dailyNotesFolder: '',
 	dailyNotesFormat: 'YYYY-MM-DD',
 	taskAddHeader: '할 일',
-	writingGoalChars: 0,
+	writingGoalChars: 10000,
 	dailyCharCountKey: '글자수',
 	timeModes: [
 		{ id: 'draft',   label: '기획', icon: 'lightbulb',   frontmatterKey: '초고_시간', goalSeconds: 7200 },
@@ -319,12 +326,11 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	timeAvgFolderLevel: 0,
 	timeExcludeFolders: [],
 	dashboardSections: [
+		{ id: 'calendar', label: '일정',     visible: true },
 		{ id: 'chars',   label: '글자수',   visible: true },
+		{ id: 'timer',   label: '타이머',   visible: true },
 		{ id: 'time',    label: '작업시간', visible: true },
-		{ id: 'tasks',   label: '할 일',    visible: true },
 		{ id: 'music',   label: '음악',     visible: true },
-		{ id: 'version', label: '버전관리', visible: true },
-		{ id: 'repetition', label: '퇴고 매니저', visible: true },
 	],
 	musicFolderPaths: [],
 	musicVolume: 1.0,
@@ -379,8 +385,11 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	spellCheckIgnoredWords: [],
 	aiChatApiKey: '',
 	aiChatGeminiApiKey: '',
-	aiChatCerebrasApiKey: '',
-	aiChatModel: 'google/diffusiongemma-26b-a4b-it',
+	aiChatModel: 'gemini-3.8-flash',
+	aiImageModel: 'gemini-2.5-flash-image',
+	aiImageOpenaiApiKey: '',
+	aiImageAspectRatio: '3:4',
+	aiImageStyleReferencePath: '',
 	aiChatLastCharacterPath: '',
 	aiChatLastSpeakerPath: '',
 	aiChatSystemPromptNotePath: '',
@@ -389,7 +398,7 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	aiEpisodeCharFolder: '',
 	aiEpisodeBodyFolder: '',
 	aiEpisodeSystemPromptNotePath: '',
-	aiEpisodeModel: 'google/diffusiongemma-26b-a4b-it',
+	aiEpisodeModel: 'gemini-3.8-flash',
 	aiChatPersonaHeading: '',
 	aiChatTemperature: 1.0,
 	aiChatNarrationFontSize: 0.9,

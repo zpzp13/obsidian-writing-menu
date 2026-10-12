@@ -2,10 +2,27 @@ import { setIcon } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 
 export class StopwatchManager {
-	constructor(private plugin: WritingMenuPlugin) {}
+	private countupSeconds = 0;
+	private countupInterval: number | null = null;
+	private timerDurationSeconds: number;
+	private widgetListeners = new Set<() => void>();
+
+	constructor(private plugin: WritingMenuPlugin) {
+		this.timerDurationSeconds = Math.max(0, plugin.settings.stopwatchMinutes * 60);
+	}
+
+	subscribeWidget(listener: () => void): () => void {
+		this.widgetListeners.add(listener);
+		return () => this.widgetListeners.delete(listener);
+	}
+
+	private notifyWidgets(): void {
+		for (const listener of this.widgetListeners) listener();
+	}
 
 	initStopwatch() {
-		this.plugin.stopwatchSeconds = this.plugin.settings.stopwatchMinutes * 60;
+		this.timerDurationSeconds = Math.max(0, this.plugin.settings.stopwatchMinutes * 60);
+		this.plugin.stopwatchSeconds = this.timerDurationSeconds;
 	}
 
 	startStopwatch() {
@@ -17,42 +34,100 @@ export class StopwatchManager {
 			if (this.plugin.stopwatchSeconds <= 0) {
 				this.stopStopwatch();
 				if (this.plugin.settings.enableStopwatchAlarm) this.playAlarm();
-				this.initStopwatch();
+				this.timerDurationSeconds = Math.max(0, this.plugin.settings.stopwatchMinutes * 60);
+				this.plugin.stopwatchSeconds = this.timerDurationSeconds;
 				this.updateStopwatchDisplay();
 			}
 		}, 1000);
+		this.notifyWidgets();
 	}
 
 	stopStopwatch() {
 		if (this.plugin.stopwatchInterval) {
 			window.clearInterval(this.plugin.stopwatchInterval);
 			this.plugin.stopwatchInterval = null;
+			this.notifyWidgets();
 		}
 	}
 
 	resetStopwatch() {
 		this.stopStopwatch();
-		this.initStopwatch();
+		this.timerDurationSeconds = Math.max(0, this.plugin.settings.stopwatchMinutes * 60);
+		this.plugin.stopwatchSeconds = this.timerDurationSeconds;
 		this.updateStopwatchDisplay();
 	}
 
-	updateStopwatchSegments() {
-		if (!this.plugin.stopwatchDashboardSegs.length) return;
-		const total = this.plugin.settings.stopwatchMinutes * 60;
-		const elapsed = total - this.plugin.stopwatchSeconds;
-		const pct = total > 0 ? elapsed / total : 0;
-		const filled = Math.round(pct * this.plugin.stopwatchDashboardSegs.length);
-		this.plugin.stopwatchDashboardSegs.forEach((seg, i) => {
-			seg.toggleClass('is-filled', i < filled);
-		});
+	updateStopwatchDisplay() {
+		this.plugin.updateStatusBarDisplay();
+		this.notifyWidgets();
 	}
 
-	updateStopwatchDisplay() {
-		const formatted = this.plugin.formatTime(this.plugin.stopwatchSeconds);
-		if (this.plugin.stopwatchDisplayEl) this.plugin.stopwatchDisplayEl.textContent = formatted;
-		if (this.plugin.stopwatchDashboardEl) this.plugin.stopwatchDashboardEl.textContent = formatted;
-		this.updateStopwatchSegments();
-		this.plugin.updateStatusBarDisplay();
+	setTimerSeconds(seconds: number): void {
+		this.plugin.stopwatchSeconds = Math.max(0, Math.floor(seconds));
+		if (this.plugin.stopwatchSeconds === 0) this.stopStopwatch();
+		this.updateStopwatchDisplay();
+	}
+
+	adjustTimerSeconds(deltaSeconds: number): void {
+		const delta = Math.floor(deltaSeconds);
+		this.plugin.stopwatchSeconds = Math.max(0, this.plugin.stopwatchSeconds + delta);
+		if (this.plugin.stopwatchSeconds === 0) this.stopStopwatch();
+		this.updateStopwatchDisplay();
+	}
+
+	getTimerDurationSeconds(): number {
+		return this.timerDurationSeconds;
+	}
+
+	getCountupSeconds(): number {
+		return this.countupSeconds;
+	}
+
+	isCountupRunning(): boolean {
+		return this.countupInterval !== null;
+	}
+
+	startCountup(): void {
+		if (this.countupInterval !== null) return;
+		this.countupInterval = window.setInterval(() => {
+			this.countupSeconds += 1;
+			this.notifyWidgets();
+		}, 1000);
+		this.notifyWidgets();
+	}
+
+	stopCountup(): void {
+		if (this.countupInterval === null) return;
+		window.clearInterval(this.countupInterval);
+		this.countupInterval = null;
+		this.notifyWidgets();
+	}
+
+	resetCountup(): void {
+		this.stopCountup();
+		this.countupSeconds = 0;
+		this.notifyWidgets();
+	}
+
+	setCountupSeconds(seconds: number): void {
+		this.countupSeconds = Math.max(0, Math.floor(seconds));
+		this.notifyWidgets();
+	}
+
+	adjustCountupSeconds(deltaSeconds: number): void {
+		this.setCountupSeconds(this.countupSeconds + Math.floor(deltaSeconds));
+	}
+
+	destroy(): void {
+		if (this.plugin.stopwatchInterval) {
+			window.clearInterval(this.plugin.stopwatchInterval);
+			this.plugin.stopwatchInterval = null;
+		}
+		if (this.countupInterval !== null) {
+			window.clearInterval(this.countupInterval);
+			this.countupInterval = null;
+		}
+		this.widgetListeners.clear();
 	}
 
 	playAlarm() {
@@ -127,38 +202,6 @@ export class StopwatchManager {
 		}
 	}
 
-	toggleDashboardStopwatchPopup(anchor: HTMLElement) {
-		const ownerDoc = anchor.ownerDocument;
-		const ownerWin = ownerDoc.defaultView ?? window;
-		const existing = ownerDoc.querySelector('.wm-status-popup');
-		if (existing) { existing.remove(); return; }
-
-		const popup = ownerDoc.createElement('div');
-		popup.className = 'wm-status-popup';
-		ownerDoc.body.appendChild(popup);
-
-		this.buildStatusPopup(popup);
-
-		window.requestAnimationFrame(() => {
-			const r  = anchor.getBoundingClientRect();
-			const pr = popup.getBoundingClientRect();
-			let top  = r.bottom + 6;
-			let left = r.left;
-			if (top + pr.height > ownerWin.innerHeight - 8) top = r.top - pr.height - 6;
-			if (left + pr.width  > ownerWin.innerWidth  - 8) left = r.right - pr.width;
-			popup.setCssStyles({ top: `${top}px`, left: `${left}px` });
-		});
-
-		const closePopup = (e: MouseEvent) => {
-			if (!ownerDoc.contains(e.target as Node)) return;
-			if (!popup.contains(e.target as Node) && !anchor.contains(e.target as Node)) {
-				popup.remove();
-				ownerDoc.removeEventListener('click', closePopup);
-			}
-		};
-		window.setTimeout(() => ownerDoc.addEventListener('click', closePopup), 10);
-	}
-
 	buildStatusPopup(container: HTMLElement) {
 		const RADIUS = 63;
 		const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
@@ -182,7 +225,7 @@ export class StopwatchManager {
 		if (this.plugin.stopwatchInterval) swTimeEl.addClass('is-running');
 
 		const updateProgress = () => {
-			const totalSecs = this.plugin.settings.stopwatchMinutes * 60;
+			const totalSecs = this.timerDurationSeconds;
 			if (totalSecs > 0) {
 				const elapsed = totalSecs - this.plugin.stopwatchSeconds;
 				const pct = Math.min(1, Math.max(0, elapsed / totalSecs));

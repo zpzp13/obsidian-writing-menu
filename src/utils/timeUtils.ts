@@ -6,6 +6,38 @@ export function toHMS(sec: number): string {
 	return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+/**
+ * 다른 Markdown 문서 전체를 붙여넣을 때 해당 문서의 누적 작업시간까지
+ * 현재 문서로 복사되지 않도록, 맨 앞 YAML 블록의 추적 필드만 제거한다.
+ * 본문 중간의 `---`나 일반 텍스트는 변경하지 않는다.
+ */
+export function stripTrackedTimeFieldsFromPaste(text: string, keys: string[]): string {
+	if (!text.startsWith('---\n') && !text.startsWith('---\r\n')) return text;
+	const frontmatterMatch = text.match(/^---\r?\n([\s\S]*?)\r?\n---(?=\r?\n|$)/);
+	if (!frontmatterMatch) return text;
+
+	const trackedKeys = new Set(keys.map(key => key.trim()).filter(Boolean));
+	if (trackedKeys.size === 0) return text;
+
+	const yaml = frontmatterMatch[1];
+	const lines = yaml.split(/\r?\n/);
+	const newline = text.startsWith('---\r\n') ? '\r\n' : '\n';
+	const filtered = lines.filter(line => {
+		// Only top-level scalar keys are time metadata. Indented/nested content is
+		// deliberately left alone even if it contains the same text.
+		if (/^[\t ]/.test(line)) return true;
+		const separator = line.indexOf(':');
+		if (separator < 0) return true;
+		const rawKey = line.slice(0, separator).trim();
+		const key = rawKey.replace(/^(?:"([\s\S]*)"|'([\s\S]*)')$/, (_m, doubleQuoted, singleQuoted) => doubleQuoted ?? singleQuoted ?? rawKey);
+		return !trackedKeys.has(key);
+	});
+
+	if (filtered.length === lines.length) return text;
+	const replacement = `---${newline}${filtered.join(newline)}${newline}---`;
+	return replacement + text.slice(frontmatterMatch[0].length);
+}
+
 /** "HH:MM:SS" 또는 "MM:SS" 문자열 → seconds */
 export function parseTimeHMS(val: unknown): number {
 	if (!val) return 0;

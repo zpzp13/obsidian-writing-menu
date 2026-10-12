@@ -40,13 +40,14 @@ export function renderTaskItem(
 		: formatDateKey(task.sourceDate);
 	item.dataset.datekey = dkDate;
 
-	const content  = item.createDiv({ cls: 'wm-task-item-content' });
-	const titleRow = content.createDiv({ cls: 'wm-task-item-title-row' });
-	const titleEl  = titleRow.createDiv({ cls: 'wm-task-item-title', text: task.text });
-	if (task.completed) titleEl.classList.add('is-done');
-	const check = titleRow.createDiv({ cls: 'wm-task-item-check' });
+	const content = item.createDiv({ cls: 'wm-task-item-content' });
+	const check = content.createDiv({ cls: 'wm-task-item-check' });
 	setIcon(check, task.completed ? 'check-circle-2' : 'circle');
 	if (task.completed) check.classList.add('is-done');
+	const main = content.createDiv({ cls: 'wm-task-item-main' });
+	const titleRow = main.createDiv({ cls: 'wm-task-item-title-row' });
+	const titleEl = titleRow.createDiv({ cls: 'wm-task-item-title', text: task.text });
+	if (task.completed) titleEl.classList.add('is-done');
 
 	titleEl.addEventListener('click', () => { void (async () => {
 		const file = plugin.app.vault.getAbstractFileByPath(task.sourcePath);
@@ -77,7 +78,7 @@ export function renderTaskItem(
 
 	// ── 하위 항목 ──
 	if (task.subItems?.length) {
-		const subList = content.createDiv({ cls: 'wm-task-sub-list' });
+		const subList = main.createDiv({ cls: 'wm-task-sub-list' });
 		task.subItems.forEach((sub, idx) => {
 			const subItem  = subList.createDiv({ cls: 'wm-task-sub-item' });
 			const subCheck = subItem.createDiv({ cls: 'wm-task-sub-check' });
@@ -96,7 +97,7 @@ export function renderTaskItem(
 	}
 
 	// ── 메타 행 ──
-	const metaRow  = content.createDiv({ cls: 'wm-task-item-meta' });
+	const metaRow  = main.createDiv({ cls: 'wm-task-item-meta' });
 	const metaLeft = metaRow.createDiv({ cls: 'wm-task-item-meta-left' });
 
 	const d = task.sourceDate;
@@ -108,8 +109,21 @@ export function renderTaskItem(
 	setIcon(dateIconEl, 'calendar');
 	dateEl.createSpan({ text: `${d.getMonth() + 1}월 ${d.getDate()}일` });
 
+	if (task.completedDate) {
+		const [, month, day] = task.completedDate.match(/^(\d{4})-(\d{2})-(\d{2})$/) ?? [];
+		const completedEl = metaLeft.createDiv({ cls: 'wm-task-item-completed-date' });
+		const completedIconEl = completedEl.createSpan({ cls: 'wm-task-item-completed-date-icon' });
+		setIcon(completedIconEl, 'circle-check');
+		completedEl.createSpan({
+			text: month && day ? `${Number(month)}월 ${Number(day)}일` : task.completedDate,
+		});
+	}
+
 	for (const tag of task.tags ?? []) {
-		metaLeft.createSpan({ cls: 'wm-task-item-tag', text: tag });
+		const tagEl = metaLeft.createSpan({ cls: 'wm-task-item-tag' });
+		const tagIconEl = tagEl.createSpan({ cls: 'wm-task-item-tag-icon' });
+		setIcon(tagIconEl, 'tag');
+		tagEl.createSpan({ text: tag.replace(/^#/, '') });
 	}
 
 	// ── 우선순위 flag 버튼 ──

@@ -7,7 +7,7 @@ import { getCharacterCandidateFiles } from './AiChatScope';
 import { getEpisodePlotContext, getFullPlotHistoryContext, getPreviousChapterBody, extractChapterName, type PlotHistoryContext } from './AiChatEpisode';
 import { generateEpisodeScene, type EpisodeChatSegment } from './EpisodeChatEngine';
 import { AiChatRenameModal } from './AiChatRenameModal';
-import { callAiChat, type AiChatApiKeys } from './AiChatApi';
+import { callAiChat, hasApiKeyForModel, type AiChatApiKeys } from './AiChatApi';
 import { extractPersonaContent, parseAssistantSegments, loadCustomStyleNote, buildCustomStyleBlock } from './AiChatContext';
 import type { AiChatMessage, AiChatSegment, AiChatSession } from './AiChatTypes';
 
@@ -292,6 +292,10 @@ export class AiChatPanel {
 
 	private async runEpisodeGeneration(plotHistory: PlotHistoryContext | null): Promise<void> {
 		if (this.episodeGenerating || !this.activeFile || !plotHistory) return;
+		if (!hasApiKeyForModel(this.getApiKeys(), this.plugin.settings.aiEpisodeModel)) {
+			new Notice('선택한 초고 모델의 API 키를 AI 설정에 먼저 입력하세요.');
+			return;
+		}
 
 		this.episodeGenerating = true;
 		this.episodeSegments = [];
@@ -846,7 +850,10 @@ export class AiChatPanel {
 		const content = textarea.value.trim();
 		if (!content) return;
 		if (!this.characterFile) { new Notice('먼저 대화할 캐릭터를 선택하세요.'); return; }
-		if (!this.plugin.settings.aiChatApiKey) { new Notice('AI 설정에서 API 키를 먼저 입력하세요.'); return; }
+		if (!hasApiKeyForModel(this.getApiKeys(), this.plugin.settings.aiChatModel)) {
+			new Notice('선택한 챗봇 모델의 API 키를 AI 설정에 먼저 입력하세요.');
+			return;
+		}
 
 		if (!this.session) {
 			const name = getWikiDisplayName(this.app, this.plugin, this.characterFile);
@@ -928,7 +935,6 @@ export class AiChatPanel {
 		return {
 			nvidia: this.plugin.settings.aiChatApiKey,
 			gemini: this.plugin.settings.aiChatGeminiApiKey,
-			cerebras: this.plugin.settings.aiChatCerebrasApiKey,
 		};
 	}
 
@@ -967,7 +973,7 @@ export class AiChatPanel {
 
 	private async sendGreeting(messagesEl: HTMLElement): Promise<void> {
 		if (!this.characterFile || !this.session) return;
-		if (!this.plugin.settings.aiChatApiKey) return;
+		if (!hasApiKeyForModel(this.getApiKeys(), this.plugin.settings.aiChatModel)) return;
 
 		const session = this.session;
 		if (this.sendingSessionIds.has(session.id)) return;

@@ -156,14 +156,14 @@ export class ToolbarManager {
 			});
 		}
 
-		if (Platform.isDesktopApp) {
+		if (Platform.isDesktop) {
 			const exportDiv = container.createDiv('writing-menu-control');
 			const exportLabelGroup = exportDiv.createDiv('writing-menu-control-label-group');
 			setIcon(exportLabelGroup.createSpan('writing-menu-icon'), 'file-output');
 			exportLabelGroup.createEl('label', { text: '내보내기' });
 			const exportRightGroup = exportDiv.createDiv();
 			exportRightGroup.setCssStyles({ display: 'flex', alignItems: 'center', gap: '8px' });
-			if (Platform.isWin) {
+			if (Platform.isDesktop && Platform.isWin) {
 				const hwpBtn = exportRightGroup.createDiv('writing-menu-text-btn');
 				hwpBtn.setText('HWP');
 				hwpBtn.onclick = () => {
@@ -329,14 +329,8 @@ export class ToolbarManager {
 		this.addMenuBackButton(container, '스톱워치', () => this.renderMenuPage(container, 'main', leaf));
 		void this.plugin.addCompactToggle(container, '상태바 표시', this.plugin.settings.showTimeInStatusBar, async (v) => {
 			this.plugin.settings.showTimeInStatusBar = v;
-			this.plugin.settings.enableTimeTracking = v || this.plugin.settings.showTimeInDashboard;
 			await this.plugin.saveSettings();
 			this.plugin.updateStatusBarDisplay();
 		}, 'activity');
-		void this.plugin.addCompactToggle(container, '대시보드 표시', this.plugin.settings.showTimeInDashboard, async (v) => {
-			this.plugin.settings.showTimeInDashboard = v;
-			this.plugin.settings.enableTimeTracking = this.plugin.settings.showTimeInStatusBar || v;
-			await this.plugin.saveSettings();
-		}, 'layout-dashboard');
 	}
 }
