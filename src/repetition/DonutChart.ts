@@ -35,44 +35,47 @@ export function renderDonutChart(container: HTMLElement, segments: DonutSegment[
 	const cx = size / 2;
 	const cy = size / 2;
 
-	const svgNs = 'http://www.w3.org/2000/svg';
-	const svg = activeDocument.createElementNS(svgNs, 'svg');
-	svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
-	svg.addClass('wm-rep-donut-svg');
+	const svgWrap = wrap.createDiv({ cls: 'wm-rep-donut-svg-wrap' });
+	const svg = svgWrap.createSvg('svg', {
+		cls: 'wm-rep-donut-svg',
+		attr: { viewBox: `0 0 ${size} ${size}` },
+	});
 
-	const bg = activeDocument.createElementNS(svgNs, 'circle');
-	bg.setAttribute('cx', String(cx));
-	bg.setAttribute('cy', String(cy));
-	bg.setAttribute('r', String(radius));
-	bg.setAttribute('fill', 'none');
-	bg.addClass('wm-rep-donut-track');
-	bg.setAttribute('stroke-width', String(strokeWidth));
-	svg.appendChild(bg);
+	svg.createSvg('circle', {
+		cls: 'wm-rep-donut-track',
+		attr: {
+			cx,
+			cy,
+			r: radius,
+			fill: 'none',
+			'stroke-width': strokeWidth,
+		},
+	});
 
 	let offset = 0;
 	segments.forEach((seg, i) => {
 		if (total <= 0) return;
 		const frac = seg.value / total;
 		const dash = frac * circumference;
-		const circle = activeDocument.createElementNS(svgNs, 'circle');
-		circle.setAttribute('cx', String(cx));
-		circle.setAttribute('cy', String(cy));
-		circle.setAttribute('r', String(radius));
-		circle.setAttribute('fill', 'none');
-		circle.addClass('wm-rep-donut-seg', colorClass(i, seg.isOther));
-		circle.setAttribute('stroke-width', String(strokeWidth));
-		circle.setAttribute('stroke-linecap', 'round');
-		circle.setAttribute('stroke-dasharray', `${Math.max(0, dash - gap)} ${circumference - dash + gap}`);
-		circle.setAttribute('stroke-dashoffset', String(-offset));
-		circle.setAttribute('transform', `rotate(-90 ${cx} ${cy})`);
-		svg.appendChild(circle);
+		svg.createSvg('circle', {
+			cls: ['wm-rep-donut-seg', colorClass(i, seg.isOther)],
+			attr: {
+				cx,
+				cy,
+				r: radius,
+				fill: 'none',
+				'stroke-width': strokeWidth,
+				'stroke-linecap': 'round',
+				'stroke-dasharray': `${Math.max(0, dash - gap)} ${circumference - dash + gap}`,
+				'stroke-dashoffset': -offset,
+				transform: `rotate(-90 ${cx} ${cy})`,
+			},
+		});
 		offset += dash;
 	});
 
-	const svgWrap = wrap.createDiv({ cls: 'wm-rep-donut-svg-wrap' });
-	svgWrap.appendChild(svg);
 	const center = svgWrap.createDiv({ cls: 'wm-rep-donut-center' });
-	center.style.top = `${(cy / size) * 100}%`;
+	center.setCssStyles({ top: `${(cy / size) * 100}%` });
 	center.createDiv({ cls: 'wm-rep-donut-center-value', text: options.centerValue });
 
 	const legend = container.createDiv({ cls: 'wm-rep-donut-legend' });

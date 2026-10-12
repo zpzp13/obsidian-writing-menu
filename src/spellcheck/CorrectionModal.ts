@@ -162,6 +162,36 @@ function appendMarkedDisplayText(parent: HTMLElement, original: string, value: s
 	});
 }
 
+function appendMobileHelpText(parent: HTMLElement, helpText: string) {
+	const marker = helpText.match(/^([①②③④⑤⑥⑦⑧⑨⑩])\s*/);
+	if (!marker) {
+		parent.setText(helpText);
+		return;
+	}
+	parent.createSpan({ cls: 'wm-spell-mobile-help-index', text: marker[1] });
+	parent.appendText(` ${helpText.substring(marker[0].length)}`);
+}
+
+function oneUiScrollEasing(progress: number): number {
+	// Samsung One UI basic path: cubic-bezier(0.22, 0.25, 0, 1).
+	const x1 = 0.22, y1 = 0.25, x2 = 0, y2 = 1;
+	const sample = (t: number, a1: number, a2: number) => {
+		const inverse = 1 - t;
+		return 3 * inverse * inverse * t * a1 + 3 * inverse * t * t * a2 + t * t * t;
+	};
+	const slope = (t: number, a1: number, a2: number) =>
+		3 * (1 - t) * (1 - t) * a1 + 6 * (1 - t) * t * (a2 - a1) + 3 * t * t * (1 - a2);
+
+	let t = progress;
+	for (let i = 0; i < 5; i++) {
+		const currentX = sample(t, x1, x2) - progress;
+		const currentSlope = slope(t, x1, x2);
+		if (Math.abs(currentSlope) < 1e-6) break;
+		t = Math.max(0, Math.min(1, t - currentX / currentSlope));
+	}
+	return sample(t, y1, y2);
+}
+
 function appendTypeBadge(parent: HTMLElement, type: string | undefined, extraCls?: string) {
 	if (!type) return;
 	const badge = TYPE_BADGE_MAP[type];
@@ -187,6 +217,7 @@ export class CorrectionModal extends Modal {
 	private keyboardScopeActive = false;
 	private editOverlayEl: HTMLElement | null = null;
 	private editConfirmFn: (() => void) | null = null;
+	private editViewportCleanup: (() => void) | null = null;
 	private readonly isMobileLayout: boolean;
 	private mobileEditorChangeRef: EventRef | null = null;
 	private mobileEditorText = '';
@@ -195,6 +226,9 @@ export class CorrectionModal extends Modal {
 	private totalOccurrenceCount = 0;
 	private mobileToolbarEl!: HTMLElement;
 	private mobilePanel: MobilePanel = 'list';
+	private mobileCenterFocusedItem = false;
+	private mobileListScrollTop = 0;
+	private mobileListScrollFrame: number | null = null;
 
 	constructor(app: App, config: ModalConfig) {
 		super(app);
@@ -274,6 +308,8 @@ export class CorrectionModal extends Modal {
 	}
 
 	onClose() {
+		this.closeEditPopup();
+		this.cancelMobileListScroll();
 		if (this.keyboardScopeActive) {
 			this.app.keymap.popScope(this.keyboardScope);
 			this.keyboardScopeActive = false;
@@ -321,6 +357,7 @@ export class CorrectionModal extends Modal {
 		}
 
 		this.refresh();
+		this.setupKeyboard();
 		window.requestAnimationFrame(() => this.scrollEditorToOccurrence(this.focusedOccIdx));
 	}
 
@@ -361,6 +398,9 @@ export class CorrectionModal extends Modal {
 
 	private renderMobile() {
 		this.updateMobileEditorHighlights();
+		const currentList = this.detailEl.querySelector<HTMLElement>('.wm-spell-mobile-error-list');
+		if (currentList) this.mobileListScrollTop = currentList.scrollTop;
+		this.cancelMobileListScroll();
 		this.mobileToolbarEl.empty();
 		this.detailEl.empty();
 		this.renderMobileToolbar();
@@ -435,7 +475,10 @@ export class CorrectionModal extends Modal {
 		this.occurrences.forEach((occurrence, oi) => {
 			const correction = this.config.corrections[occurrence.corrIdx];
 			const stateInfo = this.occStates.get(oi)!;
-			const item = list.createDiv({ cls: 'wm-spell-list-item wm-spell-mobile-list-item' });
+			const item = list.createDiv({
+				cls: 'wm-spell-list-item wm-spell-mobile-list-item',
+				attr: { tabindex: '0', role: 'button', 'aria-label': `${oi + 1}번 오류 상세 열기` },
+			});
 			if (oi === this.focusedOccIdx) item.addClass('is-focused');
 			item.createSpan({ cls: 'wm-spell-num-tag', text: String(oi + 1) });
 			const textEl = item.createSpan({ cls: 'wm-spell-list-text' });
@@ -456,14 +499,78 @@ export class CorrectionModal extends Modal {
 			});
 		});
 
-		(list.children[this.focusedOccIdx] as HTMLElement | undefined)?.scrollIntoView({ block: 'nearest' });
+		list.scrollTop = this.mobileListScrollTop;
+		const focusedItem = list.children[this.focusedOccIdx] as HTMLElement | undefined;
+		const shouldCenter = this.mobileCenterFocusedItem;
+		this.mobileCenterFocusedItem = false;
+		window.requestAnimationFrame(() => {
+			if (!focusedItem) return;
+			const listRect = list.getBoundingClientRect();
+			const itemRect = focusedItem.getBoundingClientRect();
+			const itemTop = list.scrollTop + itemRect.top - listRect.top;
+			const maxScrollTop = Math.max(0, list.scrollHeight - list.clientHeight);
+			let targetScrollTop = list.scrollTop;
+			if (shouldCenter) {
+				targetScrollTop = itemTop - (list.clientHeight - itemRect.height) / 2;
+			} else if (itemRect.top < listRect.top) {
+				targetScrollTop = itemTop;
+			} else if (itemRect.bottom > listRect.bottom) {
+				targetScrollTop = itemTop - list.clientHeight + itemRect.height;
+			}
+			targetScrollTop = Math.max(0, Math.min(maxScrollTop, targetScrollTop));
+			if (shouldCenter) this.animateMobileListScroll(list, targetScrollTop);
+			else list.scrollTop = targetScrollTop;
+		});
+	}
+
+	private cancelMobileListScroll() {
+		if (this.mobileListScrollFrame === null) return;
+		window.cancelAnimationFrame(this.mobileListScrollFrame);
+		this.mobileListScrollFrame = null;
+	}
+
+	private animateMobileListScroll(list: HTMLElement, targetScrollTop: number) {
+		this.cancelMobileListScroll();
+		const startScrollTop = list.scrollTop;
+		const distance = targetScrollTop - startScrollTop;
+		const reduceMotion = list.ownerDocument.defaultView
+			?.matchMedia('(prefers-reduced-motion: reduce)').matches === true;
+		if (reduceMotion || Math.abs(distance) < 1) {
+			list.scrollTop = targetScrollTop;
+			this.mobileListScrollTop = targetScrollTop;
+			return;
+		}
+
+		const duration = Math.min(320, Math.max(160, 150 + Math.abs(distance) * 0.18));
+		const startTime = performance.now();
+		const animate = (now: number) => {
+			if (!list.isConnected) {
+				this.mobileListScrollFrame = null;
+				return;
+			}
+			const progress = Math.min(1, (now - startTime) / duration);
+			const eased = oneUiScrollEasing(progress);
+			const nextScrollTop = startScrollTop + distance * eased;
+			list.scrollTop = nextScrollTop;
+			this.mobileListScrollTop = nextScrollTop;
+			if (progress < 1) this.mobileListScrollFrame = window.requestAnimationFrame(animate);
+			else {
+				list.scrollTop = targetScrollTop;
+				this.mobileListScrollTop = targetScrollTop;
+				this.mobileListScrollFrame = null;
+			}
+		};
+		this.mobileListScrollFrame = window.requestAnimationFrame(animate);
 	}
 
 	private renderMobileDetail(c: Correction, info: StateInfo) {
 		const panel = this.detailEl.createDiv({ cls: 'wm-spell-mobile-panel wm-spell-mobile-detail-panel' });
 
 		const card = panel.createDiv({ cls: 'wm-spell-orig-card wm-spell-mobile-orig-card' });
-		const originalRow = card.createDiv({ cls: 'wm-spell-orig-card-row' });
+		const originalRow = card.createDiv({
+			cls: 'wm-spell-orig-card-row',
+			attr: { tabindex: '0', role: 'button', 'aria-label': '원문 유지' },
+		});
 		originalRow.createSpan({ cls: 'wm-spell-orig-card-label wm-spell-mobile-keep-label', text: '유지' });
 		originalRow.createSpan({ cls: 'wm-spell-orig-card-value wm-spell-orig-card-value--error', text: c.original });
 		appendTypeBadge(originalRow, c.type, 'wm-spell-orig-type-tag');
@@ -474,7 +581,10 @@ export class CorrectionModal extends Modal {
 
 		const primarySuggestion = c.corrected[0] ?? c.original;
 		const helpText = (c.help || '').replace(/^도움말\s*[:-]?\s*/i, '').trim();
-		const correctionRow = card.createDiv({ cls: 'wm-spell-orig-card-row' });
+		const correctionRow = card.createDiv({
+			cls: 'wm-spell-orig-card-row',
+			attr: { tabindex: '0', role: 'button', 'aria-label': '제안된 표현으로 수정' },
+		});
 		correctionRow.createSpan({ cls: 'wm-spell-orig-card-label wm-spell-mobile-correct-label', text: '수정' });
 		const correctionValue = correctionRow.createSpan({ cls: 'wm-spell-orig-card-value' });
 		appendMarkedDisplayText(correctionValue, c.original, primarySuggestion);
@@ -484,12 +594,18 @@ export class CorrectionModal extends Modal {
 		correctionRow.addEventListener('click', () => {
 			this.applyMobileChoice(this.focusedOccIdx, 'corrected', primarySuggestion);
 		});
-		if (helpText) card.createDiv({ cls: 'wm-spell-mobile-help-panel wm-spell-help', text: helpText });
+		if (helpText) {
+			const helpPanel = card.createDiv({ cls: 'wm-spell-mobile-help-panel wm-spell-help' });
+			appendMobileHelpText(helpPanel, helpText);
+		}
 
 		if (c.corrected.length > 1) {
 			const suggestions = panel.createDiv({ cls: 'wm-spell-section' }).createDiv({ cls: 'wm-spell-sug-list wm-spell-mobile-sug-list' });
 			c.corrected.forEach((suggestion, index) => {
-				const button = suggestions.createDiv({ cls: 'wm-spell-sug-item' });
+				const button = suggestions.createDiv({
+					cls: 'wm-spell-sug-item',
+					attr: { tabindex: '0', role: 'button', 'aria-label': `${index + 1}번 제안 적용` },
+				});
 				button.createSpan({ cls: 'wm-spell-sug-num', text: String(index + 1) });
 				button.createSpan({ text: displayText(c.original, suggestion) });
 				if ((info.state === 'corrected' || info.state === 'user-edited') && info.value === suggestion) {
@@ -729,6 +845,7 @@ export class CorrectionModal extends Modal {
 		this.mobileEditorText = editor.getValue();
 		this.mobilePanel = 'list';
 		this.focusedOccIdx = this.findNextMobileError(oi);
+		this.mobileCenterFocusedItem = true;
 		this.refresh();
 		window.requestAnimationFrame(() => this.scrollEditorToOccurrence(this.focusedOccIdx));
 	}
@@ -907,6 +1024,8 @@ export class CorrectionModal extends Modal {
 	// ── 직접 입력 팝업 ───────────────────────────────────────────────────────
 
 	private closeEditPopup() {
+		this.editViewportCleanup?.();
+		this.editViewportCleanup = null;
 		this.editOverlayEl?.remove();
 		this.editOverlayEl = null;
 		this.editConfirmFn = null;
@@ -918,8 +1037,34 @@ export class CorrectionModal extends Modal {
 		const c = this.config.corrections[this.occurrences[oi].corrIdx];
 		const info = this.occStates.get(oi)!;
 
-		const overlay = this.modalEl.createDiv({ cls: 'wm-spell-edit-overlay' });
+		const overlayHost = this.isMobileLayout ? this.containerEl : this.modalEl;
+		const overlay = overlayHost.createDiv({
+			cls: this.isMobileLayout ? 'wm-spell-edit-overlay wm-spell-mobile-edit-overlay' : 'wm-spell-edit-overlay',
+		});
 		this.editOverlayEl = overlay;
+		if (this.isMobileLayout) {
+			const viewWindow = overlay.ownerDocument.defaultView;
+			const viewport = viewWindow?.visualViewport;
+			const updateViewportBounds = () => {
+				const top = viewport?.offsetTop ?? 0;
+				const left = viewport?.offsetLeft ?? 0;
+				const width = viewport?.width ?? viewWindow?.innerWidth ?? overlay.ownerDocument.documentElement.clientWidth;
+				const height = viewport?.height ?? viewWindow?.innerHeight ?? overlay.ownerDocument.documentElement.clientHeight;
+				overlay.setCssStyles({
+					top: `${top}px`,
+					left: `${left}px`,
+					width: `${width}px`,
+					height: `${height}px`,
+				});
+			};
+			viewport?.addEventListener('resize', updateViewportBounds);
+			viewport?.addEventListener('scroll', updateViewportBounds);
+			this.editViewportCleanup = () => {
+				viewport?.removeEventListener('resize', updateViewportBounds);
+				viewport?.removeEventListener('scroll', updateViewportBounds);
+			};
+			updateViewportBounds();
+		}
 
 		const popup = overlay.createDiv({ cls: 'wm-spell-edit-popup' });
 		popup.createEl('div', { cls: 'wm-spell-edit-label', text: '직접 수정' });
@@ -944,7 +1089,11 @@ export class CorrectionModal extends Modal {
 		});
 		overlay.addEventListener('click', e => { if (e.target === overlay) this.closeEditPopup(); });
 
-		window.setTimeout(() => { input.focus(); input.select(); }, 10);
+		window.setTimeout(() => {
+			input.focus();
+			input.select();
+			if (this.isMobileLayout) popup.scrollIntoView({ block: 'start' });
+		}, 10);
 	}
 
 	// ── 전체 교정 적용 ───────────────────────────────────────────────────────
@@ -974,6 +1123,58 @@ export class CorrectionModal extends Modal {
 
 	private setupKeyboard() {
 		const scope = this.keyboardScope;
+		if (this.isMobileLayout) {
+			scope.register([], 'ArrowUp', e => {
+				e.preventDefault();
+				this.mobileCenterFocusedItem = this.mobilePanel === 'list';
+				this.moveFocus(-1);
+				this.focusMobileKeyboardTarget();
+				return false;
+			});
+			scope.register([], 'ArrowDown', e => {
+				e.preventDefault();
+				this.mobileCenterFocusedItem = this.mobilePanel === 'list';
+				this.moveFocus(1);
+				this.focusMobileKeyboardTarget();
+				return false;
+			});
+			scope.register([], 'ArrowLeft', e => {
+				e.preventDefault();
+				if (this.mobilePanel === 'detail') {
+					this.mobilePanel = 'list';
+					this.refresh();
+					this.focusMobileKeyboardTarget();
+				}
+				return false;
+			});
+			scope.register([], 'ArrowRight', e => {
+				e.preventDefault();
+				if (this.mobilePanel === 'list' && this.occurrences.length > 0) {
+					this.mobilePanel = 'detail';
+					this.refresh();
+					this.focusMobileKeyboardTarget();
+				}
+				return false;
+			});
+			scope.register([], 'Enter', e => {
+				e.preventDefault();
+				this.activateMobileKeyboardTarget();
+				return false;
+			});
+			scope.register([], 'Tab', e => {
+				e.preventDefault();
+				this.moveMobileTabFocus(1);
+				return false;
+			});
+			scope.register(['Shift'], 'Tab', e => {
+				e.preventDefault();
+				this.moveMobileTabFocus(-1);
+				return false;
+			});
+			this.app.keymap.pushScope(scope);
+			this.keyboardScopeActive = true;
+			return;
+		}
 
 		scope.register([], 'ArrowUp', e => { e.preventDefault(); this.moveFocus(-1); return false; });
 		scope.register([], 'ArrowDown', e => { e.preventDefault(); this.moveFocus(1); return false; });
@@ -1011,6 +1212,53 @@ export class CorrectionModal extends Modal {
 
 		this.app.keymap.pushScope(scope);
 		this.keyboardScopeActive = true;
+	}
+
+	private focusMobileKeyboardTarget() {
+		window.requestAnimationFrame(() => {
+			const selector = this.mobilePanel === 'list'
+				? '.wm-spell-mobile-list-item.is-focused'
+				: '.wm-spell-mobile-orig-card .wm-spell-orig-card-row';
+			this.detailEl.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });
+		});
+	}
+
+	private activateMobileKeyboardTarget() {
+		const active = this.modalEl.ownerDocument.activeElement as HTMLElement | null;
+		const actionable = active?.closest<HTMLElement>(
+			'.wm-spell-mobile-tool, .wm-spell-mobile-navigator button, .wm-spell-mobile-list-item, .wm-spell-mobile-orig-card-row, .wm-spell-mobile-sug-item',
+		);
+		if (actionable && this.containerEl.contains(actionable)) {
+			actionable.click();
+			return;
+		}
+		if (this.mobilePanel === 'list' && this.occurrences.length > 0) {
+			this.mobilePanel = 'detail';
+			this.refresh();
+			this.focusMobileKeyboardTarget();
+			return;
+		}
+		this.detailEl.querySelector<HTMLElement>('.wm-spell-mobile-correct-label')
+			?.closest<HTMLElement>('.wm-spell-orig-card-row')?.click();
+	}
+
+	private moveMobileTabFocus(direction: 1 | -1) {
+		const selector = [
+			'.wm-spell-mobile-tool:not(:disabled)',
+			'.wm-spell-mobile-navigator button:not(:disabled)',
+			'.wm-spell-mobile-list-item',
+			'.wm-spell-mobile-orig-card-row',
+			'.wm-spell-mobile-sug-item',
+		].join(', ');
+		const actions = Array.from(this.containerEl.querySelectorAll<HTMLElement>(selector))
+			.filter(element => element.offsetParent !== null);
+		if (actions.length === 0) return;
+		const active = this.modalEl.ownerDocument.activeElement as HTMLElement | null;
+		const currentIndex = active ? actions.indexOf(active) : -1;
+		const nextIndex = currentIndex === -1
+			? (direction === 1 ? 0 : actions.length - 1)
+			: (currentIndex + direction + actions.length) % actions.length;
+		actions[nextIndex].focus({ preventScroll: true });
 	}
 
 	private scrollPreviewToOcc(oi: number) {

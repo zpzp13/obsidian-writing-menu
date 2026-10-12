@@ -343,9 +343,11 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 				: 0;
 			if (shift !== 0) this.calendarClickBlockUntil = Date.now() + 350;
 			pointerId = null;
-			grid.style.transition = 'transform 240ms cubic-bezier(.2,.8,.2,1), opacity 180ms ease';
-			grid.style.transform = shift === 0 ? 'translateX(0)' : `translateX(${shift > 0 ? '-24%' : '24%'})`;
-			grid.style.opacity = shift === 0 ? '1' : '0';
+			grid.setCssStyles({
+				transition: 'transform 240ms cubic-bezier(.2,.8,.2,1), opacity 180ms ease',
+				transform: shift === 0 ? 'translateX(0)' : `translateX(${shift > 0 ? '-24%' : '24%'})`,
+				opacity: shift === 0 ? '1' : '0',
+			});
 			if (shift !== 0) window.setTimeout(() => this.shiftWeek(shift), 170);
 		};
 
@@ -355,7 +357,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 			startY = event.clientY;
 			deltaX = 0;
 			horizontal = false;
-			grid.style.transition = 'none';
+			grid.setCssStyles({ transition: 'none' });
 		});
 		viewport.addEventListener('pointermove', (event) => {
 			if (pointerId !== event.pointerId) return;
@@ -368,8 +370,10 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 			}
 			horizontal = true;
 			deltaX = dx;
-			grid.style.transform = `translateX(${dx * 0.72}px)`;
-			grid.style.opacity = String(Math.max(0.72, 1 - Math.abs(dx) / Math.max(1, viewport.clientWidth) * 0.35));
+			grid.setCssStyles({
+				transform: `translateX(${dx * 0.72}px)`,
+				opacity: String(Math.max(0.72, 1 - Math.abs(dx) / Math.max(1, viewport.clientWidth) * 0.35)),
+			});
 		});
 		viewport.addEventListener('pointerup', finish);
 		viewport.addEventListener('pointercancel', finish);

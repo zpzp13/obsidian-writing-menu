@@ -38,14 +38,12 @@ export class ToolbarManager {
 		const viewHeader = view.containerEl.querySelector('.view-header');
 		if (!viewHeader || viewHeader.querySelector('.writing-menu-button')) return;
 
-		const charCountEl = activeDocument.createElement('div');
-		charCountEl.className = 'writing-menu-char-count';
+		const charCountEl = viewHeader.createDiv({ cls: 'writing-menu-char-count' });
 		charCountEl.setCssStyles({ fontSize: '12px', color: 'var(--text-muted)', padding: '0 8px', display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' });
 		this.plugin.headerCharCountElements.set(leaf, charCountEl);
 		this.plugin.updateCharCount(leaf);
 
-		const button = activeDocument.createElement('div');
-		button.className = 'clickable-icon writing-menu-button';
+		const button = viewHeader.createDiv({ cls: 'clickable-icon writing-menu-button' });
 		setIcon(button, 'settings');
 		button.setCssStyles({ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' });
 		button.addEventListener('click', (e: MouseEvent) => { e.stopPropagation(); this.showDropdown(button, leaf); });
@@ -66,14 +64,12 @@ export class ToolbarManager {
 		const existingDropdown = activeDocument.querySelector('.writing-menu-dropdown');
 		if (existingDropdown) { existingDropdown.remove(); return; }
 
-		const dropdown = activeDocument.createElement('div');
-		dropdown.className = 'writing-menu-dropdown';
+		const dropdown = activeDocument.body.createDiv({ cls: 'writing-menu-dropdown' });
 		const rect = button.getBoundingClientRect();
 		dropdown.setCssStyles({ position: 'fixed', top: `${rect.bottom + 5}px`, right: `${window.innerWidth - rect.right}px` });
 
 		this.buildDropdownMenu(dropdown, leaf);
 
-		activeDocument.body.appendChild(dropdown);
 		if (dropdown.getBoundingClientRect().right > window.innerWidth) dropdown.setCssStyles({ right: '10px' });
 		const closeDropdown = (e: MouseEvent) => {
 			if (!dropdown.contains(e.target as Node) && !button.contains(e.target as Node)) {

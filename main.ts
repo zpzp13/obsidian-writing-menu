@@ -124,6 +124,8 @@ export default class WritingMenuPlugin extends Plugin {
 		}));
 
 		this.registerEvent(this.app.workspace.on('editor-paste', (evt, editor) => {
+			if (evt.defaultPrevented) return;
+
 			const from = editor.getCursor('from');
 			if (from.line !== 0 || from.ch !== 0) return;
 			const pastedText = evt.clipboardData?.getData('text/plain');
