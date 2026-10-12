@@ -15,6 +15,8 @@ interface Occurrence {
 	pos: number;
 }
 
+type MobilePanel = 'list' | 'detail';
+
 export interface ModalConfig {
 	text: string;
 	bodyOffset: number;
@@ -51,10 +53,28 @@ class SpellcheckApplyConfirmModal extends Modal {
 	}
 }
 
+class SpellcheckMobileGuideModal extends Modal {
+	onOpen() {
+		this.modalEl.addClass('wm-spell-mobile-guide-modal');
+		this.contentEl.empty();
+		this.contentEl.createEl('h3', { text: '모바일 맞춤법 검사' });
+		const guide = this.contentEl.createDiv({ cls: 'wm-spell-mobile-guide-copy' });
+		guide.createEl('p', { text: '오류 목록에서 항목을 선택하면 해당 문장으로 이동하고 교정 상세가 열립니다.' });
+		guide.createEl('p', { text: '유지는 원문을 그대로 두고, 수정은 제안된 표현을 문서에 바로 반영합니다.' });
+		guide.createEl('p', { text: '상단 도구에서 직접 수정, 사전 제외, 남은 오류 일괄 적용을 사용할 수 있습니다.' });
+		const close = this.contentEl.createEl('button', { cls: 'mod-cta', text: '확인' });
+		close.addEventListener('click', () => this.close());
+	}
+
+	onClose() {
+		this.contentEl.empty();
+	}
+}
+
 const STATE_COLORS: Record<CorrectionState, string> = {
 	'error': 'var(--color-red)',
 	'corrected': 'var(--color-green)',
-	'original-kept': 'var(--color-orange)',
+	'original-kept': 'var(--color-yellow)',
 	'user-edited': 'var(--color-purple)',
 };
 
@@ -64,19 +84,19 @@ const TYPE_BADGE_MAP: Record<string, { label: string; color: string }> = {
 	'spell': { label: '문법', color: 'var(--color-red)' },
 	'red': { label: '맞춤법', color: 'var(--color-red)' },
 	'green': { label: '띄어쓰기', color: 'var(--color-orange)' },
-	'blue': { label: '의심', color: 'var(--color-yellow)' },
+	'blue': { label: '의심', color: 'var(--color-purple)' },
 	'violet': { label: '통계', color: 'var(--color-purple)' },
 	// Daum 한글 타입
 	'교체': { label: '교체', color: 'var(--color-red)' },
-	'의심': { label: '의심', color: 'var(--color-yellow)' },
+	'의심': { label: '의심', color: 'var(--color-purple)' },
 	'삽입': { label: '삽입', color: 'var(--color-orange)' },
 	'삭제': { label: '삭제', color: 'var(--color-red)' },
 	'맞춤법': { label: '맞춤법', color: 'var(--color-red)' },
-	'표준어 의심': { label: '의심', color: 'var(--color-yellow)' },
+	'표준어 의심': { label: '의심', color: 'var(--color-purple)' },
 	'비표준어': { label: '비표준', color: 'var(--color-yellow)' },
 	'띄어쓰기': { label: '띄어쓰기', color: 'var(--color-orange)' },
 	'통계적 교정': { label: '통계', color: 'var(--color-purple)' },
-	'doubt': { label: '의심', color: 'var(--color-yellow)' },
+	'doubt': { label: '의심', color: 'var(--color-purple)' },
 };
 
 const STATE_BADGE_LABELS: Partial<Record<CorrectionState, string>> = {
@@ -134,6 +154,14 @@ function displayText(original: string, value: string): string {
 	return isSpacingCorrection(original, value) ? toProofreadingMarks(original, value) : value;
 }
 
+function appendMarkedDisplayText(parent: HTMLElement, original: string, value: string) {
+	const displayed = displayText(original, value);
+	displayed.split(/([∨⌒]+)/).filter(Boolean).forEach(part => {
+		if (/^[∨⌒]+$/.test(part)) parent.createSpan({ cls: 'wm-spell-mobile-proof-mark', text: part });
+		else parent.appendText(part);
+	});
+}
+
 function appendTypeBadge(parent: HTMLElement, type: string | undefined, extraCls?: string) {
 	if (!type) return;
 	const badge = TYPE_BADGE_MAP[type];
@@ -165,6 +193,8 @@ export class CorrectionModal extends Modal {
 	private mobileSyncTimer: number | null = null;
 	private mobileEditorClickHandler: ((event: MouseEvent) => void) | null = null;
 	private totalOccurrenceCount = 0;
+	private mobileToolbarEl!: HTMLElement;
+	private mobilePanel: MobilePanel = 'list';
 
 	constructor(app: App, config: ModalConfig) {
 		super(app);
@@ -277,8 +307,8 @@ export class CorrectionModal extends Modal {
 		this.shouldRestoreSelection = false;
 		this.mobileEditorText = this.config.editor.getValue();
 
+		this.mobileToolbarEl = this.contentEl.createDiv({ cls: 'wm-spell-mobile-toolbar' });
 		this.detailEl = this.contentEl.createDiv({ cls: 'wm-spell-mobile-content' });
-		this.footerEl = this.contentEl.createDiv({ cls: 'wm-spell-mobile-footer' });
 
 		this.mobileEditorChangeRef = this.app.workspace.on('editor-change', editor => {
 			if (editor !== this.config.editor) return;
@@ -331,8 +361,9 @@ export class CorrectionModal extends Modal {
 
 	private renderMobile() {
 		this.updateMobileEditorHighlights();
+		this.mobileToolbarEl.empty();
 		this.detailEl.empty();
-		this.footerEl.empty();
+		this.renderMobileToolbar();
 
 		const occ = this.occurrences[this.focusedOccIdx];
 		const c = this.config.corrections[occ?.corrIdx ?? 0];
@@ -341,53 +372,122 @@ export class CorrectionModal extends Modal {
 			this.detailEl.createDiv({ cls: 'wm-spell-mobile-empty', text: '확인할 오류가 없습니다.' });
 			return;
 		}
+		this.renderMobileNavigator();
 
-		let errorCount = 0;
-		this.occStates.forEach(stateInfo => { if (stateInfo.state === 'error') errorCount++; });
-		const summary = this.detailEl.createDiv({ cls: 'wm-spell-mobile-summary' });
-		summary.createDiv({
-			cls: 'wm-spell-mobile-error-count',
-			text: `남은 오류 ${errorCount}/${this.totalOccurrenceCount}`,
-		});
-		summary.createDiv({
-			cls: 'wm-spell-mobile-guide',
-			text: '각 영역을 터치해 원문을 유지하거나 제안된 표현으로 교정하세요.',
-		});
+		if (this.mobilePanel === 'list') {
+			this.renderMobileList();
+			return;
+		}
 
-		const review = this.detailEl.createDiv({ cls: 'wm-spell-mobile-review' });
-		const previous = review.createEl('button', {
-			cls: 'wm-spell-mobile-side-nav is-previous',
-			attr: { 'aria-label': '이전 오류' },
-		});
+		this.renderMobileDetail(c, info);
+	}
+
+	private renderMobileNavigator() {
+		const row = this.detailEl.createDiv({ cls: 'wm-spell-mobile-navigator-row' });
+		const nav = row.createDiv({ cls: 'wm-spell-mobile-navigator' });
+		const previous = nav.createEl('button', { attr: { 'aria-label': '이전 오류' } });
 		setIcon(previous, 'chevron-left');
 		previous.addEventListener('click', () => this.moveFocus(-1));
+		const digits = Math.max(2, String(this.occurrences.length).length);
+		nav.createSpan({
+			cls: 'wm-spell-mobile-navigator-count',
+			text: `${String(this.focusedOccIdx + 1).padStart(digits, '0')} / ${this.occurrences.length}`,
+		});
+		const next = nav.createEl('button', { attr: { 'aria-label': '다음 오류' } });
+		setIcon(next, 'chevron-right');
+		next.addEventListener('click', () => this.moveFocus(1));
+	}
 
-		const card = review.createDiv({ cls: 'wm-spell-orig-card wm-spell-mobile-orig-card' });
+	private renderMobileToolbar() {
+		const addAction = (
+			icon: string,
+			label: string,
+			onClick: () => void,
+			options: { active?: boolean; disabled?: boolean } = {},
+		) => {
+			const button = this.mobileToolbarEl.createEl('button', {
+				cls: 'wm-spell-mobile-tool',
+				attr: { 'aria-label': label, title: label },
+			});
+			setIcon(button, icon);
+			button.toggleClass('is-active', options.active === true);
+			button.disabled = options.disabled === true;
+			button.addEventListener('click', onClick);
+			return button;
+		};
+
+		const hasSelection = this.occurrences.length > 0;
+		addAction('pencil', '직접 수정', () => this.showEditPopup(this.focusedOccIdx), { disabled: !hasSelection });
+		addAction('book-plus', '고유명사 사전에 추가', () => {
+			if (!hasSelection) return;
+			this.mobilePanel = 'list';
+			this.ignoreWord(this.focusedOccIdx);
+		}, { disabled: !hasSelection });
+		addAction('check-check', '남은 오류 일괄 적용', () => this.confirmApplyRemainingMobile(), { disabled: !hasSelection });
+		addAction('circle-help', '사용 방법', () => new SpellcheckMobileGuideModal(this.app).open());
+		addAction('log-out', '맞춤법 검사 나가기', () => this.close());
+	}
+
+	private renderMobileList() {
+		const panel = this.detailEl.createDiv({ cls: 'wm-spell-mobile-panel wm-spell-mobile-list-panel' });
+		const list = panel.createDiv({ cls: 'wm-spell-mobile-error-list' });
+
+		this.occurrences.forEach((occurrence, oi) => {
+			const correction = this.config.corrections[occurrence.corrIdx];
+			const stateInfo = this.occStates.get(oi)!;
+			const item = list.createDiv({ cls: 'wm-spell-list-item wm-spell-mobile-list-item' });
+			if (oi === this.focusedOccIdx) item.addClass('is-focused');
+			item.createSpan({ cls: 'wm-spell-num-tag', text: String(oi + 1) });
+			const textEl = item.createSpan({ cls: 'wm-spell-list-text' });
+			textEl.style.color = STATE_COLORS[stateInfo.state];
+			textEl.setText(stateInfo.state === 'error' ? correction.original : stateInfo.value);
+			if (stateInfo.state === 'error') appendTypeBadge(item, correction.type);
+			else {
+				const badge = item.createSpan({ cls: 'wm-spell-type-tag', text: STATE_BADGE_LABELS[stateInfo.state] ?? '' });
+				badge.style.color = STATE_COLORS[stateInfo.state];
+			}
+			const chevron = item.createSpan({ cls: 'wm-spell-mobile-list-chevron' });
+			setIcon(chevron, 'chevron-right');
+			item.addEventListener('click', () => {
+				this.focusedOccIdx = oi;
+				this.mobilePanel = 'detail';
+				this.refresh();
+				window.requestAnimationFrame(() => this.scrollEditorToOccurrence(oi));
+			});
+		});
+
+		(list.children[this.focusedOccIdx] as HTMLElement | undefined)?.scrollIntoView({ block: 'nearest' });
+	}
+
+	private renderMobileDetail(c: Correction, info: StateInfo) {
+		const panel = this.detailEl.createDiv({ cls: 'wm-spell-mobile-panel wm-spell-mobile-detail-panel' });
+
+		const card = panel.createDiv({ cls: 'wm-spell-orig-card wm-spell-mobile-orig-card' });
 		const originalRow = card.createDiv({ cls: 'wm-spell-orig-card-row' });
-		originalRow.createSpan({ cls: 'wm-spell-orig-card-label', text: '원문' });
+		originalRow.createSpan({ cls: 'wm-spell-orig-card-label wm-spell-mobile-keep-label', text: '유지' });
 		originalRow.createSpan({ cls: 'wm-spell-orig-card-value wm-spell-orig-card-value--error', text: c.original });
 		appendTypeBadge(originalRow, c.type, 'wm-spell-orig-type-tag');
 		if (info.state === 'original-kept') originalRow.addClass('is-active');
-		originalRow.addEventListener('click', () => this.applyState(this.focusedOccIdx, 'original-kept', c.original));
+		originalRow.addEventListener('click', () => {
+			this.applyMobileChoice(this.focusedOccIdx, 'original-kept', c.original);
+		});
 
 		const primarySuggestion = c.corrected[0] ?? c.original;
+		const helpText = (c.help || '').replace(/^도움말\s*[:-]?\s*/i, '').trim();
 		const correctionRow = card.createDiv({ cls: 'wm-spell-orig-card-row' });
-		correctionRow.createSpan({ cls: 'wm-spell-orig-card-label', text: '제안' });
-		correctionRow.createSpan({ cls: 'wm-spell-orig-card-value', text: displayText(c.original, primarySuggestion) });
+		correctionRow.createSpan({ cls: 'wm-spell-orig-card-label wm-spell-mobile-correct-label', text: '수정' });
+		const correctionValue = correctionRow.createSpan({ cls: 'wm-spell-orig-card-value' });
+		appendMarkedDisplayText(correctionValue, c.original, primarySuggestion);
 		if ((info.state === 'corrected' || info.state === 'user-edited') && info.value === primarySuggestion) {
 			correctionRow.addClass('is-active');
 		}
-		correctionRow.addEventListener('click', () => this.applyState(this.focusedOccIdx, 'corrected', primarySuggestion));
-
-		const next = review.createEl('button', {
-			cls: 'wm-spell-mobile-side-nav is-next',
-			attr: { 'aria-label': '다음 오류' },
+		correctionRow.addEventListener('click', () => {
+			this.applyMobileChoice(this.focusedOccIdx, 'corrected', primarySuggestion);
 		});
-		setIcon(next, 'chevron-right');
-		next.addEventListener('click', () => this.moveFocus(1));
+		if (helpText) card.createDiv({ cls: 'wm-spell-mobile-help-panel wm-spell-help', text: helpText });
 
 		if (c.corrected.length > 1) {
-			const suggestions = this.detailEl.createDiv({ cls: 'wm-spell-section' }).createDiv({ cls: 'wm-spell-sug-list wm-spell-mobile-sug-list' });
+			const suggestions = panel.createDiv({ cls: 'wm-spell-section' }).createDiv({ cls: 'wm-spell-sug-list wm-spell-mobile-sug-list' });
 			c.corrected.forEach((suggestion, index) => {
 				const button = suggestions.createDiv({ cls: 'wm-spell-sug-item' });
 				button.createSpan({ cls: 'wm-spell-sug-num', text: String(index + 1) });
@@ -395,19 +495,11 @@ export class CorrectionModal extends Modal {
 				if ((info.state === 'corrected' || info.state === 'user-edited') && info.value === suggestion) {
 					button.addClass('is-active');
 				}
-				button.addEventListener('click', () => this.applyState(this.focusedOccIdx, 'corrected', suggestion));
+				button.addEventListener('click', () => {
+					this.applyMobileChoice(this.focusedOccIdx, 'corrected', suggestion);
+				});
 			});
 		}
-
-		const helpText = (c.help || '').replace(/^도움말\s*[:-]?\s*/i, '').trim();
-		if (helpText) {
-			const help = this.detailEl.createEl('details', { cls: 'wm-spell-mobile-help' });
-			help.createEl('summary', { text: '도움말' });
-			help.createDiv({ cls: 'wm-spell-help', text: helpText });
-		}
-
-		const applyAll = this.footerEl.createEl('button', { cls: 'wm-spell-mobile-apply-all', text: '일괄 적용' });
-		applyAll.addEventListener('click', () => this.confirmApplyRemainingMobile());
 	}
 
 	private renderList() {
@@ -609,6 +701,48 @@ export class CorrectionModal extends Modal {
 		window.requestAnimationFrame(() => this.scrollEditorToOccurrence(oi));
 	}
 
+	private applyMobileChoice(oi: number, state: CorrectionState, value: string) {
+		this.syncMobileEditorText();
+		const occ = this.occurrences[oi];
+		const info = this.occStates.get(oi);
+		if (!occ || !info) return;
+
+		const editor = this.config.editor;
+		const fromOffset = this.config.bodyOffset + occ.pos;
+		const oldValue = info.value;
+		if (oldValue !== value) {
+			editor.replaceRange(
+				value,
+				editor.offsetToPos(fromOffset),
+				editor.offsetToPos(fromOffset + oldValue.length),
+				'wm-spellcheck',
+			);
+			const delta = value.length - oldValue.length;
+			if (delta !== 0) {
+				this.occurrences.forEach((other, otherIdx) => {
+					if (otherIdx !== oi && other.pos > occ.pos) other.pos += delta;
+				});
+			}
+		}
+
+		this.occStates.set(oi, { state, value });
+		this.mobileEditorText = editor.getValue();
+		this.mobilePanel = 'list';
+		this.focusedOccIdx = this.findNextMobileError(oi);
+		this.refresh();
+		window.requestAnimationFrame(() => this.scrollEditorToOccurrence(this.focusedOccIdx));
+	}
+
+	private findNextMobileError(fromIndex: number): number {
+		const count = this.occurrences.length;
+		if (count === 0) return 0;
+		for (let step = 1; step <= count; step++) {
+			const candidate = (fromIndex + step) % count;
+			if (this.occStates.get(candidate)?.state === 'error') return candidate;
+		}
+		return Math.min(fromIndex + 1, count - 1);
+	}
+
 	private confirmApplyRemainingMobile() {
 		const errorCount = Array.from(this.occStates.values()).filter(info => info.state === 'error').length;
 		if (errorCount === 0) {
@@ -655,6 +789,7 @@ export class CorrectionModal extends Modal {
 		}
 
 		this.mobileEditorText = editor.getValue();
+		this.mobilePanel = 'list';
 		this.refresh();
 		window.requestAnimationFrame(() => this.scrollEditorToOccurrence(this.focusedOccIdx));
 		new Notice(`${applied}개 오류를 일괄 적용했습니다.`);
@@ -667,6 +802,7 @@ export class CorrectionModal extends Modal {
 		const oi = Number(marker.dataset.wmSpellOccurrence);
 		if (!Number.isInteger(oi) || !this.occurrences[oi]) return;
 		this.focusedOccIdx = oi;
+		this.mobilePanel = 'detail';
 		window.requestAnimationFrame(() => this.refresh());
 	}
 
@@ -757,8 +893,9 @@ export class CorrectionModal extends Modal {
 		this.occStates = newStates;
 
 		this.config.onIgnoredWordAdded?.([stem]);
+		new Notice('고유명사 사전에 추가되었습니다.');
 
-		if (this.occurrences.length === 0) { new Notice('모든 오류를 처리했습니다.'); this.close(); return; }
+		if (this.occurrences.length === 0) { this.close(); return; }
 
 		this.focusedOccIdx = focusedIsRemoved
 			? Math.min(oi, this.occurrences.length - 1)
@@ -797,7 +934,8 @@ export class CorrectionModal extends Modal {
 			const val = input.value.trim();
 			if (!val) return;
 			this.closeEditPopup();
-			this.applyState(oi, 'user-edited', val);
+			if (this.isMobileLayout) this.applyMobileChoice(oi, 'user-edited', val);
+			else this.applyState(oi, 'user-edited', val);
 		};
 		this.editConfirmFn = confirm;
 		btnRow.createDiv({ cls: 'wm-spell-edit-confirm', text: '적용' }).addEventListener('click', confirm);
@@ -914,6 +1052,15 @@ export class CorrectionModal extends Modal {
 		const from = editor.offsetToPos(fromOffset);
 		const to = editor.offsetToPos(toOffset);
 		editor.scrollIntoView({ from, to }, true);
+		window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+			const editorView = this.getMobileEditorView();
+			const coords = editorView?.coordsAtPos(fromOffset);
+			if (!editorView || !coords) return;
+			const viewport = editorView.scrollDOM.getBoundingClientRect();
+			const desiredTop = viewport.top + viewport.height * 0.32;
+			const delta = coords.top - desiredTop;
+			if (Math.abs(delta) > 4) editorView.scrollDOM.scrollBy({ top: delta, behavior: 'smooth' });
+		}));
 	}
 
 	private moveFocus(delta: number) {
