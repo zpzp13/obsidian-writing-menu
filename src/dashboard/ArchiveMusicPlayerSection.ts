@@ -99,7 +99,7 @@ export class ArchiveMusicPlayerSection {
 			if (startX === null) return;
 			dragX = event.clientX - startX;
 			if (Math.abs(dragX) < 8) return;
-			shell.style.transform = `translateX(${dragX * .35}px)`;
+			shell.setCssStyles({ transform: `translateX(${dragX * .35}px)` });
 		});
 		const finishSwipe = () => {
 			if (startX === null) return;
@@ -107,7 +107,7 @@ export class ArchiveMusicPlayerSection {
 			else if (dragX < -54) player.next();
 			startX = null;
 			dragX = 0;
-			shell.style.transform = '';
+			shell.setCssStyles({ transform: '' });
 		};
 		shell.addEventListener('pointerup', finishSwipe);
 		shell.addEventListener('pointercancel', finishSwipe);

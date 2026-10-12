@@ -42,8 +42,7 @@ export class MobilePreviewFloating {
 	open() {
 		if (this.isOpen()) return;
 
-		const el = activeDocument.createElement('div') as HTMLElement;
-		el.className = 'wm-float-preview';
+		const el = activeDocument.body.createDiv({ cls: 'wm-float-preview' });
 		this.posX = Math.max(20, window.innerWidth - 340);
 		this.posY = 40;
 		el.setCssStyles({ left: `${this.posX}px` });
@@ -99,7 +98,6 @@ export class MobilePreviewFloating {
 		setIcon(nextBtn, 'chevron-right');
 		nextBtn.onclick = (e) => { e.stopPropagation(); this.navigateNote(1); };
 
-		activeDocument.body.appendChild(el);
 		this.floatEl = el;
 
 		// Drag from anywhere — threshold-based to preserve button clicks
@@ -192,10 +190,8 @@ export class MobilePreviewFloating {
 		const existing = activeDocument.querySelector('.wm-preview-dropdown');
 		if (existing) { existing.remove(); return; }
 
-		const dropdown = activeDocument.createElement('div') as HTMLElement;
-		dropdown.className = 'wm-preview-dropdown writing-menu-dropdown';
+		const dropdown = activeDocument.body.createDiv({ cls: 'wm-preview-dropdown writing-menu-dropdown' });
 		dropdown.addClass('wm-measure-offscreen');
-		activeDocument.body.appendChild(dropdown);
 
 		this.buildPreviewSettingsMenu(dropdown);
 

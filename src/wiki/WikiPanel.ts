@@ -183,9 +183,8 @@ export class WikiPanel {
 
 		// scrollArea를 detached 상태로 빌드 → 완성 후 replaceWith로 단번 교체
 		// 빈 상태(깜빡임) 없이 old content → new content 원자적 전환
-		const doc = outerContainer.ownerDocument;
-		const scrollArea = doc.createElement('div') as HTMLElement;
-		scrollArea.className = 'wiki-scroll-area';
+		const scrollArea = outerContainer.createDiv({ cls: 'wiki-scroll-area' });
+		scrollArea.detach();
 
 		const infoRow = scrollArea.createDiv({ cls: 'wiki-info-row' });
 		const body = scrollArea.createDiv({ cls: 'obsiwiki-rendered-body' });

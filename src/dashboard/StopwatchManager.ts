@@ -206,20 +206,19 @@ export class StopwatchManager {
 		const RADIUS = 63;
 		const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 		const timerWrap = container.createDiv('wm-popup-timer-wrap');
-		const svgNS = 'http://www.w3.org/2000/svg';
-		const svg = activeDocument.createElementNS(svgNS, 'svg');
-		svg.setAttribute('viewBox', '0 0 156 156');
-		svg.setAttribute('class', 'wm-popup-circle');
-		const track = activeDocument.createElementNS(svgNS, 'circle');
-		track.setAttribute('cx', '78'); track.setAttribute('cy', '78'); track.setAttribute('r', String(RADIUS));
-		track.setAttribute('class', 'wm-popup-circle-track');
-		const circleFill = activeDocument.createElementNS(svgNS, 'circle');
-		circleFill.setAttribute('cx', '78'); circleFill.setAttribute('cy', '78'); circleFill.setAttribute('r', String(RADIUS));
-		circleFill.setAttribute('class', 'wm-popup-circle-fill');
+		const svg = timerWrap.createSvg('svg', {
+			cls: 'wm-popup-circle',
+			attr: { viewBox: '0 0 156 156' },
+		});
+		svg.createSvg('circle', {
+			cls: 'wm-popup-circle-track',
+			attr: { cx: 78, cy: 78, r: RADIUS },
+		});
+		const circleFill = svg.createSvg('circle', {
+			cls: 'wm-popup-circle-fill',
+			attr: { cx: 78, cy: 78, r: RADIUS },
+		});
 		circleFill.setCssStyles({ strokeDasharray: String(CIRCUMFERENCE), strokeDashoffset: String(CIRCUMFERENCE) });
-		svg.appendChild(track);
-		svg.appendChild(circleFill);
-		timerWrap.appendChild(svg);
 
 		const swTimeEl = timerWrap.createEl('span', { text: this.plugin.formatTime(this.plugin.stopwatchSeconds), cls: 'wm-popup-timer-big' });
 		if (this.plugin.stopwatchInterval) swTimeEl.addClass('is-running');

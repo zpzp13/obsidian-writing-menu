@@ -17,9 +17,7 @@ export class StatusBarManager {
 		const existing = activeDocument.querySelector('.wm-status-popup');
 		if (existing) { existing.remove(); return; }
 
-		const popup = activeDocument.createElement('div');
-		popup.className = 'wm-status-popup';
-		activeDocument.body.appendChild(popup);
+		const popup = activeDocument.body.createDiv({ cls: 'wm-status-popup' });
 
 		const rect = anchor.getBoundingClientRect();
 		popup.setCssStyles({ left: `${rect.left}px` });
