@@ -11,7 +11,7 @@ if you want to view the source, please visit the github repository of this plugi
 
 const prod = (process.argv[2] === 'production');
 
-const context = await esbuild.context({
+const mainContext = await esbuild.context({
 	banner: {
 		js: banner,
 	},
@@ -42,9 +42,24 @@ const context = await esbuild.context({
 	outfile: 'main.js',
 });
 
+const workerContext = await esbuild.context({
+	entryPoints: ['src/repetition/garuWorker.ts'],
+	bundle: true,
+	platform: 'browser',
+	format: 'iife',
+	target: 'chrome100',
+	logLevel: 'info',
+	// 바이트를 직접 전달하므로 wasm-bindgen의 URL 폴백(import.meta.url)은 실행되지 않는다.
+	logOverride: { 'empty-import-meta': 'silent' },
+	sourcemap: prod ? false : 'inline',
+	treeShaking: true,
+	outfile: 'garu-worker.js',
+});
+
 if (prod) {
-	await context.rebuild();
+	await Promise.all([mainContext.rebuild(), workerContext.rebuild()]);
+	await Promise.all([mainContext.dispose(), workerContext.dispose()]);
 	process.exit(0);
 } else {
-	await context.watch();
+	await Promise.all([mainContext.watch(), workerContext.watch()]);
 }

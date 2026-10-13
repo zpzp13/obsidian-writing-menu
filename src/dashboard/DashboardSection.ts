@@ -3,6 +3,7 @@ import type WritingMenuPlugin from '../../main';
 import { WritingTimeSection } from './WritingTimeSection';
 import { ArchiveMusicPlayerSection } from './ArchiveMusicPlayerSection';
 import { TimerStopwatchWidget } from './TimerStopwatchWidget';
+import { DeadlineTimerWidget } from './DeadlineTimerWidget';
 import type { DailyCharStore } from './data/DailyCharStore';
 import type { DashSectionConfig } from '../types';
 import { MUNPIA_SVG, NOVELPIA_SVG } from '../assets/platformLogos';
@@ -20,9 +21,10 @@ export class DashboardSection {
 		const wrap = container.createDiv({ cls: 'wm-dash' });
 
 		const cfg = sections ?? plugin.settings.dashboardSections ?? [
-			{ id: 'chars',  label: '글자수',   visible: true },
-			{ id: 'time',   label: '작업시간', visible: true },
-			{ id: 'tasks',  label: '할 일',    visible: true },
+			{ id: 'timer', label: '타이머',   visible: true },
+			{ id: 'chars', label: '글자수',   visible: true },
+			{ id: 'time',  label: '작업시간', visible: true },
+			{ id: 'music', label: '음악',     visible: true },
 		];
 
 		for (const sec of cfg) {
@@ -40,6 +42,7 @@ export class DashboardSection {
 		} else if (id === 'timer') {
 			const slot = container.createDiv({ cls: 'wm-dash-clock-slot' });
 			TimerStopwatchWidget.render(slot, plugin);
+			DeadlineTimerWidget.render(slot, plugin);
 		} else if (id === 'time') {
 			const slot = container.createDiv({ cls: 'wm-dash-group-item' });
 			WritingTimeSection.render(slot, plugin).catch(() => {});
@@ -114,6 +117,7 @@ export class DashboardSection {
 
 		let charRefreshTimer = 0;
 		let summaryRefreshTimer = 0;
+		let disposed = false;
 		const scheduleSummaryRefresh = (delay = 800) => {
 			window.clearTimeout(summaryRefreshTimer);
 			summaryRefreshTimer = window.setTimeout(() => updateSummary(Number(selectedRange)), delay);
@@ -136,26 +140,25 @@ export class DashboardSection {
 		};
 		const scheduleCharRefresh = () => {
 			window.clearTimeout(charRefreshTimer);
-			charRefreshTimer = window.setTimeout(() => {
-				refreshChars();
-				scheduleSummaryRefresh();
-			}, 300);
+			charRefreshTimer = window.setTimeout(refreshChars, 300);
 		};
 		const refreshForLeafChange = () => {
 			window.clearTimeout(charRefreshTimer);
 			refreshChars();
-			updateSummary(Number(selectedRange));
 		};
 
 		refreshChars();
-		updateSummary(Number(selectedRange));
+		void store.whenReady().then(() => {
+			if (!disposed) updateSummary(Number(selectedRange));
+		});
 
 		const editorHandler = plugin.app.workspace.on('editor-change', scheduleCharRefresh);
 		const leafHandler   = plugin.app.workspace.on('active-leaf-change', refreshForLeafChange);
-		// computeAvg 완료 직후에도 갱신
+		// 완료된 날짜의 기록이 실제로 바뀐 경우에만 기간 통계를 갱신한다.
 		store.onAvgUpdated = () => scheduleSummaryRefresh(100);
 
 		watchDisconnect(root, () => {
+			disposed = true;
 			window.clearTimeout(charRefreshTimer);
 			window.clearTimeout(summaryRefreshTimer);
 			rangeResizeObserver.disconnect();
@@ -205,13 +208,30 @@ export class DashboardSection {
 		const heroViz = hero.createDiv({ cls: 'wm-dash-char-viz wm-dash-char-rv' });
 		const vizKicker = heroViz.createDiv({ cls: 'wm-dash-char-viz-kicker' });
 		vizKicker.createSpan({ cls: 'wm-dash-char-viz-marker' });
-		const vizLabel = vizKicker.createSpan({ text: '최근 30일 증가' });
+		const vizLabel = vizKicker.createSpan({ text: '글자수 추이' });
 		const vizNum = heroViz.createDiv({ cls: 'wm-dash-char-viz-num', text: '0' });
-		const vizDelta = heroViz.createDiv({ cls: 'wm-dash-char-viz-delta', text: '—' });
+		const vizDelta = heroViz.createEl('p', { cls: 'wm-dash-char-hero-line wm-dash-char-average-line wm-dash-char-viz-delta' });
+		vizDelta.appendText('직전 동일 기간 대비 ');
+		const vizDeltaValue = vizDelta.createEl('b', { text: '—' });
 		const sparkHost = heroViz.createDiv({ cls: 'wm-dash-char-spark-host' });
 		window.requestAnimationFrame(() => heroViz.addClass('is-in'));
 
-		const noteCard = hero.createDiv({ cls: 'wm-dash-note-card' });
+		const detailStats = hero.createDiv({ cls: 'wm-dash-char-details wm-dash-char-rv' });
+		const yearCard = detailStats.createDiv({ cls: 'wm-dash-char-year-card' });
+		const yearCalendar = yearCard.createDiv({ cls: 'wm-dash-char-year-calendar' });
+		const yearSummary = yearCard.createDiv({ cls: 'wm-dash-char-year-summary' });
+		const frequencyGauge = yearSummary.createDiv({
+			cls: 'wm-dash-char-frequency-gauge',
+			attr: { role: 'img', 'aria-label': '집필 빈도 0%' },
+		});
+		const frequencyGaugeValue = frequencyGauge.createSpan({ text: '0' });
+		const recordSummary = yearSummary.createDiv({ cls: 'wm-dash-char-year-record' });
+		const recordValue = recordSummary.createDiv({ cls: 'wm-dash-char-year-value', text: '0자 · —' });
+		recordSummary.createDiv({ cls: 'wm-dash-char-year-label', text: '최고 기록' });
+		window.requestAnimationFrame(() => detailStats.addClass('is-in'));
+
+		const leftDetails = hero.createDiv({ cls: 'wm-dash-char-left-details' });
+		const noteCard = leftDetails.createDiv({ cls: 'wm-dash-note-card wm-dash-char-platform-card' });
 		const noteLine = noteCard.createDiv({ cls: 'wm-dash-note-card-title' });
 		const noteIcon = noteLine.createSpan({ cls: 'wm-dash-note-card-icon', attr: { 'aria-label': '현재 노트' } });
 		setIcon(noteIcon, 'file-text');
@@ -227,7 +247,7 @@ export class DashboardSection {
 			numEls.set(plat, row.createDiv({ cls: 'wm-dash-note-platform-count', text: '—' }));
 		}
 
-		const goal = hero.createDiv({ cls: 'wm-dash-char-goal' });
+		const goal = leftDetails.createDiv({ cls: 'wm-dash-char-goal' });
 		const goalHead = goal.createDiv({ cls: 'wm-dash-char-goal-head' });
 		const goalLabel = goalHead.createSpan();
 		const goalRemain = goalHead.createSpan();
@@ -272,36 +292,57 @@ export class DashboardSection {
 		};
 
 		const updateSummary = (days: number) => {
-			const trackingFolder = plugin.settings.trackingFolder ?? '';
-			const today = trackingFolder ? store.getTodayTotalForFolder(trackingFolder) : store.getTodayTotal();
-			if (!summaryHasRendered) {
-				if (this.lastSummaryValue === null) this.setCountValue(heroNum, today);
-				else {
-					heroNum._wmValue = this.lastSummaryValue;
-					this.animateCount(heroNum, today, 360);
-				}
-				summaryHasRendered = true;
-			} else {
-				this.animateCount(heroNum, today, 260);
-			}
-			this.lastSummaryValue = today;
-			recentNumEl.textContent = `${today.toLocaleString()}자`;
-			const avg = store.getDailyAverage(days);
 			const series = store.getDailySeries(days);
 			const comparison = store.getDailySeries(days * 2);
 			const previousSeries = comparison.slice(0, days);
 			const periodTotal = series.reduce((sum, value) => sum + value, 0);
 			const previousTotal = previousSeries.reduce((sum, value) => sum + value, 0);
-			vizLabel.textContent = `최근 ${days === 365 ? '1년' : `${days}일`} 증가`;
-			vizNum.textContent = `${periodTotal > 0 ? '+' : ''}${periodTotal.toLocaleString()}`;
-			vizDelta.removeClass('is-up', 'is-down');
+			const recentDay = series[series.length - 1] ?? 0;
+			const avg = series.length > 0 ? Math.round(periodTotal / series.length) : 0;
+			const today = new Date();
+			const elapsedYearDays = Math.round((
+				Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
+				- Date.UTC(today.getFullYear(), 0, 1)
+			) / 86_400_000);
+			const yearSeries = elapsedYearDays > 0 ? store.getDailySeries(elapsedYearDays) : [];
+			const best = yearSeries.length > 0 ? Math.max(...yearSeries) : 0;
+			const writingDays = yearSeries.filter((value) => value > 0).length;
+			const frequencyRate = yearSeries.length > 0 ? Math.round((writingDays / yearSeries.length) * 100) : 0;
+			const bestIndex = best > 0 ? yearSeries.lastIndexOf(best) : -1;
+			if (bestIndex >= 0) {
+				const bestDate = new Date();
+				bestDate.setHours(0, 0, 0, 0);
+				bestDate.setDate(bestDate.getDate() - yearSeries.length + bestIndex);
+				recordValue.textContent = `${best.toLocaleString()}자 · ${bestDate.getMonth() + 1}월 ${bestDate.getDate()}일`;
+			} else {
+				recordValue.textContent = '0자 · —';
+			}
+			frequencyGaugeValue.textContent = String(writingDays);
+			frequencyGauge.setAttribute('aria-label', `올해 ${yearSeries.length}일 중 ${writingDays}일 집필, ${frequencyRate}%`);
+			frequencyGauge.style.setProperty('--wm-frequency-angle', `${frequencyRate * 3.6}deg`);
+			this.renderWritingYearCalendar(yearCalendar, yearSeries);
+			if (!summaryHasRendered) {
+				if (this.lastSummaryValue === null) this.setCountValue(heroNum, periodTotal);
+				else {
+					heroNum._wmValue = this.lastSummaryValue;
+					this.animateCount(heroNum, periodTotal, 360);
+				}
+				summaryHasRendered = true;
+			} else {
+				this.animateCount(heroNum, periodTotal, 260);
+			}
+			this.lastSummaryValue = periodTotal;
+			recentNumEl.textContent = `${recentDay.toLocaleString()}자`;
+			vizLabel.textContent = '글자수 추이';
+			vizNum.textContent = `일평균 ${avg.toLocaleString()}자`;
+			vizDeltaValue.removeClass('is-up', 'is-down');
 			if (previousTotal <= 0) {
-				vizDelta.textContent = '—';
+				vizDeltaValue.textContent = '—';
 			} else {
 				const periodDelta = Math.round(((periodTotal - previousTotal) / previousTotal) * 100);
-				if (periodDelta > 0) vizDelta.addClass('is-up');
-				else if (periodDelta < 0) vizDelta.addClass('is-down');
-				vizDelta.textContent = periodDelta === 0
+				if (periodDelta > 0) vizDeltaValue.addClass('is-up');
+				else if (periodDelta < 0) vizDeltaValue.addClass('is-down');
+				vizDeltaValue.textContent = periodDelta === 0
 					? '± 0%'
 					: `${periodDelta > 0 ? '▲' : '▼'} ${Math.abs(periodDelta)}%`;
 			}
@@ -311,7 +352,7 @@ export class DashboardSection {
 				avgDiffEl.textContent = '—';
 				deltaEl.textContent = '';
 			} else {
-				const difference = today - avg;
+				const difference = recentDay - avg;
 				const delta = Math.round((difference / avg) * 100);
 				avgDiffEl.textContent = difference === 0
 					? '± 0자'
@@ -328,7 +369,13 @@ export class DashboardSection {
 	/** Pulse의 pp-tile에서 사용하는 선형 sparkline. */
 	private static renderCharSpark(parent: HTMLElement, values: number[]): void {
 		parent.empty();
+		parent.removeAttribute('role');
+		parent.removeAttribute('aria-label');
 		if (values.length < 2) return;
+		parent.setAttrs({
+			role: 'img',
+			'aria-label': `최근 ${values.length}일 글자수 그래프`,
+		});
 		const max = Math.max(...values);
 		const min = Math.min(...values);
 		const span = max - min || 1;
@@ -342,8 +389,7 @@ export class DashboardSection {
 			attr: {
 				viewBox: '0 0 100 30',
 				preserveAspectRatio: 'none',
-				role: 'img',
-				'aria-label': `최근 ${values.length}일 글자수 그래프`,
+				'aria-hidden': 'true',
 			},
 		});
 		svg.createSvg('path', {
@@ -352,6 +398,64 @@ export class DashboardSection {
 				d: path,
 				'vector-effect': 'non-scaling-stroke',
 			},
+		});
+	}
+
+	private static renderWritingYearCalendar(parent: HTMLElement, values: number[]): void {
+		parent.empty();
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+		const year = today.getFullYear();
+		const yearStart = new Date(year, 0, 1);
+		const valuesByDate = new Map<string, number>();
+		const formatKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+		for (let index = 0; index < values.length; index += 1) {
+			const date = new Date(yearStart);
+			date.setDate(date.getDate() + index);
+			valuesByDate.set(formatKey(date), values[index] ?? 0);
+		}
+
+		const max = values.length > 0 ? Math.max(...values) : 0;
+		parent.setAttrs({ role: 'img', 'aria-label': `${year}년 일별 집필 기록` });
+		const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+		for (let month = 0; month < 12; month += 1) {
+			const monthBlock = parent.createDiv({ cls: 'wm-dash-char-year-month' });
+			monthBlock.dataset.month = String(month);
+			monthBlock.createDiv({ cls: 'wm-dash-char-year-month-label', text: monthLabels[month] });
+			const daysGrid = monthBlock.createDiv({ cls: 'wm-dash-char-year-days', attr: { 'aria-hidden': 'true' } });
+			const firstDay = new Date(year, month, 1).getDay();
+			const daysInMonth = new Date(year, month + 1, 0).getDate();
+			for (let blank = 0; blank < firstDay; blank += 1) {
+				daysGrid.createSpan({ cls: 'wm-dash-char-year-day is-blank' });
+			}
+			for (let day = 1; day <= daysInMonth; day += 1) {
+				const date = new Date(year, month, day);
+				const value = valuesByDate.get(formatKey(date)) ?? 0;
+				const dot = daysGrid.createSpan({ cls: 'wm-dash-char-year-day' });
+				if (date >= today) {
+					dot.addClass(date.getTime() === today.getTime() ? 'is-today' : 'is-future');
+					continue;
+				}
+				if (value <= 0 || max <= 0) {
+					dot.addClass('is-empty');
+					dot.setAttribute('title', `${month + 1}월 ${day}일 · 기록 없음`);
+					continue;
+				}
+				const level = Math.max(1, Math.min(4, Math.ceil(Math.sqrt(value / max) * 4)));
+				dot.addClass('is-written');
+				dot.addClass(`is-level-${level}`);
+				dot.setAttribute('title', `${month + 1}월 ${day}일 · ${value.toLocaleString()}자`);
+			}
+			const occupied = firstDay + daysInMonth;
+			for (let blank = occupied; blank < 42; blank += 1) {
+				daysGrid.createSpan({ cls: 'wm-dash-char-year-day is-blank' });
+			}
+		}
+		window.requestAnimationFrame(() => {
+			const currentMonth = parent.querySelector<HTMLElement>(`[data-month="${today.getMonth()}"]`);
+			if (!currentMonth || parent.clientWidth <= 0) return;
+			const centeredLeft = currentMonth.offsetLeft - (parent.clientWidth - currentMonth.offsetWidth) / 2;
+			parent.scrollLeft = Math.max(0, centeredLeft);
 		});
 	}
 

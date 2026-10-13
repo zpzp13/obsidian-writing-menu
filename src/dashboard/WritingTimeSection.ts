@@ -289,7 +289,7 @@ export class WritingTimeSection {
 					cls: 'wm-wt-mode-selected-check',
 					attr: { 'aria-hidden': 'true' },
 				});
-				setIcon(selectedCheck, 'circle-check');
+				setIcon(selectedCheck, 'star');
 
 				const chipWrap = modeCard.createDiv({ cls: 'wm-wt-mc-chip-wrap' });
 				const iconEl   = chipWrap.createSpan({ cls: 'wm-wt-mc-chip-icon' });

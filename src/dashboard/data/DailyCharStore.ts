@@ -33,6 +33,7 @@ export class DailyCharStore {
 	private _avgCharCount = 0;
 	private dailyHistory = new Map<string, number>();
 	private ready = false;
+	private readyWaiters = new Set<() => void>();
 	onAvgUpdated?: () => void;
 
 	constructor(private plugin: WritingMenuPlugin) {}
@@ -57,6 +58,18 @@ export class DailyCharStore {
 
 		await this.computeAvg();
 		this.ready = true;
+		for (const resolve of this.readyWaiters) resolve();
+		this.readyWaiters.clear();
+	}
+
+	whenReady(): Promise<void> {
+		if (this.ready) return Promise.resolve();
+		return new Promise(resolve => this.readyWaiters.add(resolve));
+	}
+
+	/** 앱 최초 실행 시 메타데이터 캐시 해석이 끝난 뒤 일별 기록을 다시 읽는다. */
+	async refreshDailyHistory(): Promise<void> {
+		await this.computeAvg();
 	}
 
 	async reinitSnapshot() {
@@ -88,6 +101,8 @@ export class DailyCharStore {
 		window.clearTimeout(this.avgTimer);
 		for (const timer of this.modifyTimers.values()) window.clearTimeout(timer);
 		this.modifyTimers.clear();
+		for (const resolve of this.readyWaiters) resolve();
+		this.readyWaiters.clear();
 		void this.save();
 		void this.writeTodayCharCount();
 	}
@@ -114,14 +129,16 @@ export class DailyCharStore {
 						if (!(file.path in this.storage.today!.start))
 							this.storage.today!.start[file.path] = count;
 						this.scheduleSave();
-						this.onAvgUpdated?.();
 					} catch { /* intentional */ }
 				})();
 			}, 3000));
 		}
 
-		const { folder } = getDnConfig(this.plugin);
-		if (!folder || file.path.startsWith(normalizePath(folder) + '/')) {
+		const { folder, format } = getDnConfig(this.plugin);
+		const dailyFolder = normalizePath(folder || '/').replace(/^\/+|\/+$/g, '');
+		const parentPath = normalizePath(file.parent?.path ?? '/').replace(/^\/+|\/+$/g, '');
+		const isDailyNote = parentPath === dailyFolder && moment(file.basename, format, true).isValid();
+		if (isDailyNote) {
 			this.scheduleAvgRecompute();
 		}
 	}
@@ -150,7 +167,7 @@ export class DailyCharStore {
 		return total;
 	}
 
-	/** 선택 기간의 달력 일평균. 오늘을 포함하고, 기록이 없는 날은 0자로 계산한다. */
+	/** 선택 기간의 완료된 날짜 기준 일평균. 오늘은 제외하고, 기록이 없는 날은 0자로 계산한다. */
 	getDailyAverage(days?: number): number {
 		if (days && days > 0) {
 			const values = this.getDailySeries(days);
@@ -161,22 +178,17 @@ export class DailyCharStore {
 		return this._avgCharCount;
 	}
 
-	/** 선택 기간의 날짜별 작성량. 오래된 날짜부터 오늘 순서로 반환한다. */
+	/** 선택 기간의 날짜별 작성량. 오늘을 제외하고, 오래된 날짜부터 어제 순서로 반환한다. */
 	getDailySeries(days: number): number[] {
 		const period = Math.max(1, Math.floor(days));
-		const trackingFolder = this.plugin.settings.trackingFolder ?? '';
-		const todayTotal = trackingFolder
-			? this.getTodayTotalForFolder(trackingFolder)
-			: this.getTodayTotal();
-		const todayKey = this.todayStr();
 		const cursor = new Date();
 		cursor.setHours(0, 0, 0, 0);
-		cursor.setDate(cursor.getDate() - (period - 1));
+		cursor.setDate(cursor.getDate() - period);
 
 		const values: number[] = [];
 		for (let index = 0; index < period; index += 1) {
 			const dateKey = formatDateKey(cursor);
-			values.push(dateKey === todayKey ? todayTotal : Math.max(0, this.dailyHistory.get(dateKey) ?? 0));
+			values.push(Math.max(0, this.dailyHistory.get(dateKey) ?? 0));
 			cursor.setDate(cursor.getDate() + 1);
 		}
 		return values;
@@ -224,6 +236,7 @@ export class DailyCharStore {
 		const todayPath  = normalizePath(folder ? `${folder}/${todayName}.md` : `${todayName}.md`);
 		const dailyFolder = normalizePath(folder || '/').replace(/^\/+|\/+$/g, '');
 		const values: number[] = [];
+		const previousHistory = new Map(this.dailyHistory);
 		this.dailyHistory.clear();
 
 		for (const file of this.plugin.app.vault.getMarkdownFiles()) {
@@ -241,17 +254,12 @@ export class DailyCharStore {
 			}
 		}
 
-		// 오늘 라이브 집계 추가 (아직 데일리노트에 쓰이기 전)
-		const trackingFolder = this.plugin.settings.trackingFolder ?? '';
-		const todayNet = trackingFolder
-			? this.getTodayTotalForFolder(trackingFolder)
-			: this.getTodayTotal();
-		if (todayNet > 0) values.push(todayNet);
-
 		this._avgCharCount = values.length > 0
 			? Math.round(values.reduce((a, b) => a + b, 0) / values.length)
 			: 0;
-		this.onAvgUpdated?.();
+		const historyChanged = previousHistory.size !== this.dailyHistory.size
+			|| [...this.dailyHistory].some(([date, value]) => previousHistory.get(date) !== value);
+		if (historyChanged) this.onAvgUpdated?.();
 	}
 
 	private scheduleAvgRecompute() {

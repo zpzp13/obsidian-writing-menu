@@ -95,18 +95,6 @@ export class MusicLibraryView extends ItemView {
 			void this.plugin.musicPlayer?.loadPlaylist().then(() => this.renderList());
 		});
 
-		const search = content.createDiv({ cls: 'wm-music-library-search' });
-		setIcon(search.createSpan(), 'search');
-		const input = search.createEl('input', {
-			type: 'search',
-			attr: { placeholder: 'Search library', 'aria-label': '음악 검색' },
-		});
-		input.value = this.query;
-		input.addEventListener('input', () => {
-			this.query = input.value.trim().toLocaleLowerCase();
-			this.renderList();
-		});
-
 		const nowPlaying = content.createDiv({ cls: 'wm-music-library-now-playing' });
 		this.renderAudioControls(nowPlaying);
 		this.updateModeControls();
@@ -186,6 +174,18 @@ export class MusicLibraryView extends ItemView {
 		this.repeatButton.addEventListener('click', () => player.setMode(player.mode === 'single' ? 'loop' : 'single'));
 		this.favoriteButton.addEventListener('click', () => {
 			if (player.currentTrack) void player.toggleFavorite(player.currentTrack);
+		});
+
+		const search = body.createDiv({ cls: 'wm-music-library-search' });
+		setIcon(search.createSpan(), 'search');
+		const input = search.createEl('input', {
+			type: 'search',
+			attr: { placeholder: 'Search library', 'aria-label': '음악 검색' },
+		});
+		input.value = this.query;
+		input.addEventListener('input', () => {
+			this.query = input.value.trim().toLocaleLowerCase();
+			this.renderList();
 		});
 
 		const waveform = body.createDiv({

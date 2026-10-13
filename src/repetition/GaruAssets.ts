@@ -24,12 +24,14 @@ function getAssetDir(plugin: WritingMenuPlugin): string {
 	return joinPath(pluginDir, 'garu-assets');
 }
 
-export function getAssetPaths(plugin: WritingMenuPlugin): { wasmPath: string; modelPath: string; versionPath: string } {
+export function getAssetPaths(plugin: WritingMenuPlugin): { wasmPath: string; modelPath: string; versionPath: string; workerPath: string } {
+	const pluginDir = joinPath(getVaultBasePath(plugin), plugin.manifest.dir || '');
 	const dir = getAssetDir(plugin);
 	return {
 		wasmPath: joinPath(dir, 'garu_wasm_bg.wasm'),
 		modelPath: joinPath(dir, 'base.gmdl'),
 		versionPath: joinPath(dir, 'version.txt'),
+		workerPath: joinPath(pluginDir, 'garu-worker.js'),
 	};
 }
 

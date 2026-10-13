@@ -27,6 +27,10 @@ import { getSmartEnterExtension, getSmartQuoteExtension, getTypewriterExtension,
 import { repetitionHighlightExtension } from './src/editor/repetitionHighlight';
 import { spellcheckHighlightExtension } from './src/editor/spellcheckHighlight';
 
+interface WritingMenuRuntimeWindow extends Window {
+	__writingMenuPluginInstance?: WritingMenuPlugin;
+}
+
 export default class WritingMenuPlugin extends Plugin {
 	settings: WritingMenuSettings;
 	mobilePreviewFloating: MobilePreviewFloating;
@@ -67,24 +71,52 @@ export default class WritingMenuPlugin extends Plugin {
 	statusBarManager: StatusBarManager;
 
 	async onload() {
+		const runtimeWindow = window as WritingMenuRuntimeWindow;
+		const previousInstance = runtimeWindow.__writingMenuPluginInstance;
+		if (previousInstance && previousInstance !== this) previousInstance.unload();
+		runtimeWindow.__writingMenuPluginInstance = this;
+
+		try {
+			await this.initialize();
+		} catch (error) {
+			if (runtimeWindow.__writingMenuPluginInstance === this) {
+				delete runtimeWindow.__writingMenuPluginInstance;
+			}
+			this.unload();
+			throw error;
+		}
+	}
+
+	private async initialize() {
 		await this.loadSettings();
 
 		this.leafStyleManager = new LeafStyleManager(this);
 		this.toolbarManager = new ToolbarManager(this);
 		this.stopwatchManager = new StopwatchManager(this);
 		this.statusBarManager = new StatusBarManager(this);
+		const staleZenMode = activeDocument.body.classList.contains('wm-focus-mode')
+			|| activeDocument.body.classList.contains('wm-wide-mode')
+			|| activeDocument.body.classList.contains('wm-has-zen-leaf');
+		if (staleZenMode) {
+			this.leafStyleManager.exitZenFocus();
+			if (activeDocument.fullscreenElement) void activeDocument.exitFullscreen().catch(() => {});
+		}
 
 		this.initStopwatch();
 		this.mobilePreviewFloating = new MobilePreviewFloating(this);
 
 		this.charStore = new DailyCharStore(this);
-		this.charStore.init().catch(() => {});
+		let initialMetadataRefreshDone = false;
+		this.registerEvent(this.app.metadataCache.on('resolved', () => {
+			if (initialMetadataRefreshDone) return;
+			initialMetadataRefreshDone = true;
+			void this.charStore.refreshDailyHistory().catch(() => {});
+		}));
 
 		this.musicPlayer = new MusicPlayer(this);
 		this.app.workspace.onLayoutReady(() => {
-			this.musicPlayer?.loadPlaylist()
-				.then(() => this.refreshDashboardView())
-				.catch(() => {});
+			void this.charStore.init().catch(() => {});
+			this.musicPlayer?.loadPlaylist().catch(() => {});
 		});
 		this.registerEvent(this.app.vault.on('modify', file => {
 			if (file instanceof TFile) void this.charStore.onFileModify(file);
@@ -352,9 +384,21 @@ export default class WritingMenuPlugin extends Plugin {
 		});
 
 		this.addCommand({
-			id: 'zen-mode',
-			name: '집중/길게 보기',
-			callback: () => { this.cycleZenMode(); },
+			id: 'zen-wide-mode',
+			name: '길게 보기',
+			callback: () => { this.toggleZenMode('wide'); },
+		});
+
+		this.addCommand({
+			id: 'zen-focus-mode',
+			name: '집중 모드',
+			callback: () => { this.toggleZenMode('focus'); },
+		});
+
+		this.addCommand({
+			id: 'exit-zen-mode',
+			name: '집중/길게 보기 강제 해제',
+			callback: () => { this.applyZenState('off'); },
 		});
 
 		this.addCommand({
@@ -577,6 +621,10 @@ export default class WritingMenuPlugin extends Plugin {
 	}
 
 	onunload(): void {
+		const runtimeWindow = window as WritingMenuRuntimeWindow;
+		if (runtimeWindow.__writingMenuPluginInstance === this) {
+			delete runtimeWindow.__writingMenuPluginInstance;
+		}
 		this.stopwatchManager?.destroy();
 		this.charStore?.destroy();
 		this.musicPlayer?.destroy();
@@ -612,7 +660,7 @@ export default class WritingMenuPlugin extends Plugin {
 			this.app.workspace.offref(this.zenLeafEventRef);
 			this.zenLeafEventRef = null;
 		}
-		this.mobilePreviewFloating.close();
+		this.mobilePreviewFloating?.close();
 	}
 
 	formatTime(seconds: number, showHoursWhenNeeded: boolean = false): string {
@@ -629,8 +677,20 @@ export default class WritingMenuPlugin extends Plugin {
 	async loadSettings() {
 		const savedData = await this.loadData() as Partial<WritingMenuSettings>;
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, savedData);
-		const legacyAiSettings = this.settings as WritingMenuSettings & { aiChatCerebrasApiKey?: string };
+		const legacyAiSettings = this.settings as WritingMenuSettings & {
+			aiChatCerebrasApiKey?: string;
+			zenWideEnabled?: boolean;
+			zenFocusEnabled?: boolean;
+		};
 		let aiSettingsMigrated = false;
+		if (legacyAiSettings.zenWideEnabled !== undefined) {
+			delete legacyAiSettings.zenWideEnabled;
+			aiSettingsMigrated = true;
+		}
+		if (legacyAiSettings.zenFocusEnabled !== undefined) {
+			delete legacyAiSettings.zenFocusEnabled;
+			aiSettingsMigrated = true;
+		}
 		if (legacyAiSettings.aiChatCerebrasApiKey !== undefined) {
 			delete legacyAiSettings.aiChatCerebrasApiKey;
 			aiSettingsMigrated = true;
@@ -707,13 +767,13 @@ export default class WritingMenuPlugin extends Plugin {
 				seen.add(section.id);
 				return true;
 			});
-			const defaults: Array<keyof typeof labels> = ['calendar', 'chars', 'timer', 'time', 'music'];
+			const defaults: Array<keyof typeof labels> = ['calendar', 'timer', 'chars', 'time', 'music'];
 			for (const id of defaults) {
 				if (seen.has(id)) continue;
 				const section = { id, label: labels[id], visible: true };
 				if (id === 'timer') {
-					const charIndex = this.settings.dashboardSections.findIndex(item => item.id === 'chars');
-					this.settings.dashboardSections.splice(charIndex >= 0 ? charIndex + 1 : 0, 0, section);
+					const calendarIndex = this.settings.dashboardSections.findIndex(item => item.id === 'calendar');
+					this.settings.dashboardSections.splice(calendarIndex >= 0 ? calendarIndex + 1 : 0, 0, section);
 				} else {
 					this.settings.dashboardSections.push(section);
 				}
@@ -729,7 +789,6 @@ export default class WritingMenuPlugin extends Plugin {
 		this.updateAllLeafStyles();
 		this.updateDynamicStyles();
 		this.updateStatusBarDisplay();
-		await this.refreshDashboardView();
 	}
 
 	async refreshDashboardView() {
@@ -758,7 +817,7 @@ export default class WritingMenuPlugin extends Plugin {
 	applyZenState(state: 'off' | 'wide' | 'focus') { this.leafStyleManager.applyZenState(state); }
 	exitZenFocus() { this.leafStyleManager.exitZenFocus(); }
 	activateFocusMode() { this.leafStyleManager.activateFocusMode(); }
-	cycleZenMode() { this.leafStyleManager.cycleZenMode(); }
+	toggleZenMode(mode: 'wide' | 'focus') { this.leafStyleManager.toggleZenMode(mode); }
 	applyZenLeaf(leaf: WorkspaceLeaf) { this.leafStyleManager.applyZenLeaf(leaf); }
 	clearZenLeaf() { this.leafStyleManager.clearZenLeaf(); }
 	addCharCountWithModeSelector(container: HTMLElement, count: number, leaf: WorkspaceLeaf) { this.leafStyleManager.addCharCountWithModeSelector(container, count, leaf); }

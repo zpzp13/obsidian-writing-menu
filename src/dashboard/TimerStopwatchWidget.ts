@@ -21,7 +21,7 @@ export class TimerStopwatchWidget {
 	private static activeMode: ClockMode = 'stopwatch';
 
 	static render(container: HTMLElement, plugin: WritingMenuPlugin): void {
-		const widget = container.createDiv({ cls: 'wm-dash-clock-widget wm-dash-note-card is-stopwatch' });
+		const widget = container.createDiv({ cls: 'wm-dash-clock-widget wm-dash-note-card' });
 		const stage = widget.createDiv({ cls: 'wm-dash-clock-stage' });
 
 		const dial = stage.createDiv({ cls: 'wm-dash-clock-dial' });
@@ -127,7 +127,6 @@ export class TimerStopwatchWidget {
 				: 1 - Math.min(1, Math.max(0, totalSeconds / targetSeconds));
 
 			widget.toggleClass('is-timer', isTimer);
-			widget.toggleClass('is-stopwatch', !isTimer);
 			const formattedTime = isTimer
 				? this.formatTimerTime(totalSeconds)
 				: plugin.formatTime(totalSeconds, true);

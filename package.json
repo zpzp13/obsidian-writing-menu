@@ -28,6 +28,7 @@
 		"@types/node": "^16.11.6",
 		"better-result": "^2.10.0",
 		"diff-match-patch": "^1.0.5",
+		"force-graph": "^1.52.0",
 		"ical.js": "^2.2.1",
 		"moment": "^2.30.1"
 	}

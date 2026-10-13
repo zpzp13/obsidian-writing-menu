@@ -1,4 +1,4 @@
-import { Setting } from 'obsidian';
+import { Notice, Setting } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 
 function groupTitle(el: HTMLElement, text: string) {
@@ -11,12 +11,6 @@ function groupBox(el: HTMLElement): HTMLElement {
 export function renderWikiSettingsPage(containerEl: HTMLElement, plugin: WritingMenuPlugin, rerender: () => void) {
 	groupTitle(containerEl, '기본');
 	const basicBox = groupBox(containerEl);
-
-	new Setting(basicBox)
-		.setName('노트 선택 시 카드 목록 접기')
-		.setDesc('검색창에서 노트를 선택했을 때 카드 스트립을 접힌 상태로 시작합니다')
-		.addToggle(t => t.setValue(plugin.settings.wikiStripCollapsedDefault ?? false)
-			.onChange(async v => { plugin.settings.wikiStripCollapsedDefault = v; await plugin.saveSettings(); }));
 
 	new Setting(basicBox)
 		.setName('헤더 자동 숨김')
@@ -43,7 +37,21 @@ export function renderWikiSettingsPage(containerEl: HTMLElement, plugin: Writing
 		.setName('관계 필드')
 		.addTextArea(t => t.setValue(plugin.settings.wikiRelationFields || '')
 			.onChange(async v => { plugin.settings.wikiRelationFields = v; await plugin.saveSettings(); }));
-	propBox.createDiv({ cls: 'wm-settings-item-desc', text: '프론트매터와 링크를 활용해 해당 노트의 관계성을 시각화해줍니다. 소설 집필의 예로 들면, \'대적자\'를 관계 필드로 등록하면 해당 프론트매터에 링크된 노트를 시각적으로 배열해줍니다.' });
+	propBox.createDiv({
+		cls: 'wm-settings-item-desc',
+		text: '프론트매터의 순수 위키링크를 사용해 관계를 시각화합니다. 관계 필드명이 그래프의 관계명과 색상 분류로 사용됩니다.',
+	});
+
+	new Setting(propBox)
+		.setName('그래프 분류 필드')
+		.setDesc('그래프의 분류 메뉴에서 강조할 프론트매터 키입니다. 비워두면 태그를 사용합니다.')
+		.addText(t => t
+			.setPlaceholder('예: 소속')
+			.setValue(plugin.settings.wikiDefaultGroupField === 'None' ? '' : plugin.settings.wikiDefaultGroupField)
+			.onChange(async value => {
+				plugin.settings.wikiDefaultGroupField = value.trim() || 'None';
+				await plugin.saveSettings();
+			}));
 
 	new Setting(propBox)
 		.setName('숨길 속성')
@@ -57,6 +65,81 @@ export function renderWikiSettingsPage(containerEl: HTMLElement, plugin: Writing
 
 	groupTitle(containerEl, '스타일');
 	const styleBox = groupBox(containerEl);
+	const notifyGraphStyleChange = () => {
+		const EventConstructor = containerEl.ownerDocument.defaultView?.Event;
+		if (EventConstructor) containerEl.ownerDocument.dispatchEvent(new EventConstructor('writing-menu-wiki-graph-style-change'));
+	};
+	styleBox.createDiv({
+		cls: 'wm-settings-item-desc',
+		text: '프론트매터 관계 키를 직접 입력해 관계명 색상을 지정합니다. 지정하지 않은 관계명은 테마 기본 색상을 사용합니다.',
+	});
+	for (const [storedKey, storedColor] of Object.entries(plugin.settings.wikiGraphRelationLabelColors ?? {})) {
+		let currentKey = storedKey;
+		new Setting(styleBox)
+			.setName('관계명 색상')
+			.addText(text => text
+				.setPlaceholder('프론트매터 키')
+				.setValue(storedKey)
+				.onChange(async value => {
+					const nextKey = value.trim();
+					if (!nextKey || nextKey === currentKey) return;
+					const colors = { ...(plugin.settings.wikiGraphRelationLabelColors ?? {}) };
+					const color = colors[currentKey] ?? storedColor;
+					delete colors[currentKey];
+					colors[nextKey] = color;
+					currentKey = nextKey;
+					plugin.settings.wikiGraphRelationLabelColors = colors;
+					await plugin.saveSettings();
+					notifyGraphStyleChange();
+				}))
+			.addColorPicker(picker => picker
+				.setValue(storedColor)
+				.onChange(async value => {
+					plugin.settings.wikiGraphRelationLabelColors = {
+						...(plugin.settings.wikiGraphRelationLabelColors ?? {}),
+						[currentKey]: value,
+					};
+					await plugin.saveSettings();
+					notifyGraphStyleChange();
+				}))
+			.addExtraButton(button => button
+				.setIcon('trash-2')
+				.setTooltip('색상 설정 삭제')
+				.onClick(async () => {
+					const colors = { ...(plugin.settings.wikiGraphRelationLabelColors ?? {}) };
+					delete colors[currentKey];
+					plugin.settings.wikiGraphRelationLabelColors = colors;
+					await plugin.saveSettings();
+					notifyGraphStyleChange();
+					rerender();
+				}));
+	}
+
+	let draftKey = '';
+	let draftColor = '#888888';
+	new Setting(styleBox)
+		.setName('관계명 색상 추가')
+		.addText(text => text
+			.setPlaceholder('프론트매터 키')
+			.onChange(value => { draftKey = value.trim(); }))
+		.addColorPicker(picker => picker
+			.setValue(draftColor)
+			.onChange(value => { draftColor = value; }))
+		.addButton(button => button
+			.setButtonText('추가')
+			.onClick(async () => {
+				if (!draftKey) {
+					new Notice('프론트매터 키를 입력하세요.');
+					return;
+				}
+				plugin.settings.wikiGraphRelationLabelColors = {
+					...(plugin.settings.wikiGraphRelationLabelColors ?? {}),
+					[draftKey]: draftColor,
+				};
+				await plugin.saveSettings();
+				notifyGraphStyleChange();
+				rerender();
+			}));
 
 	new Setting(styleBox)
 		.setName('프로필 제목 폰트 크기')

@@ -19,12 +19,15 @@ const PRIORITY_RANK: Record<string, number> = {
 
 function sortTasks(items: ParsedTask[], sort: AgendaSort): ParsedTask[] {
 	return [...items].sort((a, b) => {
+		// 정렬 방식과 무관하게 완료 항목은 항상 미완료 항목 아래에 둔다.
+		const completionOrder = Number(Boolean(a.completed)) - Number(Boolean(b.completed));
+		if (completionOrder !== 0) return completionOrder;
 		if (sort === 'priority') {
 			return (PRIORITY_RANK[b.tasksMeta?.priority ?? ''] ?? 0)
 				- (PRIORITY_RANK[a.tasksMeta?.priority ?? ''] ?? 0);
 		}
 		if (sort === 'title') return a.text.localeCompare(b.text, 'ko');
-		return Number(Boolean(a.completed)) - Number(Boolean(b.completed));
+		return 0;
 	});
 }
 

@@ -3,6 +3,7 @@ node_modules
 
 # build
 main.js
+garu-worker.js
 *.js.map
 
 # obsidian

@@ -16,6 +16,18 @@ export const EMOJI_TO_PRIORITY: Record<string, string> = {
 	'🔽': '낮음', '🔼': '보통', '🔺': '높음', '⏫': '최고', '⏬': '최저',
 };
 
+function formatTaskDate(date: Date): string {
+	const year = date.getFullYear();
+	const month = String(date.getMonth() + 1).padStart(2, '0');
+	const day = String(date.getDate()).padStart(2, '0');
+	return `${year}년 ${month}월 ${day}일`;
+}
+
+function formatTaskDateKey(dateKey: string): string {
+	const match = dateKey.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+	return match ? `${match[1]}년 ${match[2]}월 ${match[3]}일` : dateKey;
+}
+
 export function openPopupAutoClose(popup: HTMLElement) {
 	const doc = popup.ownerDocument;
 	window.setTimeout(() => {
@@ -100,23 +112,22 @@ export function renderTaskItem(
 	const metaRow  = main.createDiv({ cls: 'wm-task-item-meta' });
 	const metaLeft = metaRow.createDiv({ cls: 'wm-task-item-meta-left' });
 
-	const d = task.sourceDate;
-	const catCls = task.category === 'overdue'  ? ' is-overdue'
-	             : task.category === 'today'    ? ' is-today'
-	             : task.category === 'upcoming' ? ' is-upcoming' : '';
-	const dateEl = metaLeft.createDiv({ cls: 'wm-task-item-date' + catCls });
-	const dateIconEl = dateEl.createSpan({ cls: 'wm-task-item-date-icon' });
-	setIcon(dateIconEl, 'calendar');
-	dateEl.createSpan({ text: `${d.getMonth() + 1}월 ${d.getDate()}일` });
+	if (!task.completed) {
+		const d = task.sourceDate;
+		const catCls = task.category === 'overdue'  ? ' is-overdue'
+		             : task.category === 'today'    ? ' is-today'
+		             : task.category === 'upcoming' ? ' is-upcoming' : '';
+		const dateEl = metaLeft.createDiv({ cls: 'wm-task-item-date' + catCls });
+		const dateIconEl = dateEl.createSpan({ cls: 'wm-task-item-date-icon' });
+		setIcon(dateIconEl, 'calendar');
+		dateEl.createSpan({ text: formatTaskDate(d) });
+	}
 
 	if (task.completedDate) {
-		const [, month, day] = task.completedDate.match(/^(\d{4})-(\d{2})-(\d{2})$/) ?? [];
 		const completedEl = metaLeft.createDiv({ cls: 'wm-task-item-completed-date' });
 		const completedIconEl = completedEl.createSpan({ cls: 'wm-task-item-completed-date-icon' });
-		setIcon(completedIconEl, 'circle-check');
-		completedEl.createSpan({
-			text: month && day ? `${Number(month)}월 ${Number(day)}일` : task.completedDate,
-		});
+		setIcon(completedIconEl, 'check');
+		completedEl.createSpan({ text: formatTaskDateKey(task.completedDate) });
 	}
 
 	for (const tag of task.tags ?? []) {

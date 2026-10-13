@@ -49,10 +49,25 @@ export function classifyTokens(tokens: MorphToken[], originalText: string, opts:
 	const eomiMap = new Map<string, Occurrence[]>();
 	const eojeolMap = new Map<string, Occurrence[]>();
 	const seenSpans = new Set<string>();
+	const spanSearchOffsets = new Map<string, number>();
 
 	for (const t of tokens) {
 		if (isContentWord(t.pos) && t.text.length >= 2) {
-			pushOccurrence(wordMap, t.text, { start: t.start, end: t.start + t.text.length, pos: t.pos });
+			// garu의 start/end는 형태소 자체가 아니라 형태소가 속한 어절 범위다. 복합어에서는
+			// 여러 토큰이 같은 start를 공유하므로 원문 어절 안에서 실제 표면형 위치를 다시 찾는다.
+			const spanKey = `${t.start}:${t.end}`;
+			const surface = originalText.slice(t.start, t.end);
+			const searchFrom = spanSearchOffsets.get(spanKey) ?? 0;
+			let relativeStart = surface.indexOf(t.text, searchFrom);
+			if (relativeStart < 0) relativeStart = surface.indexOf(t.text);
+			if (relativeStart < 0) relativeStart = 0;
+			spanSearchOffsets.set(spanKey, relativeStart + t.text.length);
+			const start = t.start + relativeStart;
+			pushOccurrence(wordMap, t.text, {
+				start,
+				end: Math.min(t.end, start + t.text.length),
+				pos: t.pos,
+			});
 		}
 		if (t.pos === 'EF' && t.text.length >= 1) {
 			// 어미 반복은 어절 전체(t.start~t.end)에 음영을 둔다 — 어미 자체는 어절 안 일부일 뿐
