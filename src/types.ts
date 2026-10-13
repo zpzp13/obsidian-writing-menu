@@ -35,6 +35,13 @@ export interface TimeModeConfig {
 	goalSeconds: number;
 }
 
+export interface DeadlineSchedule {
+	/** JavaScript 요일 값 (0: 일요일, 1: 월요일, ... 6: 토요일) */
+	weekdays: number[];
+	/** 현지 시각, 24시간제 HH:mm */
+	time: string;
+}
+
 export interface WritingMenuSettings {
 	fontFamily: string;
 	customFonts: string[];
@@ -59,8 +66,6 @@ export interface WritingMenuSettings {
 	enableFocusMode: boolean;
 	focusOpacity: number;
 	enableTypewriterScrolling: boolean;
-	zenWideEnabled: boolean;
-	zenFocusEnabled: boolean;
 	enableSmartQuotes: boolean;
 	symbolTriggers: SymbolTrigger[];
 	enableSmartEnter: boolean;
@@ -110,6 +115,7 @@ export interface WritingMenuSettings {
 	timeAvgFolderLevel: number;
 	timeExcludeFolders?: string[];
 	timeCardPalette?: 'accent' | 'solid' | 'pastel' | 'mono';
+	deadlineSchedule: DeadlineSchedule;
 	// 마이그레이션용 (deprecated)
 	timeKeys?: { draft: string; writing: string; editing: string; total: string };
 	timeGoals?: { draft: number; writing: number; editing: number };
@@ -146,6 +152,10 @@ export interface WritingMenuSettings {
 	wikiStripCollapsedDefault: boolean;
 	wikiLastFilePath: string;
 	wikiLastFolderPath: string;
+	wikiGraphRootFolderPath: string;
+	wikiGraphNodeDistance: number;
+	wikiGraphRelationLabelColors: Record<string, string>;
+	wikiGraphRelationVisibilityScale: number;
 	wikiToolbarAutoHide: boolean;
 	calendarPreviewItems: {
 		tasks: boolean;
@@ -238,8 +248,6 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	enableFocusMode: false,
 	focusOpacity: 0.25,
 	enableTypewriterScrolling: false,
-	zenWideEnabled: true,
-	zenFocusEnabled: true,
 	enableSmartQuotes: false,
 	symbolTriggers: [
 		{
@@ -325,10 +333,11 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	timeTotalKey: '총_시간',
 	timeAvgFolderLevel: 0,
 	timeExcludeFolders: [],
+	deadlineSchedule: { weekdays: [], time: '10:00' },
 	dashboardSections: [
 		{ id: 'calendar', label: '일정',     visible: true },
-		{ id: 'chars',   label: '글자수',   visible: true },
 		{ id: 'timer',   label: '타이머',   visible: true },
+		{ id: 'chars',   label: '글자수',   visible: true },
 		{ id: 'time',    label: '작업시간', visible: true },
 		{ id: 'music',   label: '음악',     visible: true },
 	],
@@ -362,6 +371,10 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	wikiStripCollapsedDefault: false,
 	wikiLastFilePath: '',
 	wikiLastFolderPath: '',
+	wikiGraphRootFolderPath: '',
+	wikiGraphNodeDistance: 1.25,
+	wikiGraphRelationLabelColors: {},
+	wikiGraphRelationVisibilityScale: 0.72,
 	wikiToolbarAutoHide: false,
 	calendarPreviewItems: {
 		tasks: true,

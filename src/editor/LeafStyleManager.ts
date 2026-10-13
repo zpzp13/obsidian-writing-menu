@@ -204,37 +204,33 @@ export class LeafStyleManager {
 		this.plugin.zenState = state;
 
 		if (state === 'off') {
+			// 전체화면 이벤트를 기다리지 않고 먼저 UI를 복원한다. Electron/브라우저가
+			// fullscreenchange를 누락해도 탭이 숨겨진 채 남지 않아야 한다.
+			this.exitZenFocus();
 			if (prevState === 'focus' && activeDocument.fullscreenElement) {
-				activeDocument.exitFullscreen().catch(() => this.exitZenFocus());
-			} else {
-				this.exitZenFocus();
+				void activeDocument.exitFullscreen().catch(() => {});
 			}
 			return;
 		}
 
 		if (state === 'wide') {
-			if (prevState === 'focus') {
-				activeDocument.body.classList.remove('wm-focus-mode');
-				this.clearZenLeaf();
-				if (this.plugin.zenLeafEventRef) { this.plugin.app.workspace.offref(this.plugin.zenLeafEventRef); this.plugin.zenLeafEventRef = null; }
-				if (activeDocument.fullscreenElement) activeDocument.exitFullscreen().catch(() => {});
-			}
+			activeDocument.body.classList.remove('wm-focus-mode');
+			this.clearZenLeaf();
+			if (this.plugin.zenLeafEventRef) { this.plugin.app.workspace.offref(this.plugin.zenLeafEventRef); this.plugin.zenLeafEventRef = null; }
+			if (prevState === 'focus' && activeDocument.fullscreenElement) void activeDocument.exitFullscreen().catch(() => {});
 			activeDocument.body.classList.add('wm-wide-mode');
 			return;
 		}
 
-		if (activeDocument.fullscreenElement) {
-			activeDocument.body.classList.remove('wm-wide-mode');
-			this.activateFocusMode();
-		} else {
-			activeDocument.documentElement.requestFullscreen().catch(() => {
-				this.plugin.zenState = 'off';
-				activeDocument.body.classList.remove('wm-wide-mode');
-			});
+		// 집중 UI는 전체화면 성공 여부와 무관하게 즉시 적용한다. 전체화면은 부가 효과다.
+		this.activateFocusMode();
+		if (!activeDocument.fullscreenElement) {
+			void activeDocument.documentElement.requestFullscreen().catch(() => {});
 		}
 	}
 
 	exitZenFocus() {
+		this.plugin.zenState = 'off';
 		activeDocument.body.classList.remove('wm-focus-mode', 'wm-wide-mode');
 		this.clearZenLeaf();
 		if (this.plugin.zenLeafEventRef) {
@@ -258,20 +254,12 @@ export class LeafStyleManager {
 		}
 	}
 
-	cycleZenMode() {
-		const wideOn = this.plugin.settings.zenWideEnabled;
-		const focusOn = this.plugin.settings.zenFocusEnabled;
-		if (!wideOn && !focusOn) return;
-
-		if (wideOn && focusOn) {
-			if (this.plugin.zenState === 'off') this.applyZenState('wide');
-			else if (this.plugin.zenState === 'wide') this.applyZenState('focus');
-			else this.applyZenState('off');
-		} else if (wideOn) {
-			this.applyZenState(this.plugin.zenState === 'off' ? 'wide' : 'off');
-		} else {
-			this.applyZenState(this.plugin.zenState === 'off' ? 'focus' : 'off');
-		}
+	toggleZenMode(mode: 'wide' | 'focus') {
+		const body = activeDocument.body;
+		const focusActive = this.plugin.zenState === 'focus' || body.classList.contains('wm-focus-mode');
+		const wideActive = this.plugin.zenState === 'wide' || body.classList.contains('wm-wide-mode');
+		const requestedModeActive = mode === 'focus' ? focusActive : wideActive;
+		this.applyZenState(requestedModeActive ? 'off' : mode);
 	}
 
 	applyZenLeaf(leaf: WorkspaceLeaf) {

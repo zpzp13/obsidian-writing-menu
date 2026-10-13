@@ -1,12 +1,93 @@
-import { Component, MarkdownRenderer, Notice, TFile, TFolder, setIcon, sanitizeHTMLToDom, App } from 'obsidian';
+import { Component, MarkdownRenderer, Menu, Notice, TFile, TFolder, setIcon, sanitizeHTMLToDom, App, type WorkspaceLeaf } from 'obsidian';
+import ForceGraph, { type GraphData, type LinkObject, type NodeObject } from 'force-graph';
+import type WritingMenuPlugin from '../../main';
+import { getToneColor } from './WikiTypes';
+import { FolderOrNoteSuggestModal, FolderSuggestModal, NoteSuggestModal, ImageSuggestModal, GenerateImageModal } from './WikiModals';
+import { getWikiImgSrc, getWikiDisplayName, saveGeneratedProfileImage, applyProfileImage } from './wikiProfileUtils';
 
 interface AppWithSettings extends App {
 	setting?: { open(): void; openTabById(id: string): void };
 }
-import type WritingMenuPlugin from '../../main';
-import { getToneColor } from './WikiTypes';
-import { FolderOrNoteSuggestModal, ImageSuggestModal, GenerateImageModal } from './WikiModals';
-import { getWikiImgSrc, getWikiDisplayName, saveGeneratedProfileImage, applyProfileImage } from './wikiProfileUtils';
+
+interface WikiSearchEntry {
+	file: TFile;
+	displayName: string;
+	foldedName: string;
+	aliases: string[];
+	foldedAliases: string[];
+	tags: string[];
+	foldedTags: string[];
+	properties: Array<{ key: string; value: string; foldedKey: string; foldedValue: string }>;
+	searchText: string;
+}
+
+interface WikiGraphRelationLabel {
+	key: string;
+	text: string;
+	fromPath: string;
+	toPath: string;
+}
+
+interface WikiGraphConnection {
+	from: TFile;
+	to: TFile;
+	labels: WikiGraphRelationLabel[];
+}
+
+interface WikiGraphModel {
+	files: TFile[];
+	connections: WikiGraphConnection[];
+	depthByPath: Map<string, number>;
+}
+
+interface WikiGraphTeam {
+	path: string;
+	name: string;
+	depth: number;
+}
+
+interface WikiForceNode extends NodeObject {
+	id: string;
+	filePath: string;
+	name: string;
+	color: string;
+	root: boolean;
+	teamPath: string;
+	teamName: string;
+	teamTrail: WikiGraphTeam[];
+	imageSrc: string;
+	image?: HTMLImageElement;
+	dimmed?: boolean;
+	selected?: boolean;
+}
+
+interface WikiForceLink extends LinkObject<WikiForceNode> {
+	id: string;
+	source: string | WikiForceNode;
+	target: string | WikiForceNode;
+	labels: WikiGraphRelationLabel[];
+	bidirectional: boolean;
+	dashed: boolean;
+	dimmed?: boolean;
+}
+
+interface WikiTeamForce {
+	(alpha: number): void;
+	initialize(nodes: WikiForceNode[]): void;
+}
+
+interface WikiGraphRelationLayout {
+	labels: WikiGraphRelationLabel[];
+	labelWidths: number[];
+	separatorWidth: number;
+	iconWidth: number;
+	iconGap: number;
+	totalWidth: number;
+	x: number;
+	y: number;
+	angle: number;
+	visualDirection: number;
+}
 
 
 export class WikiPanel {
@@ -14,40 +95,88 @@ export class WikiPanel {
 	private hostComponent: Component;
 	currentFile: TFile | null = null;
 	targetFolder: TFolder | null = null;
-	private stripMode: 'folder' | 'relation' = 'folder';
-	private relationSource: TFile | null = null;
 	private renderSeq = 0;
-	private stripGen = 0; // render()마다 증가 — commit()은 건드리지 않음
 	private container: HTMLElement | null = null;
 	private eventsRegistered = false;
 	private rerenderTimer = 0;
-	private stripScrollLeft = -1;
-	private relListScrollTop = 0;
-	private collapsedRelGroups = new Set<string>();
-	private stripCollapsed = false;
+	private graphActive = false;
 	private tocCollapsed = false;
 	private toolbarCollapseTimer = 0;
+	private navigationHistory: string[] = [];
+	private navigationIndex = -1;
+	private historyBackButton: HTMLButtonElement | null = null;
+	private historyForwardButton: HTMLButtonElement | null = null;
+	private relationshipGraph: ForceGraph<WikiForceNode, WikiForceLink> | null = null;
+	private graphResizeObserver: ResizeObserver | null = null;
+	private graphThemeObserver: MutationObserver | null = null;
+	private graphStyleCleanup: (() => void) | null = null;
+	private graphRootFolder: TFolder | null = null;
+	private graphSearchQuery = '';
+	private graphSelectedNodePath = '';
+	private graphZoomScale = 1;
+	private graphSettingTimer = 0;
+	private graphRelationPopover: HTMLElement | null = null;
+	private graphRelationPopoverCleanup: (() => void) | null = null;
+	private graphMetadataRerenderSuppressedUntil = new Map<string, number>();
+	private toolbarPathElement: HTMLElement | null = null;
+	private graphRelationRefreshSeq = 0;
 
 	constructor(plugin: WritingMenuPlugin, hostComponent: Component) {
 		this.plugin = plugin;
 		this.hostComponent = hostComponent;
+		this.hostComponent.register(() => this.destroy());
 
 		if (plugin.settings.wikiLastFolderPath) {
 			const f = plugin.app.vault.getAbstractFileByPath(plugin.settings.wikiLastFolderPath);
 			if (f instanceof TFolder) this.targetFolder = f;
 		}
+		if (plugin.settings.wikiGraphRootFolderPath) {
+			const folder = plugin.app.vault.getAbstractFileByPath(plugin.settings.wikiGraphRootFolderPath);
+			if (folder instanceof TFolder) this.graphRootFolder = folder;
+		}
 		if (plugin.settings.wikiLastFilePath) {
 			const f = plugin.app.vault.getAbstractFileByPath(plugin.settings.wikiLastFilePath);
-			if (f instanceof TFile) this.currentFile = f;
+			if (f instanceof TFile) {
+				this.currentFile = f;
+				this.navigationHistory = [f.path];
+				this.navigationIndex = 0;
+			}
 		}
 	}
 
 	private get app() { return this.plugin.app; }
 
+	suspend(): void {
+		this.destroyRelationshipGraph();
+	}
+
+	private destroy(): void {
+		window.clearTimeout(this.rerenderTimer);
+		window.clearTimeout(this.toolbarCollapseTimer);
+		window.clearTimeout(this.graphSettingTimer);
+		this.graphMetadataRerenderSuppressedUntil.clear();
+		this.destroyRelationshipGraph();
+	}
+
+	private destroyRelationshipGraph(): void {
+		this.graphRelationRefreshSeq++;
+		this.closeGraphRelationPopover();
+		this.graphResizeObserver?.disconnect();
+		this.graphResizeObserver = null;
+		this.graphThemeObserver?.disconnect();
+		this.graphThemeObserver = null;
+		this.graphStyleCleanup?.();
+		this.graphStyleCleanup = null;
+		this.graphZoomScale = 1;
+		this.relationshipGraph?._destructor();
+		this.relationshipGraph = null;
+	}
+
 	async saveState() {
 		this.plugin.settings.wikiLastFilePath = this.currentFile?.path || '';
 		this.plugin.settings.wikiLastFolderPath = this.targetFolder?.path || '';
-		await this.plugin.saveSettings();
+		this.plugin.settings.wikiGraphRootFolderPath = this.graphRootFolder?.path || '';
+		await this.plugin.saveData(this.plugin.settings);
 	}
 
 	rerender() {
@@ -55,9 +184,9 @@ export class WikiPanel {
 	}
 
 	openFile(file: TFile) {
+		this.recordNavigation(file);
 		this.currentFile = file;
 		this.targetFolder = file.parent ?? this.targetFolder;
-		this.stripScrollLeft = -1; // 스크롤 위치 리셋 → 선택 파일 중앙으로
 		this.rerender();
 	}
 
@@ -66,18 +195,104 @@ export class WikiPanel {
 			if (item instanceof TFolder) {
 				this.targetFolder = item;
 				this.currentFile = null;
-				this.stripMode = 'folder';
-				this.stripCollapsed = false;
 			} else {
+				this.recordNavigation(item);
 				this.currentFile = item;
 				this.targetFolder = item.parent ?? this.targetFolder;
-				this.relationSource = item;
-				this.stripMode = 'relation';
-				this.stripCollapsed = this.plugin.settings.wikiStripCollapsedDefault ?? false;
 			}
 			void this.saveState();
 			this.rerender();
 		}).open();
+	}
+
+	private openGraphRootPicker(): void {
+		new FolderSuggestModal(this.app, (folder) => {
+			this.graphRootFolder = folder;
+			void this.saveState();
+			this.rerender();
+		}).open();
+	}
+
+	private renderBreadcrumb(container: HTMLElement, path: string, placeholder: string): void {
+		if (!path) {
+			container.createSpan({ cls: 'wiki-bc-placeholder', text: placeholder });
+			return;
+		}
+		path.split('/').forEach((part, index) => {
+			if (index > 0) container.createSpan({ cls: 'wiki-bc-sep', text: ' / ' });
+			container.createSpan({ cls: 'wiki-bc-seg', text: part });
+		});
+	}
+
+	private updateToolbarPath(file: TFile | null): void {
+		if (!this.toolbarPathElement) return;
+		this.toolbarPathElement.empty();
+		this.renderBreadcrumb(
+			this.toolbarPathElement,
+			file?.path.replace(/\.md$/, '') ?? '',
+			'노트를 선택하십시오',
+		);
+	}
+
+	private recordNavigation(file: TFile): void {
+		if (this.navigationHistory[this.navigationIndex] === file.path) return;
+		this.navigationHistory = this.navigationHistory.slice(0, this.navigationIndex + 1);
+		this.navigationHistory.push(file.path);
+		if (this.navigationHistory.length > 100) this.navigationHistory.shift();
+		this.navigationIndex = this.navigationHistory.length - 1;
+		this.updateHistoryButtons();
+	}
+
+	private navigateHistory(direction: -1 | 1): void {
+		let nextIndex = this.navigationIndex + direction;
+		while (nextIndex >= 0 && nextIndex < this.navigationHistory.length) {
+			const target = this.app.vault.getAbstractFileByPath(this.navigationHistory[nextIndex]);
+			if (target instanceof TFile) {
+				this.navigationIndex = nextIndex;
+				this.currentFile = target;
+				this.targetFolder = target.parent ?? this.targetFolder;
+				this.updateHistoryButtons();
+				void this.saveState();
+				this.rerender();
+				return;
+			}
+			nextIndex += direction;
+		}
+		this.updateHistoryButtons();
+	}
+
+	private updateHistoryButtons(): void {
+		const canGoBack = this.navigationIndex > 0;
+		const canGoForward = this.navigationIndex >= 0
+			&& this.navigationIndex < this.navigationHistory.length - 1;
+		if (this.historyBackButton) {
+			this.historyBackButton.disabled = !canGoBack;
+			this.historyBackButton.toggleClass('wiki-btn-disabled', !canGoBack);
+		}
+		if (this.historyForwardButton) {
+			this.historyForwardButton.disabled = !canGoForward;
+			this.historyForwardButton.toggleClass('wiki-btn-disabled', !canGoForward);
+		}
+	}
+
+	private navigateToWikiFile(file: TFile): void {
+		this.recordNavigation(file);
+		this.currentFile = file;
+		this.targetFolder = file.parent ?? this.targetFolder;
+		void this.saveState();
+		this.rerender();
+	}
+
+	private openLinkInWiki(href: string, sourcePath: string, event: MouseEvent): boolean {
+		if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return false;
+		const linkPath = href.split('#', 1)[0];
+		if (!linkPath) return false;
+		const target = this.app.metadataCache.getFirstLinkpathDest(linkPath, sourcePath);
+		if (!(target instanceof TFile)) return false;
+		event.preventDefault();
+		event.stopPropagation();
+		this.navigateToWikiFile(target);
+		return true;
 	}
 
 	private scheduleRerender() {
@@ -85,31 +300,38 @@ export class WikiPanel {
 		this.rerenderTimer = window.window.setTimeout(() => this.rerender(), 350);
 	}
 
+	private isHostLeafActive(): boolean {
+		const hostLeaf = (this.hostComponent as Component & { leaf?: WorkspaceLeaf }).leaf;
+		return !hostLeaf || this.app.workspace.getMostRecentLeaf() === hostLeaf;
+	}
+
 	private registerEvents() {
 		if (this.eventsRegistered) return;
 		this.eventsRegistered = true;
 		this.hostComponent.registerEvent(
 			this.app.metadataCache.on('changed', (changedFile) => {
-				// 현재 폴더 또는 현재 파일에 관련된 변경만 rerender
-				const fp = this.targetFolder?.path;
-				if (!fp && changedFile.path !== this.currentFile?.path) return;
-				if (fp) {
-					const inFolder = this.plugin.settings.wikiIncludeSubfolders
-						? changedFile.path.startsWith(fp + '/') || changedFile.parent?.path === fp
-						: changedFile.parent?.path === fp;
-					if (!inFolder && changedFile.path !== this.currentFile?.path) return;
-				}
+				// 그래프는 현재 배치/줌/선택 상태를 보존해야 하므로 볼트 변경으로 전체 재생성하지 않는다.
+				// 프로필도 대시보드가 실제 활성 리프일 때 현재 노트가 바뀐 경우에만 갱신한다.
+				if (this.graphActive || !this.isHostLeafActive() || changedFile.path !== this.currentFile?.path) return;
+				const suppressedUntil = this.graphMetadataRerenderSuppressedUntil.get(changedFile.path) ?? 0;
+				if (suppressedUntil > Date.now()) return;
+				if (suppressedUntil) this.graphMetadataRerenderSuppressedUntil.delete(changedFile.path);
 				this.scheduleRerender();
 			})
 		);
 		this.hostComponent.registerEvent(
-			this.app.vault.on('create', () => this.scheduleRerender())
+			this.app.vault.on('delete', (file) => {
+				if (this.graphActive || !this.isHostLeafActive() || file !== this.currentFile) return;
+				this.currentFile = null;
+				this.scheduleRerender();
+			})
 		);
 		this.hostComponent.registerEvent(
-			this.app.vault.on('delete', () => this.scheduleRerender())
-		);
-		this.hostComponent.registerEvent(
-			this.app.vault.on('rename', () => this.scheduleRerender())
+			this.app.vault.on('rename', (file) => {
+				if (this.graphActive || !this.isHostLeafActive() || file !== this.currentFile) return;
+				void this.saveState();
+				this.scheduleRerender();
+			})
 		);
 	}
 
@@ -118,7 +340,7 @@ export class WikiPanel {
 		const fp = this.targetFolder.path;
 		return this.app.vault.getMarkdownFiles()
 			.filter(f => this.plugin.settings.wikiIncludeSubfolders
-				? f.path.startsWith(fp + '/') || f.parent?.path === fp
+				? fp === '' || f.path.startsWith(fp + '/') || f.parent?.path === fp
 				: f.parent?.path === fp)
 			.filter(f => f.name !== '_wiki.md')
 			.sort((a, b) => a.basename.localeCompare(b.basename, 'ko', { sensitivity: 'base', numeric: true }));
@@ -139,6 +361,7 @@ export class WikiPanel {
 		this.renderSeq++;
 		const mySeq = this.renderSeq;
 		this.container = outerContainer;
+		this.destroyRelationshipGraph();
 		outerContainer.empty();
 
 		let wikiColor = this.plugin.settings.wikiColor || '#7025db';
@@ -147,9 +370,11 @@ export class WikiPanel {
 			if (typeof cfm?.['wikiColor'] === 'string') wikiColor = cfm['wikiColor'];
 		}
 		outerContainer.setCssProps({ '--wiki-accent-color': wikiColor, '--wiki-accent-text': getToneColor(wikiColor), '--wiki-profile-header-size': `${this.plugin.settings.wikiProfileHeaderSize ?? 18}px`, '--wiki-profile-key-size': `${this.plugin.settings.wikiProfileKeySize ?? 13}px` });
-		this.stripGen++; // strip 세대 증가 — 이전 strip의 stale 콜백 차단용
 		this.renderToolbar(outerContainer);
-		this.renderCardStrip(outerContainer);
+		if (this.graphActive) {
+			await this.renderRelationshipGraph(outerContainer, mySeq);
+			return;
+		}
 
 		if (!this.targetFolder || this.renderSeq !== mySeq) return;
 
@@ -228,10 +453,8 @@ export class WikiPanel {
 		body.addEventListener('click', (e) => {
 			const link = (e.target as HTMLElement).closest('a.internal-link, a[data-href]');
 			if (!link || !this.currentFile) return;
-			e.preventDefault();
-			e.stopPropagation();
 			const href = link.getAttribute('data-href') || link.getAttribute('href');
-			if (href) void this.app.workspace.openLinkText(href, this.currentFile.path, true);
+			if (href && this.openLinkInWiki(href, this.currentFile.path, e)) return;
 		}, true);
 
 		const headers = body.querySelectorAll('h1, h2, h3, h4, h5, h6');
@@ -292,48 +515,30 @@ export class WikiPanel {
 		}
 		const bar = wrap.createDiv({ cls: 'wiki-toolbar' });
 
-		// 카드 목록 접기/펼치기 (맨 좌측)
-		const collapseBtn = bar.createDiv({
-			cls: 'wm-cal-icon-btn wiki-strip-collapse-btn',
-			attr: { 'aria-label': this.stripCollapsed ? '카드 목록 펼치기' : '카드 목록 접기' },
+		this.historyBackButton = bar.createEl('button', {
+			cls: 'wm-cal-icon-btn wiki-history-btn',
+			attr: { type: 'button', 'aria-label': '이전 위키 노트' },
 		});
-		setIcon(collapseBtn, this.stripCollapsed ? 'chevron-right' : 'chevron-down');
-		collapseBtn.onclick = () => {
-			this.stripCollapsed = !this.stripCollapsed;
-			setIcon(collapseBtn, this.stripCollapsed ? 'chevron-right' : 'chevron-down');
-			collapseBtn.setAttribute('aria-label', this.stripCollapsed ? '카드 목록 펼치기' : '카드 목록 접기');
-			const stripEl = outerContainer.querySelector('.wiki-card-strip-wrap, .wiki-rel-list-wrap');
-			if (stripEl) stripEl.classList.toggle('is-collapsed', this.stripCollapsed);
-		};
+		setIcon(this.historyBackButton, 'chevron-left');
+		this.historyBackButton.addEventListener('click', () => this.navigateHistory(-1));
 
-		// 경로 영역 (경로 텍스트, 클릭 시 picker)
+		this.historyForwardButton = bar.createEl('button', {
+			cls: 'wm-cal-icon-btn wiki-history-btn',
+			attr: { type: 'button', 'aria-label': '다음 위키 노트' },
+		});
+		setIcon(this.historyForwardButton, 'chevron-right');
+		this.historyForwardButton.addEventListener('click', () => this.navigateHistory(1));
+		this.updateHistoryButtons();
+
+		// 현재 위키 노트 전용 경로. 폴더 범위는 그래프의 경로 메뉴에서만 다룬다.
 		const left = bar.createDiv({ cls: 'wiki-toolbar-left' });
-		const bcPath = (this.stripMode === 'relation' && this.relationSource)
-			? this.relationSource.path.replace(/\.md$/, '')
-			: this.targetFolder?.path;
 		const pathSpan = left.createSpan({ cls: 'wiki-bc-path' });
-		if (bcPath) {
-			bcPath.split('/').forEach((part, i) => {
-				if (i > 0) pathSpan.createSpan({ cls: 'wiki-bc-sep', text: ' / ' });
-				pathSpan.createSpan({ cls: 'wiki-bc-seg', text: part });
-			});
-		} else {
-			pathSpan.createSpan({ cls: 'wiki-bc-placeholder', text: '폴더·노트 선택...' });
-		}
-		left.addEventListener('click', () => {
-			new FolderOrNoteSuggestModal(this.app, (item) => {
-				if (item instanceof TFolder) {
-					this.targetFolder = item;
-					this.currentFile = null;
-					this.stripMode = 'folder';
-				} else {
-					this.currentFile = item;
-					this.targetFolder = item.parent ?? this.targetFolder;
-					this.relationSource = item;
-					this.stripMode = 'relation';
-				}
-				void this.saveState();
-				this.rerender();
+		this.toolbarPathElement = pathSpan;
+		this.renderBreadcrumb(pathSpan, this.currentFile?.path.replace(/\.md$/, '') ?? '', '노트를 선택하십시오');
+		pathSpan.addEventListener('click', () => {
+			new NoteSuggestModal(this.app, (file) => {
+				this.graphActive = false;
+				this.navigateToWikiFile(file);
 			}).open();
 		});
 
@@ -343,19 +548,32 @@ export class WikiPanel {
 		// 액션 버튼 (우측)
 		const right = bar.createDiv({ cls: 'wiki-toolbar-right' });
 
-		// 관계 보기 토글
-		const relBtn = right.createDiv({
-			cls: 'wm-cal-icon-btn' + (!this.currentFile ? ' wiki-btn-disabled' : '') + (this.stripMode === 'relation' ? ' is-active' : ''),
-			attr: { 'aria-label': '관계 노트 목록 보기' },
+		const graphBtn = right.createDiv({
+			cls: 'wm-cal-icon-btn' + (this.graphActive ? ' is-active' : ''),
+			attr: { 'aria-label': this.graphActive ? '인물 관계도 닫기' : '인물 관계도' },
 		});
-		setIcon(relBtn, 'list-tree');
-		relBtn.onclick = () => {
-			if (!this.currentFile) return;
-			if (this.stripMode === 'relation') {
-				this.stripMode = 'folder';
-			} else {
-				this.relationSource = this.currentFile;
-				this.stripMode = 'relation';
+		setIcon(graphBtn, 'git-fork');
+		graphBtn.onclick = () => {
+			const nextGraphActive = !this.graphActive;
+			if (!nextGraphActive && this.graphSelectedNodePath) {
+				const selectedFile = this.app.vault.getAbstractFileByPath(this.graphSelectedNodePath);
+				if (selectedFile instanceof TFile) {
+					this.recordNavigation(selectedFile);
+					this.currentFile = selectedFile;
+					this.targetFolder = selectedFile.parent ?? this.targetFolder;
+					void this.saveState();
+				}
+			}
+			this.graphActive = nextGraphActive;
+			this.graphSearchQuery = '';
+			this.graphSelectedNodePath = this.graphActive ? (this.currentFile?.path ?? '') : '';
+			if (this.graphActive && !this.graphRootFolder) {
+				this.graphRootFolder = this.targetFolder ?? this.currentFile?.parent ?? null;
+				if (!this.graphRootFolder) {
+					this.openGraphRootPicker();
+					return;
+				}
+				void this.saveState();
 			}
 			this.rerender();
 		};
@@ -396,315 +614,1849 @@ export class WikiPanel {
 		};
 	}
 
-	// ── B. 카드 스트립 ─────────────────────────────────────────────────────
+	// ── B. 검색 · 관계 그래프 ──────────────────────────────────────────────
 
-	private renderCardStrip(outerContainer: HTMLElement) {
-		if (this.stripMode === 'relation' && this.relationSource) {
-			this.renderRelationStrip(outerContainer);
-			return;
+	private foldSearchText(value: unknown): string {
+		return String(value ?? '').normalize('NFKC').toLocaleLowerCase('ko-KR').replace(/\s+/g, ' ').trim();
+	}
+
+	private valueToSearchText(value: unknown): string[] {
+		if (value === null || value === undefined) return [];
+		if (Array.isArray(value)) return value.flatMap(item => this.valueToSearchText(item));
+		if (typeof value === 'object') {
+			return Object.values(value as Record<string, unknown>).flatMap(item => this.valueToSearchText(item));
 		}
+		const text = String(value).trim();
+		return text ? [text] : [];
+	}
 
-		if (!this.targetFolder) {
-			const empty = outerContainer.createDiv({ cls: 'wiki-empty-state' });
-			setIcon(empty.createDiv({ cls: 'wiki-empty-icon' }), 'book-open');
-			empty.createDiv({ cls: 'wiki-empty-text', text: '폴더를 선택하세요' });
-			empty.createDiv({ cls: 'wiki-empty-sub', text: '툴바의 › 버튼을 클릭하세요.' });
-			return;
+	private buildSearchIndex(files: TFile[] = this.getFolderFiles()): WikiSearchEntry[] {
+		const hidden = new Set(this.plugin.settings.wikiHiddenProperties || []);
+		const excluded = new Set([
+			this.plugin.settings.wikiImageFieldName,
+			'wikiColor',
+			'position',
+			'cssclasses',
+			...hidden,
+		]);
+		return files.map(file => {
+			const cache = this.app.metadataCache.getFileCache(file);
+			const fm = cache?.frontmatter ?? {};
+			const displayName = this.getDisplayName(file);
+			const aliases = this.valueToSearchText(fm['aliases'] ?? fm['alias']);
+			const tagSet = new Set<string>();
+			for (const tag of this.valueToSearchText(fm['tags'])) {
+				for (const part of tag.split(/[\s,]+/)) {
+					const cleaned = part.replace(/^#/, '').trim();
+					if (cleaned) tagSet.add(cleaned);
+				}
+			}
+			for (const tag of cache?.tags ?? []) {
+				const cleaned = tag.tag.replace(/^#/, '').trim();
+				if (cleaned) tagSet.add(cleaned);
+			}
+			const tags = Array.from(tagSet);
+			const properties: WikiSearchEntry['properties'] = [];
+			for (const [key, value] of Object.entries(fm)) {
+				if (excluded.has(key) || key === 'aliases' || key === 'alias' || key === 'tags') continue;
+				for (const text of this.valueToSearchText(value)) {
+					properties.push({ key, value: text, foldedKey: this.foldSearchText(key), foldedValue: this.foldSearchText(text) });
+				}
+			}
+			const foldedName = this.foldSearchText(displayName);
+			const foldedAliases = aliases.map(value => this.foldSearchText(value));
+			const foldedTags = tags.map(value => this.foldSearchText(value));
+			return {
+				file,
+				displayName,
+				foldedName,
+				aliases,
+				foldedAliases,
+				tags,
+				foldedTags,
+				properties,
+				searchText: [foldedName, ...foldedAliases, ...foldedTags, ...properties.flatMap(property => [property.foldedKey, property.foldedValue])].join('\n'),
+			};
+		});
+	}
+
+	private getRelationFields(): string[] {
+		return (this.plugin.settings.wikiRelationFields || '')
+			.split(',')
+			.map(value => value.trim())
+			.filter(Boolean);
+	}
+
+	private getGraphFiles(): TFile[] {
+		if (!this.graphRootFolder) return [];
+		const rootPath = this.graphRootFolder.path;
+		return this.app.vault.getMarkdownFiles()
+			.filter(file => rootPath === '' || file.path.startsWith(`${rootPath}/`) || file.parent?.path === rootPath)
+			.filter(file => file.name !== '_wiki.md')
+			.sort((a, b) => this.getDisplayName(a).localeCompare(
+				this.getDisplayName(b),
+				'ko',
+				{ sensitivity: 'base', numeric: true },
+			));
+	}
+
+	private getGraphAnchorFile(files: TFile[]): TFile {
+		if (this.currentFile && files.some(file => file.path === this.currentFile?.path)) return this.currentFile;
+		const graphPaths = new Set(files.map(file => file.path));
+		const degree = new Map(files.map(file => [file.path, 0]));
+		for (const from of files) {
+			const frontmatter = this.app.metadataCache.getFileCache(from)?.frontmatter;
+			for (const field of this.getRelationFields()) {
+				for (const { file: to } of this.resolveRelationships(frontmatter?.[field], from.path, field)) {
+					if (to.path === from.path || !graphPaths.has(to.path)) continue;
+					degree.set(from.path, (degree.get(from.path) ?? 0) + 1);
+					degree.set(to.path, (degree.get(to.path) ?? 0) + 1);
+				}
+			}
 		}
+		return [...files].sort((a, b) =>
+			(degree.get(b.path) ?? 0) - (degree.get(a.path) ?? 0)
+			|| this.getDisplayName(a).localeCompare(this.getDisplayName(b), 'ko', { sensitivity: 'base', numeric: true })
+		)[0];
+	}
 
-		const files = this.getFolderFiles();
-		if (files.length === 0) {
-			const empty = outerContainer.createDiv({ cls: 'wiki-empty-state' });
-			empty.createDiv({ cls: 'wiki-empty-text', text: '노트가 없습니다' });
-			return;
+	private getInlineRelationComments(file: TFile, content: string, fields: string[]): Map<string, string> {
+		const comments = new Map<string, string>();
+		const lines = content.split(/\r?\n/);
+		if (lines[0]?.trim() !== '---') return comments;
+		const end = lines.findIndex((line, index) => index > 0 && line.trim() === '---');
+		if (end < 0) return comments;
+		let activeField = '';
+		let fieldIndent = -1;
+		for (let index = 1; index < end; index++) {
+			const line = lines[index];
+			const indent = line.match(/^\s*/)?.[0].length ?? 0;
+			const field = fields.find(candidate => {
+				const escaped = candidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+				return new RegExp(`^\\s*["']?${escaped}["']?\\s*:`).test(line);
+			});
+			if (field) {
+				activeField = field;
+				fieldIndent = indent;
+			} else if (activeField && line.trim() && !line.trimStart().startsWith('#') && indent <= fieldIndent) {
+				activeField = '';
+				fieldIndent = -1;
+			}
+			if (!activeField) continue;
+			const link = line.match(/\[\[(.*?)\]\]/);
+			const comment = line.match(/\s+#\s*(.*?)\s*$/);
+			if (!link || !comment) continue;
+			const linkpath = link[1].split('|')[0].trim();
+			const target = this.app.metadataCache.getFirstLinkpathDest(linkpath, file.path);
+			if (!(target instanceof TFile)) continue;
+			comments.set(`${activeField}\u0000${target.path}`, comment[1].trim());
 		}
+		return comments;
+	}
 
-		const wrap = outerContainer.createDiv({ cls: 'wiki-card-strip-wrap' + (this.stripCollapsed ? ' is-collapsed' : '') });
-		const strip = wrap.createDiv({ cls: 'wiki-card-strip' });
-		const allCards: HTMLElement[] = [];
+	private closeGraphRelationPopover(): void {
+		this.graphRelationPopoverCleanup?.();
+		this.graphRelationPopoverCleanup = null;
+		this.graphRelationPopover?.remove();
+		this.graphRelationPopover = null;
+	}
 
-		files.forEach(f => {
-			const isSelected = this.currentFile?.path === f.path;
-			const card = this.buildCard(f, isSelected);
-			strip.appendChild(card);
-			allCards.push(card);
+	private openRelationLabelEditor(
+		relation: WikiGraphRelationLabel,
+		graphHost: HTMLElement,
+		anchor: { clientX: number; clientY: number },
+	): void {
+		const source = this.app.vault.getAbstractFileByPath(relation.fromPath);
+		const target = this.app.vault.getAbstractFileByPath(relation.toPath);
+		if (!(source instanceof TFile) || !(target instanceof TFile)) return;
+		this.closeGraphRelationPopover();
+		const panel = graphHost.closest<HTMLElement>('.wiki-relation-graph-panel') ?? graphHost;
+		const panelRect = panel.getBoundingClientRect();
+		const popover = panel.createDiv({ cls: 'wiki-graph-relation-editor' });
+		this.graphRelationPopover = popover;
+		const graphNodes = this.relationshipGraph?.graphData().nodes ?? [];
+		const sourceNode = graphNodes.find(node => node.filePath === source.path);
+		const targetNode = graphNodes.find(node => node.filePath === target.path);
+		const preview = popover.createDiv({ cls: 'wiki-graph-relation-editor-preview' });
+		const createPreviewNode = (file: TFile, node: WikiForceNode | undefined) => {
+			const item = preview.createDiv({ cls: 'wiki-graph-relation-preview-node' });
+			const color = node?.color || String(
+				this.app.metadataCache.getFileCache(file)?.frontmatter?.['wikiColor']
+				|| this.plugin.settings.wikiColor
+				|| '#7025db',
+			);
+			const circle = item.createDiv({ cls: 'wiki-graph-relation-preview-circle' });
+			circle.setCssProps({ '--wiki-graph-preview-node-color': color });
+			circle.createSpan({ cls: 'wiki-graph-relation-preview-initial', text: this.getDisplayName(file).slice(0, 1) });
+			const imageSrc = node?.imageSrc || getWikiImgSrc(this.app, this.plugin, file);
+			if (imageSrc) {
+				const image = circle.createEl('img', {
+					cls: 'wiki-graph-relation-preview-image',
+					attr: { src: imageSrc, alt: '' },
+				});
+				image.addEventListener('error', () => image.remove());
+			}
+			item.createDiv({ cls: 'wiki-graph-relation-preview-name', text: this.getDisplayName(file) });
+		};
+		createPreviewNode(source, sourceNode);
+		const connection = preview.createDiv({ cls: 'wiki-graph-relation-preview-connection' });
+		const previewLabelWrap = connection.createDiv({ cls: 'wiki-graph-relation-preview-label' });
+		const leadingChevron = previewLabelWrap.createSpan({ cls: 'wiki-graph-relation-preview-arrows' });
+		setIcon(leadingChevron, 'chevrons-right');
+		const previewLabel = previewLabelWrap.createSpan({ text: relation.text });
+		const trailingChevron = previewLabelWrap.createSpan({ cls: 'wiki-graph-relation-preview-arrows' });
+		setIcon(trailingChevron, 'chevrons-right');
+		const previewTheme = this.getGraphTheme(graphHost);
+		previewLabelWrap.setCssProps({
+			'--wiki-graph-preview-relation-color': this.getGraphRelationLabelColor(relation.key, previewTheme.faint),
+		});
+		const input = connection.createEl('input', {
+			cls: 'wiki-graph-relation-editor-input',
+			attr: {
+				type: 'text',
+				placeholder: relation.key,
+				'aria-label': '표시할 관계명',
+			},
+		});
+		input.value = relation.text === relation.key ? '' : relation.text;
+		input.addEventListener('input', () => previewLabel.setText(input.value.trim() || relation.key));
+		createPreviewNode(target, targetNode);
+		const actions = popover.createDiv({ cls: 'wiki-graph-relation-editor-actions' });
+		const cancelButton = actions.createEl('button', { text: '닫기', attr: { type: 'button' } });
+		const saveButton = actions.createEl('button', { text: '적용', cls: 'mod-cta', attr: { type: 'button' } });
+
+		const x = Math.max(8, Math.min(panelRect.width - 328, anchor.clientX - panelRect.left + 10));
+		const y = Math.max(52, Math.min(panelRect.height - 210, anchor.clientY - panelRect.top + 10));
+		popover.setCssProps({
+			'--wiki-graph-relation-editor-x': `${x}px`,
+			'--wiki-graph-relation-editor-y': `${y}px`,
 		});
 
-		// 시각 선택 갱신 + 패널 색상 업데이트
-		const previewSelect = (idx: number) => {
-			allCards.forEach((c, i) => c.classList.toggle('is-selected', i === idx));
-			if (idx >= 0 && idx < files.length) {
-				const fm = this.app.metadataCache.getFileCache(files[idx])?.frontmatter;
-				const wc = String(fm?.['wikiColor'] || this.plugin.settings.wikiColor || '#7025db');
-				outerContainer.setCssProps({ '--wiki-accent-color': wc, '--wiki-accent-text': getToneColor(wc) });
+		let saving = false;
+		const save = async () => {
+			if (saving) return;
+			saving = true;
+			saveButton.disabled = true;
+			await this.updateInlineRelationComment(relation, input.value.trim());
+			this.closeGraphRelationPopover();
+		};
+		cancelButton.addEventListener('click', () => this.closeGraphRelationPopover());
+		popover.addEventListener('pointerdown', event => event.stopPropagation());
+		popover.addEventListener('click', event => event.stopPropagation());
+		input.addEventListener('keydown', event => {
+			if (event.key === 'Enter') {
+				event.preventDefault();
+				void save();
+			} else if (event.key === 'Escape') {
+				event.preventDefault();
+				this.closeGraphRelationPopover();
 			}
+		});
+		saveButton.addEventListener('click', () => void save());
+
+		const onOutsidePointerDown = (event: PointerEvent) => {
+			if (!popover.contains(event.target as Node)) this.closeGraphRelationPopover();
 		};
-		// 선택 확정 — scroll area만 교체, 툴바·카드스트립 유지 (깜빡임 방지)
-		const commit = (idx: number) => {
-			if (idx < 0 || idx >= files.length) return;
-			if (files[idx].path === this.currentFile?.path) return;
-			this.stripScrollLeft = strip.scrollLeft;
-			this.currentFile = files[idx];
-			this.targetFolder = files[idx].parent ?? this.targetFolder;
-			void this.saveState();
-			previewSelect(idx);
-			this.renderSeq++;
-			const seq = this.renderSeq;
-			this.buildScrollArea(outerContainer, seq).catch(() => { /* intentional */ });
-		};
-		// 현재 중앙에 가장 가까운 카드 인덱스 감지
-		const snapIdx = (): number => {
-			const snapCenter = strip.scrollLeft + strip.clientWidth / 2;
-			let bestIdx = selectedIdx, bestDist = Infinity;
-			allCards.forEach((c, i) => {
-				const dist = Math.abs(c.offsetLeft + c.offsetWidth / 2 - snapCenter);
-				if (dist < bestDist) { bestDist = dist; bestIdx = i; }
+		window.setTimeout(() => panel.ownerDocument.addEventListener('pointerdown', onOutsidePointerDown, true), 0);
+		this.graphRelationPopoverCleanup = () => panel.ownerDocument.removeEventListener('pointerdown', onOutsidePointerDown, true);
+		window.setTimeout(() => input.focus(), 0);
+	}
+
+	private chooseRelationLabel(link: WikiForceLink, event: MouseEvent, graphHost: HTMLElement): void {
+		const anchor = { clientX: event.clientX, clientY: event.clientY };
+		if (link.labels.length === 1) {
+			this.openRelationLabelEditor(link.labels[0], graphHost, anchor);
+			return;
+		}
+		const menu = new Menu();
+		for (const relation of link.labels) {
+			const source = this.app.vault.getAbstractFileByPath(relation.fromPath);
+			const target = this.app.vault.getAbstractFileByPath(relation.toPath);
+			const sourceName = source instanceof TFile ? this.getDisplayName(source) : relation.fromPath;
+			const targetName = target instanceof TFile ? this.getDisplayName(target) : relation.toPath;
+			const custom = relation.text === relation.key ? '' : ` · ${relation.text}`;
+			menu.addItem(item => item
+				.setTitle(`${sourceName} → ${targetName} · ${relation.key}${custom}`)
+				.setIcon('pencil')
+				.onClick(() => this.openRelationLabelEditor(relation, graphHost, anchor)));
+		}
+		menu.showAtMouseEvent(event);
+	}
+
+	private async updateInlineRelationComment(relation: WikiGraphRelationLabel, value: string): Promise<void> {
+		const source = this.app.vault.getAbstractFileByPath(relation.fromPath);
+		if (!(source instanceof TFile)) return;
+		const cleanValue = value.replace(/\s*[\r\n]+\s*/g, ' ').trim();
+		let updated = false;
+		this.graphMetadataRerenderSuppressedUntil.set(source.path, Date.now() + 1800);
+		try {
+			await this.app.vault.process(source, content => {
+				const newline = content.includes('\r\n') ? '\r\n' : '\n';
+				const lines = content.split(/\r?\n/);
+				if (lines[0]?.trim() !== '---') return content;
+				const end = lines.findIndex((line, index) => index > 0 && line.trim() === '---');
+				if (end < 0) return content;
+				let activeField = '';
+				let fieldIndent = -1;
+				const escapedField = relation.key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+				const fieldPattern = new RegExp(`^\\s*["']?${escapedField}["']?\\s*:`);
+				for (let index = 1; index < end; index++) {
+					const line = lines[index];
+					const indent = line.match(/^\s*/)?.[0].length ?? 0;
+					if (fieldPattern.test(line)) {
+						activeField = relation.key;
+						fieldIndent = indent;
+					} else if (activeField && line.trim() && !line.trimStart().startsWith('#') && indent <= fieldIndent) {
+						activeField = '';
+						fieldIndent = -1;
+					}
+					if (!activeField) continue;
+					const link = line.match(/\[\[(.*?)\]\]/);
+					if (!link) continue;
+					const linkpath = link[1].split('|')[0].trim();
+					const target = this.app.metadataCache.getFirstLinkpathDest(linkpath, source.path);
+					if (!(target instanceof TFile) || target.path !== relation.toPath) continue;
+					const linkEnd = (link.index ?? 0) + link[0].length;
+					const suffix = line.slice(linkEnd);
+					const commentMatch = suffix.match(/\s+#\s*.*$/);
+					const base = (commentMatch?.index === undefined
+						? line
+						: line.slice(0, linkEnd + commentMatch.index)).trimEnd();
+					lines[index] = cleanValue ? `${base} # ${cleanValue}` : base;
+					updated = true;
+					break;
+				}
+				return updated ? lines.join(newline) : content;
 			});
-			return bestIdx;
+			if (!updated) {
+				this.graphMetadataRerenderSuppressedUntil.delete(source.path);
+				new Notice('원본 프론트매터에서 해당 관계 링크를 찾지 못했습니다.');
+				return;
+			}
+			const nextText = cleanValue || relation.key;
+			const graph = this.relationshipGraph;
+			if (graph) {
+				for (const link of graph.graphData().links) {
+					for (const label of link.labels) {
+						if (label.fromPath !== relation.fromPath
+							|| label.toPath !== relation.toPath
+							|| label.key !== relation.key) continue;
+						label.text = nextText;
+					}
+				}
+				relation.text = nextText;
+				graph.linkLabel(graph.linkLabel());
+				graph.linkCanvasObject(graph.linkCanvasObject());
+				graph.linkPointerAreaPaint(graph.linkPointerAreaPaint());
+			}
+			new Notice(cleanValue ? '그래프 관계명을 저장했습니다.' : '그래프 관계명을 기본값으로 되돌렸습니다.');
+		} catch (error) {
+			this.graphMetadataRerenderSuppressedUntil.delete(source.path);
+			console.error('[writing-menu] Failed to update graph relation label', error);
+			new Notice('그래프 관계명을 저장하지 못했습니다.');
+		}
+	}
+
+	private async buildRelationshipGraphModel(source: TFile): Promise<WikiGraphModel> {
+		const fields = this.getRelationFields();
+		const sources = this.getGraphFiles();
+		const graphPaths = new Set(sources.map(file => file.path));
+		const inlineComments = new Map<string, Map<string, string>>(await Promise.all(sources.map(async file => [
+			file.path,
+			this.getInlineRelationComments(file, await this.app.vault.cachedRead(file), fields),
+		] as const)));
+
+		const filesByPath = new Map<string, TFile>(sources.map(file => [file.path, file]));
+		const directed = new Map<string, WikiGraphConnection>();
+		for (const from of sources) {
+			const frontmatter = this.app.metadataCache.getFileCache(from)?.frontmatter;
+			for (const field of fields) {
+				for (const { file: to, label } of this.resolveRelationships(frontmatter?.[field], from.path, field, inlineComments.get(from.path))) {
+					if (to.path === from.path || !graphPaths.has(to.path)) continue;
+					const key = `${from.path}\u0000${to.path}`;
+					const existing = directed.get(key);
+					if (existing) {
+						if (!existing.labels.some(item => item.key === label.key && item.text === label.text)) existing.labels.push(label);
+					} else {
+						directed.set(key, { from, to, labels: [label] });
+					}
+				}
+			}
+		}
+
+		const connections = Array.from(directed.values());
+		const adjacent = new Map<string, Set<string>>();
+		const connect = (a: string, b: string) => {
+			const neighbors = adjacent.get(a) ?? new Set<string>();
+			neighbors.add(b);
+			adjacent.set(a, neighbors);
+		};
+		for (const connection of connections) {
+			connect(connection.from.path, connection.to.path);
+			connect(connection.to.path, connection.from.path);
+		}
+
+		const depthByPath = new Map<string, number>([[source.path, 0]]);
+		const queue = [source.path];
+		while (queue.length > 0) {
+			const path = queue.shift();
+			if (!path) break;
+			const depth = depthByPath.get(path) ?? 0;
+			const neighbors = Array.from(adjacent.get(path) ?? []).sort((a, b) =>
+				this.getDisplayName(filesByPath.get(a) ?? source).localeCompare(
+					this.getDisplayName(filesByPath.get(b) ?? source),
+					'ko',
+					{ sensitivity: 'base', numeric: true },
+				)
+			);
+			for (const neighbor of neighbors) {
+				if (depthByPath.has(neighbor) || !filesByPath.has(neighbor)) continue;
+				depthByPath.set(neighbor, depth + 1);
+				queue.push(neighbor);
+			}
+		}
+
+		const files = [...sources]
+			.sort((a, b) => (depthByPath.get(a.path) ?? Number.MAX_SAFE_INTEGER) - (depthByPath.get(b.path) ?? Number.MAX_SAFE_INTEGER)
+				|| this.getDisplayName(a).localeCompare(this.getDisplayName(b), 'ko', { sensitivity: 'base', numeric: true }));
+		return {
+			files,
+			connections,
+			depthByPath,
+		};
+	}
+
+	private getGraphTeamTrail(file: TFile): WikiGraphTeam[] {
+		const rootPath = this.graphRootFolder?.path ?? '';
+		const parentPath = file.parent?.path ?? rootPath;
+		if (parentPath === rootPath) {
+			return [{ path: rootPath, name: this.graphRootFolder?.name || 'Vault', depth: 0 }];
+		}
+		const relative = rootPath && parentPath.startsWith(`${rootPath}/`)
+			? parentPath.slice(rootPath.length + 1)
+			: parentPath;
+		const folders = relative.split('/').filter(Boolean);
+		if (folders.length === 0) return [{ path: rootPath, name: this.graphRootFolder?.name || 'Vault', depth: 0 }];
+		return folders.map((name, depth) => ({
+			path: [rootPath, ...folders.slice(0, depth + 1)].filter(Boolean).join('/'),
+			name,
+			depth,
+		}));
+	}
+
+	private toForceGraphData(source: TFile, model: WikiGraphModel): GraphData<WikiForceNode, WikiForceLink> {
+		const nodes: WikiForceNode[] = model.files.map(file => {
+			const root = file.path === source.path;
+			const color = String(this.app.metadataCache.getFileCache(file)?.frontmatter?.['wikiColor']
+				|| this.plugin.settings.wikiColor || '#7025db');
+			const teamTrail = this.getGraphTeamTrail(file);
+			const team = teamTrail[0];
+			return {
+				id: file.path,
+				filePath: file.path,
+				name: this.getDisplayName(file),
+				color,
+				root,
+				teamPath: team.path,
+				teamName: team.name,
+				teamTrail,
+				imageSrc: this.getImgSrc(file),
+			};
+		});
+
+		type Pair = { a: string; b: string; ab: WikiGraphRelationLabel[]; ba: WikiGraphRelationLabel[] };
+		const pairs = new Map<string, Pair>();
+		for (const connection of model.connections) {
+			const forward = connection.from.path.localeCompare(connection.to.path) <= 0;
+			const a = forward ? connection.from.path : connection.to.path;
+			const b = forward ? connection.to.path : connection.from.path;
+			const key = `${a}\u0000${b}`;
+			const pair = pairs.get(key) ?? { a, b, ab: [], ba: [] };
+			const labels = forward ? pair.ab : pair.ba;
+			for (const label of connection.labels) {
+				if (!labels.some(item => item.key === label.key && item.text === label.text)) labels.push(label);
+			}
+			pairs.set(key, pair);
+		}
+
+		const links: WikiForceLink[] = Array.from(pairs.values()).map((pair, index) => {
+			const both = pair.ab.length > 0 && pair.ba.length > 0;
+			const forward = pair.ab.length > 0;
+			const labels = [...pair.ab, ...pair.ba].filter((label, labelIndex, all) =>
+				all.findIndex(item => item.key === label.key
+					&& item.text === label.text
+					&& item.fromPath === label.fromPath
+					&& item.toPath === label.toPath) === labelIndex);
+			return {
+				id: `wiki-relation-${index}`,
+				source: forward ? pair.a : pair.b,
+				target: forward ? pair.b : pair.a,
+				labels,
+				bidirectional: both,
+				dashed: labels.some(label => /(?:^|[\s_-])(former|past|ex)(?:$|[\s_-])|과거|이전|전(?:$|[\s_-])/i.test(`${label.key} ${label.text}`)),
+			};
+		});
+		return { nodes, links };
+	}
+
+	private async refreshGraphRelations(): Promise<void> {
+		const graph = this.relationshipGraph;
+		if (!graph || !this.graphActive || !this.graphRootFolder) return;
+		const refreshSeq = ++this.graphRelationRefreshSeq;
+		const files = this.getGraphFiles();
+		if (files.length === 0) return;
+		const source = this.getGraphAnchorFile(files);
+		const model = await this.buildRelationshipGraphModel(source);
+		if (refreshSeq !== this.graphRelationRefreshSeq || this.relationshipGraph !== graph) return;
+
+		const previousNodes = new Map(graph.graphData().nodes.map(node => [node.filePath, node]));
+		const nextData = this.toForceGraphData(source, model);
+		for (const node of nextData.nodes) {
+			const previous = previousNodes.get(node.filePath);
+			if (!previous) continue;
+			node.x = previous.x;
+			node.y = previous.y;
+			node.vx = previous.vx;
+			node.vy = previous.vy;
+			node.image = previous.image;
+		}
+
+		const center = graph.centerAt();
+		const zoom = graph.zoom();
+		const alphaDecay = graph.d3AlphaDecay();
+		graph.d3AlphaDecay(1).graphData(nextData);
+		this.applyGraphPhysics(undefined, false);
+		graph.centerAt(center.x, center.y, 0);
+		graph.zoom(zoom, 0);
+		window.requestAnimationFrame(() => {
+			if (this.relationshipGraph !== graph) return;
+			graph.d3AlphaDecay(alphaDecay);
+			graph.centerAt(center.x, center.y, 0);
+			graph.zoom(zoom, 0);
+			this.applyGraphEmphasis(this.buildSearchIndex(model.files));
+		});
+
+		const panel = this.container?.querySelector<HTMLElement>('.wiki-relation-graph-panel');
+		panel?.querySelector('.wiki-graph-no-relations')?.remove();
+		if (panel && model.connections.length === 0) {
+			panel.createDiv({ cls: 'wiki-graph-no-relations', text: '등록된 관계가 없습니다.' });
+		}
+	}
+
+	private getGraphSearchMatches(query: string, entries: WikiSearchEntry[]): Set<string> | null {
+		const trimmed = query.trim();
+		if (!trimmed) return null;
+		type GraphSearchToken = {
+			kind: 'name' | 'tag' | 'property' | 'operator';
+			value: string;
+			propertyValue?: string;
+		};
+		const rawTokens = trimmed.match(/"(?:\\.|[^"])*"|\S+/g) ?? [];
+		const cleanToken = (rawToken: string) => rawToken.startsWith('"') && rawToken.endsWith('"')
+			? rawToken.slice(1, -1).replace(/\\"/g, '"')
+			: rawToken;
+		const tokens: GraphSearchToken[] = [];
+		for (let index = 0; index < rawTokens.length; index++) {
+			const raw = cleanToken(rawTokens[index]);
+			const folded = this.foldSearchText(raw);
+			if (!folded) continue;
+			if (folded === 'and' || folded === 'or') {
+				tokens.push({ kind: 'operator', value: folded });
+				continue;
+			}
+			if (raw.startsWith('#')) {
+				const value = this.foldSearchText(raw.slice(1));
+				if (value) tokens.push({ kind: 'tag', value });
+				continue;
+			}
+			if (raw.startsWith('.')) {
+				const propertyQuery = raw.slice(1);
+				const separator = propertyQuery.indexOf(':');
+				const value = this.foldSearchText(separator < 0 ? propertyQuery : propertyQuery.slice(0, separator));
+				const propertyValueParts = separator < 0 ? [] : [propertyQuery.slice(separator + 1)].filter(Boolean);
+				if (separator >= 0) {
+					while (index + 1 < rawTokens.length) {
+						const nextRaw = cleanToken(rawTokens[index + 1]);
+						const nextFolded = this.foldSearchText(nextRaw);
+						if (nextRaw.startsWith('.') || nextRaw.startsWith('#') || nextFolded === 'and' || nextFolded === 'or') break;
+						propertyValueParts.push(nextRaw);
+						index++;
+					}
+				}
+				const propertyValue = this.foldSearchText(propertyValueParts.join(' ')) || undefined;
+				if (value) tokens.push({ kind: 'property', value, propertyValue });
+				continue;
+			}
+			tokens.push({ kind: 'name', value: folded });
+		}
+		if (tokens.length === 0) return new Set<string>();
+		const structuralOnly = tokens.some(token => token.kind === 'tag' || token.kind === 'property')
+			&& tokens.every(token => token.kind !== 'name');
+		const matchesFilter = (entry: WikiSearchEntry, token: GraphSearchToken): boolean => {
+			if (token.kind === 'tag') {
+				return entry.foldedTags.some(tag => tag === token.value || tag.startsWith(`${token.value}/`));
+			}
+			if (token.kind === 'property') {
+				const frontmatter = this.app.metadataCache.getFileCache(entry.file)?.frontmatter ?? {};
+				return Object.entries(frontmatter).some(([key, rawValue]) => {
+					if (!this.foldSearchText(key).startsWith(token.value)) return false;
+					if (!token.propertyValue) return true;
+					return this.valueToSearchText(rawValue)
+						.some(value => this.foldSearchText(value).includes(token.propertyValue ?? ''));
+				});
+			}
+			return entry.foldedName.includes(token.value)
+				|| entry.foldedAliases.some(alias => alias.includes(token.value));
 		};
 
-		let selectedIdx = files.findIndex(f => f.path === this.currentFile?.path);
-		if (selectedIdx < 0) selectedIdx = 0;
-
-		const myStripGen = this.stripGen;
-		let debounceTimer = 0;
-		let suppressScrollHighlight = false;
-
-		// 카드 선택: instant 위치 이동 + 즉시 commit
-		const goCard = (newIdx: number) => {
-			newIdx = Math.max(0, Math.min(files.length - 1, newIdx));
-			selectedIdx = newIdx;
-			previewSelect(newIdx);
-			strip.focus({ preventScroll: true });
-			window.clearTimeout(debounceTimer);
-			const card = allCards[newIdx];
-			const target = Math.max(0, card.offsetLeft + card.offsetWidth / 2 - strip.clientWidth / 2);
-			// scrollTo 직후 scroll 이벤트에서 snapIdx()가 wrong index 반환하는 레이스 방지
-			suppressScrollHighlight = true;
-			strip.scrollTo({ left: target, behavior: 'instant' as ScrollBehavior });
-			window.requestAnimationFrame(() => { suppressScrollHighlight = false; });
-			commit(newIdx);
+		const matchesEntry = (entry: WikiSearchEntry): boolean => {
+			if (!structuralOnly) {
+				return tokens.every(token => {
+					const effective = token.kind === 'operator'
+						? { kind: 'name' as const, value: token.value }
+						: token;
+					return matchesFilter(entry, effective);
+				});
+			}
+			const orGroups: GraphSearchToken[][] = [[]];
+			for (const token of tokens) {
+				if (token.kind === 'operator') {
+					if (token.value === 'or' && orGroups[orGroups.length - 1].length > 0) orGroups.push([]);
+					continue;
+				}
+				orGroups[orGroups.length - 1].push(token);
+			}
+			return orGroups.some(group => group.length > 0 && group.every(token => matchesFilter(entry, token)));
 		};
 
-		// 초기 scroll 위치 확정 전까지 숨김 → 플로팅 창에서 레이아웃이 늦게 잡힐 때 "scanning" 잔상 방지
-		strip.addClass('wm-invisible');
-		let initRetry = 0;
-		const initStripPosition = () => {
-			if (this.stripGen !== myStripGen) return;
-			if (strip.clientWidth === 0 && initRetry < 10) { initRetry++; window.requestAnimationFrame(initStripPosition); return; }
-			const nonSel = allCards.find((_, i) => i !== selectedIdx) ?? allCards[0];
-			const cardW = nonSel?.offsetWidth ?? 56;
-			const halfPad = Math.max(10, Math.floor((strip.clientWidth - cardW) / 2));
-			strip.setCssProps({ '--strip-pad': `${halfPad}px` });
-			if (this.stripScrollLeft >= 0) {
-				strip.scrollLeft = this.stripScrollLeft;
+		return new Set(entries.filter(matchesEntry).map(entry => entry.file.path));
+	}
+
+	private applyGraphEmphasis(entries: WikiSearchEntry[]): void {
+		const searchMatches = this.getGraphSearchMatches(this.graphSearchQuery, entries);
+
+		const graph = this.relationshipGraph;
+		if (!graph) return;
+		const data = graph.graphData();
+		const selectedPath = data.nodes.some(node => node.filePath === this.graphSelectedNodePath)
+			? this.graphSelectedNodePath
+			: '';
+		const selectedNetwork = selectedPath ? new Set<string>([selectedPath]) : null;
+		for (const link of data.links) {
+			const sourcePath = typeof link.source === 'object' ? link.source.filePath : String(link.source);
+			const targetPath = typeof link.target === 'object' ? link.target.filePath : String(link.target);
+			if (selectedNetwork) {
+				const connected = sourcePath === selectedPath || targetPath === selectedPath;
+				link.dimmed = !connected;
+				if (connected) {
+					selectedNetwork.add(sourcePath);
+					selectedNetwork.add(targetPath);
+				}
 			} else {
-				const card = allCards[selectedIdx];
-				if (card) strip.scrollLeft = Math.max(0, card.offsetLeft + card.offsetWidth / 2 - strip.clientWidth / 2);
+				const connectsMatches = searchMatches !== null
+					&& searchMatches.has(sourcePath)
+					&& searchMatches.has(targetPath);
+				link.dimmed = searchMatches !== null && !connectsMatches;
 			}
-			strip.removeClass('wm-invisible');
+		}
+		for (const node of data.nodes) {
+			node.selected = node.filePath === selectedPath;
+			node.dimmed = selectedNetwork
+				? !selectedNetwork.has(node.filePath)
+				: searchMatches !== null && !searchMatches.has(node.filePath);
+		}
+		graph.nodeCanvasObject(graph.nodeCanvasObject());
+	}
+
+	private getGraphPhysics(distance = this.plugin.settings.wikiGraphNodeDistance ?? 1.25) {
+		const normalized = Math.max(0, Math.min(1, (distance - 0.6) / 2));
+		return {
+			linkDistance: 54 + normalized * 206,
+			chargeStrength: -(130 + normalized * 820),
+			linkStrength: 0.68 - normalized * 0.48,
 		};
-		window.requestAnimationFrame(initStripPosition);
-
-		// scroll: 직접 라이브 하이라이트 + 200ms 후 commit
-		// goCard() 직후 scroll 이벤트는 suppressScrollHighlight로 차단 → 잔상 방지
-		strip.addEventListener('scroll', () => {
-			this.stripScrollLeft = strip.scrollLeft;
-			if (!suppressScrollHighlight) {
-				const liveIdx = snapIdx();
-				if (liveIdx !== selectedIdx) { selectedIdx = liveIdx; previewSelect(liveIdx); }
-			}
-			window.clearTimeout(debounceTimer);
-			debounceTimer = window.window.setTimeout(() => {
-				if (this.stripGen !== myStripGen) return;
-				commit(selectedIdx);
-			}, 200);
-		}, { passive: true });
-
-		// 방향키 (플로팅 창에서는 비활성화)
-		const isFloating = strip.ownerDocument !== activeDocument;
-		if (!isFloating) {
-			strip.tabIndex = 0;
-			strip.addEventListener('keydown', (e) => {
-				if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); goCard(selectedIdx + 1); }
-				else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); goCard(selectedIdx - 1); }
-			});
-		}
-
-		// 카드 수가 적거나 플로팅 창에서 가로 스크롤이 없을 때 휠로 카드 이동
-		let wheelAcc = 0;
-		strip.addEventListener('wheel', (e) => {
-			if (strip.scrollWidth <= strip.clientWidth + 1) {
-				e.preventDefault();
-				const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-				wheelAcc += e.deltaMode === 0 ? delta / 80 : delta;
-				while (wheelAcc >= 1)  { wheelAcc -= 1; goCard(selectedIdx + 1); }
-				while (wheelAcc <= -1) { wheelAcc += 1; goCard(selectedIdx - 1); }
-			}
-		}, { passive: false });
-
-		// native image drag 차단
-		strip.addEventListener('dragstart', e => e.preventDefault());
-
-		// 드래그 스크롤 + 클릭 선택
-		const stripDoc = strip.ownerDocument;
-		strip.addEventListener('mousedown', e => {
-			e.preventDefault();
-			const cardOnDown = (e.target as HTMLElement).closest<HTMLElement>('.wiki-card');
-			const idxOnDown = cardOnDown ? allCards.indexOf(cardOnDown) : -1;
-			const startX = e.pageX, startScrollLeft = strip.scrollLeft;
-			let hasMoved = false;
-
-			const onMove = (me: MouseEvent) => {
-				const dx = me.pageX - startX;
-				if (!hasMoved && Math.abs(dx) > 4) { hasMoved = true; strip.addClass('is-grabbing'); }
-				if (hasMoved) strip.scrollLeft = startScrollLeft - dx;
-			};
-
-			const onUp = () => {
-				strip.removeClass('is-grabbing');
-				stripDoc.removeEventListener('mousemove', onMove);
-				stripDoc.removeEventListener('mouseup', onUp);
-				if (this.stripGen !== myStripGen) return;
-				if (hasMoved && Math.abs(strip.scrollLeft - startScrollLeft) > 4) {
-					// 드래그 후: scroll 이벤트·debounce가 스냅 완료 감지해서 처리
-				} else if (idxOnDown >= 0) {
-					goCard(idxOnDown); // 클릭
-				}
-			};
-
-			stripDoc.addEventListener('mousemove', onMove);
-			stripDoc.addEventListener('mouseup', onUp);
-		});
 	}
 
-	/** 단일 카드 DOM 생성 (폴더/관계 strip 공용) */
-	private buildCard(f: TFile, isSelected: boolean): HTMLElement {
-		const card = createDiv({ cls: 'wiki-card' + (isSelected ? ' is-selected' : '') });
-		const name = this.getDisplayName(f);
-		const imgSrc = this.getImgSrc(f);
-		if (imgSrc) {
-			const img = card.createEl('img', { cls: 'wiki-card-img' });
-			img.src = imgSrc;
-			img.draggable = false;
-			img.onerror = () => {
-				img.remove();
-				card.createDiv({ cls: 'wiki-card-img wiki-card-img-placeholder' })
-					.createSpan({ text: name.charAt(0).toUpperCase() });
-			};
-		} else {
-			card.createDiv({ cls: 'wiki-card-img wiki-card-img-placeholder' })
-				.createSpan({ text: name.charAt(0).toUpperCase() });
-		}
-		card.createDiv({ cls: 'wiki-card-name', text: name });
-		return card;
+	private applyGraphPhysics(distance = this.plugin.settings.wikiGraphNodeDistance ?? 1.25, reheat = true): void {
+		const graph = this.relationshipGraph;
+		if (!graph) return;
+		const physics = this.getGraphPhysics(distance);
+		graph.d3Force('link')?.distance?.(physics.linkDistance);
+		graph.d3Force('link')?.strength?.(physics.linkStrength);
+		graph.d3Force('charge')?.strength?.(physics.chargeStrength);
+		graph.d3Force('center')?.strength?.(1);
+		if (reheat) graph.d3ReheatSimulation();
 	}
 
-	/** 프론트매터 값에서 노트 링크들을 해석 (배열/쉼표문자열/[[..]] 혼합 처리) */
-	private resolveLinks(value: unknown, srcPath: string): TFile[] {
-		const raw: string[] = Array.isArray(value)
-			? value.map(v => String(v))
-			: String(value ?? '').split(',');
-		const out: TFile[] = [];
-		const seen = new Set<string>();
-		for (let token of raw) {
-			token = token.trim();
-			if (!token) continue;
-			const m = token.match(/^\[\[(.+?)(\|.*)?\]\]$/);
-			const linkpath = m ? m[1] : token;
-			const dest = this.app.metadataCache.getFirstLinkpathDest(linkpath, srcPath);
-			if (dest instanceof TFile && !seen.has(dest.path)) { seen.add(dest.path); out.push(dest); }
+	private scaleGraphLayout(previousDistance: number, nextDistance: number): void {
+		const graph = this.relationshipGraph;
+		if (!graph || previousDistance <= 0 || previousDistance === nextDistance) return;
+		const nodes = graph.graphData().nodes.filter(node => Number.isFinite(node.x) && Number.isFinite(node.y));
+		if (nodes.length === 0) return;
+		const centerX = nodes.reduce((sum, node) => sum + (node.x ?? 0), 0) / nodes.length;
+		const centerY = nodes.reduce((sum, node) => sum + (node.y ?? 0), 0) / nodes.length;
+		const scale = nextDistance / previousDistance;
+		for (const node of nodes) {
+			node.x = centerX + ((node.x ?? centerX) - centerX) * scale;
+			node.y = centerY + ((node.y ?? centerY) - centerY) * scale;
+			node.vx = 0;
+			node.vy = 0;
+			if (Number.isFinite(node.fx)) node.fx = centerX + ((node.fx ?? centerX) - centerX) * scale;
+			if (Number.isFinite(node.fy)) node.fy = centerY + ((node.fy ?? centerY) - centerY) * scale;
 		}
-		return out;
+		graph.nodeCanvasObject(graph.nodeCanvasObject());
 	}
 
-	// ── B-2. 관계 strip (프론트매터 키별 그룹) ───────────────────────────────
+	private selectGraphNode(filePath: string): void {
+		const graph = this.relationshipGraph;
+		if (!graph) return;
+		this.closeGraphRelationPopover();
+		this.graphSelectedNodePath = filePath;
+		const selectedFile = this.app.vault.getAbstractFileByPath(filePath);
+		this.updateToolbarPath(selectedFile instanceof TFile ? selectedFile : this.currentFile);
+		const files = graph.graphData().nodes
+			.map(node => this.app.vault.getAbstractFileByPath(node.filePath))
+			.filter((file): file is TFile => file instanceof TFile);
+		this.applyGraphEmphasis(this.buildSearchIndex(files));
+	}
 
-	private renderRelationStrip(outerContainer: HTMLElement) {
-		const src = this.relationSource!;
-		const fm = this.app.metadataCache.getFileCache(src)?.frontmatter;
-		const fields = (this.plugin.settings.wikiRelationFields || '')
-			.split(',').map(s => s.trim()).filter(Boolean);
+	private clearGraphNodeSelection(): void {
+		const graph = this.relationshipGraph;
+		if (!graph || !this.graphSelectedNodePath) return;
+		this.closeGraphRelationPopover();
+		this.graphSelectedNodePath = '';
+		this.updateToolbarPath(this.currentFile);
+		const files = graph.graphData().nodes
+			.map(node => this.app.vault.getAbstractFileByPath(node.filePath))
+			.filter((file): file is TFile => file instanceof TFile);
+		this.applyGraphEmphasis(this.buildSearchIndex(files));
+	}
 
-		if (fields.length === 0) {
-			const empty = outerContainer.createDiv({ cls: 'wiki-empty-state' });
-			empty.createDiv({ cls: 'wiki-empty-text', text: '관계 프론트매터 키가 설정되지 않았습니다' });
-			empty.createDiv({ cls: 'wiki-empty-sub', text: '플러그인 설정 → 위키 → 관계 필드에서 지정하세요.' });
-			return;
+	private canEditGraphLink(link: WikiForceLink): boolean {
+		if (!this.graphSelectedNodePath) return false;
+		const sourcePath = typeof link.source === 'object' ? link.source.filePath : String(link.source);
+		const targetPath = typeof link.target === 'object' ? link.target.filePath : String(link.target);
+		return sourcePath === this.graphSelectedNodePath || targetPath === this.graphSelectedNodePath;
+	}
+
+	private getGraphTheme(host: HTMLElement) {
+		const styles = host.ownerDocument.defaultView?.getComputedStyle(host);
+		const read = (name: string, fallback: string) => styles?.getPropertyValue(name).trim() || fallback;
+		return {
+			text: read('--text-normal', '#d7d7d7'),
+			muted: read('--text-muted', '#999999'),
+			faint: read('--text-faint', '#666666'),
+			background: read('--background-primary', '#202020'),
+			fontFamily: styles?.fontFamily.trim() || 'system-ui, sans-serif',
+		};
+	}
+
+	private getGraphRelationLabelColor(label: string, fallback: string): string {
+		const colors = this.plugin.settings.wikiGraphRelationLabelColors ?? {};
+		const exact = colors[label];
+		if (exact) return exact;
+		const normalized = label.trim().toLocaleLowerCase();
+		const matchingKey = Object.keys(colors).find(key => key.trim().toLocaleLowerCase() === normalized);
+		return matchingKey ? colors[matchingKey] : fallback;
+	}
+
+	private getGraphRelationVisibilityScale(): number {
+		return Math.max(0.25, Math.min(2, this.plugin.settings.wikiGraphRelationVisibilityScale ?? 0.72));
+	}
+
+	private refreshGraphRelationVisibility(): void {
+		const graph = this.relationshipGraph;
+		if (!graph) return;
+		graph.linkVisibility(graph.linkVisibility());
+		graph.nodeCanvasObject(graph.nodeCanvasObject());
+	}
+
+	private hashGraphTeam(value: string): number {
+		let hash = 0;
+		for (let index = 0; index < value.length; index++) hash = ((hash << 5) - hash + value.charCodeAt(index)) | 0;
+		return Math.abs(hash) % 360;
+	}
+
+	private getConvexHull(points: Array<{ x: number; y: number }>): Array<{ x: number; y: number }> {
+		if (points.length <= 2) return points;
+		const sorted = [...points].sort((a, b) => a.x - b.x || a.y - b.y);
+		const cross = (origin: { x: number; y: number }, a: { x: number; y: number }, b: { x: number; y: number }) =>
+			(a.x - origin.x) * (b.y - origin.y) - (a.y - origin.y) * (b.x - origin.x);
+		const lower: Array<{ x: number; y: number }> = [];
+		for (const point of sorted) {
+			while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], point) <= 0) lower.pop();
+			lower.push(point);
 		}
-
-		const groups = fields
-			.map(key => ({ key, files: fm ? this.resolveLinks(fm[key], src.path) : [] }))
-			.filter(g => g.files.length > 0);
-
-		if (groups.length === 0) {
-			const empty = outerContainer.createDiv({ cls: 'wiki-empty-state' });
-			empty.createDiv({ cls: 'wiki-empty-text', text: '관계 노트가 없습니다' });
-			empty.createDiv({ cls: 'wiki-empty-sub', text: `「${src.basename}」에 ${fields.join(', ')} 값이 없습니다.` });
-			return;
+		const upper: Array<{ x: number; y: number }> = [];
+		for (let index = sorted.length - 1; index >= 0; index--) {
+			const point = sorted[index];
+			while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], point) <= 0) upper.pop();
+			upper.push(point);
 		}
+		lower.pop();
+		upper.pop();
+		return lower.concat(upper);
+	}
 
-		// 리스트 뷰 (프론트매터 키별 접힘/펼침 섹션)
-		const wrap = outerContainer.createDiv({ cls: 'wiki-rel-list-wrap' + (this.stripCollapsed ? ' is-collapsed' : '') });
-		const list = wrap.createDiv({ cls: 'wiki-rel-list' });
-
-		window.requestAnimationFrame(() => { wrap.scrollTop = this.relListScrollTop; });
-
-		groups.forEach(g => {
-			if (g.files.length === 0) return;
-
-			const isCollapsed = this.collapsedRelGroups.has(g.key);
-			const section = list.createDiv({ cls: 'wiki-rel-section' });
-
-			// ── 섹션 헤더 (wm-vhv-group-header 스타일) ──
-			const hdr = section.createDiv({ cls: 'wiki-rel-section-header' });
-			hdr.createSpan({ cls: 'wiki-rel-section-label', text: g.key });
-			const chevEl = hdr.createSpan({ cls: 'wiki-rel-section-chevron' });
-			setIcon(chevEl, isCollapsed ? 'chevron-right' : 'chevron-down');
-
-			const itemsEl = section.createDiv({ cls: 'wiki-rel-section-items' + (isCollapsed ? ' is-collapsed' : '') });
-
-			hdr.addEventListener('click', () => {
-				if (this.collapsedRelGroups.has(g.key)) {
-					this.collapsedRelGroups.delete(g.key);
-					itemsEl.removeClass('is-collapsed');
-					setIcon(chevEl, 'chevron-down');
-				} else {
-					this.collapsedRelGroups.add(g.key);
-					itemsEl.addClass('is-collapsed');
-					setIcon(chevEl, 'chevron-right');
-				}
-			});
-
-			// ── 카드 아이템 (이미지 + 이름 아래) ──
-			g.files.forEach(f => {
-				const isSelected = this.currentFile?.path === f.path;
-				const item = itemsEl.createDiv({ cls: 'wiki-rel-item' + (isSelected ? ' is-selected' : '') });
-
-				const imgSrc = this.getImgSrc(f);
-				if (imgSrc) {
-					const imgEl = item.createEl('img', { cls: 'wiki-rel-item-img' });
-					imgEl.src = imgSrc;
-					imgEl.onerror = () => {
-						imgEl.remove();
-						const ph = item.createDiv({ cls: 'wiki-rel-item-img-placeholder' });
-						ph.createSpan({ text: this.getDisplayName(f).charAt(0).toUpperCase() });
-					};
-				} else {
-					const ph = item.createDiv({ cls: 'wiki-rel-item-img-placeholder' });
-					ph.createSpan({ text: this.getDisplayName(f).charAt(0).toUpperCase() });
-				}
-
-				item.createDiv({ cls: 'wiki-rel-item-name', text: this.getDisplayName(f) });
-				item.onclick = () => {
-					this.relListScrollTop = wrap.scrollTop;
-					this.currentFile = f;
-					this.targetFolder = f.parent ?? this.targetFolder;
-					void this.saveState();
-					this.rerender();
+	private getGraphRegionBoundary(
+		points: Array<{ x: number; y: number }>,
+		teamPath: string,
+		padding: number,
+	): Array<{ x: number; y: number }> {
+		if (points.length === 0) return [];
+		if (points.length === 1) {
+			const radius = padding + 18;
+			return Array.from({ length: 18 }, (_, index) => {
+				const angle = Math.PI * 2 * index / 18;
+				return {
+					x: points[0].x + Math.cos(angle) * radius,
+					y: points[0].y + Math.sin(angle) * radius,
 				};
 			});
+		}
+
+		let hull = this.getConvexHull(points);
+		if (hull.length < 3) {
+			let start = points[0];
+			let end = points[1];
+			let maxDistance = -1;
+			for (let first = 0; first < points.length; first++) {
+				for (let second = first + 1; second < points.length; second++) {
+					const distance = (points[first].x - points[second].x) ** 2 + (points[first].y - points[second].y) ** 2;
+					if (distance <= maxDistance) continue;
+					maxDistance = distance;
+					start = points[first];
+					end = points[second];
+				}
+			}
+			let dx = end.x - start.x;
+			let dy = end.y - start.y;
+			let length = Math.hypot(dx, dy);
+			if (length < 1) {
+				start = { x: start.x - 20, y: start.y };
+				end = { x: end.x + 20, y: end.y };
+				dx = end.x - start.x;
+				dy = end.y - start.y;
+				length = Math.hypot(dx, dy);
+			}
+			const direction = this.hashGraphTeam(teamPath) % 2 === 0 ? 1 : -1;
+			const virtualHeight = Math.max(54, Math.min(120, length * 0.62));
+			const virtualPoint = {
+				x: (start.x + end.x) / 2 - dy / length * virtualHeight * direction,
+				y: (start.y + end.y) / 2 + dx / length * virtualHeight * direction,
+			};
+			hull = this.getConvexHull([start, end, virtualPoint]);
+		}
+
+		const center = hull.reduce((sum, point) => ({ x: sum.x + point.x, y: sum.y + point.y }), { x: 0, y: 0 });
+		center.x /= hull.length;
+		center.y /= hull.length;
+		return hull.map(point => {
+			const dx = point.x - center.x;
+			const dy = point.y - center.y;
+			const length = Math.hypot(dx, dy) || 1;
+			return { x: point.x + dx / length * padding, y: point.y + dy / length * padding };
 		});
+	}
+
+	private isGraphPointInside(
+		point: { x: number; y: number },
+		polygon: Array<{ x: number; y: number }>,
+	): boolean {
+		let inside = false;
+		for (let current = 0, previous = polygon.length - 1; current < polygon.length; previous = current++) {
+			const a = polygon[current];
+			const b = polygon[previous];
+			if ((a.y > point.y) === (b.y > point.y)) continue;
+			const crossingX = (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x;
+			if (point.x < crossingX) inside = !inside;
+		}
+		return inside;
+	}
+
+	private getGraphRegionLabelPosition(
+		boundary: Array<{ x: number; y: number }>,
+		nodes: WikiForceNode[],
+		excludedBoundaries: Array<Array<{ x: number; y: number }>>,
+		placedLabels: Array<{ left: number; right: number; top: number; bottom: number }>,
+		label: string,
+		context: CanvasRenderingContext2D,
+		globalScale: number,
+		fontSize: number,
+	): { x: number; y: number; box: { left: number; right: number; top: number; bottom: number } } {
+		const xs = boundary.map(point => point.x);
+		const ys = boundary.map(point => point.y);
+		const minX = Math.min(...xs);
+		const maxX = Math.max(...xs);
+		const minY = Math.min(...ys);
+		const maxY = Math.max(...ys);
+		const width = context.measureText(label).width + 10 / globalScale;
+		const height = (fontSize + 6) / globalScale;
+		const candidates: Array<{ x: number; y: number }> = [{
+			x: boundary.reduce((sum, point) => sum + point.x, 0) / boundary.length,
+			y: boundary.reduce((sum, point) => sum + point.y, 0) / boundary.length,
+		}];
+		const gridSize = 9;
+		for (let row = 0; row < gridSize; row++) {
+			for (let column = 0; column < gridSize; column++) {
+				candidates.push({
+					x: minX + (maxX - minX) * (column + 0.5) / gridSize,
+					y: minY + (maxY - minY) * (row + 0.5) / gridSize,
+				});
+			}
+		}
+
+		let best: { x: number; y: number; score: number; box: { left: number; right: number; top: number; bottom: number } } | null = null;
+		for (const candidate of candidates) {
+			const box = {
+				left: candidate.x - width / 2,
+				right: candidate.x + width / 2,
+				top: candidate.y - height / 2,
+				bottom: candidate.y + height / 2,
+			};
+			const samplePoints = [
+				candidate,
+				{ x: box.left, y: box.top },
+				{ x: box.right, y: box.top },
+				{ x: box.left, y: box.bottom },
+				{ x: box.right, y: box.bottom },
+			];
+			if (!samplePoints.every(point => this.isGraphPointInside(point, boundary))) continue;
+			if (excludedBoundaries.some(child => samplePoints.some(point => this.isGraphPointInside(point, child)))) continue;
+			if (placedLabels.some(placed => !(box.right < placed.left || box.left > placed.right || box.bottom < placed.top || box.top > placed.bottom))) continue;
+
+			let nearestNode = Number.POSITIVE_INFINITY;
+			let overlapsNode = false;
+			for (const node of nodes) {
+				const nodeX = node.x ?? 0;
+				const nodeY = node.y ?? 0;
+				const nearestX = Math.max(box.left, Math.min(nodeX, box.right));
+				const nearestY = Math.max(box.top, Math.min(nodeY, box.bottom));
+				const clearance = Math.hypot(nodeX - nearestX, nodeY - nearestY) - 23;
+				if (clearance < 3 / globalScale) overlapsNode = true;
+				nearestNode = Math.min(nearestNode, clearance);
+			}
+			if (overlapsNode) continue;
+			const centerBias = -Math.hypot(candidate.x - candidates[0].x, candidate.y - candidates[0].y) * 0.04;
+			const score = nearestNode + centerBias;
+			if (!best || score > best.score) best = { ...candidate, score, box };
+		}
+
+		if (best) return best;
+		const fallback = candidates[0];
+		return {
+			...fallback,
+			box: {
+				left: fallback.x - width / 2,
+				right: fallback.x + width / 2,
+				top: fallback.y - height / 2,
+				bottom: fallback.y + height / 2,
+			},
+		};
+	}
+
+	private drawGraphTeamRegions(
+		context: CanvasRenderingContext2D,
+		nodes: WikiForceNode[],
+		globalScale: number,
+		theme: ReturnType<WikiPanel['getGraphTheme']>,
+	): void {
+		const groups = new Map<string, { team: WikiGraphTeam; parentPath: string | null; nodes: WikiForceNode[] }>();
+		for (const node of nodes) {
+			if (!Number.isFinite(node.x) || !Number.isFinite(node.y)) continue;
+			for (let depth = 0; depth < node.teamTrail.length; depth++) {
+				const team = node.teamTrail[depth];
+				const parentPath = depth > 0 ? node.teamTrail[depth - 1].path : null;
+				const group = groups.get(team.path) ?? { team, parentPath, nodes: [] };
+				group.nodes.push(node);
+				groups.set(team.path, group);
+			}
+		}
+		if (groups.size === 0) return;
+
+		const groupList = Array.from(groups.values());
+		const childrenByParent = new Map<string, typeof groupList>();
+		for (const group of groupList) {
+			if (!group.parentPath) continue;
+			const children = childrenByParent.get(group.parentPath) ?? [];
+			children.push(group);
+			childrenByParent.set(group.parentPath, children);
+		}
+		const boundaries = new Map<string, Array<{ x: number; y: number }>>();
+		for (const group of [...groupList].sort((a, b) => b.team.depth - a.team.depth)) {
+			const points = group.nodes.map(node => ({ x: node.x ?? 0, y: node.y ?? 0 }));
+			for (const child of childrenByParent.get(group.team.path) ?? []) {
+				points.push(...(boundaries.get(child.team.path) ?? []));
+			}
+			const padding = Math.max(22, 32 - group.team.depth * 5);
+			boundaries.set(group.team.path, this.getGraphRegionBoundary(points, group.team.path, padding));
+		}
+
+		const placedLabels: Array<{ left: number; right: number; top: number; bottom: number }> = [];
+		for (const group of groupList.sort((a, b) => a.team.depth - b.team.depth)) {
+			const { team, nodes: teamNodes } = group;
+			const boundary = boundaries.get(team.path) ?? [];
+			if (boundary.length < 3) continue;
+			const hue = this.hashGraphTeam(team.path);
+			const fillAlpha = Math.min(0.2, 0.11 + team.depth * 0.035);
+			const strokeAlpha = Math.min(0.72, 0.46 + team.depth * 0.08);
+			context.save();
+			context.fillStyle = `hsla(${hue}, 58%, 52%, ${fillAlpha})`;
+			context.strokeStyle = `hsla(${hue}, 62%, 55%, ${strokeAlpha})`;
+			context.lineWidth = 1 / globalScale;
+			context.beginPath();
+			context.moveTo(boundary[0].x, boundary[0].y);
+			for (let index = 1; index < boundary.length; index++) context.lineTo(boundary[index].x, boundary[index].y);
+			context.closePath();
+			context.fill();
+			context.stroke();
+
+			const fontSize = team.depth === 0 ? 13 : 12;
+			context.fillStyle = `hsla(${hue}, 70%, 62%, 0.9)`;
+			context.font = `${team.depth === 0 ? 700 : 650} ${fontSize / globalScale}px ${theme.fontFamily}`;
+			const excludedBoundaries = (childrenByParent.get(team.path) ?? [])
+				.map(child => boundaries.get(child.team.path) ?? [])
+				.filter(child => child.length >= 3);
+			const labelPosition = this.getGraphRegionLabelPosition(
+				boundary,
+				teamNodes,
+				excludedBoundaries,
+				placedLabels,
+				team.name,
+				context,
+				globalScale,
+				fontSize,
+			);
+			placedLabels.push(labelPosition.box);
+			context.textAlign = 'center';
+			context.textBaseline = 'middle';
+			context.fillText(team.name, labelPosition.x, labelPosition.y);
+			context.restore();
+		}
+	}
+
+	private drawGraphMapPin(
+		context: CanvasRenderingContext2D,
+		x: number,
+		y: number,
+		globalScale: number,
+		color: string,
+	): void {
+		const size = 17 / globalScale;
+		const scale = size / 24;
+		const bottom = y - 25 - 3 / globalScale;
+		context.save();
+		context.translate(x - 12 * scale, bottom - 22 * scale);
+		context.scale(scale, scale);
+		context.strokeStyle = color;
+		context.lineWidth = 1.8 / globalScale / scale;
+		context.lineCap = 'round';
+		context.lineJoin = 'round';
+		context.beginPath();
+		context.moveTo(20, 10);
+		context.bezierCurveTo(20, 15, 12, 22, 12, 22);
+		context.bezierCurveTo(12, 22, 4, 15, 4, 10);
+		context.bezierCurveTo(4, 5.58, 7.58, 2, 12, 2);
+		context.bezierCurveTo(16.42, 2, 20, 5.58, 20, 10);
+		context.stroke();
+		context.beginPath();
+		context.arc(12, 10, 3, 0, Math.PI * 2);
+		context.stroke();
+		context.restore();
+	}
+
+	private drawGraphNode(
+		node: WikiForceNode,
+		context: CanvasRenderingContext2D,
+		globalScale: number,
+		theme: ReturnType<WikiPanel['getGraphTheme']>,
+	): void {
+		if (!Number.isFinite(node.x) || !Number.isFinite(node.y)) return;
+		const x = node.x ?? 0;
+		const y = node.y ?? 0;
+		const radius = 21;
+		context.save();
+		context.globalAlpha = node.dimmed ? 0.14 : 1;
+		context.beginPath();
+		context.arc(x, y, radius, 0, Math.PI * 2);
+		context.clip();
+		if (node.image?.complete && node.image.naturalWidth > 0) {
+			const sourceRatio = node.image.naturalWidth / node.image.naturalHeight;
+			const size = radius * 2;
+			let width = size;
+			let height = size;
+			if (sourceRatio > 1) width = size * sourceRatio;
+			else height = size / Math.max(sourceRatio, 0.01);
+			context.drawImage(node.image, x - width / 2, y - height / 2, width, height);
+		} else {
+			context.fillStyle = theme.background;
+			context.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+			context.fillStyle = node.color;
+			context.font = `700 ${radius * 0.9}px ${theme.fontFamily}`;
+			context.textAlign = 'center';
+			context.textBaseline = 'middle';
+			context.fillText(node.name.slice(0, 1), x, y + 1);
+		}
+		context.restore();
+
+		context.save();
+		context.globalAlpha = node.dimmed ? 0.14 : 1;
+		context.beginPath();
+		context.arc(x, y, radius, 0, Math.PI * 2);
+		context.strokeStyle = node.color;
+		context.lineWidth = 2.5 / globalScale;
+		context.stroke();
+		if (node.selected) this.drawGraphMapPin(context, x, y, globalScale, node.color);
+		if (globalScale >= 0.48) {
+			context.fillStyle = theme.text;
+			context.font = `600 ${12 / globalScale}px ${theme.fontFamily}`;
+			context.textAlign = 'center';
+			context.textBaseline = 'top';
+			context.fillText(node.name, x, y + radius + 6 / globalScale, 132 / globalScale);
+		}
+		context.restore();
+	}
+
+	private getGraphRelationLayouts(
+		link: WikiForceLink,
+		context: CanvasRenderingContext2D,
+		globalScale: number,
+		fontFamily: string,
+	): WikiGraphRelationLayout[] {
+		if (globalScale < this.getGraphRelationVisibilityScale()) return [];
+		if (typeof link.source !== 'object' || typeof link.target !== 'object') return [];
+		const source = link.source;
+		const target = link.target;
+		if (![source.x, source.y, target.x, target.y].every(value => Number.isFinite(value))) return [];
+		const sx = source.x ?? 0;
+		const sy = source.y ?? 0;
+		const tx = target.x ?? 0;
+		const ty = target.y ?? 0;
+		const displayLabels = link.labels.filter((label, index, all) =>
+			all.findIndex(item => item.key === label.key
+				&& item.text === label.text
+				&& item.fromPath === label.fromPath
+				&& item.toPath === label.toPath) === index);
+		const forward = displayLabels.filter(label => label.fromPath === source.id && label.toPath === target.id);
+		const reverse = displayLabels.filter(label => label.fromPath === target.id && label.toPath === source.id);
+		const dx = tx - sx;
+		const dy = ty - sy;
+		const lineLength = Math.hypot(dx, dy);
+		if (lineLength < 0.01 || displayLabels.length === 0) return [];
+		const unitX = dx / lineLength;
+		const unitY = dy / lineLength;
+		const relationGroups = link.bidirectional
+			? [{ labels: forward, side: 1, direction: 1 }, { labels: reverse, side: -1, direction: -1 }]
+			: [{ labels: displayLabels, side: 1, direction: 1 }];
+		const getRelationEnd = (direction: number) => {
+			const destination = direction > 0 ? target : source;
+			const destinationX = direction > 0 ? tx : sx;
+			const destinationY = direction > 0 ? ty : sy;
+			const radius = 21;
+			const distanceFromNode = Math.min(radius + 4 / globalScale, lineLength * 0.34);
+			return {
+				x: destinationX - unitX * direction * distanceFromNode,
+				y: destinationY - unitY * direction * distanceFromNode,
+			};
+		};
+		const rawAngle = Math.atan2(ty - sy, tx - sx);
+		let angle = rawAngle;
+		const angleFlipped = angle > Math.PI / 2 || angle < -Math.PI / 2;
+		if (angleFlipped) angle += Math.PI;
+		const layouts: WikiGraphRelationLayout[] = [];
+		context.save();
+		context.font = `650 ${11 / globalScale}px ${fontFamily}`;
+		for (const group of relationGroups) {
+			if (group.labels.length === 0) continue;
+			const separator = ' · ';
+			const labelWidths = group.labels.map(label => context.measureText(label.text).width);
+			const separatorWidth = context.measureText(separator).width;
+			const labelsWidth = labelWidths.reduce((sum, width) => sum + width, 0)
+				+ separatorWidth * Math.max(0, group.labels.length - 1);
+			const iconWidth = 7 / globalScale;
+			const iconGap = 4 / globalScale;
+			const totalWidth = labelsWidth + iconGap + iconWidth;
+			const relationEnd = getRelationEnd(group.direction);
+			const directionX = unitX * group.direction;
+			const directionY = unitY * group.direction;
+			const alongOffset = totalWidth / 2 + 6 / globalScale;
+			let labelX = relationEnd.x - directionX * alongOffset;
+			let labelY = relationEnd.y - directionY * alongOffset;
+			const perpendicularOffset = (link.bidirectional ? 9 : 8) * group.side / globalScale;
+			labelX -= unitY * perpendicularOffset;
+			labelY += unitX * perpendicularOffset;
+			layouts.push({
+				labels: group.labels,
+				labelWidths,
+				separatorWidth,
+				iconWidth,
+				iconGap,
+				totalWidth,
+				x: labelX,
+				y: labelY,
+				angle,
+				visualDirection: group.direction * (angleFlipped ? -1 : 1),
+			});
+		}
+		context.restore();
+		return layouts;
+	}
+
+	private drawGraphLinkOverlay(
+		link: WikiForceLink,
+		context: CanvasRenderingContext2D,
+		globalScale: number,
+		theme: ReturnType<WikiPanel['getGraphTheme']>,
+	): void {
+		const layouts = this.getGraphRelationLayouts(link, context, globalScale, theme.fontFamily);
+		if (layouts.length === 0) return;
+		context.save();
+		context.globalAlpha = link.dimmed ? 0.12 : 0.88;
+		for (const layout of layouts) {
+			const { labels, labelWidths, separatorWidth, iconWidth, iconGap, totalWidth, x, y, angle, visualDirection } = layout;
+			const separator = ' · ';
+			context.font = `650 ${11 / globalScale}px ${theme.fontFamily}`;
+				const iconOnLeft = visualDirection < 0;
+				context.save();
+				context.translate(x, y);
+				context.rotate(angle);
+				let cursorX = -totalWidth / 2;
+				context.textAlign = 'left';
+				context.textBaseline = 'middle';
+				const drawChevron = (centerX: number, direction: number, color: string) => {
+					const chevronWidth = 3.5 / globalScale;
+					const chevronHeight = 7 / globalScale;
+					context.save();
+					context.strokeStyle = color;
+					context.lineWidth = 1.5 / globalScale;
+					context.lineCap = 'round';
+					context.lineJoin = 'round';
+					context.beginPath();
+					context.moveTo(centerX - direction * chevronWidth / 2, -chevronHeight / 2);
+					context.lineTo(centerX + direction * chevronWidth / 2, 0);
+					context.lineTo(centerX - direction * chevronWidth / 2, chevronHeight / 2);
+					context.stroke();
+					context.restore();
+				};
+				const getLabelColor = (label: WikiGraphRelationLabel) => {
+					const fallback = theme.faint;
+					return link.dimmed ? theme.faint : this.getGraphRelationLabelColor(label.key, fallback);
+				};
+				if (iconOnLeft) {
+					drawChevron(cursorX + iconWidth / 2, visualDirection, getLabelColor(labels[0]));
+					cursorX += iconWidth + iconGap;
+				}
+				labels.forEach((label, index) => {
+					context.fillStyle = getLabelColor(label);
+					context.fillText(label.text, cursorX, 0);
+					cursorX += labelWidths[index];
+					if (index >= labels.length - 1) return;
+					context.fillStyle = link.dimmed ? theme.faint : theme.muted;
+					context.fillText(separator, cursorX, 0);
+					cursorX += separatorWidth;
+				});
+				if (!iconOnLeft) {
+					cursorX += iconGap;
+					drawChevron(cursorX + iconWidth / 2, visualDirection, getLabelColor(labels[labels.length - 1]));
+				}
+				context.restore();
+		}
+		context.restore();
+	}
+
+	private paintGraphLinkPointerArea(
+		link: WikiForceLink,
+		color: string,
+		context: CanvasRenderingContext2D,
+		globalScale: number,
+		fontFamily: string,
+	): void {
+		if (typeof link.source !== 'object' || typeof link.target !== 'object') return;
+		if (![link.source.x, link.source.y, link.target.x, link.target.y]
+			.every(value => Number.isFinite(value))) return;
+		context.strokeStyle = color;
+		context.lineWidth = 14 / globalScale;
+		context.beginPath();
+		context.moveTo(link.source.x ?? 0, link.source.y ?? 0);
+		context.lineTo(link.target.x ?? 0, link.target.y ?? 0);
+		context.stroke();
+
+		context.fillStyle = color;
+		for (const layout of this.getGraphRelationLayouts(link, context, globalScale, fontFamily)) {
+			const horizontalPadding = 6 / globalScale;
+			const hitHeight = 22 / globalScale;
+			context.save();
+			context.translate(layout.x, layout.y);
+			context.rotate(layout.angle);
+			context.fillRect(
+				-layout.totalWidth / 2 - horizontalPadding,
+				-hitHeight / 2,
+				layout.totalWidth + horizontalPadding * 2,
+				hitHeight,
+			);
+			context.restore();
+		}
+	}
+
+	private createGraphTeamForce(): WikiTeamForce {
+		let nodes: WikiForceNode[] = [];
+		let topGroups: string[] = [];
+		let childrenByParent = new Map<string, string[]>();
+		const force = ((alpha: number) => {
+			if (topGroups.length === 0) return;
+			const physics = this.getGraphPhysics();
+			const orbit = topGroups.length > 1
+				? Math.min(420, Math.max(90, physics.linkDistance * 0.72 + topGroups.length * 7))
+				: 0;
+			const anchors = new Map<string, { x: number; y: number }>();
+			topGroups.forEach((group, index) => {
+				const angle = topGroups.length === 1 ? 0 : -Math.PI / 2 + Math.PI * 2 * index / topGroups.length;
+				anchors.set(group, { x: Math.cos(angle) * orbit, y: Math.sin(angle) * orbit * 0.72 });
+			});
+			for (const node of nodes) {
+				const topTeam = node.teamTrail[0];
+				const topAnchor = topTeam ? anchors.get(topTeam.path) : undefined;
+				if (!topAnchor) continue;
+				const anchor = { ...topAnchor };
+				for (let depth = 1; depth < node.teamTrail.length; depth++) {
+					const parent = node.teamTrail[depth - 1];
+					const team = node.teamTrail[depth];
+					const siblings = childrenByParent.get(parent.path) ?? [team.path];
+					const index = Math.max(0, siblings.indexOf(team.path));
+					const angle = -Math.PI / 2 + Math.PI * 2 * index / Math.max(1, siblings.length);
+					const radius = Math.max(42, physics.linkDistance * 0.36) / Math.pow(1.45, depth - 1);
+					anchor.x += Math.cos(angle) * radius;
+					anchor.y += Math.sin(angle) * radius * 0.78;
+				}
+				node.vx = (node.vx ?? 0) + (anchor.x - (node.x ?? 0)) * 0.1 * alpha;
+				node.vy = (node.vy ?? 0) + (anchor.y - (node.y ?? 0)) * 0.1 * alpha;
+			}
+		}) as WikiTeamForce;
+		force.initialize = nextNodes => {
+			nodes = nextNodes;
+			topGroups = Array.from(new Set(nodes.map(node => node.teamTrail[0]?.path).filter((path): path is string => Boolean(path))))
+				.sort((a, b) => a.localeCompare(b));
+			const childSets = new Map<string, Set<string>>();
+			for (const node of nodes) {
+				for (let depth = 1; depth < node.teamTrail.length; depth++) {
+					const parentPath = node.teamTrail[depth - 1].path;
+					const children = childSets.get(parentPath) ?? new Set<string>();
+					children.add(node.teamTrail[depth].path);
+					childSets.set(parentPath, children);
+				}
+			}
+			childrenByParent = new Map(Array.from(childSets, ([path, children]) => [path, Array.from(children).sort((a, b) => a.localeCompare(b))]));
+		};
+		return force;
+	}
+
+	private renderGraphControls(panel: HTMLElement, files: TFile[]): void {
+		const entries = this.buildSearchIndex(files);
+		const controls = panel.createDiv({ cls: 'wiki-graph-controls' });
+		const segment = controls.createDiv({ cls: 'wiki-graph-control-seg' });
+		const thumb = segment.createDiv({ cls: 'wiki-graph-control-thumb' });
+		type GraphControlPanel = 'path' | 'search' | 'style' | 'settings';
+		const buttons = new Map<GraphControlPanel, HTMLButtonElement>();
+		const panels = new Map<GraphControlPanel, HTMLElement>();
+		let openPanel: GraphControlPanel | null = null;
+		const syncThumb = (button: HTMLButtonElement) => {
+			thumb.setCssProps({
+				'--wiki-graph-control-x': `${button.offsetLeft}px`,
+				'--wiki-graph-control-width': `${button.offsetWidth}px`,
+				'--wiki-graph-control-height': `${button.offsetHeight}px`,
+			});
+		};
+		const setOpenPanel = (next: GraphControlPanel | null) => {
+			openPanel = next === openPanel ? null : next;
+			for (const [key, button] of buttons) {
+				const active = key === openPanel;
+				button.setAttribute('aria-pressed', String(active));
+				panels.get(key)?.toggleClass('is-open', active);
+				if (active) syncThumb(button);
+			}
+			thumb.toggleClass('is-visible', openPanel !== null);
+			if (openPanel === 'search') {
+				window.requestAnimationFrame(() => {
+					const input = panels.get('search')?.querySelector<HTMLInputElement>('.wiki-graph-filter-input');
+					input?.focus({ preventScroll: true });
+					input?.setSelectionRange(input.value.length, input.value.length);
+				});
+			}
+		};
+		for (const item of [
+			{ key: 'path' as const, label: '경로' },
+			{ key: 'search' as const, label: '검색' },
+			{ key: 'style' as const, label: '속성' },
+			{ key: 'settings' as const, label: '설정' },
+		]) {
+			const button = segment.createEl('button', {
+				text: item.label,
+				attr: { type: 'button', 'aria-pressed': 'false' },
+			});
+			buttons.set(item.key, button);
+			button.addEventListener('click', event => {
+				event.stopPropagation();
+				setOpenPanel(item.key);
+			});
+		}
+
+		const panelHost = controls.createDiv({ cls: 'wiki-graph-control-panels' });
+		const queueSettingsSave = () => {
+			window.clearTimeout(this.graphSettingTimer);
+			this.graphSettingTimer = window.setTimeout(() => void this.plugin.saveData(this.plugin.settings), 160);
+		};
+		const pathPanel = panelHost.createDiv({ cls: 'wiki-graph-control-panel wiki-graph-path-panel' });
+		panels.set('path', pathPanel);
+		const graphPath = pathPanel.createSpan({ cls: 'wiki-bc-path wiki-graph-bc-path' });
+		this.renderBreadcrumb(
+			graphPath,
+			this.graphRootFolder ? (this.graphRootFolder.path || 'Vault') : '',
+			'경로를 지정해주십시오',
+		);
+		graphPath.addEventListener('click', event => {
+			event.stopPropagation();
+			this.openGraphRootPicker();
+		});
+
+		const searchPanel = panelHost.createDiv({ cls: 'wiki-graph-control-panel wiki-graph-search-panel' });
+		panels.set('search', searchPanel);
+		const searchBox = searchPanel.createDiv({ cls: 'wiki-graph-filter-box' });
+		const searchIcon = searchBox.createSpan({ cls: 'wiki-graph-filter-icon' });
+		setIcon(searchIcon, 'search');
+		const searchInput = searchBox.createEl('input', {
+			cls: 'wiki-graph-filter-input',
+			attr: {
+				type: 'search',
+				placeholder: '검색...',
+				spellcheck: 'false',
+				'aria-label': '위키 그래프 검색',
+			},
+		});
+		searchInput.value = this.graphSearchQuery;
+		const searchInfo = searchBox.createEl('button', {
+			cls: 'wiki-graph-filter-info',
+			attr: { type: 'button', 'aria-label': '검색 구문', title: '검색 구문' },
+		});
+		setIcon(searchInfo, 'info');
+		const searchHelp = searchPanel.createDiv({ cls: 'wiki-graph-search-help' });
+		const addSearchHelp = (syntax: string, description: string) => {
+			const row = searchHelp.createDiv({ cls: 'wiki-graph-search-help-row' });
+			row.createEl('strong', { text: syntax });
+			row.createSpan({ text: description });
+		};
+		addSearchHelp('word', '파일 이름 또는 별칭');
+		addSearchHelp('.key', '속성 키');
+		addSearchHelp('.key:value', '속성값');
+		addSearchHelp('#tag', '태그');
+		addSearchHelp('and / or', '태그·속성 조건 조합');
+		searchInfo.addEventListener('click', event => {
+			event.stopPropagation();
+			searchHelp.toggleClass('is-open', !searchHelp.hasClass('is-open'));
+		});
+		searchInput.addEventListener('input', () => {
+			this.closeGraphRelationPopover();
+			this.graphSearchQuery = searchInput.value;
+			this.graphSelectedNodePath = '';
+			this.applyGraphEmphasis(entries);
+		});
+
+		const stylePanel = panelHost.createDiv({ cls: 'wiki-graph-control-panel wiki-graph-style-panel' });
+		panels.set('style', stylePanel);
+		const notifyGraphStyleChange = () => {
+			const EventConstructor = panel.ownerDocument.defaultView?.Event;
+			if (EventConstructor) panel.ownerDocument.dispatchEvent(new EventConstructor('writing-menu-wiki-graph-style-change'));
+		};
+		const setRelationFields = (fields: string[]) => {
+			this.plugin.settings.wikiRelationFields = Array.from(new Set(fields.map(field => field.trim()).filter(Boolean))).join(', ');
+		};
+		const configuredFields = this.getRelationFields();
+		const propertyKeys = Array.from(new Set([
+			...configuredFields,
+			...Object.keys(this.plugin.settings.wikiGraphRelationLabelColors ?? {}),
+		]));
+		if (propertyKeys.join('\u0000') !== configuredFields.join('\u0000')) {
+			setRelationFields(propertyKeys);
+			queueSettingsSave();
+		}
+		const renderColorRow = (storedKey: string, storedColor: string, before?: HTMLElement) => {
+			let currentKey = storedKey;
+			const row = stylePanel.createDiv({ cls: 'wiki-graph-style-row' });
+			if (before) stylePanel.insertBefore(row, before);
+			const colorInput = row.createEl('input', {
+				cls: 'wiki-graph-style-color',
+				attr: { type: 'color', value: storedColor, 'aria-label': `${storedKey} 색상` },
+			});
+			const keyInput = row.createEl('input', {
+				cls: 'wiki-graph-style-key',
+				attr: { type: 'text', value: storedKey, placeholder: '속성', 'aria-label': '관계 속성' },
+			});
+			const deleteButton = row.createEl('button', {
+				cls: 'wiki-graph-style-action',
+				text: '삭제',
+				attr: { type: 'button', 'aria-label': '관계 속성 삭제', title: '삭제' },
+			});
+			keyInput.addEventListener('change', () => {
+				const nextKey = keyInput.value.trim();
+				if (!nextKey) {
+					keyInput.value = currentKey;
+					return;
+				}
+				if (nextKey === currentKey) return;
+				if (this.getRelationFields().some(field => field === nextKey && field !== currentKey)) {
+					keyInput.value = currentKey;
+					new Notice('이미 추가된 속성입니다.');
+					return;
+				}
+				const colors = { ...(this.plugin.settings.wikiGraphRelationLabelColors ?? {}) };
+				const color = colors[currentKey] ?? colorInput.value;
+				delete colors[currentKey];
+				colors[nextKey] = color;
+				setRelationFields(this.getRelationFields().map(field => field === currentKey ? nextKey : field));
+				currentKey = nextKey;
+				this.plugin.settings.wikiGraphRelationLabelColors = colors;
+				colorInput.setAttribute('aria-label', `${nextKey} 색상`);
+				queueSettingsSave();
+				notifyGraphStyleChange();
+				void this.refreshGraphRelations();
+			});
+			colorInput.addEventListener('input', () => {
+				this.plugin.settings.wikiGraphRelationLabelColors = {
+					...(this.plugin.settings.wikiGraphRelationLabelColors ?? {}),
+					[currentKey]: colorInput.value,
+				};
+				queueSettingsSave();
+				notifyGraphStyleChange();
+			});
+			deleteButton.addEventListener('click', () => {
+				const colors = { ...(this.plugin.settings.wikiGraphRelationLabelColors ?? {}) };
+				delete colors[currentKey];
+				this.plugin.settings.wikiGraphRelationLabelColors = colors;
+				setRelationFields(this.getRelationFields().filter(field => field !== currentKey));
+				row.remove();
+				queueSettingsSave();
+				notifyGraphStyleChange();
+				void this.refreshGraphRelations();
+			});
+		};
+		for (const key of propertyKeys) {
+			renderColorRow(key, this.plugin.settings.wikiGraphRelationLabelColors?.[key] ?? '#888888');
+		}
+		const addRow = stylePanel.createDiv({ cls: 'wiki-graph-style-row is-add' });
+		const addColorInput = addRow.createEl('input', {
+			cls: 'wiki-graph-style-color',
+			attr: { type: 'color', value: '#888888', 'aria-label': '추가할 속성 색상' },
+		});
+		const addKeyInput = addRow.createEl('input', {
+			cls: 'wiki-graph-style-key',
+			attr: { type: 'text', placeholder: '속성', 'aria-label': '추가할 관계 속성' },
+		});
+		const addButton = addRow.createEl('button', {
+			cls: 'wiki-graph-style-action',
+			text: '추가',
+			attr: { type: 'button', 'aria-label': '관계 속성 추가', title: '추가' },
+		});
+		const addColorSetting = () => {
+			const key = addKeyInput.value.trim();
+			if (!key) {
+				addKeyInput.focus();
+				return;
+			}
+			if (this.getRelationFields().includes(key)) {
+				new Notice('이미 추가된 속성입니다.');
+				addKeyInput.select();
+				return;
+			}
+			this.plugin.settings.wikiGraphRelationLabelColors = {
+				...(this.plugin.settings.wikiGraphRelationLabelColors ?? {}),
+				[key]: addColorInput.value,
+			};
+			setRelationFields([...this.getRelationFields(), key]);
+			renderColorRow(key, addColorInput.value, addRow);
+			addKeyInput.value = '';
+			queueSettingsSave();
+			notifyGraphStyleChange();
+			void this.refreshGraphRelations();
+		};
+		addButton.addEventListener('click', addColorSetting);
+		addKeyInput.addEventListener('keydown', event => {
+			if (event.key !== 'Enter') return;
+			event.preventDefault();
+			addColorSetting();
+		});
+
+		const settingsPanel = panelHost.createDiv({ cls: 'wiki-graph-control-panel wiki-graph-settings-panel' });
+		panels.set('settings', settingsPanel);
+		const createSlider = (
+			label: string,
+			value: number,
+			min: number,
+			max: number,
+			step: number,
+			onInput: (next: number) => void,
+			onCommit?: (next: number) => void,
+		) => {
+			const row = settingsPanel.createDiv({ cls: 'wiki-graph-setting-row' });
+			const head = row.createDiv({ cls: 'wiki-graph-setting-head' });
+			head.createSpan({ text: label });
+			const valueEl = head.createSpan({ cls: 'wiki-graph-setting-value' });
+			const track = row.createDiv({ cls: 'wiki-graph-setting-slider' });
+			const fill = track.createDiv({ cls: 'wiki-graph-setting-fill' });
+			const input = track.createEl('input', {
+				attr: {
+					type: 'range',
+					min: String(min),
+					max: String(max),
+					step: String(step),
+					'aria-label': label,
+				},
+			});
+			const update = (next: number) => {
+				const clamped = Math.max(min, Math.min(max, next));
+				input.value = String(clamped);
+				valueEl.setText(`${clamped.toFixed(2)}×`);
+				fill.setCssProps({ '--wiki-graph-slider-progress': `${(clamped - min) / (max - min) * 100}%` });
+			};
+			update(value);
+			input.addEventListener('input', () => {
+				const next = Number(input.value);
+				update(next);
+				onInput(next);
+			});
+			input.addEventListener('change', () => {
+				const next = Number(input.value);
+				onCommit?.(next);
+				queueSettingsSave();
+			});
+		};
+		createSlider('장력', this.plugin.settings.wikiGraphNodeDistance ?? 1.25, 0.6, 2.6, 0.05, value => {
+			const previous = this.plugin.settings.wikiGraphNodeDistance ?? 1.25;
+			this.plugin.settings.wikiGraphNodeDistance = value;
+			this.applyGraphPhysics(value, false);
+			this.scaleGraphLayout(previous, value);
+		});
+		createSlider('텍스트 표시 시작점', this.getGraphRelationVisibilityScale(), 0.25, 2, 0.05, value => {
+			this.plugin.settings.wikiGraphRelationVisibilityScale = value;
+			this.refreshGraphRelationVisibility();
+		});
+
+		controls.addEventListener('pointerdown', event => event.stopPropagation());
+		panel.addEventListener('pointerdown', event => {
+			if (event.target instanceof Node && !controls.contains(event.target)) setOpenPanel(null);
+		});
+	}
+
+	private async renderRelationshipGraph(outerContainer: HTMLElement, renderSeq: number): Promise<void> {
+		const panel = outerContainer.createDiv({ cls: 'wiki-relation-graph-panel is-workspace' });
+		const files = this.graphRootFolder ? this.getGraphFiles() : [];
+		this.renderGraphControls(panel, files);
+		if (!this.graphRootFolder) {
+			const empty = panel.createDiv({ cls: 'wiki-graph-empty' });
+			setIcon(empty.createSpan({ cls: 'wiki-graph-empty-icon' }), 'git-fork');
+			empty.createSpan({ text: '관계도를 만들 루트 폴더를 선택하세요.' });
+			const selectButton = empty.createEl('button', { cls: 'mod-cta', text: '폴더 선택', attr: { type: 'button' } });
+			selectButton.addEventListener('click', () => this.openGraphRootPicker());
+			return;
+		}
+
+		if (files.length === 0) {
+			const empty = panel.createDiv({ cls: 'wiki-graph-empty' });
+			setIcon(empty.createSpan({ cls: 'wiki-graph-empty-icon' }), 'users');
+			empty.createSpan({ text: '루트 폴더에 마크다운 노트가 없습니다.' });
+			return;
+		}
+		const source = this.getGraphAnchorFile(files);
+		const host = panel.createDiv({ cls: 'wiki-relation-graph' });
+		const loading = host.createDiv({ cls: 'wiki-graph-empty', text: '관계 정보를 불러오는 중…' });
+		const model = await this.buildRelationshipGraphModel(source);
+		if (this.renderSeq !== renderSeq || !host.isConnected) return;
+		loading.remove();
+		if (model.connections.length === 0) panel.createDiv({ cls: 'wiki-graph-no-relations', text: '등록된 관계가 없습니다.' });
+		void this.mountRelationshipGraph(host, source, model, renderSeq);
+	}
+
+	private async mountRelationshipGraph(host: HTMLElement, source: TFile, model: WikiGraphModel, renderSeq: number): Promise<void> {
+		try {
+			const data = this.toForceGraphData(source, model);
+			let theme = this.getGraphTheme(host);
+			const graph = new ForceGraph<WikiForceNode, WikiForceLink>(host);
+			let initialViewApplied = false;
+			const applyInitialView = () => {
+				if (initialViewApplied || this.relationshipGraph !== graph || !host.isConnected) return;
+				const selectedNode = data.nodes.find(node => node.filePath === this.graphSelectedNodePath);
+				if (selectedNode && Number.isFinite(selectedNode.x) && Number.isFinite(selectedNode.y)) {
+					initialViewApplied = true;
+					const currentZoom = graph.zoom();
+					const targetZoom = Number.isFinite(currentZoom)
+						? Math.max(1.35, Math.min(2.2, currentZoom))
+						: 1.35;
+					graph.centerAt(selectedNode.x, selectedNode.y, 460);
+					graph.zoom(targetZoom, 460);
+					return;
+				}
+				initialViewApplied = true;
+				graph.zoomToFit(420, 54);
+			};
+			graph
+				.width(Math.max(1, host.clientWidth))
+				.height(Math.max(1, host.clientHeight))
+				.backgroundColor('rgba(0,0,0,0)')
+				.nodeLabel(node => node.name)
+				.nodeCanvasObject((node, context, globalScale) => this.drawGraphNode(node, context, globalScale, theme))
+				.nodePointerAreaPaint((node, color, context) => {
+					if (!Number.isFinite(node.x) || !Number.isFinite(node.y)) return;
+					context.fillStyle = color;
+					context.beginPath();
+					context.arc(node.x ?? 0, node.y ?? 0, 24, 0, Math.PI * 2);
+					context.fill();
+				})
+				.linkLabel(link => link.labels
+					.filter((label, index, all) => all.findIndex(item => item.key === label.key && item.text === label.text) === index)
+					.map(label => label.text)
+					.join(' · '))
+				.linkVisibility(() => this.graphZoomScale >= this.getGraphRelationVisibilityScale())
+				.linkColor(link => link.dimmed ? theme.faint : theme.muted)
+				.linkWidth(link => link.dimmed ? 0.55 : 1.25)
+				.linkHoverPrecision(14)
+				.linkPointerAreaPaint((link, color, context, globalScale) =>
+					this.paintGraphLinkPointerArea(link, color, context, globalScale, theme.fontFamily))
+				.linkLineDash(link => link.dashed ? [6, 4] : null)
+				.linkDirectionalArrowLength(() => 0)
+				.linkDirectionalArrowColor(link => link.dimmed ? theme.faint : theme.muted)
+				.linkCanvasObjectMode(() => 'after')
+				.linkCanvasObject((link, context, globalScale) => this.drawGraphLinkOverlay(link, context, globalScale, theme))
+				.onRenderFramePre((context, globalScale) =>
+					this.drawGraphTeamRegions(context, graph.graphData().nodes, globalScale, theme))
+				.enableNodeDrag(true)
+				.enableZoomInteraction(true)
+				.enablePanInteraction(true)
+				.minZoom(0.15)
+				.maxZoom(8)
+				.onZoom(transform => {
+					this.graphZoomScale = transform.k;
+					graph.linkVisibility(graph.linkVisibility());
+				})
+				.d3AlphaDecay(0.018)
+				.d3VelocityDecay(0.28)
+				.cooldownTime(model.files.length > 180 ? 10000 : 7000)
+				.onNodeClick((node, event) => {
+					const file = this.app.vault.getAbstractFileByPath(node.filePath);
+					if (!(file instanceof TFile)) return;
+					if (event.ctrlKey || event.metaKey || this.graphSelectedNodePath === node.filePath) {
+						this.graphActive = false;
+						this.navigateToWikiFile(file);
+						return;
+					}
+					this.selectGraphNode(node.filePath);
+				})
+				.onBackgroundClick(() => this.clearGraphNodeSelection())
+				.onLinkClick((link, event) => {
+					event.stopPropagation();
+					if (!this.canEditGraphLink(link)) return;
+					this.chooseRelationLabel(link, event, host);
+				})
+				.onNodeDrag(() => {
+					// force-graph가 드래그 중 simulation을 다시 데우므로 연결된 노드도 자연스럽게 반응한다.
+				})
+				.onNodeDragEnd(node => {
+					node.fx = undefined;
+					node.fy = undefined;
+				})
+				.onEngineStop(applyInitialView)
+				.graphData(data);
+			if (this.renderSeq !== renderSeq || !host.isConnected) {
+				graph._destructor();
+				return;
+			}
+			this.relationshipGraph = graph;
+			const refreshGraphTheme = () => {
+				if (this.relationshipGraph !== graph || !host.isConnected) return;
+				theme = this.getGraphTheme(host);
+				graph.nodeCanvasObject(graph.nodeCanvasObject());
+			};
+			this.graphThemeObserver = new MutationObserver(refreshGraphTheme);
+			const themeObserverOptions: MutationObserverInit = {
+				attributes: true,
+				attributeFilter: ['class', 'style', 'data-theme'],
+			};
+			this.graphThemeObserver.observe(host.ownerDocument.body, themeObserverOptions);
+			this.graphThemeObserver.observe(host.ownerDocument.documentElement, themeObserverOptions);
+			host.ownerDocument.addEventListener('writing-menu-wiki-graph-style-change', refreshGraphTheme);
+			this.graphStyleCleanup = () => host.ownerDocument.removeEventListener('writing-menu-wiki-graph-style-change', refreshGraphTheme);
+			graph.d3Force('team', this.createGraphTeamForce());
+			this.applyGraphPhysics();
+			window.setTimeout(() => {
+				applyInitialView();
+			}, 520);
+
+			for (const node of data.nodes) {
+				if (!node.imageSrc) continue;
+				const image = new host.ownerDocument.defaultView!.Image();
+				image.decoding = 'async';
+				image.onload = () => {
+					if (this.relationshipGraph === graph) graph.nodeCanvasObject(graph.nodeCanvasObject());
+				};
+				image.src = node.imageSrc;
+				node.image = image;
+			}
+
+			this.graphResizeObserver = new ResizeObserver(entries => {
+				if (this.relationshipGraph !== graph) return;
+				const box = entries[0]?.contentRect;
+				if (!box || box.width <= 0 || box.height <= 0) return;
+				graph.width(box.width).height(box.height);
+			});
+			this.graphResizeObserver.observe(host);
+			this.applyGraphEmphasis(this.buildSearchIndex(model.files));
+		} catch (error) {
+			if (this.renderSeq !== renderSeq || !host.isConnected) return;
+			host.empty();
+			host.createDiv({ cls: 'wiki-graph-error', text: '관계 그래프를 불러오지 못했습니다.' });
+			console.error('[writing-menu] Failed to render relationship graph', error);
+		}
+	}
+
+	/** 관계 값은 옵시디언이 추적할 수 있는 순수 위키링크로 유지한다. */
+	private resolveRelationships(
+		value: unknown,
+		srcPath: string,
+		field: string,
+		inlineComments?: Map<string, string>,
+	): Array<{ file: TFile; label: WikiGraphRelationLabel }> {
+		const raw: string[] = [];
+		const appendText = (input: unknown) => {
+			for (const part of String(input ?? '').split(',')) {
+				const token = part.trim();
+				if (token) raw.push(token);
+			}
+		};
+		const append = (input: unknown) => {
+			if (Array.isArray(input)) {
+				for (const item of input) append(item);
+				return;
+			}
+			appendText(input);
+		};
+		append(value);
+
+		const out: Array<{ file: TFile; label: WikiGraphRelationLabel }> = [];
+		const seen = new Set<string>();
+		for (const item of raw) {
+			const wikiLink = item.match(/^\[\[(.*?)\]\]$/);
+			const linkpath = wikiLink ? wikiLink[1].split('|')[0].trim() : item;
+			const file = this.app.metadataCache.getFirstLinkpathDest(linkpath, srcPath);
+			if (!(file instanceof TFile)) continue;
+			const label = {
+				key: field,
+				text: inlineComments?.get(`${field}\u0000${file.path}`) || field,
+				fromPath: srcPath,
+				toPath: file.path,
+			};
+			const identity = `${file.path}\u0000${label.key}\u0000${label.text}`;
+			if (seen.has(identity)) continue;
+			seen.add(identity);
+			out.push({ file, label });
+		}
+		return out;
 	}
 
 	// ── C-1. TOC ────────────────────────────────────────────────────────────
@@ -830,9 +2582,8 @@ export class WikiPanel {
 		for (const valEl of valEls) {
 			valEl.querySelectorAll('a.internal-link').forEach((link: HTMLElement) => {
 				link.addEventListener('click', (e) => {
-					e.preventDefault();
 					const href = link.getAttribute('data-href') || link.getAttribute('href');
-					if (href) void this.app.workspace.openLinkText(href, file.path, true);
+					if (href && this.openLinkInWiki(href, file.path, e)) return;
 				});
 			});
 		}

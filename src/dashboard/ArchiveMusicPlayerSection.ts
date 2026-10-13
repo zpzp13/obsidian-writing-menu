@@ -41,8 +41,6 @@ export class ArchiveMusicPlayerSection {
 	static render(container: HTMLElement, plugin: WritingMenuPlugin, compact?: HTMLElement) {
 		const player = plugin.musicPlayer;
 		const root = container.createDiv({ cls: 'wm-dash-music-player wm-archive-mini-player' });
-		let compactTrack: HTMLElement | null = null;
-		if (compact) compactTrack = compact.createDiv({ cls: 'wm-music-compact-title' });
 
 		if (!player) {
 			root.createDiv({ cls: 'wm-dash-music-empty', text: '플레이어를 불러오는 중입니다.' });
@@ -52,8 +50,23 @@ export class ArchiveMusicPlayerSection {
 			const empty = root.createDiv({ cls: 'wm-archive-mini-empty' });
 			setIcon(empty.createSpan(), 'disc-3');
 			empty.createSpan({ text: '설정에서 음악 폴더를 지정해 주세요.' });
+			const renderWhenPlaylistIsReady = () => {
+				if (!root.isConnected) {
+					player.unsubscribe(renderWhenPlaylistIsReady);
+					return;
+				}
+				if (player.playlist.length === 0) return;
+				player.unsubscribe(renderWhenPlaylistIsReady);
+				container.empty();
+				this.render(container, plugin, compact);
+			};
+			player.subscribe(renderWhenPlaylistIsReady);
+			watchDisconnect(root, () => player.unsubscribe(renderWhenPlaylistIsReady));
 			return;
 		}
+
+		let compactTrack: HTMLElement | null = null;
+		if (compact) compactTrack = compact.createDiv({ cls: 'wm-music-compact-title' });
 
 		const shell = root.createDiv({ cls: 'wm-archive-mini-shell' });
 		const artRing = shell.createDiv({ cls: 'wm-archive-mini-art-ring' });

@@ -47,8 +47,6 @@ export class TaskParser {
 
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
-		const completionFocusStr = formatDateKey(focusDate ?? today);
-
 		const results: ParsedTask[] = [];
 
 		// 파일명 형식으로 데일리 노트 후보만 먼저 선별한다. 이전 구현처럼
@@ -84,10 +82,6 @@ export class TaskParser {
 					const resolvedCompletedDate = completed
 						? (completedDate ?? formatDateKey(date))
 						: undefined;
-					// 완료 레이어는 선택 날짜에 완료한 항목만 읽는다. 날짜를 넘겨도
-					// 해당 날짜의 완료 이력을 다시 확인할 수 있어야 한다.
-					if (completed && resolvedCompletedDate !== completionFocusStr) continue;
-
 					let category: ParsedTask['category'];
 					let displayDate = date;
 

@@ -19,6 +19,12 @@ export const VIEW_TYPE_CALENDAR = 'writing-menu-calendar';
 
 type DashTab = 'main' | 'wiki' | 'version' | 'ai';
 
+interface TaskDayStats {
+	total: number;
+	completed: number;
+	open: number;
+}
+
 const TABS: Array<{ id: DashTab; icon: string; label: string }> = [
 	{ id: 'main',    icon: 'house',              label: 'MAIN' },
 	{ id: 'wiki',    icon: 'git-graph',          label: 'WIKI' },
@@ -38,9 +44,10 @@ export class CalendarView extends ItemView {
 	private dateDisplayEl: HTMLElement   | null = null;
 	private calendarTaskSlot: HTMLElement | null = null;
 	private badgeDebounceTimer = 0;
+	private taskLoadRequestId = 0;
 	private calendarClickBlockUntil = 0;
 	private calendarTaskDockCollapsed = false;
-	private taskCounts = new Map<string, number>();
+	private taskStats = new Map<string, TaskDayStats>();
 
 constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 		super(leaf);
@@ -93,6 +100,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 	// ── Root render ─────────────────────────────────────────────────
 
 	render() {
+		if (this.dashTab !== 'wiki') this.wikiPanel?.suspend();
 		const content = this.containerEl.children[1] as HTMLElement;
 		content.empty();
 		this.updateDashboardContentClass();
@@ -100,8 +108,6 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 		const wrap = content.createDiv({ cls: 'wm-cal-wrapper' });
 		this.renderDashboardTabBar(wrap);
 		this.renderDashboardPanel(wrap);
-
-		this.loadAndApplyTasks().catch(() => {});
 	}
 
 	// ── Top bar ─────────────────────────────────────────────────────
@@ -202,6 +208,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 
 			cell.createDiv({ cls: 'wm-cal-weekday', text: dayLabels[i] });
 			cell.createDiv({ cls: 'wm-cal-num', text: String(d.getDate()) });
+			cell.createDiv({ cls: 'wm-cal-task-dots', attr: { 'aria-hidden': 'true' } });
 
 			const selectDate = (e: MouseEvent | KeyboardEvent) => {
 				if (Date.now() < this.calendarClickBlockUntil) return;
@@ -300,8 +307,8 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 	private renderMainDashboard(panel: HTMLElement) {
 		const fallback: DashSectionConfig[] = [
 			{ id: 'calendar', label: '일정', visible: true },
-			{ id: 'chars', label: '글자수', visible: true },
 			{ id: 'timer', label: '타이머', visible: true },
+			{ id: 'chars', label: '글자수', visible: true },
 			{ id: 'time', label: '작업 시간', visible: true },
 			{ id: 'music', label: '음악', visible: true },
 		];
@@ -325,6 +332,9 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 		this.calendarTaskSlot = calendar.createDiv({ cls: 'wm-cal-task-dock' });
 		this.calendarTaskSlot.toggleClass('is-collapsed', this.calendarTaskDockCollapsed);
 		this.calendarTaskSlot.setAttribute('aria-hidden', String(this.calendarTaskDockCollapsed));
+		// 탭 전환으로 달력 DOM만 다시 만들어져도 직전 작업 상태를 즉시 복원한 뒤 최신 데이터를 읽는다.
+		this.applyTaskIndicators();
+		void this.loadAndApplyTasks().catch(() => {});
 	}
 
 	private bindWeekSwipe(viewport: HTMLElement) {
@@ -428,8 +438,8 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 
 		const cfg: DashSectionConfig[] = (this.plugin.settings.dashboardSections ?? [
 			{ id: 'calendar', label: '일정', visible: true },
-			{ id: 'chars', label: '글자수', visible: true },
 			{ id: 'timer', label: '타이머', visible: true },
+			{ id: 'chars', label: '글자수', visible: true },
 			{ id: 'time', label: '작업 시간', visible: true },
 			{ id: 'music', label: '음악', visible: true },
 		]).filter(sec => ['calendar', 'chars', 'timer', 'time', 'music'].includes(sec.id));
@@ -502,14 +512,27 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 	// ── Task data: load & apply ──────────────────────────────────────
 
 	private async loadAndApplyTasks(): Promise<void> {
+		const requestId = ++this.taskLoadRequestId;
 		const tasks = await TaskParser.loadTasks(this.plugin, this.selectedDate);
-		this.taskCounts.clear();
+		if (requestId !== this.taskLoadRequestId) return;
+		this.taskStats.clear();
 		for (const t of tasks) {
-			if (t.completed) continue;
 			const dk = formatDateKey(t.sourceDate);
-			this.taskCounts.set(dk, (this.taskCounts.get(dk) ?? 0) + 1);
+			const stats = this.taskStats.get(dk) ?? { total: 0, completed: 0, open: 0 };
+			stats.total++;
+			if (t.completed) stats.completed++;
+			else stats.open++;
+			this.taskStats.set(dk, stats);
 		}
+		this.applyTaskIndicators();
 
+		if (this.calendarTaskSlot?.isConnected) {
+			this.calendarTaskSlot.empty();
+			TasksRenderer.render(this.calendarTaskSlot, tasks, this.plugin, undefined, this.selectedDate, true);
+		}
+	}
+
+	private applyTaskIndicators(): void {
 		const content = this.containerEl.children[1] as HTMLElement;
 		const todayKey = formatDateKey(new Date());
 
@@ -517,9 +540,10 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 			const dk = card.dataset.datekey;
 			if (!dk) return;
 			card.querySelector('.wm-cal-task-badge')?.remove();
-			const count = this.taskCounts.get(dk) ?? 0;
+			const stats = this.taskStats.get(dk);
+			const count = stats?.total ?? 0;
 			if (count <= 0) return;
-			const cat = dk === todayKey ? 'today' : dk > todayKey ? 'upcoming' : 'overdue';
+			const cat = stats?.open === 0 ? 'upcoming' : dk === todayKey ? 'today' : dk > todayKey ? 'upcoming' : 'overdue';
 			card.createDiv({ cls: `wm-cal-task-badge is-${cat}`, text: String(count) });
 			if (!card.dataset.taskHover) {
 				card.dataset.taskHover = '1';
@@ -530,17 +554,17 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 		content.querySelectorAll<HTMLElement>('.wm-cal-cell[data-datekey]').forEach(cell => {
 			const dk = cell.dataset.datekey;
 			if (!dk) return;
-			cell.classList.remove('wm-cal-task-level-1', 'wm-cal-task-level-2', 'wm-cal-task-level-3');
-			const count = this.taskCounts.get(dk) ?? 0;
-			if (count <= 0) return;
-			const level = count >= 4 ? 3 : count >= 2 ? 2 : 1;
-			cell.classList.add(`wm-cal-task-level-${level}`);
+			const dots = cell.querySelector<HTMLElement>('.wm-cal-task-dots');
+			dots?.empty();
+			const stats = this.taskStats.get(dk);
+			if (!dots || !stats || stats.total <= 0) return;
+			if (stats.open > 0) {
+				dots.createSpan({
+					cls: `wm-cal-task-dot ${dk < todayKey ? 'is-overdue' : 'is-open'}`,
+				});
+			}
+			if (stats.completed > 0) dots.createSpan({ cls: 'wm-cal-task-dot is-complete' });
 		});
-
-		if (this.calendarTaskSlot?.isConnected) {
-			this.calendarTaskSlot.empty();
-			TasksRenderer.render(this.calendarTaskSlot, tasks, this.plugin, undefined, this.selectedDate, true);
-		}
 	}
 
 	private scrollToTasksSection(dateKey?: string) {

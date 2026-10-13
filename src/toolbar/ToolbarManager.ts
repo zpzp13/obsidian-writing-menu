@@ -257,17 +257,6 @@ export class ToolbarManager {
 			this.plugin.leafStyleManager.updateDynamicStyles();
 		}, 'minus');
 
-		this.addSeparator(container);
-
-		void this.plugin.addCompactToggle(container, '길게 보기', this.plugin.settings.zenWideEnabled, async (v) => {
-			this.plugin.settings.zenWideEnabled = v;
-			await this.plugin.saveSettings();
-		}, 'move-vertical');
-
-		void this.plugin.addCompactToggle(container, '집중 모드', this.plugin.settings.zenFocusEnabled, async (v) => {
-			this.plugin.settings.zenFocusEnabled = v;
-			await this.plugin.saveSettings();
-		}, 'expand');
 	}
 
 	renderInputPage(container: HTMLElement, leaf: WorkspaceLeaf) {

@@ -18,6 +18,7 @@ interface CachedAnalysis {
 	filePath: string;
 	text: string;
 	result: RepetitionResult;
+	editor: import('obsidian').Editor;
 }
 let cache: CachedAnalysis | null = null;
 
@@ -48,12 +49,10 @@ async function renderInto(root: HTMLElement, plugin: WritingMenuPlugin, compact?
 		return;
 	}
 
-	const view = getLastMarkdownView(plugin);
-	const filePath = view?.file?.path;
-	if (cache && filePath && cache.filePath === filePath) {
+	if (cache) {
 		const statCard = root.createDiv({ cls: 'wm-rep-stat-card' });
 		const listEl = root.createDiv({ cls: 'wm-rep-list' });
-		renderWithResult(statCard, listEl, cache.result, cache.text, plugin, view.editor, compact);
+		renderWithResult(statCard, listEl, cache.result, cache.text, plugin, cache.editor, compact);
 	} else {
 		renderEmptyState(root, plugin, compact);
 	}
@@ -119,7 +118,7 @@ async function performAnalysis(plugin: WritingMenuPlugin): Promise<{ text: strin
 	const total = result.word.length + result.eojeol.length + result.eomi.length;
 	if (total === 0) { new Notice('반복된 표현이 없습니다.'); return null; }
 
-	cache = { filePath: view.file.path, text, result };
+	cache = { filePath: view.file.path, text, result, editor };
 	return { text, result, editor };
 }
 
@@ -323,7 +322,8 @@ async function populateDetail(detail: HTMLElement, entry: RepetitionEntry, docTe
 			e.stopPropagation();
 			const from = editor.offsetToPos(ctx.occurrence.start);
 			const to = editor.offsetToPos(ctx.occurrence.end);
-			editor.setSelection(from, to);
+			// 기본 선택 음영과 반복 강조 Decoration이 겹치지 않도록 커서만 이동한다.
+			editor.setCursor(from);
 			editor.scrollIntoView({ from, to }, true);
 			editor.focus();
 			// 카드를 펼칠 때가 아니라, 이 등장 위치를 직접 클릭했을 때만 해당 한 곳을 인라인 음영 표시한다.
