@@ -2035,7 +2035,7 @@ export class WikiPanel {
 		searchInput.value = this.graphSearchQuery;
 		const searchInfo = searchBox.createEl('button', {
 			cls: 'wiki-graph-filter-info',
-			attr: { type: 'button', 'aria-label': '검색 구문', title: '검색 구문' },
+			attr: { type: 'button', 'aria-label': '검색 구문' },
 		});
 		setIcon(searchInfo, 'info');
 		const searchHelp = searchPanel.createDiv({ cls: 'wiki-graph-search-help' });
@@ -2093,7 +2093,7 @@ export class WikiPanel {
 			const deleteButton = row.createEl('button', {
 				cls: 'wiki-graph-style-action',
 				text: '삭제',
-				attr: { type: 'button', 'aria-label': '관계 속성 삭제', title: '삭제' },
+				attr: { type: 'button', 'aria-label': '관계 속성 삭제' },
 			});
 			keyInput.addEventListener('change', () => {
 				const nextKey = keyInput.value.trim();
@@ -2153,7 +2153,7 @@ export class WikiPanel {
 		const addButton = addRow.createEl('button', {
 			cls: 'wiki-graph-style-action',
 			text: '추가',
-			attr: { type: 'button', 'aria-label': '관계 속성 추가', title: '추가' },
+			attr: { type: 'button', 'aria-label': '관계 속성 추가' },
 		});
 		const addColorSetting = () => {
 			const key = addKeyInput.value.trim();

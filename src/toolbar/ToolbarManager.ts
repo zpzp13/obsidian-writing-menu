@@ -1,6 +1,10 @@
 import { MarkdownView, WorkspaceLeaf, setIcon, Platform, Notice, App } from 'obsidian';
+import type { Editor, EditorPosition } from 'obsidian';
 import { HwpExportModal, TxtExportModal } from '../export';
 import type WritingMenuPlugin from '../../main';
+import { PagedWritingView, PAGED_WRITING_VIEW_TYPE } from '../paged/PagedWritingView';
+import { WritingToolbar, type WritingToolbarSurface } from './WritingToolbar';
+import type { PagedInlineFormatKind } from '../types';
 
 interface SettingTabLike {
 	searchInputEl?: HTMLInputElement;
@@ -12,71 +16,339 @@ interface AppWithSettings extends App {
 }
 
 export class ToolbarManager {
+	private readonly writingToolbars = new Map<WorkspaceLeaf, WritingToolbar>();
+
 	constructor(private plugin: WritingMenuPlugin) {}
 
+	private isWritingView(view: unknown): view is MarkdownView | PagedWritingView {
+		return view instanceof MarkdownView || view instanceof PagedWritingView;
+	}
+
+	private isProjectWritingView(view: MarkdownView | PagedWritingView): boolean {
+		return this.plugin.projectContext.getProjectForFile(view.file) !== null;
+	}
+
+	private getViewText(view: MarkdownView | PagedWritingView): string {
+		return view instanceof MarkdownView ? view.editor.getValue() : view.getEditableData();
+	}
+
+	private getViewHeader(view: MarkdownView | PagedWritingView): HTMLElement | null {
+		const container = view.containerEl;
+		if (container.matches('.view-header')) return container;
+		return container.querySelector<HTMLElement>(':scope > .view-header')
+			?? container.querySelector<HTMLElement>('.view-header')
+			?? container.closest<HTMLElement>('.workspace-leaf-content')?.querySelector<HTMLElement>(':scope > .view-header')
+			?? null;
+	}
+
+	private forgetToolbar(leaf: WorkspaceLeaf): void {
+		this.writingToolbars.get(leaf)?.destroy();
+		this.writingToolbars.delete(leaf);
+		this.plugin.toolbarElements.get(leaf)?.remove();
+		this.plugin.toolbarElements.delete(leaf);
+		if (leaf.view instanceof MarkdownView) {
+			const contentEl = (leaf.view.containerEl.children[1] as HTMLElement | undefined)
+				?? leaf.view.containerEl.querySelector<HTMLElement>('.view-content');
+			contentEl?.removeClass('wm-markdown-toolbar-content');
+		}
+		this.plugin.headerCharCountElements.get(leaf)?.remove();
+		this.plugin.headerCharCountElements.delete(leaf);
+		this.plugin.charCountElements.delete(leaf);
+	}
+
 	updateAllToolbars() {
-		const markdownLeaves = this.plugin.app.workspace.getLeavesOfType('markdown');
-		const leafSet = new Set(markdownLeaves);
+		const writingLeaves = [
+			...this.plugin.app.workspace.getLeavesOfType('markdown'),
+			...this.plugin.app.workspace.getLeavesOfType(PAGED_WRITING_VIEW_TYPE),
+		];
+		const leafSet = new Set(writingLeaves);
 		this.plugin.toolbarElements.forEach((toolbar, leaf) => {
 			if (!leafSet.has(leaf)) {
-				toolbar.remove();
-				this.plugin.toolbarElements.delete(leaf);
-				const headerCharCountEl = this.plugin.headerCharCountElements.get(leaf);
-				if (headerCharCountEl) headerCharCountEl.remove();
-				this.plugin.headerCharCountElements.delete(leaf);
-				this.plugin.charCountElements.delete(leaf);
+				this.forgetToolbar(leaf);
 			}
 		});
-		markdownLeaves.forEach(leaf => {
-			if (!this.plugin.toolbarElements.has(leaf)) this.addToolbarToLeaf(leaf);
+		writingLeaves.forEach(leaf => {
+			const view = leaf.view;
+			if (!this.isWritingView(view)) return;
+			if (!this.isProjectWritingView(view)) {
+				this.forgetToolbar(leaf);
+				return;
+			}
+			const existing = this.plugin.toolbarElements.get(leaf);
+			if (existing && !existing.isConnected) {
+				this.forgetToolbar(leaf);
+			}
+			if (!this.plugin.toolbarElements.has(leaf)) {
+				if (!Platform.isMobile && view instanceof PagedWritingView) view.refreshToolbarMount();
+				else this.addToolbarToLeaf(leaf);
+			}
 		});
 	}
 
-	addToolbarToLeaf(leaf: WorkspaceLeaf) {
+	addToolbarToLeaf(leaf: WorkspaceLeaf, attempt = 0) {
 		const view = leaf.view;
+		if (!this.isWritingView(view)) return;
+		if (!this.isProjectWritingView(view)) {
+			this.forgetToolbar(leaf);
+			return;
+		}
+		if (Platform.isMobile) {
+			this.addMobileHeaderMenu(leaf, view, attempt);
+			return;
+		}
 		if (!(view instanceof MarkdownView)) return;
-		const viewHeader = view.containerEl.querySelector('.view-header');
-		if (!viewHeader || viewHeader.querySelector('.writing-menu-button')) return;
+		const contentEl = (view.containerEl.children[1] as HTMLElement | undefined)
+			?? view.containerEl.querySelector<HTMLElement>('.view-content');
+		if (!contentEl) {
+			if (attempt < 2) window.requestAnimationFrame(() => this.addToolbarToLeaf(leaf, attempt + 1));
+			return;
+		}
+		const connected = this.plugin.toolbarElements.get(leaf);
+		if (connected?.isConnected) return;
+		if (this.plugin.toolbarElements.has(leaf)) this.forgetToolbar(leaf);
+		contentEl.addClass('wm-markdown-toolbar-content');
+		const host = contentEl.createDiv({ cls: 'wm-markdown-toolbar-host' });
+		contentEl.prepend(host);
+		const toolbar = new WritingToolbar(this.plugin, host, this.createMarkdownSurface(view));
+		this.writingToolbars.set(leaf, toolbar);
+		this.plugin.toolbarElements.set(leaf, host);
+		this.plugin.updateLeafStyles(leaf);
+	}
 
+	mountPagedToolbar(container: HTMLElement, view: PagedWritingView): void {
+		if (!this.isProjectWritingView(view)) {
+			this.forgetToolbar(view.leaf);
+			return;
+		}
+		const existing = this.plugin.toolbarElements.get(view.leaf);
+		if (existing?.isConnected) {
+			if (!Platform.isMobile && existing.parentElement === container && container.firstElementChild !== existing) container.prepend(existing);
+			return;
+		}
+		this.forgetToolbar(view.leaf);
+		if (Platform.isMobile) {
+			this.addMobileHeaderMenu(view.leaf, view);
+			return;
+		}
+		const toolbar = new WritingToolbar(this.plugin, container, this.createPagedSurface(view));
+		container.prepend(toolbar.toolbarEl);
+		this.writingToolbars.set(view.leaf, toolbar);
+		this.plugin.toolbarElements.set(view.leaf, toolbar.toolbarEl);
+	}
+
+	private addMobileHeaderMenu(
+		leaf: WorkspaceLeaf,
+		view: MarkdownView | PagedWritingView,
+		attempt = 0,
+	): void {
+		if (!this.isProjectWritingView(view)) {
+			this.forgetToolbar(leaf);
+			return;
+		}
+		const viewHeader = this.getViewHeader(view);
+		if (!viewHeader) {
+			if (attempt < 2) window.requestAnimationFrame(() => this.addMobileHeaderMenu(leaf, view, attempt + 1));
+			return;
+		}
+		const existing = viewHeader.querySelector<HTMLElement>('.writing-menu-button');
+		if (existing) {
+			this.plugin.toolbarElements.set(leaf, existing);
+			return;
+		}
 		const charCountEl = viewHeader.createDiv({ cls: 'writing-menu-char-count' });
-		charCountEl.setCssStyles({ fontSize: '12px', color: 'var(--text-muted)', padding: '0 8px', display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' });
 		this.plugin.headerCharCountElements.set(leaf, charCountEl);
-		this.plugin.updateCharCount(leaf);
-
-		const button = viewHeader.createDiv({ cls: 'clickable-icon writing-menu-button' });
+		const button = viewHeader.createDiv({
+			cls: 'clickable-icon writing-menu-button',
+			attr: { role: 'button', tabindex: '0', 'aria-label': 'Writing Menu' },
+		});
 		setIcon(button, 'settings');
-		button.setCssStyles({ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' });
-		button.addEventListener('click', (e: MouseEvent) => { e.stopPropagation(); this.showDropdown(button, leaf); });
-
+		const open = (event: Event) => {
+			event.stopPropagation();
+			this.showDropdown(button, leaf);
+		};
+		button.addEventListener('click', open);
+		button.addEventListener('keydown', event => {
+			if (event.key !== 'Enter' && event.key !== ' ') return;
+			event.preventDefault();
+			open(event);
+		});
 		const viewActions = viewHeader.querySelector('.view-actions');
 		if (viewActions) {
 			viewActions.insertBefore(button, viewActions.firstChild);
 			viewActions.insertBefore(charCountEl, button);
 		} else {
-			viewHeader.appendChild(button);
 			viewHeader.appendChild(charCountEl);
+			viewHeader.appendChild(button);
 		}
 		this.plugin.toolbarElements.set(leaf, button);
+		this.plugin.updateCharCount(leaf);
 		this.plugin.updateLeafStyles(leaf);
 	}
 
+	removeToolbarFromLeaf(leaf: WorkspaceLeaf): void {
+		this.forgetToolbar(leaf);
+	}
+
+	refreshToolbar(leaf: WorkspaceLeaf): void {
+		this.writingToolbars.get(leaf)?.refresh();
+	}
+
+	refreshToolbarSelection(leaf: WorkspaceLeaf): void {
+		this.writingToolbars.get(leaf)?.refreshSelectionState();
+	}
+
+	updateWidgetCharCounts(
+		leaf: WorkspaceLeaf,
+		counts: { munpia: number; novelpia: number },
+		selectedCounts: { munpia: number; novelpia: number } | null = null,
+	): void {
+		this.writingToolbars.get(leaf)?.updateWidgetCharCounts(counts, selectedCounts);
+	}
+
+	refreshAllToolbars(): void {
+		this.writingToolbars.forEach(toolbar => toolbar.refresh());
+	}
+
+	destroy(): void {
+		for (const leaf of Array.from(this.writingToolbars.keys())) this.forgetToolbar(leaf);
+	}
+
+	private createMarkdownSurface(view: MarkdownView): WritingToolbarSurface {
+		const leaf = view.leaf;
+		return {
+			kind: 'markdown',
+			leaf,
+			getFile: () => view.file,
+			getText: () => view.editor.getValue(),
+			focus: () => view.editor.focus(),
+			undo: () => { view.editor.focus(); view.editor.undo(); },
+			redo: () => { view.editor.focus(); view.editor.redo(); },
+			toggleFormat: kind => this.toggleMarkdownFormat(view.editor, kind),
+			isFormatActive: () => false,
+			getAlignment: () => null,
+			setAlignment: () => {},
+			applyTextColor: (color, target) => this.applyMarkdownColor(view.editor, color, target),
+			clearTextColors: () => {
+				this.plugin.settings.pagedLastTextColor = '';
+				void this.plugin.saveData(this.plugin.settings);
+			},
+			getRecentTextColor: () => this.getRecentTextColor(view.containerEl.ownerDocument),
+			switchView: () => {
+				if (view.file) return this.plugin.openPagedWritingView(view.file);
+			},
+			getZoom: () => 1,
+			setZoom: () => {},
+		};
+	}
+
+	private createPagedSurface(view: PagedWritingView): WritingToolbarSurface {
+		return {
+			kind: 'paged',
+			leaf: view.leaf,
+			getFile: () => view.file,
+			getText: () => view.getEditableData(),
+			focus: () => view.focusEditorFromToolbar(),
+			undo: () => view.undoFromToolbar(),
+			redo: () => view.redoFromToolbar(),
+			toggleFormat: kind => view.toggleFormatFromToolbar(kind),
+			isFormatActive: kind => view.isFormatActiveForToolbar(kind),
+			preserveSelection: event => view.preserveSelectionFromToolbar(event),
+			getAlignment: () => view.getAlignmentForToolbar(),
+			setAlignment: alignment => view.setAlignmentFromToolbar(alignment),
+			applyTextColor: (color, target) => view.applyTextColorFromToolbar(color, target),
+			clearTextColors: () => view.clearTextColorsFromToolbar(),
+			getRecentTextColor: () => view.getRecentTextColorForToolbar(),
+			switchView: () => view.openMarkdownFromToolbar(),
+			getZoom: () => view.getZoomForToolbar(),
+			setZoom: value => view.setZoomFromToolbar(value),
+		};
+	}
+
+	private toggleMarkdownFormat(editor: Editor, kind: PagedInlineFormatKind): void {
+		const markers: Record<PagedInlineFormatKind, [string, string]> = {
+			bold: ['**', '**'],
+			italic: ['*', '*'],
+			underline: ['<u>', '</u>'],
+			strikethrough: ['~~', '~~'],
+		};
+		const [open, close] = markers[kind];
+		const from = editor.getCursor('from');
+		const to = editor.getCursor('to');
+		const selected = editor.getRange(from, to);
+		const replacement = `${open}${selected}${close}`;
+		editor.replaceRange(replacement, from, to);
+		if (selected) {
+			editor.setSelection(
+				this.advancePosition(from, open),
+				this.advancePosition(from, `${open}${selected}`),
+			);
+		} else {
+			editor.setCursor(this.advancePosition(from, open));
+		}
+		editor.focus();
+	}
+
+	private applyMarkdownColor(editor: Editor, color: string, target: 'text' | 'background'): void {
+		const recent = target === 'text'
+			? this.getRecentTextColor(activeDocument)
+			: this.getRecentBackgroundColor();
+		const normalized = /^#[0-9a-f]{6}$/i.test(color) ? color : recent;
+		if (target === 'text') this.plugin.settings.pagedLastTextColor = normalized;
+		else this.plugin.settings.pagedLastBackgroundColor = normalized;
+		const from = editor.getCursor('from');
+		const to = editor.getCursor('to');
+		const selected = editor.getRange(from, to);
+		if (!selected) {
+			void this.plugin.saveData(this.plugin.settings);
+			editor.focus();
+			return;
+		}
+		const property = target === 'text' ? 'color' : 'background-color';
+		const open = `<span style="${property}: ${normalized}">`;
+		const close = '</span>';
+		editor.replaceRange(`${open}${selected}${close}`, from, to);
+		editor.setSelection(this.advancePosition(from, open), this.advancePosition(from, `${open}${selected}`));
+		void this.plugin.saveData(this.plugin.settings);
+		editor.focus();
+	}
+
+	private advancePosition(start: EditorPosition, text: string): EditorPosition {
+		const lines = text.split('\n');
+		return lines.length === 1
+			? { line: start.line, ch: start.ch + lines[0].length }
+			: { line: start.line + lines.length - 1, ch: lines[lines.length - 1].length };
+	}
+
+	private getRecentTextColor(ownerDocument: Document): string {
+		const configured = this.plugin.settings.pagedLastTextColor;
+		if (/^#[0-9a-f]{6}$/i.test(configured)) return configured;
+		return ownerDocument.body.classList.contains('theme-dark') ? '#e5e7eb' : '#111111';
+	}
+
+	private getRecentBackgroundColor(): string {
+		const configured = this.plugin.settings.pagedLastBackgroundColor;
+		return /^#[0-9a-f]{6}$/i.test(configured) ? configured : '#fef3c7';
+	}
+
 	showDropdown(button: HTMLElement, leaf: WorkspaceLeaf) {
-		const existingDropdown = activeDocument.querySelector('.writing-menu-dropdown');
+		const ownerDocument = button.ownerDocument;
+		const ownerWindow = ownerDocument.defaultView ?? window;
+		const existingDropdown = ownerDocument.querySelector('.writing-menu-dropdown:not(.wm-paged-toolbar-popover)');
 		if (existingDropdown) { existingDropdown.remove(); return; }
 
-		const dropdown = activeDocument.body.createDiv({ cls: 'writing-menu-dropdown' });
+		const dropdown = ownerDocument.body.createDiv({ cls: 'writing-menu-dropdown' });
 		const rect = button.getBoundingClientRect();
-		dropdown.setCssStyles({ position: 'fixed', top: `${rect.bottom + 5}px`, right: `${window.innerWidth - rect.right}px` });
+		dropdown.setCssStyles({ position: 'fixed', top: `${rect.bottom + 5}px`, right: `${ownerWindow.innerWidth - rect.right}px` });
 
 		this.buildDropdownMenu(dropdown, leaf);
 
-		if (dropdown.getBoundingClientRect().right > window.innerWidth) dropdown.setCssStyles({ right: '10px' });
+		if (dropdown.getBoundingClientRect().right > ownerWindow.innerWidth) dropdown.setCssStyles({ right: '10px' });
 		const closeDropdown = (e: MouseEvent) => {
 			if (!dropdown.contains(e.target as Node) && !button.contains(e.target as Node)) {
-				dropdown.remove(); activeDocument.removeEventListener('click', closeDropdown);
+				dropdown.remove(); ownerDocument.removeEventListener('click', closeDropdown);
 			}
 		};
-		window.setTimeout(() => activeDocument.addEventListener('click', closeDropdown), 10);
+		window.setTimeout(() => ownerDocument.addEventListener('click', closeDropdown), 10);
 	}
 
 	buildDropdownMenu(container: HTMLElement, leaf: WorkspaceLeaf) {
@@ -162,29 +434,31 @@ export class ToolbarManager {
 			if (Platform.isDesktop && Platform.isWin) {
 				const hwpBtn = exportRightGroup.createDiv('writing-menu-text-btn');
 				hwpBtn.setText('HWP');
-				hwpBtn.onclick = () => {
+				hwpBtn.onclick = () => { void (async () => {
 					const view = leaf.view;
-					if (view instanceof MarkdownView && view.file && view.file.extension === 'md') {
+					if (this.isWritingView(view) && view.file && view.file.extension === 'md') {
+						if (view instanceof PagedWritingView) await view.save();
 						(activeDocument.querySelector('.writing-menu-dropdown') as HTMLElement)?.remove();
 						new HwpExportModal(this.plugin.app, this.plugin, view.file).open();
 					} else { new Notice('마크다운 파일을 열어주세요.', 3000); }
-				};
+				})(); };
 			}
 			const txtBtn = exportRightGroup.createDiv('writing-menu-text-btn');
 			txtBtn.setText('TXT');
-			txtBtn.onclick = () => {
+			txtBtn.onclick = () => { void (async () => {
 				const view = leaf.view;
-				if (view instanceof MarkdownView && view.file && view.file.extension === 'md') {
+				if (this.isWritingView(view) && view.file && view.file.extension === 'md') {
+					if (view instanceof PagedWritingView) await view.save();
 					(activeDocument.querySelector('.writing-menu-dropdown') as HTMLElement)?.remove();
 					new TxtExportModal(this.plugin.app, this.plugin, view.file).open();
 				} else { new Notice('마크다운 파일을 열어주세요.', 3000); }
-			};
+			})(); };
 		}
 
 		try {
 			const view = leaf.view;
-			if (view instanceof MarkdownView && view.editor) {
-				this.plugin.addCharCountWithModeSelector(container, this.plugin.calculateCharCount(view.editor.getValue()), leaf);
+			if (this.isWritingView(view)) {
+				this.plugin.addCharCountWithModeSelector(container, this.plugin.calculateCharCount(this.getViewText(view)), leaf);
 			}
 		} catch { /* intentional */ }
 
@@ -193,7 +467,7 @@ export class ToolbarManager {
 		this.addMenuNavCard(container, '서식', 'type', () => this.renderMenuPage(container, 'typography', leaf));
 		this.addMenuNavCard(container, '색상', 'palette', () => this.renderMenuPage(container, 'color', leaf));
 		this.addMenuNavCard(container, '입력 보조', 'keyboard', () => this.renderMenuPage(container, 'input', leaf));
-		this.addMenuNavCard(container, '스톱워치', 'clock', () => this.renderMenuPage(container, 'time-tracking', leaf));
+		this.addMenuNavCard(container, '타이머/스톱워치 표시', 'clock', () => this.renderMenuPage(container, 'time-tracking', leaf));
 		this.addMenuNavCard(container, '보기', 'eye', () => this.renderMenuPage(container, 'view', leaf));
 
 		this.addSeparator(container);
@@ -296,26 +570,25 @@ export class ToolbarManager {
 		saveRow.addEventListener('click', (e) => {
 			e.stopPropagation();
 			void (async () => {
-				const activeView = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
-				const file = activeView?.file;
-				if (!file || !activeView) { new Notice('마크다운 파일을 먼저 열어주세요.'); return; }
+				const activeView = this.plugin.app.workspace.activeLeaf?.view;
+				if (!this.isWritingView(activeView) || !activeView.file) { new Notice('마크다운 파일을 먼저 열어주세요.'); return; }
+				const file = activeView.file;
 				(activeDocument.querySelector('.writing-menu-dropdown') as HTMLElement)?.remove();
 				const { VersionManager } = await import('../version/manager');
 				const manager = new VersionManager(this.plugin.app, this.plugin);
 				const now = new Date();
 				const name = `${now.getMonth() + 1}/${now.getDate()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-				await manager.saveVersion(file, name, activeView.editor.getValue());
+				await manager.saveVersion(file, name, this.getViewText(activeView));
 				new Notice(`버전 "${name}"이 저장되었습니다.`);
 			})();
 		});
 	}
 
 	renderTimeTrackingPage(container: HTMLElement, leaf: WorkspaceLeaf) {
-		this.addMenuBackButton(container, '스톱워치', () => this.renderMenuPage(container, 'main', leaf));
-		void this.plugin.addCompactToggle(container, '상태바 표시', this.plugin.settings.showTimeInStatusBar, async (v) => {
-			this.plugin.settings.showTimeInStatusBar = v;
+		this.addMenuBackButton(container, '타이머/스톱워치 표시', () => this.renderMenuPage(container, 'main', leaf));
+		void this.plugin.addCompactToggle(container, '타이머/스톱워치 표시', this.plugin.settings.showTimerWidget, async (v) => {
+			this.plugin.settings.showTimerWidget = v;
 			await this.plugin.saveSettings();
-			this.plugin.updateStatusBarDisplay();
 		}, 'activity');
 	}
 }

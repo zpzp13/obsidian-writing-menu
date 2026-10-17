@@ -1,4 +1,4 @@
-import { MarkdownView, sanitizeHTMLToDom, setIcon } from 'obsidian';
+import { MarkdownView, TFile, sanitizeHTMLToDom, setIcon } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { WritingTimeSection } from './WritingTimeSection';
 import { ArchiveMusicPlayerSection } from './ArchiveMusicPlayerSection';
@@ -8,6 +8,10 @@ import type { DailyCharStore } from './data/DailyCharStore';
 import type { DashSectionConfig } from '../types';
 import { MUNPIA_SVG, NOVELPIA_SVG } from '../assets/platformLogos';
 import { watchDisconnect } from '../utils/domUtils';
+import { PagedWritingView } from '../paged/PagedWritingView';
+
+const LARGE_PAGED_DOCUMENT_THRESHOLD = 50_000;
+const LARGE_PAGED_COUNT_IDLE_DELAY = 500;
 
 export class DashboardSection {
 	private static charRangeThumbPosition: { x: number; y: number; w: number; h: number } | null = null;
@@ -122,29 +126,42 @@ export class DashboardSection {
 			window.clearTimeout(summaryRefreshTimer);
 			summaryRefreshTimer = window.setTimeout(() => updateSummary(Number(selectedRange)), delay);
 		};
-		const refreshChars = () => {
+		const applyLiveCharCount = (file: TFile, text: string) => {
+			const counts = plugin.calculateAllCharCounts(text, file.path);
+			this.lastTrackedNote = { title: file.basename, counts };
+			const mode = plugin.settings.charCountMode ?? 'munpia';
+			store.updateLiveCount(file, counts[mode]);
+			updateChars(counts, file.basename);
+			updateSummary(Number(selectedRange), true);
+		};
+		const refreshChars = (preferredView?: MarkdownView | PagedWritingView) => {
 			const recentView = plugin.app.workspace.getMostRecentLeaf()?.view;
-			const view = recentView instanceof MarkdownView
+			const activeView = plugin.app.workspace.activeLeaf?.view;
+			const view = preferredView
+				?? (recentView instanceof MarkdownView || recentView instanceof PagedWritingView
 				? recentView
-				: plugin.app.workspace.getActiveViewOfType(MarkdownView);
+				: activeView instanceof MarkdownView || activeView instanceof PagedWritingView
+					? activeView
+					: plugin.app.workspace.getActiveViewOfType(MarkdownView));
 			if (!view?.file) {
 				const previous = this.lastTrackedNote;
 				updateChars(previous?.counts ?? null, previous?.title ?? null);
 				return;
 			}
-			const counts = plugin.calculateAllCharCounts(view.editor.getValue(), view.file.path);
-			this.lastTrackedNote = { title: view.file.basename, counts };
-			const mode = plugin.settings.charCountMode ?? 'munpia';
-			store.updateLiveCount(view.file, counts[mode]);
-			updateChars(counts, view.file.basename);
-		};
-		const scheduleCharRefresh = () => {
-			window.clearTimeout(charRefreshTimer);
-			charRefreshTimer = window.setTimeout(refreshChars, 300);
+			const text = view instanceof MarkdownView ? view.editor.getValue() : view.getEditableData();
+			applyLiveCharCount(view.file, text);
 		};
 		const refreshForLeafChange = () => {
 			window.clearTimeout(charRefreshTimer);
 			refreshChars();
+		};
+		const scheduleCharRefresh = (preferredView?: MarkdownView | PagedWritingView) => {
+			window.clearTimeout(charRefreshTimer);
+			const delay = preferredView instanceof PagedWritingView
+				&& preferredView.getEditableData().length >= LARGE_PAGED_DOCUMENT_THRESHOLD
+				? LARGE_PAGED_COUNT_IDLE_DELAY
+				: 80;
+			charRefreshTimer = window.setTimeout(() => refreshChars(preferredView), delay);
 		};
 
 		refreshChars();
@@ -152,7 +169,14 @@ export class DashboardSection {
 			if (!disposed) updateSummary(Number(selectedRange));
 		});
 
-		const editorHandler = plugin.app.workspace.on('editor-change', scheduleCharRefresh);
+		const editorHandler = plugin.app.workspace.on('editor-change', (editor, info) => {
+			window.clearTimeout(charRefreshTimer);
+			if (info.file) applyLiveCharCount(info.file, editor.getValue());
+			else refreshChars();
+		});
+		const removePagedEditorHandler = plugin.onPagedEditorChange(view => {
+			scheduleCharRefresh(view);
+		});
 		const leafHandler   = plugin.app.workspace.on('active-leaf-change', refreshForLeafChange);
 		// 완료된 날짜의 기록이 실제로 바뀐 경우에만 기간 통계를 갱신한다.
 		store.onAvgUpdated = () => scheduleSummaryRefresh(100);
@@ -165,6 +189,7 @@ export class DashboardSection {
 			store.onAvgUpdated = undefined;
 			plugin.app.workspace.offref(editorHandler);
 			plugin.app.workspace.offref(leafHandler);
+			removePagedEditorHandler();
 		});
 	}
 
@@ -192,7 +217,7 @@ export class DashboardSection {
 		plugin: WritingMenuPlugin,
 	): {
 		updateChars: (counts: { munpia: number; novelpia: number } | null, noteTitle: string | null) => void;
-		updateSummary: (days: number) => void;
+		updateSummary: (days: number, immediate?: boolean) => void;
 	} {
 		const hero = container.createDiv({ cls: 'wm-dash-char-hero' });
 		const heroMain = hero.createDiv({ cls: 'wm-dash-char-main' });
@@ -238,7 +263,10 @@ export class DashboardSection {
 		const noteTitleEl = noteLine.createEl('b', { text: '노트를 선택하십시오' });
 		const platformList = noteCard.createDiv({ cls: 'wm-dash-note-platform-list' });
 		const numEls    = new Map<string, HTMLElement>();
-		for (const plat of ['munpia', 'novelpia'] as const) {
+		const platformDisplay = plugin.settings.statCardDisplay ?? 'both';
+		const visiblePlatforms = (['munpia', 'novelpia'] as const).filter(platform =>
+			platformDisplay === 'both' || platformDisplay === platform);
+		for (const plat of visiblePlatforms) {
 			const row = platformList.createDiv({ cls: 'wm-dash-note-platform-row' });
 			const identity = row.createDiv({ cls: 'wm-dash-note-platform-name' });
 			const logoEl = identity.createDiv({ cls: 'wm-dash-platform-logo' });
@@ -291,10 +319,11 @@ export class DashboardSection {
 			updateGoal();
 		};
 
-		const updateSummary = (days: number) => {
-			const series = store.getDailySeries(days);
-			const comparison = store.getDailySeries(days * 2);
-			const previousSeries = comparison.slice(0, days);
+		const updateSummary = (days: number, immediate = false) => {
+			const history = store.getDailySeries(Math.max(1, days * 2 - 1));
+			const previousSeries = history.slice(0, days);
+			const todayTotal = store.getTodayTotal();
+			const series = [...history.slice(days), todayTotal];
 			const periodTotal = series.reduce((sum, value) => sum + value, 0);
 			const previousTotal = previousSeries.reduce((sum, value) => sum + value, 0);
 			const recentDay = series[series.length - 1] ?? 0;
@@ -304,7 +333,10 @@ export class DashboardSection {
 				Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
 				- Date.UTC(today.getFullYear(), 0, 1)
 			) / 86_400_000);
-			const yearSeries = elapsedYearDays > 0 ? store.getDailySeries(elapsedYearDays) : [];
+			const yearSeries = [
+				...(elapsedYearDays > 0 ? store.getDailySeries(elapsedYearDays) : []),
+				todayTotal,
+			];
 			const best = yearSeries.length > 0 ? Math.max(...yearSeries) : 0;
 			const writingDays = yearSeries.filter((value) => value > 0).length;
 			const frequencyRate = yearSeries.length > 0 ? Math.round((writingDays / yearSeries.length) * 100) : 0;
@@ -320,8 +352,11 @@ export class DashboardSection {
 			frequencyGaugeValue.textContent = String(writingDays);
 			frequencyGauge.setAttribute('aria-label', `올해 ${yearSeries.length}일 중 ${writingDays}일 집필, ${frequencyRate}%`);
 			frequencyGauge.style.setProperty('--wm-frequency-angle', `${frequencyRate * 3.6}deg`);
-			this.renderWritingYearCalendar(yearCalendar, yearSeries);
-			if (!summaryHasRendered) {
+			if (!immediate) this.renderWritingYearCalendar(yearCalendar, yearSeries);
+			if (immediate) {
+				this.setCountValue(heroNum, periodTotal);
+				summaryHasRendered = true;
+			} else if (!summaryHasRendered) {
 				if (this.lastSummaryValue === null) this.setCountValue(heroNum, periodTotal);
 				else {
 					heroNum._wmValue = this.lastSummaryValue;
@@ -346,7 +381,7 @@ export class DashboardSection {
 					? '± 0%'
 					: `${periodDelta > 0 ? '▲' : '▼'} ${Math.abs(periodDelta)}%`;
 			}
-			this.renderCharSpark(sparkHost, series);
+			if (!immediate) this.renderCharSpark(sparkHost, series);
 			deltaEl.removeClass('is-up', 'is-down');
 			if (avg <= 0) {
 				avgDiffEl.textContent = '—';

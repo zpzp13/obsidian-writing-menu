@@ -50,7 +50,19 @@ def clean_markdown(content):
 
 def remove_headings(content):
     lines = content.split('\\n')
-    filtered = [line for line in lines if not re.match(r'^#{1,6}\\s', line.strip())]
+    filtered = []
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        if re.match(r'^\\s{0,3}#{1,6}(?:\\s+|$)', line):
+            index += 1
+            continue
+        if (line.strip() and index + 1 < len(lines)
+                and re.match(r'^\\s{0,3}(?:=+|-+)\\s*$', lines[index + 1])):
+            index += 2
+            continue
+        filtered.append(line)
+        index += 1
     return '\\n'.join(filtered).strip()
 
 def convert_to_hwp(input_path, output_path, use_space_indent=False, hwp_instance=None, template_path=None, exclude_headings=False):

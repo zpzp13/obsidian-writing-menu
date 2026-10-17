@@ -107,7 +107,7 @@ export class DeadlineTimerWidget {
 			countdownHead.createDiv({ text: '다음 마감까지', cls: 'wm-dash-deadline-kicker' });
 			const editButton = countdownHead.createEl('button', {
 				cls: 'wm-dash-deadline-edit',
-				attr: { type: 'button', 'aria-label': '연재 일정 수정', title: '연재 일정 수정' },
+				attr: { type: 'button', 'aria-label': '연재 일정 수정' },
 			});
 			setIcon(editButton, 'calendar-clock');
 			editButton.addEventListener('click', () => {

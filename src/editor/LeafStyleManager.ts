@@ -2,16 +2,42 @@ import { MarkdownView, WorkspaceLeaf, setIcon, sanitizeHTMLToDom } from 'obsidia
 import type WritingMenuPlugin from '../../main';
 import { MUNPIA_SVG, NOVELPIA_SVG } from '../assets/platformLogos';
 import { calcAllCharCounts } from '../version/charCount';
+import { PagedWritingView, PAGED_WRITING_VIEW_TYPE } from '../paged/PagedWritingView';
+import type { EditorView } from '@codemirror/view';
+import { setRepetitionHighlights } from './repetitionHighlight';
+import { setSpellcheckHighlights } from './spellcheckHighlight';
 
 type PlatformCharCounts = { munpia: number; novelpia: number };
+
+const LARGE_PAGED_DOCUMENT_THRESHOLD = 50_000;
+const LARGE_PAGED_COUNT_IDLE_DELAY = 500;
 
 export class LeafStyleManager {
 	private charCountCache: { path: string; text: string; counts: PlatformCharCounts } | null = null;
 
 	constructor(private plugin: WritingMenuPlugin) {}
 
+	private isWritingView(view: unknown): view is MarkdownView | PagedWritingView {
+		return view instanceof MarkdownView || view instanceof PagedWritingView;
+	}
+
+	private getWritingLeaves(): WorkspaceLeaf[] {
+		return [
+			...this.plugin.app.workspace.getLeavesOfType('markdown'),
+			...this.plugin.app.workspace.getLeavesOfType(PAGED_WRITING_VIEW_TYPE),
+		];
+	}
+
+	private getViewText(view: MarkdownView | PagedWritingView): string {
+		return view instanceof MarkdownView ? view.editor.getValue() : view.getEditableData();
+	}
+
+	private getSelectedText(view: MarkdownView | PagedWritingView): string {
+		return view instanceof MarkdownView ? view.editor.getSelection() : view.getSelectedText();
+	}
+
 	shouldApplyToFile(file: { path: string } | null): boolean {
-		if (!file) return false;
+		if (!file || !this.plugin.projectContext.getProjectForPath(file.path)) return false;
 		if (!this.plugin.settings.applyToFolder) return true;
 		const folderName = this.plugin.settings.applyToFolder.trim().toLowerCase();
 		if (folderName === '') return true;
@@ -58,12 +84,12 @@ export class LeafStyleManager {
 		try {
 			if (!leaf || !leaf.view) return;
 			const view = leaf.view;
-			if (!(view instanceof MarkdownView)) return;
-			if (!view.editor) return;
-			const selectedText = view.editor.getSelection();
-			const text = view.editor.getValue();
+			if (!this.isWritingView(view)) return;
+			const selectedText = this.getSelectedText(view);
+			const text = this.getViewText(view);
 			const counts = this.calculateAllCharCounts(text, view.file?.path);
 			const totalCount = counts[this.plugin.settings.charCountMode ?? 'munpia'];
+			if (view.file) this.plugin.charStore?.updateLiveCount(view.file, totalCount);
 			const totalFormatted = this.formatCharCount(totalCount);
 			let displayText: string;
 			if (selectedText) {
@@ -76,6 +102,8 @@ export class LeafStyleManager {
 			if (charCountEl) charCountEl.textContent = displayText;
 			const headerCharCountEl = this.plugin.headerCharCountElements.get(leaf);
 			if (headerCharCountEl) headerCharCountEl.textContent = displayText;
+			const selectedCounts = selectedText ? this.calculateAllCharCounts(selectedText) : null;
+			this.plugin.toolbarManager.updateWidgetCharCounts(leaf, counts, selectedCounts);
 		} catch {
 			// Silently ignore errors during char count update
 		}
@@ -85,10 +113,15 @@ export class LeafStyleManager {
 		if (!leaf) return;
 		const existingTimer = this.plugin.charCountDebounceTimers.get(leaf);
 		if (existingTimer) window.clearTimeout(existingTimer);
+		const view = leaf.view;
+		const delay = view instanceof PagedWritingView
+			&& view.getEditableData().length >= LARGE_PAGED_DOCUMENT_THRESHOLD
+			? LARGE_PAGED_COUNT_IDLE_DELAY
+			: 80;
 		const timer = window.setTimeout(() => {
 			this.updateCharCount(leaf);
 			this.plugin.charCountDebounceTimers.delete(leaf);
-		}, 350);
+		}, delay);
 		this.plugin.charCountDebounceTimers.set(leaf, timer);
 	}
 
@@ -106,16 +139,14 @@ export class LeafStyleManager {
 		if (hrType === 'svg' && hrSvg) {
 			activeDocument.body.style.setProperty('--wm-hr-svg-url', `url("data:image/svg+xml,${encodeURIComponent(hrSvg)}")`);
 		}
-		activeDocument.body.style.setProperty('--wm-plot-cell-width', `${this.plugin.settings.plotCellWidth ?? 200}px`);
-
 		const activeLeaf = this.plugin.app.workspace.getMostRecentLeaf();
 		this.updateHrClasses(activeLeaf);
 	}
 
 	updateHrClasses(_leaf?: WorkspaceLeaf | null): void {
 		const { hrEnabled, hrType } = this.plugin.settings;
-		this.plugin.app.workspace.getLeavesOfType('markdown').forEach(l => {
-			if (!(l.view instanceof MarkdownView)) return;
+		this.getWritingLeaves().forEach(l => {
+			if (!this.isWritingView(l.view)) return;
 			const shouldApply = hrEnabled && this.shouldApplyToFile(l.view.file);
 			l.view.containerEl.classList.toggle('wm-hr-custom', shouldApply);
 			l.view.containerEl.classList.toggle('wm-hr-svg', shouldApply && hrType === 'svg');
@@ -128,14 +159,26 @@ export class LeafStyleManager {
 
 	updateLeafStyles(leaf: WorkspaceLeaf, force: boolean = false): void {
 		const view = leaf.view;
-		if (!(view instanceof MarkdownView)) return;
+		if (!this.isWritingView(view)) return;
 		const file = view.file;
 		const shouldApply = this.shouldApplyToFile(file);
 		const container = view.containerEl;
 
 		if (!shouldApply) {
 			container.removeAttribute('data-writing-menu-id');
+			container.removeClass('wm-disable-link-color', 'wm-hr-custom', 'wm-hr-svg');
+			for (const property of Array.from(container.style)) {
+				if (property.startsWith('--wm-')) container.style.removeProperty(property);
+			}
+			container.querySelector('.cm-editor.wm-focus-typing')?.classList.remove('wm-focus-typing');
+			if (view instanceof MarkdownView) {
+				const editor = view.editor as typeof view.editor & { cm?: EditorView };
+				editor?.cm?.dispatch({ effects: [setRepetitionHighlights.of([]), setSpellcheckHighlights.of([])] });
+			}
 			this.plugin.leafStyleVersions.delete(leaf);
+			if (view instanceof PagedWritingView && file && !this.plugin.projectContext.getProjectForFile(file)) {
+				view.enforceProjectScope();
+			}
 			return;
 		}
 
@@ -145,11 +188,12 @@ export class LeafStyleManager {
 		const leafId = this.getLeafId(leaf);
 		container.setAttribute('data-writing-menu-id', leafId);
 		this.applyLeafCssProps(container);
+		if (view instanceof PagedWritingView) view.refreshFromSettings();
 		this.plugin.leafStyleVersions.set(leaf, this.plugin.cssSettingsVersion);
 	}
 
 	private applyLeafCssProps(container: HTMLElement): void {
-		const { fontFamily, fontSize, fontColor, lineHeight, paragraphSpacing, indentation, lineWidth, inlinePadding, backgroundColor, h1FontFamily, h1FontSize, h1LineHeight, h1Color, footnoteFontFamily, footnoteFontSize, footnoteLineHeight, footnoteColor, disableLinkColor } = this.plugin.settings;
+		const { fontFamily, fontWeight, fontSize, fontColor, lineHeight, paragraphSpacing, indentation, lineWidth, inlinePadding, backgroundColor, h1FontFamily, h1FontSize, h1LineHeight, h1Color, footnoteFontFamily, footnoteFontSize, footnoteLineHeight, footnoteColor, disableLinkColor } = this.plugin.settings;
 		const inlinePad = inlinePadding ?? 40;
 		const fontFamilyValue = fontFamily === 'inherit' ? 'inherit' : fontFamily.includes(' ') ? `"${fontFamily}", serif` : `${fontFamily}, serif`;
 		const resolvedFontColor = this.resolveThemeColor(fontColor);
@@ -163,6 +207,7 @@ export class LeafStyleManager {
 
 		container.setCssProps({
 			'--wm-font-family': fontFamilyValue,
+			'--wm-font-weight': String(fontWeight || 400),
 			'--wm-font-size': `${fontSize}px`,
 			'--wm-line-height': String(lineHeight),
 			'--wm-font-color': fontColorValue,
@@ -184,12 +229,12 @@ export class LeafStyleManager {
 	}
 
 	updateAllLeafStyles(): void {
-		const markdownLeaves = this.plugin.app.workspace.getLeavesOfType('markdown');
-		const leafSet = new Set(markdownLeaves);
-		markdownLeaves.forEach(leaf => this.updateLeafStyles(leaf));
+		const writingLeaves = this.getWritingLeaves();
+		const leafSet = new Set(writingLeaves);
+		writingLeaves.forEach(leaf => this.updateLeafStyles(leaf));
 		this.plugin.leafStyleVersions.forEach((_, leaf) => {
 			if (!leafSet.has(leaf)) {
-				if (leaf.view instanceof MarkdownView) {
+				if (this.isWritingView(leaf.view)) {
 					leaf.view.containerEl.removeAttribute('data-writing-menu-id');
 				}
 				this.plugin.leafStyleVersions.delete(leaf);
@@ -259,6 +304,8 @@ export class LeafStyleManager {
 		const focusActive = this.plugin.zenState === 'focus' || body.classList.contains('wm-focus-mode');
 		const wideActive = this.plugin.zenState === 'wide' || body.classList.contains('wm-wide-mode');
 		const requestedModeActive = mode === 'focus' ? focusActive : wideActive;
+		const activeView = this.plugin.app.workspace.getMostRecentLeaf()?.view;
+		if (!requestedModeActive && (!this.isWritingView(activeView) || !this.shouldApplyToFile(activeView.file))) return;
 		this.applyZenState(requestedModeActive ? 'off' : mode);
 	}
 
@@ -315,8 +362,8 @@ export class LeafStyleManager {
 				mBtn.addClass('is-active');
 				nBtn.removeClass('is-active');
 				const view = leaf.view;
-				if (view instanceof MarkdownView && view.editor) {
-					const newCount = this.calculateCharCount(view.editor.getValue());
+				if (this.isWritingView(view)) {
+					const newCount = this.calculateCharCount(this.getViewText(view));
 					valueSpan.textContent = this.formatCharCount(newCount);
 				}
 			});
@@ -332,8 +379,8 @@ export class LeafStyleManager {
 				nBtn.addClass('is-active');
 				mBtn.removeClass('is-active');
 				const view = leaf.view;
-				if (view instanceof MarkdownView && view.editor) {
-					const newCount = this.calculateCharCount(view.editor.getValue());
+				if (this.isWritingView(view)) {
+					const newCount = this.calculateCharCount(this.getViewText(view));
 					valueSpan.textContent = this.formatCharCount(newCount);
 				}
 			});
@@ -341,7 +388,7 @@ export class LeafStyleManager {
 	}
 
 	updateAllCharCounts() {
-		this.plugin.app.workspace.getLeavesOfType('markdown').forEach(leaf => {
+		this.getWritingLeaves().forEach(leaf => {
 			this.updateCharCount(leaf);
 		});
 	}

@@ -17,7 +17,7 @@ const CATEGORIES: CharCategory[] = [
 	{ id: 'custom',    label: '사용자 지정', icon: '✎', chars: [] },
 	{
 		id: 'quotes', label: '따옴표', icon: '”', chars: [
-			'”', '”', '‘', '’',
+			'“', '”', '‘', '’',
 			'〝', '〞',
 			'«', '»', '‹', '›',
 			'„', '‟', '‚', '‛',
@@ -215,6 +215,7 @@ export class SpecialCharsModal extends Modal {
 		contentEl.empty();
 		contentEl.addClass('wm-sc-modal');
 		modalEl.addClass('wm-sc-modal-container');
+		this.containerEl.addClass('wm-sc-modal-host');
 
 		// 즐겨찾기 로드
 		const favCat = CATEGORIES.find(c => c.id === 'favorites')!;
@@ -239,6 +240,7 @@ export class SpecialCharsModal extends Modal {
 
 		this.buildHeader(contentEl);
 		this.buildBody(contentEl);
+		this.buildFooter(contentEl);
 
 		this.catFocusIdx = CATEGORIES.findIndex(c => c.id === this.activeCategoryId);
 		if (this.catFocusIdx < 0) this.catFocusIdx = 0;
@@ -255,17 +257,14 @@ export class SpecialCharsModal extends Modal {
 	onClose() {
 		this.modalEl.removeEventListener('keydown', this.boundKeyDown);
 		this.modalEl.removeEventListener('mousedown', this.boundClickOutside);
+		this.containerEl.removeClass('wm-sc-modal-host');
 		this.contentEl.empty();
 	}
 
-	// ── 헤더 (full-width: 타이틀 + 추가버튼 + 검색창) ────────────────
+	// ── 헤더 (full-width 검색창) ───────────────────────────────────
 
 	private buildHeader(container: HTMLElement) {
 		const header = container.createDiv({ cls: 'wm-sc-header' });
-		header.createDiv({ cls: 'wm-sc-title', text: '특수문자' });
-
-		// 사용자 지정 추가 버튼 (타이틀 바로 다음)
-		this.buildAddButton(header);
 
 		// 검색창
 		const searchWrap = header.createDiv({ cls: 'wm-sc-search-wrap' });
@@ -280,6 +279,20 @@ export class SpecialCharsModal extends Modal {
 			this.searchQuery = input.value;
 			this.renderGrid();
 		});
+
+	}
+
+	// ── 하단 액션 ──────────────────────────────────────────────────
+
+	private buildFooter(container: HTMLElement) {
+		const footer = container.createDiv({ cls: 'wm-sc-footer' });
+		const footerLeft = footer.createDiv({ cls: 'wm-sc-footer-left' });
+		this.buildAddButton(footerLeft);
+		footer.createEl('button', {
+			cls: 'wm-sc-footer-close',
+			text: '닫기',
+			attr: { type: 'button' },
+		}).addEventListener('click', () => this.close());
 	}
 
 	// ── 사용자 지정 추가 버튼 + 팝오버 ──────────────────────────────
@@ -288,9 +301,11 @@ export class SpecialCharsModal extends Modal {
 		const wrap = container.createDiv({ cls: 'wm-sc-add-wrap' });
 		this.addWrapEl = wrap;
 
-		const btn = wrap.createDiv({ cls: 'wm-sc-add-btn' });
-		setIcon(btn, 'plus');
-		setTooltip(btn, '사용자 지정 특수문자 추가');
+		const btn = wrap.createEl('button', {
+			cls: 'wm-sc-footer-add',
+			text: '추가',
+			attr: { type: 'button' },
+		});
 
 		const popup = wrap.createDiv({ cls: 'wm-sc-add-popup is-hidden' });
 		this.addPopupEl = popup;
@@ -370,7 +385,7 @@ export class SpecialCharsModal extends Modal {
 	private buildBody(container: HTMLElement) {
 		const body = container.createDiv({ cls: 'wm-sc-body' });
 
-		const catList = body.createDiv({ cls: 'wm-sc-cat-list' });
+		const catList = body.createDiv({ cls: 'wm-sc-cat-list', attr: { role: 'listbox', 'aria-label': '특수문자 카테고리' } });
 		catList.tabIndex = -1;
 		this.catListEl = catList;
 		this.renderCatList();
@@ -390,8 +405,9 @@ export class SpecialCharsModal extends Modal {
 			const isEmpty = (cat.id === 'favorites' || cat.id === 'custom') && cat.chars.length === 0;
 			const isActive = cat.id === this.activeCategoryId;
 
-			const item = this.catListEl.createDiv({
+			const item = this.catListEl.createEl('button', {
 				cls: `wm-sc-cat-item${isActive ? ' is-active' : ''}${isEmpty ? ' is-empty' : ''}`,
+				attr: { type: 'button', role: 'option', 'aria-selected': String(isActive) },
 			});
 			item.createSpan({ cls: 'wm-sc-cat-icon', text: cat.icon });
 			item.createSpan({ cls: 'wm-sc-cat-label', text: cat.label });
@@ -428,12 +444,21 @@ export class SpecialCharsModal extends Modal {
 			const ch = this.renderedChars[i];
 			const cell = this.gridEl.createDiv({ cls: 'wm-sc-cell' });
 			cell.dataset.idx = String(i);
-			cell.createSpan({ cls: 'wm-sc-cell-char', text: ch });
 
 			const entry = CD[ch];
-			if (entry?.title) setTooltip(cell, entry.title, { delay: 0 });
-
-			const starBtn = cell.createDiv({ cls: `wm-sc-cell-star${favs.has(ch) ? ' is-fav' : ''}` });
+			const insertButton = cell.createEl('button', {
+				cls: 'wm-sc-cell-insert',
+				attr: { type: 'button', 'aria-label': entry?.title ? `${ch}, ${entry.title}` : ch },
+			});
+			insertButton.createSpan({ cls: 'wm-sc-cell-char', text: ch });
+			const starBtn = cell.createEl('button', {
+				cls: `wm-sc-cell-star${favs.has(ch) ? ' is-fav' : ''}`,
+				attr: {
+					type: 'button',
+					'aria-label': favs.has(ch) ? `${ch} 즐겨찾기에서 제거` : `${ch} 즐겨찾기에 추가`,
+					'aria-pressed': String(favs.has(ch)),
+				},
+			});
 			setIcon(starBtn, 'star');
 
 			starBtn.addEventListener('click', (e) => {
@@ -443,7 +468,7 @@ export class SpecialCharsModal extends Modal {
 				this.renderCatList();
 			});
 
-			cell.addEventListener('click', () => this.insert(ch));
+			insertButton.addEventListener('click', () => this.insert(ch));
 
 			cell.addEventListener('mouseenter', () => {
 				this.gridFocusIdx = i;
@@ -496,10 +521,18 @@ export class SpecialCharsModal extends Modal {
 	// ── 삽입 ─────────────────────────────────────────────────────────
 
 	private insert(ch: string) {
-		if (this.editor) {
-			this.editor.replaceSelection(ch);
-		} else {
-			this.app.workspace.activeEditor?.editor?.replaceSelection(ch);
+		const editor = this.editor ?? this.app.workspace.activeEditor?.editor;
+		if (editor) {
+			const closeQuote = this.plugin.settings.enableSmartQuotes
+				? (ch === '“' ? '”' : ch === '‘' ? '’' : '')
+				: '';
+			if (closeQuote && !editor.somethingSelected()) {
+				const cursor = editor.getCursor();
+				editor.replaceSelection(ch + closeQuote);
+				editor.setCursor({ line: cursor.line, ch: cursor.ch + ch.length });
+			} else {
+				editor.replaceSelection(closeQuote ? ch + editor.getSelection() + closeQuote : ch);
+			}
 		}
 		if (this.plugin.settings.specialCharCloseOnInsert ?? true) {
 			this.close();
@@ -621,7 +654,7 @@ export class SpecialCharsModal extends Modal {
 	}
 }
 
-export function openSpecialChars(plugin: WritingMenuPlugin): void {
-	const editor = plugin.app.workspace.activeEditor?.editor ?? null;
-	new SpecialCharsModal(plugin.app, plugin, editor).open();
+export function openSpecialChars(plugin: WritingMenuPlugin, editor?: Editor | null): void {
+	const targetEditor = editor ?? plugin.app.workspace.activeEditor?.editor ?? null;
+	new SpecialCharsModal(plugin.app, plugin, targetEditor).open();
 }

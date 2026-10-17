@@ -33,7 +33,7 @@ export class StopwatchManager {
 			this.updateStopwatchDisplay();
 			if (this.plugin.stopwatchSeconds <= 0) {
 				this.stopStopwatch();
-				if (this.plugin.settings.enableStopwatchAlarm) this.playAlarm();
+				this.playAlarm();
 				this.timerDurationSeconds = Math.max(0, this.plugin.settings.stopwatchMinutes * 60);
 				this.plugin.stopwatchSeconds = this.timerDurationSeconds;
 				this.updateStopwatchDisplay();
@@ -58,7 +58,6 @@ export class StopwatchManager {
 	}
 
 	updateStopwatchDisplay() {
-		this.plugin.updateStatusBarDisplay();
 		this.notifyWidgets();
 	}
 
@@ -202,84 +201,4 @@ export class StopwatchManager {
 		}
 	}
 
-	buildStatusPopup(container: HTMLElement) {
-		const RADIUS = 63;
-		const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
-		const timerWrap = container.createDiv('wm-popup-timer-wrap');
-		const svg = timerWrap.createSvg('svg', {
-			cls: 'wm-popup-circle',
-			attr: { viewBox: '0 0 156 156' },
-		});
-		svg.createSvg('circle', {
-			cls: 'wm-popup-circle-track',
-			attr: { cx: 78, cy: 78, r: RADIUS },
-		});
-		const circleFill = svg.createSvg('circle', {
-			cls: 'wm-popup-circle-fill',
-			attr: { cx: 78, cy: 78, r: RADIUS },
-		});
-		circleFill.setCssStyles({ strokeDasharray: String(CIRCUMFERENCE), strokeDashoffset: String(CIRCUMFERENCE) });
-
-		const swTimeEl = timerWrap.createEl('span', { text: this.plugin.formatTime(this.plugin.stopwatchSeconds), cls: 'wm-popup-timer-big' });
-		if (this.plugin.stopwatchInterval) swTimeEl.addClass('is-running');
-
-		const updateProgress = () => {
-			const totalSecs = this.timerDurationSeconds;
-			if (totalSecs > 0) {
-				const elapsed = totalSecs - this.plugin.stopwatchSeconds;
-				const pct = Math.min(1, Math.max(0, elapsed / totalSecs));
-				circleFill.setCssStyles({ strokeDashoffset: String(CIRCUMFERENCE * (1 - pct)) });
-			} else {
-				circleFill.setAttribute('stroke-dashoffset', String(CIRCUMFERENCE));
-			}
-		};
-		updateProgress();
-
-		const playResetRow = container.createDiv('wm-popup-row');
-		playResetRow.setCssStyles({ justifyContent: 'center', gap: '20px', padding: '2px 0 4px' });
-
-		const playBtn = playResetRow.createDiv('wm-popup-icon-action');
-		setIcon(playBtn, this.plugin.stopwatchInterval ? 'pause' : 'play');
-		playBtn.onclick = () => {
-			if (this.plugin.stopwatchInterval) this.stopStopwatch();
-			else this.startStopwatch();
-			setIcon(playBtn, this.plugin.stopwatchInterval ? 'pause' : 'play');
-			swTimeEl.textContent = this.plugin.formatTime(this.plugin.stopwatchSeconds);
-			swTimeEl.toggleClass('is-running', !!this.plugin.stopwatchInterval);
-			updateProgress();
-		};
-
-		const resetBtn = playResetRow.createDiv('wm-popup-icon-action');
-		setIcon(resetBtn, 'rotate-ccw');
-		resetBtn.onclick = () => {
-			this.resetStopwatch();
-			setIcon(playBtn, 'play');
-			swTimeEl.removeClass('is-running');
-			swTimeEl.textContent = this.plugin.formatTime(this.plugin.stopwatchSeconds);
-			updateProgress();
-		};
-
-		const addRow = container.createDiv('wm-popup-row');
-		addRow.setCssStyles({ justifyContent: 'space-between', paddingBottom: '2px' });
-		[1, 5, 10, 25].forEach(mins => {
-			const btn = addRow.createEl('button', { text: `+${mins}`, cls: 'wm-popup-action-btn' });
-			btn.onclick = () => {
-				this.plugin.stopwatchSeconds += mins * 60;
-				this.plugin.updateStatusBarDisplay();
-				swTimeEl.textContent = this.plugin.formatTime(this.plugin.stopwatchSeconds);
-				updateProgress();
-			};
-		});
-
-		const popupInterval = window.setInterval(() => {
-			if (!activeDocument.querySelector('.wm-status-popup')) {
-				window.clearInterval(popupInterval);
-				return;
-			}
-			swTimeEl.textContent = this.plugin.formatTime(this.plugin.stopwatchSeconds);
-			swTimeEl.toggleClass('is-running', !!this.plugin.stopwatchInterval);
-			updateProgress();
-			setIcon(playBtn, this.plugin.stopwatchInterval ? 'pause' : 'play');
-		}, 1000);
-	}
 }

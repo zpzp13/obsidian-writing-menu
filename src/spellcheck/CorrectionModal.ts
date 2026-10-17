@@ -79,6 +79,12 @@ const STATE_COLORS: Record<CorrectionState, string> = {
 };
 
 const TYPE_BADGE_MAP: Record<string, { label: string; color: string }> = {
+	'1': { label: '어법', color: '#ee335c' },
+	'2': { label: '문맥', color: '#009666' },
+	'3': { label: '흔한 실수', color: '#d69e2e' },
+	'4': { label: '분석 실패', color: '#495eff' },
+	'SPELL': { label: '맞춤법', color: 'var(--color-red)' },
+	'SPACE': { label: '띄어쓰기', color: 'var(--color-orange)' },
 	// Daum 영문 타입
 	'space': { label: '띄어쓰기', color: 'var(--color-orange)' },
 	'spell': { label: '문법', color: 'var(--color-red)' },
@@ -447,7 +453,7 @@ export class CorrectionModal extends Modal {
 		) => {
 			const button = this.mobileToolbarEl.createEl('button', {
 				cls: 'wm-spell-mobile-tool',
-				attr: { 'aria-label': label, title: label },
+				attr: { 'aria-label': label },
 			});
 			setIcon(button, icon);
 			button.toggleClass('is-active', options.active === true);

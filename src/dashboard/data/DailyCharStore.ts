@@ -42,7 +42,7 @@ export class DailyCharStore {
 		await this.load();
 		const todayStr     = this.todayStr();
 		const currentMode  = this.plugin.settings.charCountMode ?? 'munpia';
-		this.storage.trackingFolder = this.plugin.settings.trackingFolder ?? '';
+		this.storage.trackingFolder = this.plugin.projectContext.getStatisticsScopeSignature();
 
 		const modeChanged = (this.storage.charMode ?? 'munpia') !== currentMode;
 		this.storage.charMode = currentMode;
@@ -72,9 +72,14 @@ export class DailyCharStore {
 		await this.computeAvg();
 	}
 
+	/** 현재 누적값을 일일 노트에 즉시 기록합니다. 설정 변경 직후의 명시적 동기화에 사용합니다. */
+	async syncTodayRecord(): Promise<void> {
+		await this.writeTodayCharCount();
+	}
+
 	async reinitSnapshot() {
 		const currentMode = this.plugin.settings.charCountMode ?? 'munpia';
-		this.storage.trackingFolder = this.plugin.settings.trackingFolder ?? '';
+		this.storage.trackingFolder = this.plugin.projectContext.getStatisticsScopeSignature();
 
 		const modeChanged = (this.storage.charMode ?? 'munpia') !== currentMode;
 		this.storage.charMode = currentMode;
@@ -127,7 +132,7 @@ export class DailyCharStore {
 						if (this.storage.today!.current[file.path] === count) return;
 						this.storage.today!.current[file.path] = count;
 						if (!(file.path in this.storage.today!.start))
-							this.storage.today!.start[file.path] = count;
+							this.storage.today!.start[file.path] = this.getInitialBaseline(file, count);
 						this.scheduleSave();
 					} catch { /* intentional */ }
 				})();
@@ -159,6 +164,7 @@ export class DailyCharStore {
 		const seen = new Set([...Object.keys(start), ...Object.keys(current), ...Object.keys(carried)]);
 		for (const path of seen) {
 			if (this.inVersionFolder(path)) continue;
+			if (!this.inTrackingFolder(path)) continue;
 			if (!path.startsWith(prefix)) continue;
 			const s = start[path] ?? current[path] ?? 0;
 			const c = current[path] ?? s;
@@ -203,7 +209,9 @@ export class DailyCharStore {
 		}
 		if (this.inVersionFolder(file.path) || !this.inTrackingFolder(file.path)) return;
 		if (this.storage.today.current[file.path] === count) return;
-		if (!(file.path in this.storage.today.start)) this.storage.today.start[file.path] = count;
+		if (!(file.path in this.storage.today.start)) {
+			this.storage.today.start[file.path] = this.getInitialBaseline(file, count);
+		}
 		this.storage.today.current[file.path] = count;
 		this.scheduleSave();
 	}
@@ -216,6 +224,7 @@ export class DailyCharStore {
 		const result: { path: string; name: string; written: number; total: number }[] = [];
 		for (const path of seen) {
 			if (this.inVersionFolder(path)) continue;
+			if (!this.inTrackingFolder(path)) continue;
 			const s = start[path] ?? current[path] ?? 0;
 			const c = current[path] ?? s;
 			const written = Math.max(0, carried[path] ?? 0) + Math.max(0, c - s);
@@ -278,6 +287,7 @@ export class DailyCharStore {
 		const seen = new Set([...Object.keys(start), ...Object.keys(current), ...Object.keys(carried)]);
 		for (const path of seen) {
 			if (this.inVersionFolder(path)) continue;
+			if (!this.inTrackingFolder(path)) continue;
 			const s = start[path] ?? current[path] ?? 0;
 			const c = current[path] ?? s;
 			total += Math.max(0, carried[path] ?? 0) + Math.max(0, c - s);
@@ -286,14 +296,12 @@ export class DailyCharStore {
 	}
 
 	private async compactDay(data: TodayData) {
-		const folder = this.plugin.settings.trackingFolder ?? '';
-		const prefix = folder ? normalizePath(folder) + '/' : null;
 		let total = 0;
 		const carried = data.carried ?? {};
 		const seen = new Set([...Object.keys(data.start), ...Object.keys(data.current), ...Object.keys(carried)]);
 		for (const path of seen) {
 			if (this.inVersionFolder(path)) continue;
-			if (prefix && !path.startsWith(prefix)) continue;
+			if (!this.inTrackingFolder(path)) continue;
 			const s = data.start[path] ?? data.current[path] ?? 0;
 			const c = data.current[path] ?? s;
 			total += Math.max(0, carried[path] ?? 0) + Math.max(0, c - s);
@@ -339,6 +347,7 @@ export class DailyCharStore {
 		const seen = new Set([...Object.keys(today.start), ...Object.keys(today.current)]);
 		for (const path of seen) {
 			if (this.inVersionFolder(path)) continue;
+			if (!this.inTrackingFolder(path)) continue;
 			const start = today.start[path] ?? today.current[path] ?? 0;
 			const current = today.current[path] ?? start;
 			const delta = Math.max(0, current - start);
@@ -355,9 +364,16 @@ export class DailyCharStore {
 	}
 
 	private inTrackingFolder(path: string): boolean {
-		const folder = this.plugin.settings.trackingFolder ?? '';
-		if (!folder) return true;
-		return path.startsWith(normalizePath(folder) + '/');
+		return this.plugin.projectContext.isInStatisticsScope(path);
+	}
+
+	private getInitialBaseline(file: TFile, currentCount: number): number {
+		const created = new Date(file.stat.ctime);
+		const now = new Date();
+		const createdToday = created.getFullYear() === now.getFullYear()
+			&& created.getMonth() === now.getMonth()
+			&& created.getDate() === now.getDate();
+		return createdToday ? 0 : currentCount;
 	}
 
 	private todayStr(): string {
@@ -374,8 +390,7 @@ export class DailyCharStore {
 	}
 
 	private async writeTodayCharCount() {
-		const folder = this.plugin.settings.trackingFolder ?? '';
-		const net    = folder ? this.getTodayTotalForFolder(folder) : this.getTodayTotal();
+		const net = this.getTodayTotal();
 		if (net > 0) await this.writeCharCountToDailyNote(this.todayStr(), net);
 	}
 

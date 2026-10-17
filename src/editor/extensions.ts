@@ -1,14 +1,21 @@
 import { EditorView, ViewPlugin, Decoration, DecorationSet, ViewUpdate, keymap } from '@codemirror/view';
-import { Extension, EditorState, ChangeSpec, RangeSetBuilder, Prec, Transaction } from '@codemirror/state';
+import { Extension, EditorState, RangeSetBuilder, Prec, Transaction } from '@codemirror/state';
 import { MarkdownView } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { HeadingRawWidget } from './HeadingRawWidget';
+
+function appliesToEditor(plugin: WritingMenuPlugin, editor: EditorView): boolean {
+	const leaf = plugin.app.workspace.getLeavesOfType('markdown')
+		.find(candidate => candidate.view.containerEl.contains(editor.dom));
+	return leaf?.view instanceof MarkdownView && plugin.shouldApplyToFile(leaf.view.file);
+}
 
 export function getSmartEnterExtension(plugin: WritingMenuPlugin): Extension {
 	if (!plugin.settings.enableSmartInput || !plugin.settings.enableSmartEnter) return [];
 	return Prec.highest(keymap.of([{
 		key: 'Enter',
 		run: (view: EditorView) => {
+			if (!appliesToEditor(plugin, view)) return false;
 			const state = view.state;
 			const cursor = state.selection.main.head;
 			if (cursor === 0 || cursor >= state.doc.length) return false;
@@ -67,45 +74,33 @@ export function getSmartEnterExtension(plugin: WritingMenuPlugin): Extension {
 
 export function getSmartQuoteExtension(plugin: WritingMenuPlugin): Extension {
 	if (!plugin.settings.enableSmartQuotes) return [];
-	return EditorState.transactionFilter.of((tr) => {
-		if (!tr.isUserEvent("input.type") || !tr.docChanged) return tr;
+	return EditorView.inputHandler.of((view, from, to, text) => {
+		if (!appliesToEditor(plugin, view)) return false;
+		const pair = text === '"' || text === '“'
+			? { open: '“', close: '”' }
+			: text === "'" || text === '‘'
+				? { open: '‘', close: '’' }
+				: null;
+		if (!pair) return false;
 
-		const changes: ChangeSpec[] = [];
-		const replacements: Record<string, { open: string, close: string }> = {
-			'"': { open: '“', close: '”' },
-			"'": { open: '‘', close: '’' }
-		};
-
-		tr.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
-			const text = inserted.sliceString(0);
-
-			if (text === '""') {
-				changes.push({ from: fromA, to: toA, insert: '“”' });
-				return;
-			}
-			if (text === "''") {
-				changes.push({ from: fromA, to: toA, insert: '‘’' });
-				return;
-			}
-
-			const rule = replacements[text];
-			if (!rule) return;
-
-			const context = tr.startState.doc.sliceString(Math.max(0, fromA - 1), fromA);
-			const isOpening = fromA === 0 || /[\s([{<]$/.test(context);
-
-			const replacement = isOpening ? rule.open : rule.close;
-			changes.push({ from: fromA, to: toA, insert: replacement });
-		});
-
-		if (changes.length > 0) {
-			return {
-				changes,
-				selection: tr.newSelection,
-				scrollIntoView: tr.scrollIntoView
-			};
+		// Typing the closing key while immediately before an auto-inserted closer
+		// moves over it instead of producing another quote pair.
+		if (from === to && view.state.doc.sliceString(from, from + pair.close.length) === pair.close) {
+			view.dispatch({ selection: { anchor: from + pair.close.length }, scrollIntoView: true });
+			return true;
 		}
-		return tr;
+
+		const selected = view.state.doc.sliceString(from, to);
+		const insert = pair.open + selected + pair.close;
+		view.dispatch({
+			changes: { from, to, insert },
+			selection: selected
+				? { anchor: from + pair.open.length, head: from + pair.open.length + selected.length }
+				: { anchor: from + pair.open.length },
+			scrollIntoView: true,
+			userEvent: 'input.type',
+		});
+		return true;
 	});
 }
 
@@ -113,6 +108,7 @@ export function getTypewriterExtension(plugin: WritingMenuPlugin): Extension {
 	if (!plugin.settings.enableTypewriterScrolling) return [];
 	return ViewPlugin.fromClass(class {
 		update(update: ViewUpdate) {
+			if (!appliesToEditor(plugin, update.view)) return;
 			const isUserInput = update.transactions.some((tr: Transaction) => tr.isUserEvent("input") || tr.isUserEvent("delete"));
 			if (!update.docChanged || !isUserInput) return;
 			const head = update.view.state.selection.main.head;
@@ -120,6 +116,7 @@ export function getTypewriterExtension(plugin: WritingMenuPlugin): Extension {
 			update.view.requestMeasure({
 				key: 'wm-typewriter-center',
 				read: (view) => {
+					if (!appliesToEditor(plugin, view) || head > view.state.doc.length) return null;
 					const cursorCoords = view.coordsAtPos(head);
 					if (!cursorCoords) return null;
 					const scroller = view.scrollDOM;
@@ -128,7 +125,7 @@ export function getTypewriterExtension(plugin: WritingMenuPlugin): Extension {
 					return { diff, scroller };
 				},
 				write: (measure) => {
-					if (!measure) return;
+					if (!measure || !appliesToEditor(plugin, update.view)) return;
 					const { diff, scroller } = measure;
 					if (Math.abs(diff) > 10) {
 						scroller.scrollTo({ top: scroller.scrollTop + diff, behavior: 'auto' });
@@ -149,6 +146,7 @@ export function getTextSubstitutionExtension(plugin: WritingMenuPlugin): Extensi
 	const maxLength = sortedSubs[0].from.length;
 
 	return EditorView.inputHandler.of((view, _from, to, text) => {
+		if (!appliesToEditor(plugin, view)) return false;
 		if (text.length !== 1) return false;
 
 		const start = Math.max(0, to - maxLength + 1);
@@ -177,6 +175,7 @@ export function getBackspaceUndoExtension(plugin: WritingMenuPlugin): Extension 
 	if (!plugin.settings.enableSmartInput || !plugin.settings.enableTextSubstitution) return [];
 
 	return EditorView.updateListener.of((update) => {
+		if (!appliesToEditor(plugin, update.view)) return;
 		const isBackspace = update.transactions.some(tr => tr.isUserEvent("delete.backward"));
 		if (!isBackspace || !plugin.lastSubstitution) return;
 
@@ -200,12 +199,13 @@ export function getBackspaceUndoExtension(plugin: WritingMenuPlugin): Extension 
 	});
 }
 
-export function createHeadingLinkFixExtension(): Extension {
+export function createHeadingLinkFixExtension(plugin: WritingMenuPlugin): Extension {
 	return Prec.highest(ViewPlugin.fromClass(class {
 		decorations: DecorationSet;
+		applies = false;
 		constructor(view: EditorView) { this.decorations = this.build(view); }
 		update(update: ViewUpdate) {
-			if (update.viewportChanged) {
+			if (this.applies !== appliesToEditor(plugin, update.view) || update.viewportChanged) {
 				this.decorations = this.build(update.view);
 			} else if (update.docChanged) {
 				let hasHeadingChange = false;
@@ -223,6 +223,8 @@ export function createHeadingLinkFixExtension(): Extension {
 			}
 		}
 		build(view: EditorView): DecorationSet {
+			this.applies = appliesToEditor(plugin, view);
+			if (!this.applies) return Decoration.none;
 			const builder = new RangeSetBuilder<Decoration>();
 			for (const { from, to } of view.visibleRanges) {
 				const fl = view.state.doc.lineAt(from).number;
@@ -249,6 +251,7 @@ export function createHeadingLinkFixExtension(): Extension {
 export function createSelectionExtension(plugin: WritingMenuPlugin): Extension {
 	let lastSelectionLength = 0;
 	return EditorView.updateListener.of((update) => {
+		if (!appliesToEditor(plugin, update.view)) return;
 		if (!update.selectionSet) return;
 		const selection = update.state.selection.main;
 		const currentLength = selection.to - selection.from;
@@ -269,7 +272,7 @@ export function createFocusExtension(plugin: WritingMenuPlugin): Extension {
 		decorations: DecorationSet;
 		constructor(_view: EditorView) { this.decorations = Decoration.none; }
 		update(update: ViewUpdate) {
-			if (!pluginSettings.enableFocusMode) {
+			if (!pluginSettings.enableFocusMode || !appliesToEditor(plugin, update.view)) {
 				if (this.decorations !== Decoration.none) this.decorations = Decoration.none;
 				update.view.dom.classList.remove('wm-focus-typing');
 				return;

@@ -39,6 +39,7 @@ export class DictionaryModal extends Modal {
 		contentEl.empty();
 		contentEl.addClass('wm-dict-modal');
 		modalEl.addClass('wm-dict-modal-container');
+		this.containerEl.addClass('wm-dict-modal-host');
 
 		// ── 헤더 ───────────────────────────────────────────────────
 
@@ -49,6 +50,8 @@ export class DictionaryModal extends Modal {
 		this.searchBoxEl = searchBox;
 
 		const inputRow = searchBox.createDiv({ cls: 'wm-dict-search-input-row' });
+		const searchIconEl = inputRow.createDiv({ cls: 'wm-dict-search-icon' });
+		setIcon(searchIconEl, 'search');
 
 		const searchInput = inputRow.createEl('input', { cls: 'wm-dict-search' });
 		searchInput.type = 'text';
@@ -56,10 +59,7 @@ export class DictionaryModal extends Modal {
 		searchInput.placeholder = '검색어 입력 후 엔터';
 		this.searchInputEl = searchInput;
 
-		const searchIconEl = inputRow.createDiv({ cls: 'wm-dict-search-icon' });
-		setIcon(searchIconEl, 'search');
-
-		this.dropdownEl = searchContainer.createDiv({ cls: 'wm-dict-dropdown' });
+		this.dropdownEl = searchContainer.createDiv({ cls: 'wm-dict-dropdown', attr: { role: 'listbox' } });
 		this.dropdownEl.setCssStyles({ display: 'none' });
 
 		// ── 검색바 이벤트 ──────────────────────────────────────────
@@ -124,7 +124,7 @@ export class DictionaryModal extends Modal {
 		// ── 바디 ──────────────────────────────────────────────────
 
 		const body = contentEl.createDiv({ cls: 'wm-dict-body' });
-		this.leftColEl = body.createDiv({ cls: 'wm-dict-left' });
+		this.leftColEl = body.createDiv({ cls: 'wm-dict-left', attr: { role: 'listbox' } });
 		this.rightColEl = body.createDiv({ cls: 'wm-dict-right' });
 
 		// ── 푸터 ──────────────────────────────────────────────────
@@ -138,17 +138,23 @@ export class DictionaryModal extends Modal {
 
 		const bracketBtn = footerLeft.createEl('button', { cls: 'wm-dict-bracket-btn' });
 		const bracketIcon = bracketBtn.createDiv({ cls: 'wm-dict-bracket-icon' });
-		setIcon(bracketIcon, 'square-check-big');
 		bracketBtn.createEl('span', { text: '괄호 병기' });
-		if (this.plugin.settings.hanjaBracketMode) bracketBtn.addClass('is-checked');
+		const syncBracketButton = () => {
+			const checked = this.plugin.settings.hanjaBracketMode;
+			bracketIcon.empty();
+			setIcon(bracketIcon, checked ? 'square-check-big' : 'square');
+			bracketBtn.toggleClass('is-checked', checked);
+			bracketBtn.setAttribute('aria-pressed', String(checked));
+		};
+		syncBracketButton();
 		bracketBtn.addEventListener('click', () => { void (async () => {
 			this.plugin.settings.hanjaBracketMode = !this.plugin.settings.hanjaBracketMode;
 			await this.plugin.saveSettings();
-			bracketBtn.toggleClass('is-checked', this.plugin.settings.hanjaBracketMode);
+			syncBracketButton();
 		})(); });
 		this.bracketBtnEl = bracketBtn;
 
-		footer.createEl('button', { cls: 'wm-dict-footer-btn', text: '닫기' })
+		footer.createEl('button', { cls: 'wm-dict-footer-btn', text: '닫기', attr: { type: 'button' } })
 			.addEventListener('click', () => this.close());
 
 		// ── 키보드 네비게이션 (scope) ─────────────────────────────
@@ -201,7 +207,7 @@ export class DictionaryModal extends Modal {
 		if (recents.length === 0) { this.hideDropdown(); return; }
 
 		recents.slice(0, 10).forEach(word => {
-			const item = this.dropdownEl.createDiv({ cls: 'wm-dict-dropdown-item' });
+			const item = this.dropdownEl.createDiv({ cls: 'wm-dict-dropdown-item', attr: { role: 'option' } });
 			item.setAttribute('data-word', word);
 
 			item.createEl('span', { cls: 'wm-dict-drop-word', text: word });
@@ -225,7 +231,7 @@ export class DictionaryModal extends Modal {
 			})(); });
 		});
 
-		const clearAll = this.dropdownEl.createDiv({ cls: 'wm-dict-drop-clear-all' });
+		const clearAll = this.dropdownEl.createDiv({ cls: 'wm-dict-drop-clear-all', attr: { role: 'button', tabindex: '0' } });
 		clearAll.createEl('span', { text: '최근 검색어 모두 삭제' });
 		clearAll.addEventListener('mousedown', (e: MouseEvent) => { void (async () => {
 			e.preventDefault();
@@ -253,7 +259,7 @@ export class DictionaryModal extends Modal {
 		});
 
 		unique.slice(0, 8).forEach(entry => {
-			const item = this.dropdownEl.createDiv({ cls: 'wm-dict-dropdown-item' });
+			const item = this.dropdownEl.createDiv({ cls: 'wm-dict-dropdown-item', attr: { role: 'option' } });
 			item.setAttribute('data-word', entry.word);
 
 			const wordEl = item.createEl('span', { cls: 'wm-dict-dropdown-word' });
@@ -350,7 +356,10 @@ export class DictionaryModal extends Modal {
 		if (this.entries.length === 0) return;
 
 		this.entries.forEach((entry, idx) => {
-			const item = this.leftColEl.createDiv({ cls: 'wm-dict-left-item' });
+			const item = this.leftColEl.createEl('button', {
+				cls: 'wm-dict-left-item',
+				attr: { type: 'button', role: 'option', 'aria-selected': String(this.selectedIdx === idx) },
+			});
 			if (this.selectedIdx === idx) item.addClass('is-active');
 
 			const wordEl = item.createEl('span', { cls: 'wm-dict-left-word', text: entry.word });
@@ -473,11 +482,14 @@ export class DictionaryModal extends Modal {
 		this.close();
 	}
 
-	onClose() { this.contentEl.empty(); }
+	onClose() {
+		this.containerEl.removeClass('wm-dict-modal-host');
+		this.contentEl.empty();
+	}
 }
 
-export async function openDictionary(plugin: WritingMenuPlugin) {
-	const activeEditor = plugin.app.workspace.activeEditor?.editor ?? null;
+export async function openDictionary(plugin: WritingMenuPlugin, editor?: Editor | null) {
+	const activeEditor = editor ?? plugin.app.workspace.activeEditor?.editor ?? null;
 	let word = '';
 	let from: EditorPosition | null = null;
 	let to: EditorPosition | null = null;

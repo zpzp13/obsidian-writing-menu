@@ -1,19 +1,19 @@
-import { App, PluginSettingTab, Setting, setIcon, Platform } from 'obsidian';
+import { App, Notice, PluginSettingTab, Setting, setIcon, Platform, ToggleComponent } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { renderWikiSettingsPage } from '../wiki/WikiSettings';
-import { renderPlotSettingsPage } from '../plot/PlotSettings';
-import { NoteSuggestModal, FolderSuggestModal, ImageSuggestModal } from '../wiki/WikiModals';
+import { renderPlotWorkbookSettingsPage } from '../plot-workbook/PlotWorkbookSettings';
+import { NoteSuggestModal, FolderSuggestModal } from '../wiki/WikiModals';
 import { downloadGaruAssets, GARU_VERSION, getGaruAssetStatus } from '../repetition/GaruAssets';
 import { isMorphAnalysisSupported } from '../repetition/MorphAnalyzer';
 import { fireAndForget } from '../utils/asyncUtils';
 import { AI_CHAT_MODELS } from '../aichat/AiChatApi';
-import { AI_IMAGE_MODELS, IMAGE_ASPECT_RATIOS } from '../aichat/AiImageApi';
 import { DEFAULT_EPISODE_PROMPT } from '../aichat/EpisodeChatEngine';
 import { DEFAULT_CHAT_STYLE_NOTE } from '../aichat/AiChatContext';
 
 
 export class WritingMenuSettingTab extends PluginSettingTab {
 	plugin: WritingMenuPlugin;
+	private pendingGroup: { containerEl: HTMLElement; itemsEl: HTMLElement } | null = null;
 
 	constructor(app: App, plugin: WritingMenuPlugin) {
 		super(app, plugin);
@@ -30,87 +30,769 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 	public renderPage(page: string) {
 		const { containerEl } = this;
 		containerEl.empty();
+		this.pendingGroup = null;
+		const isSettingPage = page !== 'main';
+		containerEl.toggleClass('setting-page', isSettingPage);
+		const pageContainerEl = isSettingPage
+			? containerEl.createDiv({ cls: 'setting-page-content' })
+			: containerEl;
 		switch (page) {
-			case 'main':             this.renderMainPage(containerEl); break;
-			case 'typography':       this.renderTypographyPage(containerEl); break;
-			case 'input':            this.renderInputPage(containerEl); break;
-			case 'copy-export':      this.renderCopyExportPage(containerEl); break;
-			case 'writing-stats':    this.renderWritingStatsPage(containerEl); break;
-			case 'time':             this.renderWritingStatsPage(containerEl); break;
-			case 'calendar-chars':   this.renderWritingStatsPage(containerEl); break;
-			case 'dictionary':       this.renderDictionaryPage(containerEl); break;
-			case 'version-control':  this.renderVersionPage(containerEl); break;
-			case 'stopwatch':         this.renderStopwatchPage(containerEl); break;
-			case 'music':             this.renderMusicPage(containerEl); break;
-			case 'calendar':         this.renderCalendarPage(containerEl); break;
-			case 'wiki':             this.renderWikiPage(containerEl); break;
-			case 'plot':             this.renderPlotPage(containerEl); break;
-			case 'special-chars':    this.renderSpecialCharsPage(containerEl); break;
-			case 'spellcheck':       this.renderSpellCheckPage(containerEl); break;
-			case 'repetition':       this.renderRepetitionPage(containerEl); break;
-			case 'ai':               this.renderAiPage(containerEl); break;
+			case 'main':             this.renderMainPage(pageContainerEl); break;
+			case 'projects':         this.renderProjectsPage(pageContainerEl); break;
+			case 'statistics-scope': this.renderStatisticsScopePage(pageContainerEl); break;
+			case 'api':              this.renderApiPage(pageContainerEl); break;
+			case 'control':          this.renderControlPage(pageContainerEl); break;
+			case 'misc':             this.renderMiscPage(pageContainerEl); break;
+			case 'divider':          this.renderDividerPage(pageContainerEl); break;
+			case 'footnotes':        this.renderFootnotesPage(pageContainerEl); break;
+			case 'autocomplete':     this.renderAutocompletePage(pageContainerEl); break;
+			case 'substitutions':    this.renderTextSubstitutionPage(pageContainerEl); break;
+			case 'copy':             this.renderCopyPage(pageContainerEl); break;
+			case 'export':           this.renderExportPage(pageContainerEl); break;
+			case 'char-count':       this.renderCharCountPage(pageContainerEl); break;
+			case 'writing-time':     this.renderWritingTimePage(pageContainerEl); break;
+			case 'typography':       this.renderDividerPage(pageContainerEl); break;
+			case 'input':            this.renderAutocompletePage(pageContainerEl); break;
+			case 'copy-export':      this.renderExportPage(pageContainerEl); break;
+			case 'writing-stats':    this.renderCharCountPage(pageContainerEl); break;
+			case 'time':             this.renderWritingTimePage(pageContainerEl); break;
+			case 'calendar-chars':   this.renderCharCountPage(pageContainerEl); break;
+			case 'version-control':  this.renderVersionPage(pageContainerEl); break;
+			case 'stopwatch':        this.renderStopwatchPage(pageContainerEl); break;
+			case 'music':            this.renderMusicPage(pageContainerEl); break;
+			case 'calendar':         this.renderCalendarPage(pageContainerEl); break;
+			case 'wiki':             this.renderWikiPage(pageContainerEl); break;
+			case 'plot':             this.renderPlotPage(pageContainerEl); break;
+			case 'special-chars':    this.renderSpecialCharsPage(pageContainerEl); break;
+			case 'spellcheck':       this.renderSpellCheckPage(pageContainerEl); break;
+			case 'spellcheck-words': this.renderSpellCheckWordsPage(pageContainerEl); break;
+			case 'repetition':       this.renderRepetitionPage(pageContainerEl); break;
+			case 'ai':               this.renderAiPage(pageContainerEl); break;
 		}
+		this.adoptNativeSettingDescriptions(containerEl);
 	}
 
 	// ── 공통 UI 헬퍼 ───────────────────────────────────────────────────
 
-	private addNavCard(box: HTMLElement, title: string, desc: string, icon: string, page: string) {
-		const card = box.createDiv({ cls: 'wm-settings-nav-card' });
-		const iconEl = card.createDiv({ cls: 'wm-settings-nav-card-icon' });
-		setIcon(iconEl, icon);
-		const body = card.createDiv({ cls: 'wm-settings-nav-card-body' });
-		body.createEl('div', { cls: 'wm-settings-nav-card-title', text: title });
-		body.createEl('div', { cls: 'wm-settings-nav-card-desc', text: desc });
-		const chevron = card.createDiv({ cls: 'wm-settings-nav-card-chevron' });
-		setIcon(chevron, 'chevron-right');
-		card.addEventListener('click', () => this.renderPage(page));
+	private addNavCard(box: HTMLElement, title: string, desc: string, _icon: string, page: string) {
+		const setting = new Setting(box)
+			.setName(title)
+			.setDesc(desc);
+		setting.settingEl.addClasses(['mod-navigable', 'tappable']);
+		const chevronEl = setting.controlEl.createDiv({ cls: 'setting-item-chevron' });
+		setIcon(chevronEl, 'chevron-right');
+		setting.settingEl.setAttribute('role', 'button');
+		setting.settingEl.tabIndex = 0;
+		setting.settingEl.addEventListener('click', () => this.renderPage(page));
+		setting.settingEl.addEventListener('keydown', event => {
+			if (event.key !== 'Enter' && event.key !== ' ') return;
+			event.preventDefault();
+			this.renderPage(page);
+		});
 	}
 
-	private addBackButton(containerEl: HTMLElement, title: string) {
-		const btn = containerEl.createDiv({ cls: 'wm-settings-back-btn' });
-		const iconEl = btn.createSpan();
-		setIcon(iconEl, 'chevron-left');
-		btn.createEl('span', { text: title });
-		btn.addEventListener('click', () => this.renderPage('main'));
+	private addBackButton(containerEl: HTMLElement, title: string, parentPage = 'main') {
+		const rootEl = containerEl.parentElement;
+		if (!rootEl) return;
+		const titlebarEl = rootEl.createDiv({ cls: 'setting-page-titlebar' });
+		rootEl.insertBefore(titlebarEl, containerEl);
+		const backButtonEl = titlebarEl.createDiv({ cls: 'clickable-icon setting-page-back-button' });
+		setIcon(backButtonEl, 'chevron-left');
+		backButtonEl.setAttribute('aria-label', '전체 설정으로 돌아가기');
+		backButtonEl.addEventListener('click', () => this.renderPage(parentPage));
+		titlebarEl.createDiv({ cls: 'setting-page-title', text: title });
 	}
 
 	private addGroupTitle(containerEl: HTMLElement, title: string) {
-		containerEl.createDiv({ cls: 'wm-settings-group-title', text: title });
+		const groupEl = containerEl.createDiv({ cls: 'setting-group' });
+		const headingEl = groupEl.createDiv({ cls: 'setting-item setting-item-heading' });
+		headingEl.createDiv({ cls: 'setting-item-name', text: title });
+		headingEl.createDiv({ cls: 'setting-item-control' });
+		groupEl.createDiv({ cls: 'setting-group-search', attr: { tabindex: '-1' } });
+		const itemsEl = groupEl.createDiv({ cls: 'setting-items' });
+		this.pendingGroup = { containerEl, itemsEl };
 	}
 
 	private createGroupBox(containerEl: HTMLElement): HTMLElement {
-		return containerEl.createDiv({ cls: 'wm-settings-group-box' });
+		if (this.pendingGroup?.containerEl === containerEl) {
+			const { itemsEl } = this.pendingGroup;
+			this.pendingGroup = null;
+			return itemsEl;
+		}
+
+		const groupEl = containerEl.createDiv({ cls: 'setting-group' });
+		groupEl.createDiv({ cls: 'setting-group-search', attr: { tabindex: '-1' } });
+		return groupEl.createDiv({ cls: 'setting-items' });
+	}
+
+	private adoptNativeSettingDescriptions(containerEl: HTMLElement): void {
+		for (const description of Array.from(containerEl.querySelectorAll<HTMLElement>('.wm-settings-item-desc'))) {
+			const previous = description.previousElementSibling;
+			const target = previous?.matches('.setting-item')
+				? previous.querySelector<HTMLElement>('.setting-item-description')
+				: null;
+			if (target) {
+				while (description.firstChild) target.appendChild(description.firstChild);
+				description.remove();
+				continue;
+			}
+			description.removeClass('wm-settings-item-desc');
+			description.addClass('setting-item-description');
+		}
 	}
 
 	// ── 메인 페이지 ────────────────────────────────────────────────────
 
 	private renderMainPage(containerEl: HTMLElement) {
+		const basicBox = this.createGroupBox(containerEl);
+		this.addNavCard(basicBox, '프로젝트', '프로젝트를 관리할 폴더를 등록합니다.', 'folder-kanban', 'projects');
+		this.addNavCard(basicBox, '통계 범위', '글자수와 작업시간 통계를 프로젝트별 폴더로 제한합니다.', 'chart-no-axes-combined', 'statistics-scope');
+		this.addNavCard(basicBox, 'API', '플러그인에서 사용하는 API 키를 한곳에서 관리합니다.', 'key-round', 'api');
+		this.addNavCard(basicBox, '제어', '플러그인의 토글 방식 설정을 한곳에서 관리합니다.', 'sliders-horizontal', 'control');
+		this.addNavCard(basicBox, '기타', '타이머와 맞춤법 검사 등 부가 기능을 관리합니다.', 'ellipsis', 'misc');
+
 		this.addGroupTitle(containerEl, '편집기');
 		const editorBox = this.createGroupBox(containerEl);
-		this.addNavCard(editorBox, '서식', '글꼴 · 크기 · 행간 · 색상 · 헤딩 · 각주', 'type', 'typography');
-		this.addNavCard(editorBox, '입력 보조', '스마트 입력, 자동완성 기호, 텍스트 치환', 'keyboard', 'input');
-		this.addNavCard(editorBox, '복사 및 내보내기', '복사 옵션, TXT · HWP 내보내기', 'file-output', 'copy-export');
+		this.addNavCard(editorBox, '커스텀 구분선', '마크다운 구분선의 모양과 배치를 설정합니다.', 'minus', 'divider');
+		this.addNavCard(editorBox, '각주', '각주의 글꼴과 크기, 색상을 설정합니다.', 'notebook-tabs', 'footnotes');
+		this.addNavCard(editorBox, '자동 완성', '트리거와 자동 완성 기호를 관리합니다.', 'keyboard', 'autocomplete');
+		this.addNavCard(editorBox, '텍스트 치환', '입력 중 자동으로 바꿀 문자열을 관리합니다.', 'replace', 'substitutions');
+		this.addNavCard(editorBox, '복사', '헤딩과 각주를 제외하는 복사 동작을 설정합니다.', 'copy', 'copy');
+		this.addNavCard(editorBox, '내보내기', 'TXT · HWP 내보내기 기본값을 설정합니다.', 'file-output', 'export');
 
 		this.addGroupTitle(containerEl, '대시보드');
 		const calBox = this.createGroupBox(containerEl);
-		this.addNavCard(calBox, '캘린더 & 일정 관리', '할 일 헤더 설정', 'calendar', 'calendar');
-		this.addNavCard(calBox, '글자수 & 작업 시간', '추적 폴더, 목표 글자수, 작업 모드 설정', 'activity', 'writing-stats');
+		this.addNavCard(calBox, '일정', '일일노트와 연동해 Task를 시각적으로 보여줍니다.', 'calendar', 'calendar');
+		this.addNavCard(calBox, '글자수', '목표 글자수와 일일 노트 기록 방식을 설정합니다.', 'text-cursor-input', 'char-count');
+		this.addNavCard(calBox, '작업 시간', '작업 분류와 누적 시간 기록 방식을 설정합니다.', 'clock-3', 'writing-time');
 		this.addNavCard(calBox, '버전 관리', '스냅샷 저장 위치 및 최대 보관 개수', 'history', 'version-control');
-		this.addNavCard(calBox, '위키 뷰', '위키 스타일 캐릭터 카드 뷰 설정', 'git-graph', 'wiki');
-		this.addNavCard(calBox, '플롯 매니저', '에피소드·회차·장면·인물 플롯 관리', 'network', 'plot');
-		this.addNavCard(calBox, 'AI', '캐릭터 챗 API 키 설정', 'bot', 'ai');
+		this.addNavCard(calBox, '위키', '위키 스타일 캐릭터 카드 설정', 'git-graph', 'wiki');
+		this.addNavCard(calBox, '플롯 매니저', '프로젝트별 플롯 시트와 기존 데이터 가져오기를 관리합니다.', 'table-2', 'plot');
+		this.addNavCard(calBox, '퇴고 매니저', '반복 표현 탐지 모델과 단어장을 관리합니다.', 'book-check', 'repetition');
+		this.addNavCard(calBox, 'AI', '모델, 이미지 생성, 캐릭터 챗 설정', 'bot', 'ai');
+		this.addNavCard(calBox, '음악 플레이어', '음악 파일이 저장된 폴더를 관리합니다.', 'music', 'music');
 
-		this.addGroupTitle(containerEl, '기타');
-		const etcBox = this.createGroupBox(containerEl);
-		this.addNavCard(etcBox, '타이머', '카운트다운 시간 · 알람 설정', 'timer', 'stopwatch');
-		this.addNavCard(etcBox, '사전', '표준국어대사전 API 키', 'book-open', 'dictionary');
-		this.addNavCard(etcBox, '맞춤법 검사', '한국어 맞춤법 검사 엔진 · 무시 단어', 'spell-check', 'spellcheck');
-		this.addNavCard(etcBox, '퇴고 매니저', '반복 표현 탐지 · 단어장 노트', 'book-check', 'repetition');
-		this.addNavCard(etcBox, '음악 플레이어', '음악 폴더 · 볼륨 · 재생 모드', 'music', 'music');
-		this.addNavCard(etcBox, '특수문자', '삽입 후 닫기 · 즐겨찾기 관리', 'omega', 'special-chars');
 	}
 
-	// ── 서식 ────────────────────────────────────────────────────────────
+	private renderMiscPage(containerEl: HTMLElement) {
+		this.addBackButton(containerEl, '기타');
+
+		this.addGroupTitle(containerEl, '타이머');
+		const timerBox = this.createGroupBox(containerEl);
+		new Setting(timerBox)
+			.setName('스톱워치')
+			.setDesc('스톱워치의 기본값을 설정하세요.')
+			.addText(text => {
+				text.setValue(String(this.plugin.settings.stopwatchMinutes));
+				text.inputEl.type = 'number';
+				text.inputEl.min = '1';
+				text.onChange(async value => {
+					const minutes = Number.parseInt(value, 10);
+					if (!Number.isFinite(minutes) || minutes <= 0) return;
+					this.plugin.settings.stopwatchMinutes = minutes;
+					await this.plugin.saveSettings();
+					if (!this.plugin.stopwatchInterval) {
+						this.plugin.initStopwatch();
+						this.plugin.updateStopwatchDisplay();
+					}
+				});
+			});
+		new Setting(timerBox)
+			.setName('알람 소리')
+			.setDesc('마감 효과음을 선택하세요.')
+			.addDropdown(dropdown => dropdown
+				.addOption('bell', '벨')
+				.addOption('chime', '차임')
+				.addOption('beep', '비프')
+				.addOption('ding', '딩')
+				.addOption('gong', '공')
+				.setValue(this.plugin.settings.stopwatchAlarmSound)
+				.onChange(async (value: 'bell' | 'chime' | 'beep' | 'ding' | 'gong') => {
+					this.plugin.settings.stopwatchAlarmSound = value;
+					await this.plugin.saveSettings();
+					this.plugin.playAlarm();
+				}));
+
+		this.addGroupTitle(containerEl, '맞춤법 검사');
+		const spellcheckBox = this.createGroupBox(containerEl);
+		this.addNavCard(spellcheckBox, '고유명사 관리', '등록한 고유명사를 검사에서 제외합니다.', 'list', 'spellcheck-words');
+	}
+
+	private renderProjectsPage(containerEl: HTMLElement) {
+		this.addBackButton(containerEl, '프로젝트');
+		const projects = this.plugin.settings.projects;
+
+		if (projects.length === 0) {
+			const emptyBox = this.createGroupBox(containerEl);
+			new Setting(emptyBox)
+				.setName('등록된 프로젝트가 없습니다')
+				.setDesc('프로젝트 루트로 사용할 폴더를 등록하세요. 한 문서는 가장 구체적으로 일치하는 프로젝트에 속합니다.');
+		}
+
+		projects.forEach((project, index) => {
+			this.addGroupTitle(containerEl, project.name || `프로젝트 ${index + 1}`);
+			const projectBox = this.createGroupBox(containerEl);
+
+			new Setting(projectBox)
+				.setName('이름')
+				.setDesc('대시보드와 통계에 표시할 프로젝트 이름입니다.')
+				.addText(text => text
+					.setPlaceholder(`프로젝트 ${index + 1}`)
+					.setValue(project.name)
+					.onChange(async value => {
+						project.name = value.trim();
+						await this.plugin.saveSettings();
+					}));
+
+			let folderText: import('obsidian').TextComponent;
+			new Setting(projectBox)
+				.setName('프로젝트 폴더')
+				.setDesc('이 폴더와 모든 하위 폴더를 하나의 프로젝트로 취급합니다.')
+				.addExtraButton(button => button
+					.setIcon('folder')
+					.setTooltip('폴더 선택')
+					.onClick(() => {
+						new FolderSuggestModal(this.app, folder => {
+							fireAndForget(async () => {
+								const duplicate = projects.some(item => item !== project && item.rootFolder === folder.path);
+								if (duplicate) {
+									new Notice('이미 등록된 프로젝트 폴더입니다.');
+									return;
+								}
+								project.rootFolder = folder.path;
+								if (!project.name.trim()) project.name = folder.name;
+								folderText.setValue(folder.path);
+								await this.plugin.saveSettings();
+								await this.plugin.charStore.reinitSnapshot();
+							});
+						}).open();
+					}))
+				.addText(text => {
+					folderText = text;
+					text.setPlaceholder('예: 소설/작품명')
+						.setValue(project.rootFolder)
+						.onChange(async value => {
+							project.rootFolder = value.trim().replace(/^\/+|\/+$/g, '');
+							await this.plugin.saveSettings();
+							await this.plugin.charStore.reinitSnapshot();
+						});
+				});
+
+			const addProjectSubfolderSetting = (
+				name: string,
+				description: string,
+				key: 'manuscriptFolder' | 'characterFolder',
+				placeholder: string,
+			) => {
+				let pathText: import('obsidian').TextComponent;
+				new Setting(projectBox)
+					.setName(name)
+					.setDesc(description)
+					.addExtraButton(button => button
+						.setIcon('folder')
+						.setTooltip('폴더 선택')
+						.onClick(() => {
+							new FolderSuggestModal(this.app, folder => {
+								const root = project.rootFolder.replace(/^\/+|\/+$/g, '');
+								const inside = !root || folder.path === root || folder.path.startsWith(`${root}/`);
+								if (!inside) {
+									new Notice('프로젝트 폴더 안의 폴더를 선택해주세요.');
+									return;
+								}
+								project[key] = folder.path;
+								pathText.setValue(folder.path);
+								void this.plugin.saveSettings();
+							}).open();
+						}))
+					.addText(text => {
+						pathText = text;
+						text.setPlaceholder(placeholder)
+							.setValue(project[key] ?? '')
+							.onChange(async value => {
+								project[key] = value.trim().replace(/^\/+|\/+$/g, '');
+								await this.plugin.saveSettings();
+							});
+					});
+			};
+
+			addProjectSubfolderSetting(
+				'본문 폴더',
+				'플롯 행과 연결할 본문 노트를 만들 기본 폴더입니다.',
+				'manuscriptFolder',
+				project.rootFolder ? `${project.rootFolder}/본문` : '본문',
+			);
+			addProjectSubfolderSetting(
+				'인물 폴더',
+				'플롯 매니저에서 선택하거나 만들 인물 노트의 폴더입니다.',
+				'characterFolder',
+				project.rootFolder ? `${project.rootFolder}/인물` : '인물',
+			);
+
+			new Setting(projectBox)
+				.setName('프로젝트 삭제')
+				.setDesc('프로젝트 등록만 삭제하며 폴더와 문서는 삭제하지 않습니다.')
+				.addButton(button => button
+					.setButtonText('삭제')
+					.setWarning()
+					.onClick(async () => {
+						projects.splice(index, 1);
+						await this.plugin.saveSettings();
+						await this.plugin.charStore.reinitSnapshot();
+						this.renderPage('projects');
+					}));
+		});
+
+		const addBox = this.createGroupBox(containerEl);
+		new Setting(addBox)
+			.setName('프로젝트 추가')
+			.setDesc('볼트 안의 폴더를 새 프로젝트로 등록합니다.')
+			.addButton(button => button
+				.setButtonText('폴더 선택')
+				.setCta()
+				.onClick(() => {
+					new FolderSuggestModal(this.app, folder => {
+						fireAndForget(async () => {
+							if (projects.some(project => project.rootFolder === folder.path)) {
+								new Notice('이미 등록된 프로젝트 폴더입니다.');
+								return;
+							}
+							projects.push(this.plugin.projectContext.createProject(folder.path, folder.name));
+							await this.plugin.saveSettings();
+							await this.plugin.charStore.reinitSnapshot();
+							this.renderPage('projects');
+						});
+					}).open();
+				}));
+	}
+
+	private renderStatisticsScopePage(containerEl: HTMLElement) {
+		this.addBackButton(containerEl, '통계 범위');
+		const projects = this.plugin.settings.projects;
+		const policyBox = this.createGroupBox(containerEl);
+		new Setting(policyBox)
+			.setName('프로젝트 내부만 집계')
+			.setDesc('활성화하면 등록된 프로젝트의 통계 폴더에 속한 문서만 글자수와 작업시간에 반영합니다.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.restrictStatisticsToProjects)
+				.onChange(async value => {
+					this.plugin.settings.restrictStatisticsToProjects = value;
+					await this.plugin.saveSettings();
+					await this.plugin.charStore.reinitSnapshot();
+				}));
+
+		if (projects.length === 0) {
+			const emptyBox = this.createGroupBox(containerEl);
+			new Setting(emptyBox)
+				.setName('먼저 프로젝트를 등록하세요')
+				.setDesc('통계 범위는 등록된 프로젝트를 기준으로 구성됩니다.')
+				.addButton(button => button
+					.setButtonText('프로젝트 설정')
+					.onClick(() => this.renderPage('projects')));
+			return;
+		}
+
+		projects.forEach(project => {
+			this.addGroupTitle(containerEl, project.name || '프로젝트');
+			const scopeBox = this.createGroupBox(containerEl);
+			new Setting(scopeBox)
+				.setName('통계에 포함')
+				.setDesc('이 프로젝트의 글자수와 작업시간을 집계합니다.')
+				.addToggle(toggle => toggle
+					.setValue(project.statisticsEnabled)
+					.onChange(async value => {
+						project.statisticsEnabled = value;
+						await this.plugin.saveSettings();
+						await this.plugin.charStore.reinitSnapshot();
+					}));
+
+			new Setting(scopeBox)
+				.setName('집계 폴더')
+				.setDesc(`볼트 기준 경로를 한 줄에 하나씩 입력합니다. 비워 두면 ${project.rootFolder || '볼트 루트'} 전체를 집계합니다.`)
+				.addTextArea(textarea => textarea
+					.setPlaceholder(project.rootFolder ? `${project.rootFolder}/원고` : '원고')
+					.setValue((project.statisticsFolders ?? []).join('\n'))
+					.onChange(async value => {
+						project.statisticsFolders = value.split('\n').map(path => path.trim()).filter(Boolean);
+						await this.plugin.saveSettings();
+						await this.plugin.charStore.reinitSnapshot();
+					}));
+
+			new Setting(scopeBox)
+				.setName('제외 폴더')
+				.setDesc('참고자료나 임시 폴더처럼 통계에서 제외할 경로를 한 줄에 하나씩 입력합니다.')
+				.addTextArea(textarea => textarea
+					.setPlaceholder(project.rootFolder ? `${project.rootFolder}/참고자료` : '참고자료')
+					.setValue((project.statisticsExcludeFolders ?? []).join('\n'))
+					.onChange(async value => {
+						project.statisticsExcludeFolders = value.split('\n').map(path => path.trim()).filter(Boolean);
+						await this.plugin.saveSettings();
+						await this.plugin.charStore.reinitSnapshot();
+					}));
+		});
+	}
+
+	private renderApiPage(containerEl: HTMLElement) {
+		this.addBackButton(containerEl, 'API');
+		const noticeBox = this.createGroupBox(containerEl);
+		new Setting(noticeBox)
+			.setName('API 키 저장 방식')
+			.setDesc('API 키는 Obsidian 볼트의 플러그인 데이터에 저장됩니다. 별도의 암호화 저장소는 사용하지 않습니다.');
+
+		this.addGroupTitle(containerEl, '국어사전');
+		const dictionaryBox = this.createGroupBox(containerEl);
+		new Setting(dictionaryBox)
+			.setName('표준국어대사전')
+			.setDesc('표준국어대사전 개발 지원에서 발급받은 무료 API 키입니다.')
+			.addText(text => {
+				text.setPlaceholder('API 키 입력')
+					.setValue(this.plugin.settings.stdictApiKey)
+					.onChange(async value => {
+						this.plugin.settings.stdictApiKey = value.trim();
+						await this.plugin.saveSettings();
+					});
+				text.inputEl.type = 'password';
+			});
+
+		this.addGroupTitle(containerEl, 'AI');
+		const aiBox = this.createGroupBox(containerEl);
+		new Setting(aiBox)
+			.setName('NVIDIA Build')
+			.setDesc('NVIDIA에서 제공하는 AI 모델 호출에 사용합니다.')
+			.addText(text => {
+				text.setPlaceholder('nvapi-...')
+					.setValue(this.plugin.settings.aiChatApiKey)
+					.onChange(async value => {
+						this.plugin.settings.aiChatApiKey = value.trim();
+						await this.plugin.saveSettings();
+					});
+				text.inputEl.type = 'password';
+			});
+		new Setting(aiBox)
+			.setName('Google AI Studio')
+			.setDesc('Gemini 채팅과 Nano Banana 계열 이미지 생성에 사용합니다.')
+			.addText(text => {
+				text.setPlaceholder('AIza...')
+					.setValue(this.plugin.settings.aiChatGeminiApiKey)
+					.onChange(async value => {
+						this.plugin.settings.aiChatGeminiApiKey = value.trim();
+						await this.plugin.saveSettings();
+					});
+				text.inputEl.type = 'password';
+			});
+		new Setting(aiBox)
+			.setName('OpenAI')
+			.setDesc('GPT Image 계열 이미지 생성에 사용합니다.')
+			.addText(text => {
+				text.setPlaceholder('sk-...')
+					.setValue(this.plugin.settings.aiImageOpenaiApiKey)
+					.onChange(async value => {
+						this.plugin.settings.aiImageOpenaiApiKey = value.trim();
+						await this.plugin.saveSettings();
+					});
+				text.inputEl.type = 'password';
+			});
+	}
+
+	private renderControlPage(containerEl: HTMLElement) {
+		this.addBackButton(containerEl, '제어');
+		const addToggle = (
+			box: HTMLElement,
+			name: string,
+			description: string,
+			value: boolean,
+			onChange: (value: boolean) => void | Promise<void>,
+		) => {
+			new Setting(box)
+				.setName(name)
+				.setDesc(description)
+				.addToggle(toggle => toggle
+					.setValue(value)
+					.onChange(async next => { await onChange(next); }));
+		};
+
+		this.addGroupTitle(containerEl, '편집');
+		const editingBox = this.createGroupBox(containerEl);
+		addToggle(editingBox, '커스텀 구분선', '마크다운 구분선을 지정한 텍스트 또는 SVG로 표시합니다.', this.plugin.settings.hrEnabled, async value => {
+			this.plugin.settings.hrEnabled = value;
+			await this.plugin.saveSettings();
+			this.plugin.leafStyleManager.updateDynamicStyles();
+		});
+		addToggle(editingBox, '링크 색상', '마크다운 링크에 지정된 링크 색상을 적용합니다.', !this.plugin.settings.disableLinkColor, async value => {
+			this.plugin.settings.disableLinkColor = !value;
+			await this.plugin.saveSettings();
+		});
+		addToggle(editingBox, '한자', '한자 변환 시 괄호를 병기합니다.', this.plugin.settings.hanjaBracketMode, async value => {
+			this.plugin.settings.hanjaBracketMode = value;
+			await this.plugin.saveSettings();
+		});
+		addToggle(editingBox, '특수문자', '특수문자 삽입 후 창을 닫습니다.', this.plugin.settings.specialCharCloseOnInsert, async value => {
+			this.plugin.settings.specialCharCloseOnInsert = value;
+			await this.plugin.saveSettings();
+		});
+
+		this.addGroupTitle(containerEl, '자동 숨김');
+		const viewBox = this.createGroupBox(containerEl);
+		addToggle(viewBox, '마크다운', '마크다운 툴바를 자동으로 숨깁니다.', this.plugin.settings.markdownToolbarAutoHide, async value => {
+			this.plugin.settings.markdownToolbarAutoHide = value;
+			await this.plugin.saveSettings();
+		});
+		addToggle(viewBox, '페이지', '페이지 툴바를 자동으로 숨깁니다.', this.plugin.settings.pagedToolbarAutoHide, async value => {
+			this.plugin.settings.pagedToolbarAutoHide = value;
+			await this.plugin.saveSettings();
+		});
+		addToggle(viewBox, '위키', '위키 툴바를 자동으로 숨깁니다.', this.plugin.settings.wikiToolbarAutoHide, async value => {
+			this.plugin.settings.wikiToolbarAutoHide = value;
+			await this.plugin.saveSettings();
+		});
+		addToggle(viewBox, 'AI', 'AI 툴바를 자동으로 숨깁니다.', this.plugin.settings.aiChatToolbarAutoHide, async value => {
+			this.plugin.settings.aiChatToolbarAutoHide = value;
+			await this.plugin.saveSettings();
+		});
+		addToggle(viewBox, '버전 관리', '버전 관리 툴바를 자동으로 숨깁니다.', this.plugin.settings.versionToolbarAutoHide, async value => {
+			this.plugin.settings.versionToolbarAutoHide = value;
+			await this.plugin.saveSettings();
+		});
+
+		this.addGroupTitle(containerEl, '위젯');
+		const widgetBox = this.createGroupBox(containerEl);
+		addToggle(widgetBox, 'MUNPIA 글자수', '편집기 위젯에 문피아 기준 글자수를 표시합니다.', this.plugin.settings.showMunpiaWidget, async value => {
+			this.plugin.settings.showMunpiaWidget = value;
+			await this.plugin.saveSettings();
+		});
+		addToggle(widgetBox, 'NOVELPIA 글자수', '편집기 위젯에 노벨피아 기준 글자수를 표시합니다.', this.plugin.settings.showNovelpiaWidget, async value => {
+			this.plugin.settings.showNovelpiaWidget = value;
+			await this.plugin.saveSettings();
+		});
+		addToggle(widgetBox, '타이머/스톱워치', '편집기 위젯에 타이머 또는 스톱워치를 표시합니다.', this.plugin.settings.showTimerWidget, async value => {
+			this.plugin.settings.showTimerWidget = value;
+			await this.plugin.saveSettings();
+		});
+
+		this.addGroupTitle(containerEl, '통계');
+		const statisticsBox = this.createGroupBox(containerEl);
+		addToggle(statisticsBox, '작업 시간 추적', '통계 범위 안의 문서를 편집하는 시간을 기록합니다.', this.plugin.settings.enableTimeTracking, async value => {
+			this.plugin.settings.enableTimeTracking = value;
+			await this.plugin.saveSettings();
+		});
+
+		this.addGroupTitle(containerEl, '복사');
+		const copyBox = this.createGroupBox(containerEl);
+		addToggle(copyBox, '헤딩 제외', '복사할 때 헤딩을 항상 제외합니다.', this.plugin.settings.copyExcludeHeadings, async value => {
+			this.plugin.settings.copyExcludeHeadings = value;
+			await this.plugin.saveSettings();
+		});
+		addToggle(copyBox, '각주 제외', '복사할 때 각주를 항상 제외합니다.', this.plugin.settings.copyExcludeFootnotes, async value => {
+			this.plugin.settings.copyExcludeFootnotes = value;
+			await this.plugin.saveSettings();
+		});
+
+		this.addGroupTitle(containerEl, '내보내기');
+		const exportBox = this.createGroupBox(containerEl);
+		addToggle(exportBox, '들여쓰기', '내보낼 때 문단 들여쓰기를 기본으로 활성화합니다.', this.plugin.settings.exportDefaultSpaceIndent, async value => {
+			this.plugin.settings.exportDefaultSpaceIndent = value;
+			await this.plugin.saveSettings();
+		});
+		addToggle(exportBox, '헤딩 제외', '내보낼 때 헤딩을 항상 제외합니다.', this.plugin.settings.exportDefaultExcludeHeadings, async value => {
+			this.plugin.settings.exportDefaultExcludeHeadings = value;
+			await this.plugin.saveSettings();
+		});
+	}
+
+	// ── 커스텀 구분선 ───────────────────────────────────────────────────
+	private renderDividerPage(containerEl: HTMLElement) {
+		this.addBackButton(containerEl, '커스텀 구분선');
+
+		const hrBox = this.createGroupBox(containerEl);
+		const refreshDivider = () => this.plugin.leafStyleManager.updateDynamicStyles();
+
+		new Setting(hrBox)
+			.setName('종류')
+			.setDesc('구분선을 텍스트 또는 SVG로 표시합니다.')
+			.addDropdown(dropdown => dropdown
+				.addOption('text', '텍스트')
+				.addOption('svg', 'SVG')
+				.setValue(this.plugin.settings.hrType)
+				.onChange(async value => {
+					this.plugin.settings.hrType = value as 'text' | 'svg';
+					await this.plugin.saveSettings();
+					refreshDivider();
+				}));
+
+		new Setting(hrBox)
+			.setName('색상')
+			.setDesc('비워 두면 테마의 기본 텍스트 색상을 사용합니다.')
+			.addExtraButton(button => button
+				.setIcon('reset')
+				.setTooltip('기본값으로 초기화')
+				.onClick(async () => {
+					this.plugin.settings.hrColor = '';
+					await this.plugin.saveSettings();
+					refreshDivider();
+					this.renderPage('divider');
+				}))
+			.addColorPicker(picker => picker
+				.setValue(this.plugin.settings.hrColor || '#888888')
+				.onChange(async value => {
+					this.plugin.settings.hrColor = value;
+					await this.plugin.saveSettings();
+					refreshDivider();
+				}));
+
+		new Setting(hrBox)
+			.setName('상하 여백(em)')
+			.setDesc('구분선 상하 여백입니다.')
+			.addText(text => {
+				text.setPlaceholder('0.5')
+					.setValue(String(this.plugin.settings.hrMargin ?? 0.5))
+					.onChange(async value => {
+						const parsed = Number.parseFloat(value);
+						this.plugin.settings.hrMargin = Number.isFinite(parsed) ? Math.max(0, parsed) : 0.5;
+						await this.plugin.saveSettings();
+						refreshDivider();
+					});
+				text.inputEl.type = 'number';
+				text.inputEl.min = '0';
+				text.inputEl.step = '0.1';
+			});
+
+		this.addGroupTitle(containerEl, '텍스트');
+		const textBox = this.createGroupBox(containerEl);
+		new Setting(textBox)
+			.setName('내용')
+			.setDesc('구분선 대신 표시할 내용을 입력하세요.')
+			.addText(text => text
+				.setPlaceholder('✦ ✦ ✦')
+				.setValue(this.plugin.settings.hrContent)
+				.onChange(async value => {
+					this.plugin.settings.hrContent = value;
+					await this.plugin.saveSettings();
+					refreshDivider();
+				}));
+
+		const alignSetting = new Setting(textBox)
+			.setName('정렬')
+			.setDesc('구분선의 정렬값을 지정해주세요.');
+		const alignControls = alignSetting.controlEl.createDiv({ cls: 'wm-align-btn-group' });
+		(['left', 'center', 'right'] as const).forEach(align => {
+			const icons = { left: 'align-left', center: 'align-center', right: 'align-right' } as const;
+			const labels = { left: '왼쪽', center: '가운데', right: '오른쪽' } as const;
+			const button = alignControls.createEl('button', {
+				cls: `wm-align-btn${this.plugin.settings.hrAlign === align ? ' is-active' : ''}`,
+				attr: { 'aria-label': labels[align] },
+			});
+			setIcon(button, icons[align]);
+			button.addEventListener('click', () => {
+				fireAndForget(async () => {
+					this.plugin.settings.hrAlign = align;
+					await this.plugin.saveSettings();
+					refreshDivider();
+					alignControls.querySelectorAll('.wm-align-btn').forEach(item => item.removeClass('is-active'));
+					button.addClass('is-active');
+				});
+			});
+		});
+
+		this.addGroupTitle(containerEl, 'SVG');
+		const svgBox = this.createGroupBox(containerEl);
+		new Setting(svgBox)
+			.setName('코드')
+			.setDesc('구분선 대신 표시할 SVG 코드를 입력하세요.')
+			.addTextArea(textarea => textarea
+				.setPlaceholder('<svg xmlns="http://www.w3.org/2000/svg" ...>...</svg>')
+				.setValue(this.plugin.settings.hrSvg)
+				.onChange(async value => {
+					this.plugin.settings.hrSvg = value;
+					await this.plugin.saveSettings();
+					refreshDivider();
+				}));
+
+		new Setting(svgBox)
+			.setName('크기')
+			.setDesc('SVG의 크기값(em)을 지정하세요.')
+			.addText(text => {
+				text.setPlaceholder('2')
+					.setValue(String(this.plugin.settings.hrSvgSize ?? 2))
+					.onChange(async value => {
+						const parsed = Number.parseFloat(value);
+						this.plugin.settings.hrSvgSize = Number.isFinite(parsed) ? Math.max(0.1, parsed) : 2;
+						await this.plugin.saveSettings();
+						refreshDivider();
+					});
+				text.inputEl.type = 'number';
+				text.inputEl.min = '0.1';
+				text.inputEl.step = '0.1';
+			});
+	}
+
+	// ── 각주 ────────────────────────────────────────────────────────────
+	private renderFootnotesPage(containerEl: HTMLElement) {
+		this.addBackButton(containerEl, '각주');
+		const footnoteBox = this.createGroupBox(containerEl);
+
+		new Setting(footnoteBox)
+			.setName('글꼴')
+			.setDesc('각주에만 적용할 글꼴입니다. 비워 두면 본문 글꼴을 사용합니다.')
+			.addText(text => text
+				.setPlaceholder('inherit')
+				.setValue(this.plugin.settings.footnoteFontFamily === 'inherit' ? '' : this.plugin.settings.footnoteFontFamily)
+				.onChange(async value => {
+					this.plugin.settings.footnoteFontFamily = value.trim() || 'inherit';
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(footnoteBox)
+			.setName('크기(px)')
+			.setDesc('각주의 글자 크기를 지정하세요.')
+			.addText(text => {
+				text.setPlaceholder('13')
+					.setValue(String(this.plugin.settings.footnoteFontSize))
+					.onChange(async value => {
+						const parsed = Number.parseInt(value, 10);
+						if (!Number.isFinite(parsed) || parsed <= 0) return;
+						this.plugin.settings.footnoteFontSize = parsed;
+						await this.plugin.saveSettings();
+					});
+				text.inputEl.type = 'number';
+				text.inputEl.min = '1';
+			});
+
+		new Setting(footnoteBox)
+			.setName('행간')
+			.setDesc('각주의 줄 간격을 지정하세요.')
+			.addText(text => {
+				text.setPlaceholder('1.5')
+					.setValue(String(this.plugin.settings.footnoteLineHeight))
+					.onChange(async value => {
+						const parsed = Number.parseFloat(value);
+						if (!Number.isFinite(parsed) || parsed <= 0) return;
+						this.plugin.settings.footnoteLineHeight = parsed;
+						await this.plugin.saveSettings();
+					});
+				text.inputEl.type = 'number';
+				text.inputEl.min = '0.1';
+				text.inputEl.step = '0.1';
+			});
+
+		new Setting(footnoteBox)
+			.setName('색상')
+			.setDesc('각주의 글자색을 지정하세요.')
+			.addExtraButton(button => button
+				.setIcon('reset')
+				.setTooltip('기본값으로 초기화')
+				.onClick(async () => {
+					this.plugin.settings.footnoteColor = 'inherit';
+					await this.plugin.saveSettings();
+					this.renderPage('footnotes');
+				}))
+			.addColorPicker(picker => picker
+				.setValue(this.plugin.settings.footnoteColor === 'inherit' || !this.plugin.settings.footnoteColor
+					? '#000000'
+					: this.plugin.settings.footnoteColor)
+				.onChange(async value => {
+					this.plugin.settings.footnoteColor = value;
+					await this.plugin.saveSettings();
+				}));
+	}
 
 	private renderTypographyPage(containerEl: HTMLElement) {
 		this.addBackButton(containerEl, '서식');
@@ -223,6 +905,20 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				text.inputEl.min = '0';
 			});
 		inlineBox.createDiv({ cls: 'wm-settings-item-desc', text: '두 번째 문단부터 첫 줄 들여쓰기 크기입니다. 0이면 비활성.' });
+
+		new Setting(inlineBox)
+			.setName('여러 쪽 보기 기본 정렬')
+			.setDesc('개별 정렬을 지정하지 않은 문단에 적용됩니다.')
+			.addDropdown(dropdown => dropdown
+				.addOption('left', '왼쪽 정렬')
+				.addOption('center', '가운데 정렬')
+				.addOption('right', '오른쪽 정렬')
+				.addOption('justify', '양쪽 정렬')
+				.setValue(this.plugin.settings.pagedDefaultAlignment ?? 'left')
+				.onChange(async value => {
+					this.plugin.settings.pagedDefaultAlignment = value as typeof this.plugin.settings.pagedDefaultAlignment;
+					await this.plugin.saveSettings();
+				}));
 
 		// 글자색
 		const fontColorVal = this.plugin.settings.fontColor;
@@ -461,7 +1157,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 
 		// ── 헤딩 ────────────────────────────────────────────────────
 		this.addGroupTitle(containerEl, '헤딩');
-		containerEl.createDiv({ cls: 'wm-settings-subgroup-title', text: 'H1' });
+		this.addGroupTitle(containerEl, 'H1');
 		const h1Box = this.createGroupBox(containerEl);
 
 		new Setting(h1Box)
@@ -561,87 +1257,53 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				.onChange(async value => { this.plugin.settings.footnoteColor = value; await this.plugin.saveSettings(); }));
 	}
 
-	// ── 입력 보조 ───────────────────────────────────────────────────────
+	// ── 자동 완성 · 텍스트 치환 ─────────────────────────────────────────
 
-	private renderInputPage(containerEl: HTMLElement) {
-		this.addBackButton(containerEl, '입력 보조');
-
-		this.addGroupTitle(containerEl, '스마트 입력');
-		const smartBox = this.createGroupBox(containerEl);
-
-		new Setting(smartBox)
-			.setName('스마트 따옴표')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.enableSmartQuotes)
-				.onChange(async value => { this.plugin.settings.enableSmartQuotes = value; await this.plugin.saveSettings(); }));
-		smartBox.createDiv({ cls: 'wm-settings-item-desc', text: '곧은 따옴표를 둥근 따옴표로 치환합니다.' });
-
-		new Setting(smartBox)
-			.setName('스마트 엔터')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.enableSmartEnter)
-				.onChange(async value => { this.plugin.settings.enableSmartEnter = value; await this.plugin.saveSettings(); }));
-		smartBox.createDiv({ cls: 'wm-settings-item-desc', text: '따옴표와 괄호, 트리거에 등록된 기호쌍 안에서 엔터를 입력하면 커서가 다음 문단으로 이동합니다.' });
-
-		new Setting(smartBox)
-			.setName('자동완성')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.enableSmartInput)
-				.onChange(async value => { this.plugin.settings.enableSmartInput = value; await this.plugin.saveSettings(); }));
-		smartBox.createDiv({ cls: 'wm-settings-item-desc', text: '트리거를 입력하면 자동완성 팝업창이 나타납니다. 자주 쓰는 기호를 트리거로 입력 후 쉽게 적용하세요.' });
-
-		new Setting(smartBox)
-			.setName('텍스트 치환')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.enableTextSubstitution)
-				.onChange(async value => { this.plugin.settings.enableTextSubstitution = value; await this.plugin.saveSettings(); }));
-		smartBox.createDiv({ cls: 'wm-settings-item-desc', text: '대치어를 등록하면 자동으로 치환합니다.' });
-
-		this.addGroupTitle(containerEl, '자동완성 기호');
-		this.displaySymbolPairs(containerEl.createDiv({ cls: 'wm-settings-input-section' }));
-
-		this.addGroupTitle(containerEl, '텍스트 치환');
-		this.displayTextSubstitutions(containerEl.createDiv({ cls: 'wm-settings-input-section' }));
+	private renderAutocompletePage(containerEl: HTMLElement) {
+		this.addBackButton(containerEl, '자동 완성');
+		this.displaySymbolPairs(containerEl);
 	}
 
-	// ── 복사 및 내보내기 ────────────────────────────────────────────────
+	private renderTextSubstitutionPage(containerEl: HTMLElement) {
+		this.addBackButton(containerEl, '텍스트 치환');
+		this.displayTextSubstitutions(containerEl);
+	}
 
-	private renderCopyExportPage(containerEl: HTMLElement) {
-		this.addBackButton(containerEl, '복사 및 내보내기');
+	// ── 복사 · 내보내기 ─────────────────────────────────────────────────
 
-		this.addGroupTitle(containerEl, '복사 옵션');
+	private renderCopyPage(containerEl: HTMLElement) {
+		this.addBackButton(containerEl, '복사');
 		const copyBox = this.createGroupBox(containerEl);
+		new Setting(copyBox)
+			.setName('헤딩 제외')
+			.setDesc('복사할 때 헤딩을 항상 제외합니다.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.copyExcludeHeadings)
+				.onChange(async value => {
+					this.plugin.settings.copyExcludeHeadings = value;
+					await this.plugin.saveSettings();
+				}));
+		new Setting(copyBox)
+			.setName('각주 제외')
+			.setDesc('복사할 때 각주를 항상 제외합니다.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.copyExcludeFootnotes)
+				.onChange(async value => {
+					this.plugin.settings.copyExcludeFootnotes = value;
+					await this.plugin.saveSettings();
+				}));
+	}
 
-		new Setting(copyBox).setName('헤딩 제외').setDesc('Alt+C 복사 시 H1을 제외합니다.')
-			.addToggle(toggle => toggle.setValue(this.plugin.settings.copyExcludeHeadings)
-				.onChange(async value => { this.plugin.settings.copyExcludeHeadings = value; await this.plugin.saveSettings(); }));
-
-		new Setting(copyBox).setName('각주 제외').setDesc('Alt+C 복사 시 각주 정의 및 참조를 제외합니다.')
-			.addToggle(toggle => toggle.setValue(this.plugin.settings.copyExcludeFootnotes)
-				.onChange(async value => { this.plugin.settings.copyExcludeFootnotes = value; await this.plugin.saveSettings(); }));
-
+	private renderExportPage(containerEl: HTMLElement) {
+		this.addBackButton(containerEl, '내보내기');
+		const exportBox = this.createGroupBox(containerEl);
 		if (Platform.isDesktop) {
-			this.addGroupTitle(containerEl, '내보내기 기본값');
-			const exportBox = this.createGroupBox(containerEl);
-
-			new Setting(exportBox).setName('문단 들여쓰기').setDesc('내보내기 시 문단 들여쓰기를 기본으로 활성화합니다.')
-				.addToggle(toggle => toggle.setValue(this.plugin.settings.exportDefaultSpaceIndent)
-					.onChange(async value => { this.plugin.settings.exportDefaultSpaceIndent = value; await this.plugin.saveSettings(); }));
-
-			new Setting(exportBox).setName('헤딩 제외').setDesc('내보내기 시 헤딩 제외를 기본으로 활성화합니다.')
-				.addToggle(toggle => toggle.setValue(this.plugin.settings.exportDefaultExcludeHeadings)
-					.onChange(async value => { this.plugin.settings.exportDefaultExcludeHeadings = value; await this.plugin.saveSettings(); }));
-
 			if (Platform.isDesktop && Platform.isWin) {
-				this.addGroupTitle(containerEl, 'HWP 변환');
-
-				containerEl.createDiv({ cls: 'wm-settings-subgroup-title', text: '한컴오피스 한글, Python, pywin32 필요' });
-
-				const hwpBox = this.createGroupBox(containerEl);
+				new Setting(exportBox).setDesc('한컴오피스 한글, Python, pywin32 필요');
 
 				let hwpPathText: import('obsidian').TextComponent;
-				new Setting(hwpBox)
-					.setName('기본 저장 경로')
+				new Setting(exportBox)
+					.setName('저장 경로(기본값)')
 					.setDesc('비어 있으면 바탕화면에 저장됩니다.')
 					.addExtraButton(btn => btn.setIcon('folder').setTooltip('폴더 선택')
 						.onClick(async () => {
@@ -656,9 +1318,9 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					});
 
 				let hwpTplText: import('obsidian').TextComponent;
-				new Setting(hwpBox)
-					.setName('템플릿 파일')
-					.setDesc('스타일을 적용할 HWP 템플릿 (선택사항)')
+				new Setting(exportBox)
+					.setName('템플릿')
+					.setDesc('HWP 문서를 템플릿 파일로 지정해 원하는 양식을 적용할 수 있습니다.')
 					.addExtraButton(btn => btn.setIcon('document').setTooltip('파일 선택')
 						.onClick(async () => {
 							const picked = await this.plugin.openTemplatePicker();
@@ -670,20 +1332,35 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 							.setValue(this.plugin.settings.hwpTemplatePath)
 							.onChange(async value => { this.plugin.settings.hwpTemplatePath = value; await this.plugin.saveSettings(); });
 					});
-				hwpBox.createDiv({ cls: 'wm-settings-item-desc', text: '원하는 양식이 적용된 HWP 문서를 템플릿으로 등록하세요. 변환 시 해당 문서의 양식이 적용됩니다.' });
 			}
 		}
+		new Setting(exportBox)
+			.setName('들여쓰기')
+			.setDesc('내보낼 때 문단 들여쓰기를 기본으로 활성화합니다.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.exportDefaultSpaceIndent)
+				.onChange(async value => {
+					this.plugin.settings.exportDefaultSpaceIndent = value;
+					await this.plugin.saveSettings();
+				}));
+		new Setting(exportBox)
+			.setName('헤딩 제외')
+			.setDesc('내보낼 때 헤딩을 항상 제외합니다.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.exportDefaultExcludeHeadings)
+				.onChange(async value => {
+					this.plugin.settings.exportDefaultExcludeHeadings = value;
+					await this.plugin.saveSettings();
+				}));
 	}
 
 	// ── 작업 시간 ───────────────────────────────────────────────────────
 
 	private renderStopwatchPage(containerEl: HTMLElement) {
-		this.addBackButton(containerEl, '타이머');
-
-		this.addGroupTitle(containerEl, '스톱워치');
+		this.addBackButton(containerEl, '타이머', 'misc');
 		const swBox = this.createGroupBox(containerEl);
 
-		new Setting(swBox).setName('기본 시간 (분)').setDesc('카운트다운 기본 시간')
+		new Setting(swBox).setName('스톱워치').setDesc('스톱워치의 기본값을 설정하세요.')
 			.addText(text => text.setValue(String(this.plugin.settings.stopwatchMinutes))
 				.onChange(async value => {
 					const num = parseInt(value);
@@ -697,11 +1374,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					}
 				}));
 
-		new Setting(swBox).setName('알람 활성화').setDesc('카운트다운이 끝나면 알람 소리를 재생합니다.')
-			.addToggle(toggle => toggle.setValue(this.plugin.settings.enableStopwatchAlarm)
-				.onChange(async value => { this.plugin.settings.enableStopwatchAlarm = value; await this.plugin.saveSettings(); }));
-
-		new Setting(swBox).setName('알람 소리')
+		new Setting(swBox).setName('알람 소리').setDesc('마감 효과음을 선택하세요.')
 			.addDropdown(dropdown => dropdown
 				.addOption('bell', '벨').addOption('chime', '차임').addOption('beep', '비프')
 				.addOption('ding', '딩').addOption('gong', '공')
@@ -711,55 +1384,14 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 					this.plugin.playAlarm();
 				}));
-		swBox.createDiv({ cls: 'wm-settings-item-desc', text: '알람이 울릴 때 재생할 효과음을 선택합니다. 선택 즉시 미리 들을 수 있습니다.' });
 	}
 
-	private renderWritingStatsPage(containerEl: HTMLElement) {
-		this.addBackButton(containerEl, '글자수 & 작업 시간');
-
-		// ── 공통 ──
-		this.addGroupTitle(containerEl, '공통');
-		const commonBox = this.createGroupBox(containerEl);
-		new Setting(commonBox)
-			.setName('추적 폴더')
-			.addText(t => t
-				.setPlaceholder('예: 소설/집필')
-				.setValue(this.plugin.settings.trackingFolder ?? '')
-				.onChange(async v => {
-					this.plugin.settings.trackingFolder = v.trim();
-					await this.plugin.charStore.reinitSnapshot();
-					await this.plugin.saveSettings();
-				}));
-		commonBox.createDiv({ cls: 'wm-settings-item-desc', text: '추적 범위를 지정된 폴더로 제한합니다. 글자수와 작업 시간은 해당 폴더의 하위 노트에서만 누적 계산됩니다.' });
-		new Setting(commonBox)
-			.setName('시간 추적 제외 폴더')
-			.setDesc('작업시간 기록에서 제외할 폴더 경로. 한 줄에 하나씩 입력.')
-			.addTextArea(t => t
-				.setPlaceholder('예:\n소설작품/임시\n소설작품/참고자료')
-				.setValue((this.plugin.settings.timeExcludeFolders ?? []).join('\n'))
-				.onChange(async v => {
-					this.plugin.settings.timeExcludeFolders = v.split('\n').map(s => s.trim()).filter(Boolean);
-					await this.plugin.saveSettings();
-				}));
-
-		// ── 글자수 ──
-		this.addGroupTitle(containerEl, '글자수');
+	private renderCharCountPage(containerEl: HTMLElement) {
+		this.addBackButton(containerEl, '글자수');
 		const charsBox = this.createGroupBox(containerEl);
 		new Setting(charsBox)
-			.setName('글자수 플랫폼')
-			.setDesc('히트맵·일평균·목표 비교에 사용할 글자수 기준을 선택합니다.')
-			.addDropdown(dd => dd
-				.addOption('munpia', '문피아 기준')
-				.addOption('novelpia', '노벨피아 기준')
-				.setValue(this.plugin.settings.charCountMode ?? 'munpia')
-				.onChange(async v => {
-					this.plugin.settings.charCountMode = v as 'munpia' | 'novelpia';
-					await this.plugin.charStore.reinitSnapshot();
-					await this.plugin.saveSettings();
-				}));
-		new Setting(charsBox)
-			.setName('스탯카드 표시')
-			.setDesc('stat 카드에 표시할 플랫폼을 선택합니다.')
+			.setName('표시')
+			.setDesc('카드에 표시할 플랫폼을 선택합니다.')
 			.addDropdown(dd => dd
 				.addOption('both', '문피아 + 노벨피아')
 				.addOption('munpia', '문피아만')
@@ -768,6 +1400,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				.onChange(async v => {
 					this.plugin.settings.statCardDisplay = v as 'munpia' | 'novelpia' | 'both';
 					await this.plugin.saveSettings();
+					await this.plugin.refreshDashboardView();
 				}));
 		new Setting(charsBox)
 			.setName('목표 글자수')
@@ -784,19 +1417,30 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				t.inputEl.min = '1';
 			});
 		new Setting(charsBox)
-			.setName('데일리노트 글자수 키')
-			.addText(t => t
-				.setPlaceholder('글자수')
-				.setValue(this.plugin.settings.dailyCharCountKey ?? '글자수')
-				.onChange(async v => {
-					this.plugin.settings.dailyCharCountKey = v.trim() || '글자수';
-					await this.plugin.saveSettings();
-				}));
-		charsBox.createDiv({ cls: 'wm-settings-item-desc', text: '일일 노트에 해당 날짜의 누적 글자수를 기록합니다.' });
+			.setName('기록')
+			.setDesc('일일 노트에 누적 글자수를 기록할 프론트매터 키를 입력하세요.')
+			.addText(text => {
+				text.setPlaceholder('글자수')
+					.setValue(this.plugin.settings.dailyCharCountKey ?? '글자수')
+					.onChange(async value => {
+						this.plugin.settings.dailyCharCountKey = value.trim() || '글자수';
+						await this.plugin.saveSettings();
+					});
+				text.inputEl.addEventListener('blur', () => {
+					fireAndForget(async () => {
+						await this.plugin.charStore.syncTodayRecord();
+						await this.plugin.charStore.refreshDailyHistory();
+					});
+				});
+			});
+	}
 
-		// ── 작업 시간 ──
-		containerEl.createDiv({ cls: 'wm-settings-group-title', text: '작업 시간' });
+	private renderWritingTimePage(containerEl: HTMLElement) {
+		this.addBackButton(containerEl, '작업 시간');
+		this.addGroupTitle(containerEl, '분류');
 		const modeBox = this.createGroupBox(containerEl);
+		const modeGroup = modeBox.closest<HTMLElement>('.setting-group');
+		modeGroup?.addClasses(['mod-list', 'mod-no-icon']);
 
 		const ensureModes = () => {
 			if (!this.plugin.settings.timeModes?.length) {
@@ -814,7 +1458,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			const modes = ensureModes();
 			for (const [i, m] of modes.entries()) {
 				const setting = new Setting(modeBox)
-					.setName(`모드 ${i + 1}`)
+					.setName(`분류 ${i + 1}`)
 					.addText(t => {
 						t.setPlaceholder('표시명').setValue(m.label);
 						t.inputEl.addClass('wm-mode-label-input');
@@ -853,14 +1497,13 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 							await this.plugin.saveSettings();
 							renderModeList();
 						}));
-				setting.settingEl.addClass('wm-mode-setting-row');
+				setting.settingEl.addClasses(['wm-mode-setting-row', 'setting-list-item']);
 			}
 		};
-		renderModeList();
-		const addModeRow = containerEl.createDiv({ cls: 'wm-settings-group-add-row' });
-		const addModeIcon = addModeRow.createDiv({ cls: 'clickable-icon wm-muted-icon' });
+		const addModeHost = modeGroup?.querySelector<HTMLElement>(':scope > .setting-item-heading > .setting-item-control') ?? modeBox;
+		const addModeIcon = addModeHost.createDiv({ cls: 'clickable-icon wm-muted-icon' });
 		setIcon(addModeIcon, 'plus');
-		addModeIcon.setAttribute('aria-label', '모드 추가');
+		addModeIcon.setAttribute('aria-label', '분류 추가');
 		addModeIcon.addEventListener('click', () => {
 			fireAndForget(async () => {
 				const newId = `mode_${Date.now()}`;
@@ -869,10 +1512,13 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				renderModeList();
 			});
 		});
+		renderModeList();
 
-		containerEl.createDiv({ cls: 'wm-settings-subgroup-title', text: '총 시간' });
+		this.addGroupTitle(containerEl, '기록');
 		const totalBox = this.createGroupBox(containerEl);
-		new Setting(totalBox).setName('프론트매터 키')
+		new Setting(totalBox)
+			.setName('누적 시간')
+			.setDesc('작업 시간의 합계를 기록할 프론트매터 키를 입력해주세요.')
 			.addText(t => t
 				.setPlaceholder('총_시간')
 				.setValue(this.plugin.settings.timeTotalKey ?? '총_시간')
@@ -880,17 +1526,6 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					this.plugin.settings.timeTotalKey = v.trim() || '총_시간';
 					await this.plugin.saveSettings();
 				}));
-		totalBox.createDiv({ cls: 'wm-settings-item-desc', text: '모든 작업 모드 시간의 합계를 기록할 프론트매터 키 이름입니다.' });
-
-		containerEl.createDiv({ cls: 'wm-settings-subgroup-title', text: '평균 기준 폴더' });
-		const avgBox = this.createGroupBox(containerEl);
-		new Setting(avgBox)
-			.setName('평균 기준 상위 폴더 단계')
-			.setDesc('0 = 추적 노트의 직속 폴더, 1 = 한 단계 위 폴더, … (추적 노트 기준, 노트 없으면 히트맵 폴더 사용)')
-			.addSlider(s => s.setLimits(0, 5, 1)
-				.setValue(this.plugin.settings.timeAvgFolderLevel ?? 0)
-				.onChange(async v => { this.plugin.settings.timeAvgFolderLevel = v; await this.plugin.saveSettings(); }));
-
 	}
 
 	// ── 음악 플레이어 ────────────────────────────────────────────────────
@@ -898,15 +1533,18 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 	private renderMusicPage(containerEl: HTMLElement) {
 		this.addBackButton(containerEl, '음악 플레이어');
 
-		this.addGroupTitle(containerEl, '음악 폴더');
+		this.addGroupTitle(containerEl, '폴더');
 		const folderBox = this.createGroupBox(containerEl);
+		const folderGroup = folderBox.closest<HTMLElement>('.setting-group');
+		folderGroup?.addClasses(['mod-list', 'mod-no-icon']);
 		const paths = this.plugin.settings.musicFolderPaths ?? [];
 
 		const renderFolderList = () => {
 			folderBox.empty();
 			paths.forEach((p, idx) => {
-				new Setting(folderBox)
-					.setName(`폴더 ${idx + 1}`)
+				const setting = new Setting(folderBox)
+					.setName('폴더')
+					.setDesc('음악 파일이 저장된 폴더를 지정하세요.')
 					.addText(text => text
 						.setPlaceholder('Music/BGM')
 						.setValue(p)
@@ -925,179 +1563,36 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 							this.plugin.musicPlayer?.loadPlaylist().catch(() => {});
 							renderFolderList();
 						}));
+				setting.settingEl.addClass('setting-list-item');
 			});
 		};
 		renderFolderList();
-		const addFolderIconRow = containerEl.createDiv({ cls: 'wm-settings-group-add-row' });
-		const addFolderIcon = addFolderIconRow.createDiv({ cls: 'clickable-icon wm-muted-icon' });
+		const addFolderHost = folderGroup?.querySelector<HTMLElement>(':scope > .setting-item-heading > .setting-item-control') ?? folderBox;
+		const addFolderIcon = addFolderHost.createDiv({ cls: 'clickable-icon wm-muted-icon' });
 		setIcon(addFolderIcon, 'plus');
 		addFolderIcon.setAttribute('aria-label', '폴더 추가');
 		addFolderIcon.addEventListener('click', () => { paths.push(''); renderFolderList(); });
-
-		this.addGroupTitle(containerEl, '재생 설정');
-		const playBox = this.createGroupBox(containerEl);
-
-		new Setting(playBox)
-			.setName('재생 모드')
-			.addDropdown(dd => dd
-				.addOption('loop', '반복')
-				.addOption('single', '한 곡 반복')
-				.addOption('shuffle', '랜덤')
-				.setValue(this.plugin.settings.musicPlaybackMode ?? 'loop')
-				.onChange(async (v) => {
-					const m = v as 'loop' | 'single' | 'shuffle';
-					this.plugin.settings.musicPlaybackMode = m;
-					await this.plugin.saveSettings();
-					this.plugin.musicPlayer?.setMode(m);
-				}));
-		playBox.createDiv({ cls: 'wm-settings-item-desc', text: '재생 모드(순환/한 곡 듣기/셔플)를 변경할 수 있습니다. 목록 범위는 현재 재생 중인 곡의 루트 폴더입니다.' });
-
-		new Setting(playBox)
-			.setName('즐겨찾기 최대 표시 수')
-			.setDesc('재생목록 팝업에서 즐겨찾기를 최대 몇 개까지 표시할지 설정합니다')
-			.addSlider(sl => sl
-				.setLimits(1, 50, 1)
-				.setValue(this.plugin.settings.musicFavoritesMax ?? 10)
-				.onChange(async (v) => {
-					this.plugin.settings.musicFavoritesMax = v;
-					await this.plugin.saveSettings();
-				}));
 	}
 
-	// ── 사전 ────────────────────────────────────────────────────────────
+	// ── 국어사전 ────────────────────────────────────────────────────────
 
 	private renderDictionaryPage(containerEl: HTMLElement) {
-		this.addBackButton(containerEl, '사전');
-
-		this.addGroupTitle(containerEl, 'API 키 등록');
-		const dictBox = this.createGroupBox(containerEl);
-		new Setting(dictBox)
-			.setName('표준국어대사전 API 키')
-			.addText(text => text
-				.setPlaceholder('API 키 입력')
-				.setValue(this.plugin.settings.stdictApiKey)
-				.onChange(async value => { this.plugin.settings.stdictApiKey = value.trim(); await this.plugin.saveSettings(); }));
-		const dictDesc = dictBox.createDiv({ cls: 'wm-settings-item-desc' });
-		dictDesc.appendText('무료 API 발급: ');
-		dictDesc.createEl('a', { text: 'stdict.korean.go.kr', href: 'https://stdict.korean.go.kr', attr: { target: '_blank', rel: 'noopener' } });
-		dictDesc.appendText(' 개발 지원 탭에서 신청하세요.');
-
-		this.addGroupTitle(containerEl, '한자 변환');
+		this.addBackButton(containerEl, '국어사전');
 		const hanjaBox = this.createGroupBox(containerEl);
 		new Setting(hanjaBox)
-			.setName('괄호 병기')
-			.setDesc('한자 변환 시 원문 한글을 괄호 안에 병기합니다. 예: 漢字(한자)')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.hanjaBracketMode ?? false)
-				.onChange(async value => { this.plugin.settings.hanjaBracketMode = value; await this.plugin.saveSettings(); }));
+			.setName('사전 API')
+			.setDesc('표준국어대사전 API 키는 API 항목에서 관리합니다.')
+			.addButton(button => button.setButtonText('API 열기').onClick(() => this.renderPage('api')));
+		new Setting(hanjaBox)
+			.setName('한자 변환')
+			.setDesc('원문 한글의 괄호 병기 여부는 제어에서 관리합니다.')
+			.addButton(button => button.setButtonText('제어 열기').onClick(() => this.renderPage('control')));
 	}
 
 	// ── AI ──────────────────────────────────────────────────────────────────
 
 	private renderAiPage(containerEl: HTMLElement) {
 		this.addBackButton(containerEl, 'AI');
-
-		this.addGroupTitle(containerEl, 'API 키 등록');
-		const aiBox = this.createGroupBox(containerEl);
-		new Setting(aiBox)
-			.setName('NVIDIA Build')
-			.addText(text => text
-				.setPlaceholder('nvapi-...')
-				.setValue(this.plugin.settings.aiChatApiKey)
-				.onChange(async value => { this.plugin.settings.aiChatApiKey = value.trim(); await this.plugin.saveSettings(); }));
-		const aiDesc = aiBox.createDiv({ cls: 'wm-settings-item-desc' });
-		aiDesc.appendText('DiffusionGemma 26B 모델을 사용하려면 ');
-		aiDesc.createEl('a', { text: 'build.nvidia.com', href: 'https://build.nvidia.com', attr: { target: '_blank', rel: 'noopener' } });
-		aiDesc.appendText(' 에서 발급받은 API 키가 필요합니다. 단, 제공사의 정책에 따라 한도가 변경될 수 있음.');
-
-		new Setting(aiBox)
-			.setName('Google AI Studio')
-			.addText(text => text
-				.setPlaceholder('AQ. 또는 AIza...')
-				.setValue(this.plugin.settings.aiChatGeminiApiKey)
-				.onChange(async value => { this.plugin.settings.aiChatGeminiApiKey = value.trim(); await this.plugin.saveSettings(); }));
-		const geminiDesc = aiBox.createDiv({ cls: 'wm-settings-item-desc' });
-		geminiDesc.appendText('Gemini 3.8 Flash, Gemma 4 31B IT, Gemini 3.1 Flash-Lite를 사용하려면 ');
-		geminiDesc.createEl('a', { text: 'aistudio.google.com', href: 'https://aistudio.google.com/apikey', attr: { target: '_blank', rel: 'noopener' } });
-		geminiDesc.appendText(' 에서 발급받은 API 키가 필요합니다. 무료 등급의 요청은 Google 제품 개선에 사용될 수 있으며, 모델별 한도는 AI Studio에서 확인하세요.');
-
-		const cmpBlock = aiBox.createDiv({ cls: 'wm-settings-model-cmp-block' });
-		cmpBlock.createDiv({ cls: 'wm-settings-model-cmp-title', text: '모델 비교' });
-		const cmpTable = cmpBlock.createEl('table', { cls: 'wm-settings-model-cmp-table' });
-		const thead = cmpTable.createEl('thead');
-		const headRow = thead.createEl('tr');
-		for (const h of ['모델', '제공처', '주 용도', '품질', '속도', '추천']) headRow.createEl('th', { text: h });
-		const tbody = cmpTable.createEl('tbody');
-		const rows: Array<[string, string, string, string, string, string]> = [
-			['Gemini 3.8 Flash', 'Google', '챗봇·초고 전반', '최상', '빠름', '기본 추천'],
-			['Gemma 4 31B IT', 'Google', '창작·역할극', '높음', '보통', '오픈 모델 선호 시'],
-			['Gemini 3.1 Flash-Lite', 'Google', '짧고 잦은 작업', '보통', '매우 빠름', '속도 우선 시'],
-			['DiffusionGemma 26B', 'NVIDIA', '실험적 창작', '보통', '보통', 'NVIDIA 키 유지 시'],
-		];
-		for (const [name, provider, purpose, quality, speed, note] of rows) {
-			const tr = tbody.createEl('tr');
-			tr.createEl('td', { text: name });
-			tr.createEl('td', { text: provider });
-			tr.createEl('td', { text: purpose });
-			tr.createEl('td', { text: quality });
-			tr.createEl('td', { text: speed });
-			tr.createEl('td', { text: note });
-		}
-		cmpBlock.createDiv({
-			cls: 'wm-settings-model-cmp-footnote',
-			text: '※ 2026년 10월 Google 공식 문서의 무료 등급과 모델 특성을 기준으로 선정했습니다. 실제 호출 한도와 제공 정책은 계정·지역·시점에 따라 바뀔 수 있습니다.',
-		});
-
-		this.addGroupTitle(containerEl, '위키 프로필 이미지 생성');
-		const imgGenBox = this.createGroupBox(containerEl);
-		new Setting(imgGenBox)
-			.setName('OpenAI (GPT Image)')
-			.addText(text => text
-				.setPlaceholder('sk-...')
-				.setValue(this.plugin.settings.aiImageOpenaiApiKey)
-				.onChange(async value => { this.plugin.settings.aiImageOpenaiApiKey = value.trim(); await this.plugin.saveSettings(); }));
-		const openaiDesc = imgGenBox.createDiv({ cls: 'wm-settings-item-desc' });
-		openaiDesc.appendText('GPT Image 1, 2 모델을 사용하려면 ');
-		openaiDesc.createEl('a', { text: 'platform.openai.com', href: 'https://platform.openai.com/api-keys', attr: { target: '_blank', rel: 'noopener' } });
-		openaiDesc.appendText(' 에서 발급받은 API 키가 필요합니다. Nano Banana 계열은 위에서 등록한 Google AI Studio 키를 그대로 사용합니다. 이미지 생성은 각 API 제공사(OpenAI, Google)에서 유료로 제공하는 기능입니다.');
-		new Setting(imgGenBox)
-			.setName('모델')
-			.setDesc('위키뷰의 인물 노트에서 AI로 프로필 이미지를 생성할 때 사용할 모델을 선택하세요.')
-			.addDropdown(dd => {
-				for (const m of AI_IMAGE_MODELS) dd.addOption(m.id, m.label);
-				dd.setValue(this.plugin.settings.aiImageModel)
-					.onChange(async value => { this.plugin.settings.aiImageModel = value; await this.plugin.saveSettings(); });
-			});
-		new Setting(imgGenBox)
-			.setName('종횡비')
-			.setDesc('Nano Banana가 지원하는 종횡비만 선택 가능합니다 (4:5는 지원 목록에 없어 가장 가까운 3:4가 기본값).')
-			.addDropdown(dd => {
-				for (const r of IMAGE_ASPECT_RATIOS) dd.addOption(r.id, r.label);
-				dd.setValue(this.plugin.settings.aiImageAspectRatio)
-					.onChange(async value => { this.plugin.settings.aiImageAspectRatio = value; await this.plugin.saveSettings(); });
-			});
-		let imageRefText: import('obsidian').TextComponent;
-		new Setting(imgGenBox)
-			.setName('그림체 샘플')
-			.setDesc('볼트 내 이미지를 지정하면 생성 시 해당 이미지를 화풍/구도 참고용으로 함께 전달합니다.')
-			.addExtraButton(btn => btn.setIcon('image').setTooltip('이미지 선택')
-				.onClick(() => {
-					new ImageSuggestModal(this.app, (file) => {
-						fireAndForget(async () => {
-							this.plugin.settings.aiImageStyleReferencePath = file.path;
-							await this.plugin.saveSettings();
-							imageRefText.setValue(file.path);
-						});
-					}).open();
-				}))
-			.addText(text => {
-				imageRefText = text;
-				text.setPlaceholder('예) 폴더/이미지.png')
-					.setValue(this.plugin.settings.aiImageStyleReferencePath)
-					.onChange(async value => { this.plugin.settings.aiImageStyleReferencePath = value.trim(); await this.plugin.saveSettings(); });
-			});
-
-		this.addGroupTitle(containerEl, '기본 설정');
 		const baseBox = this.createGroupBox(containerEl);
 		let episodeRootText: import('obsidian').TextComponent;
 		new Setting(baseBox)
@@ -1257,13 +1752,6 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				text.inputEl.step = '0.1';
 			});
 
-		new Setting(chatBox)
-			.setName('헤더 자동 숨김')
-			.setDesc('켜면 상단 툴바가 평소엔 숨겨져 있다가 마우스를 올렸을 때만 나타납니다.')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.aiChatToolbarAutoHide)
-				.onChange(async value => { this.plugin.settings.aiChatToolbarAutoHide = value; await this.plugin.saveSettings(); }));
-
 		this.addGroupTitle(containerEl, '초고');
 		const episodeBox = this.createGroupBox(containerEl);
 
@@ -1355,12 +1843,6 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				text.inputEl.step = '0.1';
 			});
 
-		new Setting(episodeBox)
-			.setName('헤더 자동 숨김')
-			.setDesc('켜면 상단 툴바가 평소엔 숨겨져 있다가 마우스를 올렸을 때만 나타납니다. 캐릭터 챗봇과 같은 값을 공유합니다.')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.aiChatToolbarAutoHide)
-				.onChange(async value => { this.plugin.settings.aiChatToolbarAutoHide = value; await this.plugin.saveSettings(); }));
 	}
 
 	// ── 버전 관리 ─────────────────────────────────────────────────────────
@@ -1395,13 +1877,6 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					}
 				}));
-
-		new Setting(verBox)
-			.setName('헤더 자동 숨김')
-			.setDesc('켜면 상단 툴바가 평소엔 숨겨져 있다가 마우스를 올렸을 때만 나타납니다.')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.versionToolbarAutoHide)
-				.onChange(async value => { this.plugin.settings.versionToolbarAutoHide = value; await this.plugin.saveSettings(); }));
 
 		this.addGroupTitle(containerEl, '상태');
 		const stageBox = this.createGroupBox(containerEl);
@@ -1453,28 +1928,11 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 	// ── 캘린더 설정 ─────────────────────────────────────────────────────
 
 	private renderCalendarPage(containerEl: HTMLElement) {
-		this.addBackButton(containerEl, '캘린더 & 일정 관리');
-
-		this.addGroupTitle(containerEl, '날짜 미리보기');
-		const previewBox = this.createGroupBox(containerEl);
-		const pref = this.plugin.settings.calendarPreviewItems;
-
-		new Setting(previewBox).setName('할 일').addToggle(t => t.setValue(pref.tasks)
-			.onChange(async v => { pref.tasks = v; await this.plugin.saveSettings(); }));
-		previewBox.createDiv({ cls: 'wm-settings-item-desc', text: '캘린더 날짜 셀에 마우스를 올리면 해당 항목을 미리 표시합니다.' });
-		new Setting(previewBox).setName('오늘 글자수').addToggle(t => t.setValue(pref.charCount)
-			.onChange(async v => { pref.charCount = v; await this.plugin.saveSettings(); }));
-		new Setting(previewBox).setName('일평균 글자수').addToggle(t => t.setValue(pref.avgCharCount)
-			.onChange(async v => { pref.avgCharCount = v; await this.plugin.saveSettings(); }));
-		new Setting(previewBox).setName('작업 모드별 시간').addToggle(t => t.setValue(pref.timeModes)
-			.onChange(async v => { pref.timeModes = v; await this.plugin.saveSettings(); }));
-		new Setting(previewBox).setName('총 작업 시간').addToggle(t => t.setValue(pref.totalTime)
-			.onChange(async v => { pref.totalTime = v; await this.plugin.saveSettings(); }));
-
-		this.addGroupTitle(containerEl, '할 일');
+		this.addBackButton(containerEl, '일정');
 		const taskBox = this.createGroupBox(containerEl);
 		new Setting(taskBox)
-			.setName('일일 노트 경로')
+			.setName('일일 노트')
+			.setDesc('일일 노트의 경로(헤딩)을 지정하세요. 대시보드에서 추가한 할 일이 해당 경로에 기록됩니다.')
 			.addText(t => t
 				.setPlaceholder('할 일')
 				.setValue(this.plugin.settings.taskAddHeader ?? '할 일')
@@ -1482,20 +1940,19 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					this.plugin.settings.taskAddHeader = v.trim() || '할 일';
 					await this.plugin.saveSettings();
 				}));
-		taskBox.createDiv({ cls: 'wm-settings-item-desc', text: '일일 노트의 경로(헤더 이름)를 지정하세요. 대시보드에서 추가한 할 일이 해당 경로에 기록됩니다.' });
 
 	}
 
 	// ── 위키 ────────────────────────────────────────────────────────────
 
 	private renderWikiPage(containerEl: HTMLElement) {
-		this.addBackButton(containerEl, '위키 뷰');
+		this.addBackButton(containerEl, '위키');
 		renderWikiSettingsPage(containerEl, this.plugin, () => this.renderPage('wiki'));
 	}
 
 	private renderPlotPage(containerEl: HTMLElement) {
 		this.addBackButton(containerEl, '플롯 매니저');
-		renderPlotSettingsPage(containerEl, this.plugin);
+		renderPlotWorkbookSettingsPage(containerEl, this.plugin);
 	}
 
 	// ── 특수문자 ─────────────────────────────────────────────────────────
@@ -1503,24 +1960,10 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 	private renderSpecialCharsPage(containerEl: HTMLElement) {
 		this.addBackButton(containerEl, '특수문자');
 
-		this.addGroupTitle(containerEl, '동작');
-		const box = this.createGroupBox(containerEl);
-
-		new Setting(box)
-			.setName('삽입 후 모달 닫기')
-			.setDesc('특수문자를 삽입한 뒤 모달을 자동으로 닫습니다.')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.specialCharCloseOnInsert ?? true)
-				.onChange(async value => {
-					this.plugin.settings.specialCharCloseOnInsert = value;
-					await this.plugin.saveSettings();
-				}));
-
 		// 즐겨찾기 섹션
 		const favs = this.plugin.settings.specialCharFavorites ?? [];
-		const favHdr = containerEl.createDiv({ cls: 'wm-settings-section-hdr' });
-		favHdr.createDiv({ cls: 'wm-settings-group-title', text: '즐겨찾기' });
-		const favHdrBtns = favHdr.createDiv({ cls: 'wm-settings-section-hdr-btns' });
+		const favHdr = new Setting(containerEl).setName('즐겨찾기').setHeading();
+		const favHdrBtns = favHdr.controlEl;
 		if (favs.length > 0) {
 			const trashFavs = favHdrBtns.createDiv({ cls: 'clickable-icon wm-muted-icon' });
 			setIcon(trashFavs, 'trash-2');
@@ -1535,7 +1978,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		}
 		const favBox = this.createGroupBox(containerEl);
 		if (favs.length === 0) {
-			favBox.createDiv({ cls: 'wm-settings-hint', text: '특수문자 모달에서 ★를 클릭해 즐겨찾기를 추가하세요.' });
+			new Setting(favBox).setDesc('특수문자 모달에서 ★를 클릭해 즐겨찾기를 추가하세요.');
 		} else {
 			for (const ch of favs) {
 				new Setting(favBox)
@@ -1554,9 +1997,8 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 
 		// 사용자 지정 섹션
 		const customs = this.plugin.settings.specialCharCustom ?? [];
-		const customHdr = containerEl.createDiv({ cls: 'wm-settings-section-hdr' });
-		customHdr.createDiv({ cls: 'wm-settings-group-title', text: '사용자 지정' });
-		const customHdrBtns = customHdr.createDiv({ cls: 'wm-settings-section-hdr-btns' });
+		const customHdr = new Setting(containerEl).setName('사용자 지정').setHeading();
+		const customHdrBtns = customHdr.controlEl;
 
 		const popup = containerEl.createDiv({ cls: 'wm-sc-add-popup wm-sc-add-popup-right wm-sc-add-popup-up is-hidden' });
 		const charRow = popup.createDiv({ cls: 'wm-sc-add-row' });
@@ -1603,7 +2045,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		}
 		const customBox = this.createGroupBox(containerEl);
 		if (customs.length === 0) {
-			customBox.createDiv({ cls: 'wm-settings-hint', text: '아래 + 버튼으로 특수문자를 지정하세요.' });
+			new Setting(customBox).setDesc('아래 + 버튼으로 특수문자를 지정하세요.');
 		} else {
 			for (let i = 0; i < customs.length; i++) {
 				const item = customs[i];
@@ -1634,67 +2076,84 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 	// ── 맞춤법 검사 ─────────────────────────────────────────────────────────
 
 	private renderSpellCheckPage(containerEl: HTMLElement) {
-		this.addBackButton(containerEl, '맞춤법 검사');
+		this.addBackButton(containerEl, '맞춤법 검사', 'misc');
 
-		// 고유명사 사전
-		const ignoredHdr = containerEl.createDiv({ cls: 'wm-settings-section-hdr' });
-		ignoredHdr.createDiv({ cls: 'wm-settings-group-title', text: '고유명사 사전' });
-		const ignoredHdrBtns = ignoredHdr.createDiv({ cls: 'wm-settings-section-hdr-btns' });
+		this.addGroupTitle(containerEl, '검사 엔진');
+		const engineBox = this.createGroupBox(containerEl);
+		new Setting(engineBox)
+			.setName('검사 엔진')
+			.setDesc('맞춤법 검사에 사용할 엔진을 선택합니다.')
+			.addDropdown(dropdown => dropdown
+				.addOption('daum', 'Daum')
+				.setValue(this.plugin.settings.spellCheckEngine ?? 'daum')
+				.onChange(async value => {
+					await this.plugin.saveSettings();
+				}));
+		engineBox.createDiv({
+			cls: 'wm-settings-item-desc',
+		});
+
+		this.addGroupTitle(containerEl, '고유명사');
+		const spellcheckBox = this.createGroupBox(containerEl);
+		this.addNavCard(spellcheckBox, '고유명사 관리', '등록한 고유명사를 검사에서 제외합니다.', 'list', 'spellcheck-words');
+	}
+
+	private renderSpellCheckWordsPage(containerEl: HTMLElement) {
+		this.addBackButton(containerEl, '고유명사 목록', 'misc');
+
+		const ignoredHdr = new Setting(containerEl).setName('고유명사').setHeading();
+		const ignoredHdrBtns = ignoredHdr.controlEl;
 
 		const ignoredWords: string[] = this.plugin.settings.spellCheckIgnoredWords ?? [];
-
-		if (ignoredWords.length > 0) {
-			const trashBtn = ignoredHdrBtns.createDiv({ cls: 'clickable-icon wm-muted-icon' });
-			setIcon(trashBtn, 'trash-2');
-			trashBtn.setAttribute('aria-label', '전체 삭제');
-			trashBtn.addEventListener('click', () => {
-				fireAndForget(async () => {
-					this.plugin.settings.spellCheckIgnoredWords = [];
-					await this.plugin.saveSettings();
-					this.renderPage('spellcheck');
-				});
-			});
-		}
-
 		const ignoredBox = this.createGroupBox(containerEl);
+		const ignoredGroup = ignoredBox.closest<HTMLElement>('.setting-group');
+		ignoredGroup?.addClasses(['mod-list', 'mod-no-icon']);
 
-		// 1행: 고유명사 추가 (Setting 구조 재사용)
-		new Setting(ignoredBox).setName('고유명사 추가').addText(text => {
-			text.setPlaceholder('단어 입력 후 Enter');
-			const doAdd = async () => {
-				const word = text.getValue().trim();
-				if (!word) return;
-				const list = this.plugin.settings.spellCheckIgnoredWords ?? [];
-				if (!list.includes(word)) {
-					list.push(word);
-					this.plugin.settings.spellCheckIgnoredWords = list;
-					await this.plugin.saveSettings();
-				}
-				text.setValue('');
-				this.renderPage('spellcheck');
-			};
-			text.inputEl.addEventListener('keydown', e => { if (e.key === 'Enter') void doAdd(); });
-		});
-		ignoredBox.createDiv({ cls: 'wm-settings-item-desc', text: '맞춤법 검사에서 오류로 표시하지 않을 단어를 등록합니다. 조사를 제거한 어근 형태로 입력하세요. 예: 김정식' });
+		const addWord = async (word: string) => {
+			const normalized = word.trim();
+			if (!normalized || ignoredWords.includes(normalized)) return;
+			ignoredWords.push(normalized);
+			this.plugin.settings.spellCheckIgnoredWords = ignoredWords;
+			await this.plugin.saveSettings();
+			this.renderPage('spellcheck-words');
+		};
+		const showAddRow = () => {
+			if (ignoredBox.querySelector('.wm-spellcheck-add-row')) return;
+			const addRow = new Setting(ignoredBox).setName('고유명사 추가');
+			addRow.settingEl.addClasses(['setting-list-item', 'wm-spellcheck-add-row']);
+			addRow.addText(text => {
+				text.setPlaceholder('단어 입력 후 Enter');
+				text.inputEl.addEventListener('keydown', event => {
+					if (event.key === 'Enter') void addWord(text.getValue());
+					if (event.key === 'Escape') addRow.settingEl.remove();
+				});
+				window.setTimeout(() => text.inputEl.focus(), 0);
+			});
+		};
+		const addButton = ignoredHdrBtns.createDiv({ cls: 'clickable-icon wm-muted-icon' });
+		setIcon(addButton, 'plus');
+		addButton.setAttribute('aria-label', '고유명사 추가');
+		addButton.addEventListener('click', showAddRow);
 
-		// 2행: 목록 (태그 스타일, 전체 너비 별도 div)
-		new Setting(ignoredBox).setName('목록');
-		const tagsEl = ignoredBox.createDiv({ cls: 'wm-settings-dict-tags' });
 		if (ignoredWords.length === 0) {
-			tagsEl.createSpan({ cls: 'wm-settings-dict-empty', text: '등록된 단어가 없습니다.' });
+			new Setting(ignoredBox)
+				.setName('등록된 고유명사가 없습니다.')
+				.setDesc('오른쪽 위의 + 버튼을 눌러 추가하세요.');
 		} else {
 			for (const word of ignoredWords) {
-				const tag = tagsEl.createSpan({ cls: 'wm-settings-dict-tag' });
-				tag.createSpan({ text: word });
-				tag.createSpan({ cls: 'wm-settings-dict-tag-remove', text: '×' })
-					.addEventListener('click', () => {
-						fireAndForget(async () => {
-							const idx = this.plugin.settings.spellCheckIgnoredWords.indexOf(word);
-							if (idx >= 0) this.plugin.settings.spellCheckIgnoredWords.splice(idx, 1);
+				const row = new Setting(ignoredBox)
+					.setName(word)
+					.addExtraButton(button => button
+						.setIcon('x')
+						.setTooltip('삭제')
+						.onClick(async () => {
+							const index = ignoredWords.indexOf(word);
+							if (index >= 0) ignoredWords.splice(index, 1);
+							this.plugin.settings.spellCheckIgnoredWords = ignoredWords;
 							await this.plugin.saveSettings();
-							this.renderPage('spellcheck');
-						});
-					});
+							this.renderPage('spellcheck-words');
+						}));
+				row.settingEl.addClass('setting-list-item');
 			}
 		}
 	}
@@ -1702,23 +2161,35 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 	// ── 퇴고 매니저 ────────────────────────────────────────────────────────
 	private renderRepetitionPage(containerEl: HTMLElement) {
 		this.addBackButton(containerEl, '퇴고 매니저');
+		const repetitionBox = this.createGroupBox(containerEl);
 
 		if (isMorphAnalysisSupported()) {
-			this.addGroupTitle(containerEl, '형태소 분석 모델');
-			const modelBox = this.createGroupBox(containerEl);
-			const modelSetting = new Setting(modelBox)
+			const modelSetting = new Setting(repetitionBox)
 				.setName('오프라인 형태소 분석 모델')
 				.setDesc('확인 중…');
+			const setGaruDescription = (status: string) => {
+				modelSetting.descEl.empty();
+				modelSetting.descEl.createEl('a', {
+					text: 'Garu',
+					href: 'https://github.com/ongjin/garu',
+					attr: { target: '_blank', rel: 'noopener' },
+				});
+				modelSetting.descEl.appendText(` · ${status}`);
+			};
+			setGaruDescription('확인 중…');
 			fireAndForget(async () => {
 				const assetStatus = await getGaruAssetStatus(this.plugin);
 				const downloaded = assetStatus === 'current';
-				modelSetting.setDesc(downloaded
+				setGaruDescription(downloaded
 					? `v${GARU_VERSION} 설치 완료 · 완전히 오프라인으로 동작합니다.`
 					: assetStatus === 'outdated'
 						? `새 엔진 v${GARU_VERSION} 업데이트가 있습니다.`
 						: `반복 표현 탐지에 필요합니다. 최초 1회만 다운로드하면 됩니다 (약 1.6MB).`);
 				if (downloaded) {
-					modelSetting.addExtraButton(btn => btn.setIcon('check').setTooltip('다운로드됨').setDisabled(true));
+					modelSetting.addExtraButton(btn => {
+						btn.setIcon('check').setTooltip('다운로드됨').setDisabled(true);
+						btn.extraSettingsEl.addClass('wm-settings-status-success');
+					});
 				} else {
 					modelSetting.addButton(btn => btn.setButtonText(assetStatus === 'outdated' ? '업데이트' : '다운로드').setCta()
 						.onClick(() => {
@@ -1729,24 +2200,18 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 									this.renderPage('repetition');
 								} catch (e) {
 									btn.setDisabled(false).setButtonText(assetStatus === 'outdated' ? '업데이트' : '다운로드');
-									modelBox.createDiv({ cls: 'wm-settings-item-desc', text: `실패: ${e instanceof Error ? e.message : String(e)}` });
+									modelSetting.descEl.appendText(` · 실패: ${e instanceof Error ? e.message : String(e)}`);
 								}
 							});
 						}));
 				}
 			});
-			const engineDesc = modelBox.createDiv({ cls: 'wm-settings-item-desc' });
-			engineDesc.appendText('형태소 분석 엔진: ');
-			engineDesc.createEl('a', { text: 'garu-ko', href: 'https://github.com/ongjin/garu', attr: { target: '_blank', rel: 'noopener' } });
-			engineDesc.appendText(` v${GARU_VERSION} (오프라인 WASM, 서버 전송 없음)`);
 		}
 
-		this.addGroupTitle(containerEl, '단어장');
-		const vocabBox = this.createGroupBox(containerEl);
 		let vocabText: import('obsidian').TextComponent;
-		new Setting(vocabBox)
-			.setName('경로')
-			.setDesc('반복어 카드의 노트북 아이콘을 누르면 이 노트에 단어가 표 형태로 한 행씩 추가됩니다(형태소 분석기가 이미 정규화한 형태이므로 활용형은 따로 만들지 않고 그대로 매칭합니다). 같은 표에 유의어 후보를 적어두면 카드를 펼쳤을 때 칩으로 표시되어 클릭 한 번으로 본문 치환도 가능합니다.')
+		new Setting(repetitionBox)
+			.setName('단어장 경로')
+			.setDesc('지정한 경로에 반복 단어를 저장합니다.')
 			.addExtraButton(btn => btn.setIcon('file-text').setTooltip('노트 선택')
 				.onClick(() => {
 					new NoteSuggestModal(this.app, (file) => {
@@ -1763,65 +2228,107 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.repetitionVocabNotePath)
 					.onChange(async value => { this.plugin.settings.repetitionVocabNotePath = value.trim(); await this.plugin.saveSettings(); });
 			});
-		const formatDesc = vocabBox.createDiv({ cls: 'wm-settings-item-desc' });
-		formatDesc.createEl('div', { text: '형식(마크다운 표): | 단어 | 유의어 후보 |' });
-		formatDesc.createEl('div', { text: '· 유의어 후보는 콤마로 구분, 비워둬도 됩니다. 예: | 구멍 | 틈, 공백 |' });
 	}
 
 	// ── 자동완성 심볼 ────────────────────────────────────────────────────
 
 	displaySymbolPairs(container: HTMLElement) {
 		container.empty();
-		const addBtnRow = container.createDiv('wm-settings-add-btn-row');
-		addBtnRow.createEl('button', { text: '새 트리거 추가', cls: 'mod-cta' }).onclick = async () => {
+		this.addGroupTitle(container, '목록');
+		const list = this.createGroupBox(container);
+		const listGroup = list.closest<HTMLElement>('.setting-group');
+		listGroup?.addClasses(['mod-list', 'mod-no-icon']);
+		const addHost = listGroup?.querySelector<HTMLElement>(':scope > .setting-item-heading > .setting-item-control') ?? list;
+		const addButton = addHost.createDiv({ cls: 'clickable-icon wm-muted-icon' });
+		setIcon(addButton, 'plus');
+		addButton.setAttribute('aria-label', '자동 완성 추가');
+		addButton.addEventListener('click', () => {
+			fireAndForget(async () => {
 			this.plugin.settings.symbolTriggers.push({ trigger: '', options: [{ open: '', close: '' }], enabled: true });
 			await this.plugin.saveSettings();
 			this.displaySymbolPairs(container);
-		};
+			const inputs = container.querySelectorAll<HTMLInputElement>('.wm-autocomplete-trigger-input');
+			inputs.item(inputs.length - 1)?.focus();
+			});
+		});
 
-		const kanban = container.createDiv('writing-menu-kanban');
+		if (this.plugin.settings.symbolTriggers.length === 0) {
+			new Setting(list)
+				.setName('등록된 자동 완성이 없습니다.')
+				.setDesc('오른쪽 위의 + 버튼을 눌러 추가하세요.');
+			return;
+		}
 
 		this.plugin.settings.symbolTriggers.forEach((trigger, tIndex) => {
-			const card = kanban.createDiv('writing-menu-card');
-			if (trigger.enabled === false) card.addClass('wm-card-disabled');
+			const setting = new Setting(list);
+			setting.settingEl.addClasses(['setting-list-item', 'wm-autocomplete-setting-row']);
+			setting.settingEl.toggleClass('wm-row-disabled', trigger.enabled === false);
+			setting.infoEl.remove();
+			setting.controlEl.empty();
 
-			const header = card.createDiv('wm-card-header');
+			const header = setting.controlEl.createDiv({ cls: 'wm-autocomplete-rule-header' });
+			new ToggleComponent(header)
+				.setValue(trigger.enabled !== false)
+				.onChange(async value => {
+					trigger.enabled = value;
+					setting.settingEl.toggleClass('wm-row-disabled', !value);
+					await this.plugin.saveSettings();
+				});
+			const triggerInput = header.createEl('input', {
+				type: 'text',
+				value: trigger.trigger,
+				cls: 'wm-autocomplete-trigger-input',
+			});
+			triggerInput.placeholder = '트리거';
+			triggerInput.onchange = async () => {
+				trigger.trigger = triggerInput.value;
+				await this.plugin.saveSettings();
+			};
+			const deleteButton = header.createDiv({ cls: 'clickable-icon wm-muted-icon wm-autocomplete-delete-button' });
+			setIcon(deleteButton, 'trash-2');
+			deleteButton.setAttribute('aria-label', '자동 완성 삭제');
+			deleteButton.onclick = async () => {
+				this.plugin.settings.symbolTriggers.splice(tIndex, 1);
+				await this.plugin.saveSettings();
+				this.displaySymbolPairs(container);
+			};
 
-			const toggleDiv = header.createDiv('wm-card-toggle-div');
-			new Setting(toggleDiv).addToggle(t => t.setValue(trigger.enabled !== false).onChange(async v => {
-				trigger.enabled = v; await this.plugin.saveSettings(); this.displaySymbolPairs(container);
-			})).setName('').setDesc('');
-			(toggleDiv.querySelector('.setting-item') as HTMLElement)?.addClass('wm-inline-setting');
-			(toggleDiv.querySelector('.setting-item-info') as HTMLElement)?.addClass('wm-inline-setting-info');
-			(toggleDiv.querySelector('.setting-item-control') as HTMLElement)?.addClass('wm-inline-setting-ctrl');
-
-			const input = header.createEl('input', { type: 'text', value: trigger.trigger, cls: 'wm-card-trigger-input' });
-			input.onchange = async () => { trigger.trigger = input.value; await this.plugin.saveSettings(); };
-
-			const del = header.createDiv('clickable-icon wm-muted-icon');
-			setIcon(del, 'trash-2');
-			del.onclick = async () => { this.plugin.settings.symbolTriggers.splice(tIndex, 1); await this.plugin.saveSettings(); this.displaySymbolPairs(container); };
-
-			card.createDiv('wm-card-divider');
-
-			const pairs = card.createDiv('wm-card-pairs');
+			const pairs = setting.controlEl.createDiv({ cls: 'wm-autocomplete-pairs' });
 			trigger.options.forEach((opt, oIndex) => {
-				const row = pairs.createDiv('wm-card-pair-row');
-				const open = row.createEl('input', { type: 'text', value: opt.open, cls: 'wm-card-pair-input' });
+				const row = pairs.createDiv({ cls: 'wm-autocomplete-pair-row' });
+				const open = row.createEl('input', { type: 'text', value: opt.open, cls: 'wm-autocomplete-pair-input' });
+				open.placeholder = '열기';
 				open.onchange = async () => { opt.open = open.value; await this.plugin.saveSettings(); };
 
 				row.createSpan({ text: '→', cls: 'wm-substitution-arrow' });
 
-				const close = row.createEl('input', { type: 'text', value: opt.close, cls: 'wm-card-pair-input' });
+				const close = row.createEl('input', { type: 'text', value: opt.close, cls: 'wm-autocomplete-pair-input' });
+				close.placeholder = '닫기';
 				close.onchange = async () => { opt.close = close.value; await this.plugin.saveSettings(); };
 
-				const rm = row.createDiv('clickable-icon wm-pair-delete-btn');
+				const rm = row.createDiv({ cls: 'clickable-icon wm-muted-icon' });
 				setIcon(rm, 'x');
+				rm.setAttribute('aria-label', '기호 삭제');
 				rm.onclick = async () => { trigger.options.splice(oIndex, 1); await this.plugin.saveSettings(); this.displaySymbolPairs(container); };
 			});
 
-			const addP = card.createDiv({ text: '+', cls: 'wm-pair-add-btn' });
-			addP.onclick = async () => { trigger.options.push({ open: '', close: '' }); await this.plugin.saveSettings(); this.displaySymbolPairs(container); };
+			const addPairButton = pairs.createDiv({ cls: 'wm-autocomplete-pair-add' });
+			const addPairIcon = addPairButton.createSpan({ cls: 'wm-autocomplete-pair-add-icon' });
+			setIcon(addPairIcon, 'plus');
+			addPairButton.createSpan({ text: '기호 추가' });
+			addPairButton.setAttribute('role', 'button');
+			addPairButton.tabIndex = 0;
+			const addPair = async () => {
+				trigger.options.push({ open: '', close: '' });
+				await this.plugin.saveSettings();
+				this.displaySymbolPairs(container);
+			};
+			addPairButton.onclick = () => { void addPair(); };
+			addPairButton.addEventListener('keydown', event => {
+				if (event.key !== 'Enter' && event.key !== ' ') return;
+				event.preventDefault();
+				void addPair();
+			});
 		});
 	}
 
@@ -1829,45 +2336,70 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 
 	displayTextSubstitutions(container: HTMLElement) {
 		container.empty();
-
-		const addBtnRow = container.createDiv('wm-settings-add-btn-row');
-		addBtnRow.createEl('button', { text: '새 치환 추가', cls: 'mod-cta' }).onclick = async () => {
+		this.addGroupTitle(container, '목록');
+		const list = this.createGroupBox(container);
+		const listGroup = list.closest<HTMLElement>('.setting-group');
+		listGroup?.addClasses(['mod-list', 'mod-no-icon']);
+		const addHost = listGroup?.querySelector<HTMLElement>(':scope > .setting-item-heading > .setting-item-control') ?? list;
+		const addButton = addHost.createDiv({ cls: 'clickable-icon wm-muted-icon' });
+		setIcon(addButton, 'plus');
+		addButton.setAttribute('aria-label', '텍스트 치환 추가');
+		addButton.addEventListener('click', () => {
+			fireAndForget(async () => {
 			this.plugin.settings.textSubstitutions.push({ from: '', to: '', enabled: true });
 			await this.plugin.saveSettings();
 			this.displayTextSubstitutions(container);
-		};
+			const inputs = container.querySelectorAll<HTMLInputElement>('.wm-substitution-input');
+			inputs.item(Math.max(0, inputs.length - 2))?.focus();
+			});
+		});
 
-		const list = container.createDiv(Platform.isMobile ? 'wm-substitution-list is-mobile-width' : 'wm-substitution-list');
+		if (this.plugin.settings.textSubstitutions.length === 0) {
+			new Setting(list)
+				.setName('등록된 텍스트 치환이 없습니다.')
+				.setDesc('오른쪽 위의 + 버튼을 눌러 추가하세요.');
+			return;
+		}
 
 		this.plugin.settings.textSubstitutions.forEach((sub, index) => {
-			const row = list.createDiv('wm-substitution-row');
-			if (!sub.enabled) row.addClass('wm-row-disabled');
-
-			const toggleDiv = row.createDiv('wm-card-toggle-div');
-			new Setting(toggleDiv).addToggle(t => t.setValue(sub.enabled).onChange(async v => {
-				sub.enabled = v; await this.plugin.saveSettings(); this.displayTextSubstitutions(container);
-			})).setName('').setDesc('');
-			(toggleDiv.querySelector('.setting-item') as HTMLElement)?.addClass('wm-inline-setting');
-			(toggleDiv.querySelector('.setting-item-info') as HTMLElement)?.addClass('wm-inline-setting-info');
-			(toggleDiv.querySelector('.setting-item-control') as HTMLElement)?.addClass('wm-inline-setting-ctrl');
-
-			const fromInput = row.createEl('input', { type: 'text', value: sub.from, cls: 'wm-substitution-input' });
-			fromInput.placeholder = '입력';
-			fromInput.onchange = async () => { sub.from = fromInput.value; await this.plugin.saveSettings(); };
-
-			row.createSpan({ text: '→', cls: 'wm-substitution-arrow' });
-
-			const toInput = row.createEl('input', { type: 'text', value: sub.to, cls: 'wm-substitution-input' });
-			toInput.placeholder = '변환';
-			toInput.onchange = async () => { sub.to = toInput.value; await this.plugin.saveSettings(); };
-
-			const del = row.createDiv('clickable-icon wm-muted-icon');
-			setIcon(del, 'trash-2');
-			del.onclick = async () => {
-				this.plugin.settings.textSubstitutions.splice(index, 1);
-				await this.plugin.saveSettings();
-				this.displayTextSubstitutions(container);
-			};
+			const setting = new Setting(list)
+				.setName(String(index + 1))
+				.addToggle(toggle => toggle
+					.setValue(sub.enabled)
+					.onChange(async value => {
+						sub.enabled = value;
+						setting.settingEl.toggleClass('wm-row-disabled', !value);
+						await this.plugin.saveSettings();
+					}))
+				.addText(text => {
+					text.setPlaceholder('입력')
+						.setValue(sub.from)
+						.onChange(async value => {
+							sub.from = value;
+							await this.plugin.saveSettings();
+						});
+					text.inputEl.addClass('wm-substitution-input');
+				});
+			setting.controlEl.createSpan({ text: '→', cls: 'wm-substitution-arrow' });
+			setting.addText(text => {
+				text.setPlaceholder('변환')
+					.setValue(sub.to)
+					.onChange(async value => {
+						sub.to = value;
+						await this.plugin.saveSettings();
+					});
+				text.inputEl.addClass('wm-substitution-input');
+			});
+			setting.addExtraButton(button => button
+				.setIcon('trash-2')
+				.setTooltip('삭제')
+				.onClick(async () => {
+					this.plugin.settings.textSubstitutions.splice(index, 1);
+					await this.plugin.saveSettings();
+					this.displayTextSubstitutions(container);
+				}));
+			setting.settingEl.addClasses(['setting-list-item', 'wm-substitution-setting-row']);
+			setting.settingEl.toggleClass('wm-row-disabled', !sub.enabled);
 		});
 	}
 }

@@ -3,6 +3,7 @@ import { CONVERTER_PY_CONTENT } from './converterScript';
 import type WritingMenuPlugin from '../../main';
 import { joinPath, getFs } from '../utils/nodeShims';
 import type { SpawnLike } from '../utils/nodeShims';
+import { PagedWritingView } from '../paged/PagedWritingView';
 
 declare const process: { env: Record<string, string | undefined> };
 declare const require: (id: string) => unknown;
@@ -178,32 +179,40 @@ export function cleanMarkdownFrontmatter(_plugin: WritingMenuPlugin, content: st
 
 export function removeHeadings(plugin: WritingMenuPlugin, content: string): string{
 	const withoutFrontmatter = plugin.cleanMarkdownFrontmatter(content);
-	return withoutFrontmatter
-		.split('\n')
-		.filter(line => !line.trim().match(/^#{1,6}\s/))
-		.join('\n')
-		.trim();
+	return stripMarkdownHeadings(withoutFrontmatter);
+}
+
+function stripMarkdownHeadings(content: string): string {
+	const lines = content.split('\n');
+	const result: string[] = [];
+	for (let index = 0; index < lines.length; index += 1) {
+		const line = lines[index];
+		if (/^\s{0,3}#{1,6}(?:\s+|$)/.test(line)) continue;
+		const nextLine = lines[index + 1];
+		if (line.trim() && nextLine !== undefined && /^\s{0,3}(?:=+|-+)\s*$/.test(nextLine)) {
+			index += 1;
+			continue;
+		}
+		result.push(line);
+	}
+	return result.join('\n').trim();
 }
 
 export async function copyWithOptions(plugin: WritingMenuPlugin, leaf: WorkspaceLeaf){
 	const view = leaf.view;
-	if (!(view instanceof MarkdownView) || !view.editor) return;
-	const withoutFrontmatter = plugin.cleanMarkdownFrontmatter(view.editor.getValue());
-	let lines = withoutFrontmatter.split('\n');
-	if (plugin.settings.copyExcludeHeadings) {
-		lines = lines.filter(line => !line.trim().match(/^#{1,6}\s/));
-	}
+	if (!(view instanceof MarkdownView) && !(view instanceof PagedWritingView)) return;
+	if (!plugin.shouldApplyToFile(view.file)) return;
+	const source = view instanceof MarkdownView ? view.editor.getValue() : view.getEditableData();
+	let bodyText = plugin.cleanMarkdownFrontmatter(source);
+	if (plugin.settings.copyExcludeHeadings) bodyText = stripMarkdownHeadings(bodyText);
+	let lines = bodyText.split('\n');
 	if (plugin.settings.copyExcludeFootnotes) {
 		lines = lines.filter(line => !line.trim().match(/^\[\^[^\]]+\]:/)); // 각주 정의 제외
 		lines = lines.map(line => line.replace(/\[\^[^\]]+\]/g, ''));       // 인라인 각주 참조 제외
 	}
 	const result = lines.join('\n').trim();
 	await navigator.clipboard.writeText(result);
-	const parts: string[] = [];
-	if (plugin.settings.copyExcludeHeadings) parts.push('헤딩');
-	if (plugin.settings.copyExcludeFootnotes) parts.push('각주');
-	const msg = parts.length > 0 ? `${parts.join('·')}을 제외한 텍스트가 복사되었습니다.` : '텍스트가 복사되었습니다.';
-	new Notice(msg);
+	new Notice('클립보드에 복사했습니다.');
 }
 
 export function applySpaceIndent(_plugin: WritingMenuPlugin, text: string): string{
@@ -219,11 +228,7 @@ export async function convertToTxt(plugin: WritingMenuPlugin, file: TFile, fileN
 		let bodyText = plugin.cleanMarkdownFrontmatter(content);
 
 		if (excludeHeadings) {
-			bodyText = bodyText
-				.split('\n')
-				.filter(line => !line.trim().match(/^#{1,6}\s/))
-				.join('\n')
-				.trim();
+			bodyText = stripMarkdownHeadings(bodyText);
 		}
 
 		if (useSpaceIndent) {
@@ -270,11 +275,7 @@ export async function convertFolderToTxt(plugin: WritingMenuPlugin, folderPath: 
 				let bodyText = plugin.cleanMarkdownFrontmatter(content);
 
 				if (excludeHeadings) {
-					bodyText = bodyText
-						.split('\n')
-						.filter(line => !line.trim().match(/^#{1,6}\s/))
-						.join('\n')
-						.trim();
+					bodyText = stripMarkdownHeadings(bodyText);
 				}
 
 				if (useSpaceIndent) {
@@ -488,11 +489,7 @@ export async function convertFilesToTxtMerged(plugin: WritingMenuPlugin, files: 
 			let bodyText = plugin.cleanMarkdownFrontmatter(content);
 
 			if (excludeHeadings) {
-				bodyText = bodyText
-					.split('\n')
-					.filter(line => !line.trim().match(/^#{1,6}\s/))
-					.join('\n')
-					.trim();
+				bodyText = stripMarkdownHeadings(bodyText);
 			}
 
 			if (useSpaceIndent) {

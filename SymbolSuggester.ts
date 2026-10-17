@@ -9,6 +9,7 @@ interface SymbolSuggestion {
 }
 
 interface ISymbolPlugin extends Plugin {
+	shouldApplyToFile(file: TFile | null): boolean;
 	settings: {
 		enableSmartInput: boolean;
 		symbolTriggers: SymbolTrigger[];
@@ -24,6 +25,7 @@ export class SymbolSuggester extends EditorSuggest<SymbolSuggestion> {
 	}
 
 	onTrigger(cursor: EditorPosition, editor: Editor, _file: TFile): EditorSuggestTriggerInfo | null {
+		if (!this.plugin.shouldApplyToFile(_file)) return null;
 		if (!this.plugin.settings.enableSmartInput) {
 			return null;
 		}

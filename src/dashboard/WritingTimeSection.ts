@@ -1,4 +1,4 @@
-import { TFile, setIcon, normalizePath } from 'obsidian';
+import { TFile, TextFileView, setIcon } from 'obsidian';
 
 declare const moment: (date?: unknown, fmt?: string) => { format(f: string): string };
 import type WritingMenuPlugin from '../../main';
@@ -40,18 +40,10 @@ export class WritingTimeSection {
 		const totalKey = settings.timeTotalKey ?? '총_시간';
 
 
-		// 현재 파일이 속한 프로젝트명 (trackingFolder 직하위 폴더명)
+		// 현재 파일이 속한 통계 프로젝트명
 		const getProjectName = (file: TFile | null): string | null => {
-			const trackingFolder = settings.trackingFolder;
-			if (!trackingFolder || !file) return null;
-			const norm = normalizePath(trackingFolder);
-			const filePath = file.path;
-			if (!filePath.startsWith(norm + '/')) return null;
-			const excludes = (settings.timeExcludeFolders ?? []).map(f => normalizePath(f));
-			if (excludes.some(ex => filePath.startsWith(ex + '/') || filePath === ex)) return null;
-			const rel = filePath.slice(norm.length + 1);
-			const slash = rel.indexOf('/');
-			return slash >= 0 ? rel.slice(0, slash) : norm.split('/').pop() ?? norm;
+			if (!file) return null;
+			return plugin.projectContext.getStatisticsProjectForPath(file.path)?.name ?? null;
 		};
 
 		const initialFile = app.workspace.getActiveFile();
@@ -163,10 +155,18 @@ export class WritingTimeSection {
 					}
 				}
 
-				// 파일이 현재 편집 중이면 frontmatter 저장 건너뜀 (병합 충돌 방지)
-				if (isActiveFile) return;
-
 				isSaving = true;
+				// 활성 편집기의 메모리 내용을 먼저 디스크에 반영한 다음 frontmatter를
+				// 병합한다. 활성 파일을 통째로 건너뛰면 장시간 편집할 때 시간이
+				// 프론트매터에 한 번도 기록되지 않는다.
+				const activeView = app.workspace.activeLeaf?.view;
+				if (
+					isActiveFile
+					&& activeView instanceof TextFileView
+					&& activeView.file?.path === file.path
+				) {
+					await activeView.save();
+				}
 				await app.fileManager.processFrontMatter(file, (fm2: Record<string, unknown>) => {
 					for (const m of modes) {
 						if (deltas[m.id] === 0) continue;
@@ -177,7 +177,11 @@ export class WritingTimeSection {
 				});
 				for (const m of [...modes.map(m => m.id), 'total']) {
 					const entry = plugin.pendingTimeUpdates.get(`${file.path}:${m}`);
-					if (entry) { entry.seconds = 0; entry.dailySavedSeconds = 0; }
+					if (!entry) continue;
+					const savedSeconds = m === 'total' ? totalDelta : (deltas[m] ?? 0);
+					// 저장을 기다리는 사이 새로 누적된 초는 다음 저장분으로 남긴다.
+					entry.seconds = Math.max(0, entry.seconds - savedSeconds);
+					entry.dailySavedSeconds = Math.max(0, entry.dailySavedSeconds - savedSeconds);
 				}
 			} finally {
 				plugin.pendingTimeSaveInFlight.delete(file.path);
@@ -387,8 +391,7 @@ export class WritingTimeSection {
 			if (!isTyping) return;
 			const target = trackingFile;
 			if (!target) return;
-			// 추적 폴더가 지정된 경우, 해당 폴더 안 파일만 시간 누적
-			if (settings.trackingFolder && !getProjectName(target)) return;
+			if (!plugin.projectContext.isInStatisticsScope(target.path)) return;
 			// 대시보드/캘린더 등 여러 인스턴스가 동시에 떠 있어도 실제 1초당 한 번만 누적되도록 공유 타임스탬프로 잠금
 			const now = Date.now();
 			// setInterval 지터로 1,000ms보다 조금 일찍 실행돼도 다음 초를 놓치지 않도록
@@ -438,6 +441,13 @@ export class WritingTimeSection {
 			isTyping  = true;
 			lastTyped = Date.now();
 		});
+		const removePagedEditorHandler = plugin.onPagedEditorChange(view => {
+			if (isSaving || !view.file || !trackingFile) return;
+			const activeFile = app.workspace.getActiveFile();
+			if (!activeFile || activeFile.path !== view.file.path || trackingFile.path !== view.file.path) return;
+			isTyping = true;
+			lastTyped = Date.now();
+		});
 
 		const leafHandler = app.workspace.on('active-leaf-change', () => {
 			const f = app.workspace.getActiveFile();
@@ -454,6 +464,7 @@ export class WritingTimeSection {
 		watchDisconnect(container, () => {
 			app.workspace.offref(leafHandler);
 			app.workspace.offref(editorHandler);
+			removePagedEditorHandler();
 			app.vault.offref(chartModifyHandler);
 			window.clearTimeout(chartReloadTimer);
 			window.clearInterval(uiInterval);

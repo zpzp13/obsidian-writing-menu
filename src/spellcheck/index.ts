@@ -200,7 +200,7 @@ export class SpellCheckerService {
 
 		const loadingNotice = new Notice('맞춤법 검사 중...', 0);
 		try {
-			let corrections = await this.checkByDaum(body);
+			const engine = plugin.settings.spellCheckEngine ?? 'daum';
 
 			const ignoredStems = plugin.settings.spellCheckIgnoredWords ?? [];
 			corrections = corrections.filter(c =>

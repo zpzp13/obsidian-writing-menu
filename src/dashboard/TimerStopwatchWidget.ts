@@ -1,7 +1,7 @@
 import type WritingMenuPlugin from '../../main';
 import { watchDisconnect } from '../utils/domUtils';
 
-type ClockMode = 'timer' | 'stopwatch';
+export type ClockMode = 'timer' | 'stopwatch';
 
 const TIME_STEPS = [
 	{ label: '-1H', seconds: -3600 },
@@ -19,6 +19,34 @@ const TIME_STEPS = [
 
 export class TimerStopwatchWidget {
 	private static activeMode: ClockMode = 'stopwatch';
+	private static readonly modeListeners = new Set<() => void>();
+
+	static getActiveMode(): ClockMode {
+		return this.activeMode;
+	}
+
+	static subscribeMode(listener: () => void): () => void {
+		this.modeListeners.add(listener);
+		return () => this.modeListeners.delete(listener);
+	}
+
+	static getDisplayTime(plugin: WritingMenuPlugin): string {
+		return this.activeMode === 'timer'
+			? this.formatTimerTime(plugin.stopwatchManager.getCountupSeconds())
+			: plugin.formatTime(plugin.stopwatchSeconds, true);
+	}
+
+	static isRunning(plugin: WritingMenuPlugin): boolean {
+		return this.activeMode === 'timer'
+			? plugin.stopwatchManager.isCountupRunning()
+			: plugin.stopwatchInterval !== null;
+	}
+
+	private static setActiveMode(mode: ClockMode): void {
+		if (this.activeMode === mode) return;
+		this.activeMode = mode;
+		for (const listener of this.modeListeners) listener();
+	}
 
 	static render(container: HTMLElement, plugin: WritingMenuPlugin): void {
 		const widget = container.createDiv({ cls: 'wm-dash-clock-widget wm-dash-note-card' });
@@ -71,7 +99,7 @@ export class TimerStopwatchWidget {
 			const fullLabel = mode === 'timer' ? 'Timer' : 'Stopwatch';
 			const button = switcher.createEl('button', {
 				text: label,
-				attr: { type: 'button', 'aria-label': fullLabel, title: fullLabel },
+				attr: { type: 'button', 'aria-label': fullLabel },
 			});
 			modeButtons.set(mode, button);
 		}
@@ -180,7 +208,7 @@ export class TimerStopwatchWidget {
 			button.addEventListener('click', () => {
 				if (this.activeMode === mode) return;
 				for (const input of inputs) input.blur();
-				this.activeMode = mode;
+				this.setActiveMode(mode);
 				update();
 				if (mode === 'stopwatch') window.requestAnimationFrame(positionAdjustScrollAtPositiveSteps);
 			});

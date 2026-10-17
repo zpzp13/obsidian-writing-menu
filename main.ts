@@ -1,10 +1,9 @@
-import { App, Plugin, MarkdownView, WorkspaceLeaf, TFile, TFolder, TAbstractFile, Notice, Platform, EventRef, MenuItem } from 'obsidian';
+import { App, Plugin, MarkdownView, WorkspaceLeaf, TFile, TFolder, TAbstractFile, Notice, Platform, EventRef, MenuItem, normalizePath } from 'obsidian';
+import type { Editor } from 'obsidian';
 import { WhatsNewModal, getLatestReleaseNote, shouldShowWhatsNew } from './src/ui/WhatsNewModal';
 import { Compartment } from '@codemirror/state';
 import { SymbolSuggester } from './SymbolSuggester';
 import { WritingMenuSettings, DEFAULT_SETTINGS } from './src/types';
-import { MobilePreviewFloating } from './src/preview';
-import { TimeTrackingView, TIME_TRACKING_VIEW_TYPE } from './src/views/TimeTrackingView';
 import { MusicLibraryView, MUSIC_LIBRARY_VIEW_TYPE } from './src/views/MusicLibraryView';
 import { HwpExportModal, TxtExportModal, BatchExportModal } from './src/export';
 import { WritingMenuSettingTab } from './src/settings';
@@ -13,19 +12,24 @@ import { addCompactControl, addCompactToggle, addCompactStepper, addCompactSlide
 import { openDictionary } from './src/dictionary';
 import { openSpecialChars } from './src/special-chars/SpecialCharsModal';
 import { CalendarView, VIEW_TYPE_CALENDAR } from './src/calendar/views/CalendarView';
-import { PlotManagerView, PLOT_VIEW_TYPE } from './src/plot/PlotManagerView';
-import { PlotTimelineView, PLOT_TIMELINE_VIEW_TYPE } from './src/plot/PlotTimelineView';
+import { PlotWorkbookView } from './src/plot-workbook/PlotWorkbookView';
+import { PLOT_WORKBOOK_VIEW_TYPE } from './src/plot-workbook/PlotWorkbookTypes';
+import { LegacyPlotViewRedirect } from './src/plot-workbook/LegacyPlotViewRedirect';
 import { DailyCharStore } from './src/dashboard/data/DailyCharStore';
 import { stripTrackedTimeFieldsFromPaste } from './src/utils/timeUtils';
 import { MusicPlayer } from './src/dashboard/MusicPlayer';
 import { LeafStyleManager } from './src/editor/LeafStyleManager';
 import { ToolbarManager } from './src/toolbar/ToolbarManager';
 import { StopwatchManager } from './src/dashboard/StopwatchManager';
-import { StatusBarManager } from './src/ui/StatusBarManager';
 import { SpellCheckerService } from './src/spellcheck/index';
+
+const LEGACY_PLOT_VIEW_TYPE = 'writing-menu-plot-manager';
+const LEGACY_PLOT_TIMELINE_VIEW_TYPE = 'writing-menu-plot-timeline';
 import { getSmartEnterExtension, getSmartQuoteExtension, getTypewriterExtension, getTextSubstitutionExtension, getBackspaceUndoExtension, createHeadingLinkFixExtension, createSelectionExtension, createFocusExtension, updateEditorExtensions } from './src/editor/extensions';
 import { repetitionHighlightExtension } from './src/editor/repetitionHighlight';
 import { spellcheckHighlightExtension } from './src/editor/spellcheckHighlight';
+import { PagedWritingView, PAGED_WRITING_VIEW_TYPE } from './src/paged/PagedWritingView';
+import { ProjectContextService } from './src/projects/ProjectContextService';
 
 interface WritingMenuRuntimeWindow extends Window {
 	__writingMenuPluginInstance?: WritingMenuPlugin;
@@ -33,7 +37,6 @@ interface WritingMenuRuntimeWindow extends Window {
 
 export default class WritingMenuPlugin extends Plugin {
 	settings: WritingMenuSettings;
-	mobilePreviewFloating: MobilePreviewFloating;
 	charStore: DailyCharStore;
 	settingTab: WritingMenuSettingTab | null = null;
 	wikiPanelRerender: (() => void) | null = null;
@@ -61,14 +64,13 @@ export default class WritingMenuPlugin extends Plugin {
 	zenState: 'off' | 'wide' | 'focus' = 'off';
 	zenLeaf: WorkspaceLeaf | null = null;
 	zenLeafEventRef: EventRef | null = null;
-	statusBarItemEl: HTMLElement | null = null;
-	statusBarTimeEl: HTMLElement | null = null;
 	musicPlayer: MusicPlayer | null = null;
+	private readonly pagedEditorChangeListeners = new Set<(view: PagedWritingView) => void>();
 
 	leafStyleManager: LeafStyleManager;
 	toolbarManager: ToolbarManager;
 	stopwatchManager: StopwatchManager;
-	statusBarManager: StatusBarManager;
+	projectContext: ProjectContextService;
 
 	async onload() {
 		const runtimeWindow = window as WritingMenuRuntimeWindow;
@@ -90,10 +92,10 @@ export default class WritingMenuPlugin extends Plugin {
 	private async initialize() {
 		await this.loadSettings();
 
+		this.projectContext = new ProjectContextService(this);
 		this.leafStyleManager = new LeafStyleManager(this);
 		this.toolbarManager = new ToolbarManager(this);
 		this.stopwatchManager = new StopwatchManager(this);
-		this.statusBarManager = new StatusBarManager(this);
 		const staleZenMode = activeDocument.body.classList.contains('wm-focus-mode')
 			|| activeDocument.body.classList.contains('wm-wide-mode')
 			|| activeDocument.body.classList.contains('wm-has-zen-leaf');
@@ -103,7 +105,6 @@ export default class WritingMenuPlugin extends Plugin {
 		}
 
 		this.initStopwatch();
-		this.mobilePreviewFloating = new MobilePreviewFloating(this);
 
 		this.charStore = new DailyCharStore(this);
 		let initialMetadataRefreshDone = false;
@@ -133,8 +134,11 @@ export default class WritingMenuPlugin extends Plugin {
 		}));
 
 		this.registerEvent(this.app.workspace.on('file-open', () => {
+			this.updateAllToolbars();
+			this.updateEditorExtensions();
 			const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
 			if (activeView?.leaf) {
+				if (!this.shouldApplyToFile(activeView.file) && this.zenState !== 'off') this.leafStyleManager.applyZenState('off');
 				this.updateLeafStyles(activeView.leaf);
 				this.updateHrClasses(activeView.leaf);
 			}
@@ -142,6 +146,9 @@ export default class WritingMenuPlugin extends Plugin {
 
 		this.registerEvent(this.app.workspace.on('active-leaf-change', (leaf) => {
 			if (leaf) {
+				if ((leaf.view instanceof MarkdownView || leaf.view instanceof PagedWritingView)
+					&& !this.shouldApplyToFile(leaf.view.file) && this.zenState !== 'off') this.leafStyleManager.applyZenState('off');
+				if (!this.toolbarElements.has(leaf)) this.toolbarManager.addToolbarToLeaf(leaf);
 				this.updateLeafStyles(leaf);
 				this.updateHrClasses(leaf);
 			}
@@ -157,6 +164,8 @@ export default class WritingMenuPlugin extends Plugin {
 
 		this.registerEvent(this.app.workspace.on('editor-paste', (evt, editor) => {
 			if (evt.defaultPrevented) return;
+			const file = this.app.workspace.getActiveViewOfType(MarkdownView)?.file ?? null;
+			if (!this.shouldApplyToFile(file)) return;
 
 			const from = editor.getCursor('from');
 			if (from.line !== 0 || from.ch !== 0) return;
@@ -193,7 +202,7 @@ export default class WritingMenuPlugin extends Plugin {
 
 		this.registerEditorExtension(createFocusExtension(this));
 		this.registerEditorExtension(createSelectionExtension(this));
-		this.registerEditorExtension(createHeadingLinkFixExtension());
+		this.registerEditorExtension(createHeadingLinkFixExtension(this));
 		this.registerEditorExtension(repetitionHighlightExtension());
 		this.registerEditorExtension(spellcheckHighlightExtension());
 		this.registerEditorSuggest(new SymbolSuggester(this));
@@ -222,7 +231,13 @@ export default class WritingMenuPlugin extends Plugin {
 
 		this.registerEvent(
 			this.app.workspace.on('file-menu', (menu, file) => {
-				if (file instanceof TFile && file.extension === 'md') {
+				if (file instanceof TFile && file.extension === 'md' && this.projectContext.getProjectForFile(file)) {
+					menu.addItem((item) => {
+						item
+							.setTitle('여러 쪽 보기로 열기')
+							.setIcon('layout-grid')
+							.onClick(() => { void this.openPagedWritingView(file); });
+					});
 					if (Platform.isDesktop) {
 						menu.addItem((item) => {
 							item
@@ -299,11 +314,6 @@ export default class WritingMenuPlugin extends Plugin {
 		);
 
 		this.registerView(
-			TIME_TRACKING_VIEW_TYPE,
-			(leaf) => new TimeTrackingView(leaf, this)
-		);
-
-		this.registerView(
 			VIEW_TYPE_CALENDAR,
 			(leaf) => new CalendarView(leaf, this)
 		);
@@ -314,73 +324,69 @@ export default class WritingMenuPlugin extends Plugin {
 		);
 
 		this.registerView(
-			PLOT_VIEW_TYPE,
-			(leaf) => new PlotManagerView(leaf, this)
+			PLOT_WORKBOOK_VIEW_TYPE,
+			(leaf) => new PlotWorkbookView(leaf, this)
 		);
+		this.registerView(
+			LEGACY_PLOT_VIEW_TYPE,
+			(leaf) => new LegacyPlotViewRedirect(leaf, LEGACY_PLOT_VIEW_TYPE),
+		);
+		this.registerView(
+			LEGACY_PLOT_TIMELINE_VIEW_TYPE,
+			(leaf) => new LegacyPlotViewRedirect(leaf, LEGACY_PLOT_TIMELINE_VIEW_TYPE),
+		);
+		this.app.workspace.onLayoutReady(() => { void this.migrateLegacyPlotViews(); });
 
 		this.registerView(
-			PLOT_TIMELINE_VIEW_TYPE,
-			(leaf) => new PlotTimelineView(leaf, this)
+			PAGED_WRITING_VIEW_TYPE,
+			(leaf) => new PagedWritingView(leaf, this)
 		);
 
 		this.addCommand({
-			id: 'toggle-plot-manager',
-			name: '플롯 매니저 열기/닫기',
-			callback: () => { void this.togglePlotManagerView(); }
+			id: 'open-paged-writing-view',
+			name: '여러 쪽 보기',
+			checkCallback: (checking) => {
+				const file = this.app.workspace.getActiveFile();
+				if (!file || file.extension !== 'md' || !this.projectContext.getProjectForFile(file)) return false;
+				if (!checking) void this.openPagedWritingView(file);
+				return true;
+			},
 		});
 
 		this.addCommand({
-			id: 'toggle-plot-timeline',
-			name: '플롯 타임라인 사이드바 열기/닫기',
-			callback: () => { void this.togglePlotTimelineView(); }
+			id: 'toggle-plot-manager',
+			name: '플롯 매니저',
+			callback: () => { void this.togglePlotWorkbookView(); }
 		});
 
 		this.addCommand({
 			id: 'toggle-dashboard-view',
-			name: '대시보드 열기/닫기',
+			name: '대시보드',
 			callback: () => this.toggleCalendarView(),
 		});
 
 		this.addRibbonIcon('layout-dashboard', '대시보드', () => this.toggleCalendarView());
 
 		this.addCommand({
-			id: 'toggle-time-tracking-sidebar',
-			name: '작업 시간 사이드바 열기/닫기',
-			callback: () => {
-				void this.toggleTimeTrackingSidebar();
-			}
-		});
-
-		this.addCommand({
-			id: 'save-version',
-			name: '버전 저장',
-			editorCallback: async (editor, ctx) => {
-				const file = ctx.file;
-				if (!file) return;
-				const { VersionManager } = await import('./src/version/manager');
-				const manager = new VersionManager(this.app, this);
-				const now = new Date();
-				const name = `${now.getMonth() + 1}/${now.getDate()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-				await manager.saveVersion(file, name, editor.getValue());
-				new Notice(`버전 "${name}"이 저장되었습니다.`);
-			}
-		});
-
-		this.addCommand({
 			id: 'copy-without-excluded',
-			name: '복사하기 (헤딩·각주 제외)',
+			name: '복사하기',
 			callback: async () => {
-				const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (activeView?.leaf) await this.copyWithOptions(activeView.leaf);
+				const activeLeaf = this.app.workspace.activeLeaf;
+				if (activeLeaf?.view instanceof MarkdownView || activeLeaf?.view instanceof PagedWritingView) {
+					await this.copyWithOptions(activeLeaf);
+				}
 			}
 		});
 
 		this.addCommand({
 			id: 'run-spell-check',
 			name: '맞춤법 검사',
-			editorCallback: (editor) => {
-				new SpellCheckerService().run(editor, this).catch(() => {});
-			}
+			checkCallback: checking => {
+				const editor = this.getActiveWritingEditor();
+				if (!editor) return false;
+				if (!checking) new SpellCheckerService().run(editor, this).catch(() => {});
+				return true;
+			},
 		});
 
 		this.addCommand({
@@ -396,26 +402,20 @@ export default class WritingMenuPlugin extends Plugin {
 		});
 
 		this.addCommand({
-			id: 'exit-zen-mode',
-			name: '집중/길게 보기 강제 해제',
-			callback: () => { this.applyZenState('off'); },
-		});
-
-		this.addCommand({
 			id: 'hanja-convert',
-			name: '사전 / 한자 변환',
-			callback: () => openDictionary(this),
+			name: '국어사전',
+			callback: () => openDictionary(this, this.getActiveWritingEditor()),
 		});
 
 		this.addCommand({
 			id: 'special-chars',
 			name: '특수문자',
-			callback: () => openSpecialChars(this),
+			callback: () => openSpecialChars(this, this.getActiveWritingEditor()),
 		});
 
 		this.addCommand({
 			id: 'wiki-folder-picker',
-			name: '옵시위키: 폴더·노트 선택',
+			name: '노트를 위키에서 보기',
 			callback: async () => {
 				let leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CALENDAR);
 				if (leaves.length === 0) {
@@ -431,34 +431,6 @@ export default class WritingMenuPlugin extends Plugin {
 				(leaf.view as CalendarView).activateWikiPicker();
 			},
 		});
-
-		this.addCommand({
-			id: 'toggle-mobile-preview',
-			name: '모바일 미리보기',
-			callback: () => {
-				if (this.mobilePreviewFloating.isOpen()) this.mobilePreviewFloating.close();
-				else this.mobilePreviewFloating.open();
-			}
-		});
-
-		this.registerEvent(this.app.workspace.on('active-leaf-change', () => {
-			if (this.mobilePreviewFloating.isOpen()) this.mobilePreviewFloating.scheduleRefresh(600);
-		}));
-		this.registerEvent(this.app.vault.on('modify', () => {
-			if (this.mobilePreviewFloating.isOpen()) this.mobilePreviewFloating.scheduleRefresh(400);
-		}));
-
-		// Status bar: stopwatch tag button
-		const statusBarItem = this.addStatusBarItem();
-		statusBarItem.addClass('wm-status-bar-item');
-		statusBarItem.setCssStyles({ display: 'none' });
-		this.statusBarItemEl = statusBarItem;
-		this.statusBarTimeEl = statusBarItem.createEl('span', { cls: 'wm-status-time' });
-		statusBarItem.addEventListener('click', (e) => {
-			e.stopPropagation();
-			this.toggleStatusPopup(statusBarItem);
-		});
-		this.updateStatusBarDisplay();
 
 		activeDocument.addEventListener('fullscreenchange', () => {
 			if (activeDocument.fullscreenElement) {
@@ -541,27 +513,49 @@ export default class WritingMenuPlugin extends Plugin {
 	}
 
 
-	async togglePlotManagerView() {
-		const leaves = this.app.workspace.getLeavesOfType(PLOT_VIEW_TYPE);
-		if (leaves.length > 0) {
-			leaves.forEach(leaf => leaf.detach());
-		} else {
-			const leaf = this.app.workspace.getLeaf('tab');
-			await leaf.setViewState({ type: PLOT_VIEW_TYPE, active: true });
-		}
+	async openPlotManagerInNewTab() {
+		const leaf = this.app.workspace.getLeaf('tab');
+		await leaf.setViewState({ type: PLOT_WORKBOOK_VIEW_TYPE, active: true });
+		await this.app.workspace.revealLeaf(leaf);
 	}
 
-	async togglePlotTimelineView() {
-		const leaves = this.app.workspace.getLeavesOfType(PLOT_TIMELINE_VIEW_TYPE);
-		if (leaves.length > 0) {
-			leaves.forEach(leaf => leaf.detach());
-		} else {
-			const leaf = this.app.workspace.getLeftLeaf(false);
-			if (leaf) {
-				await leaf.setViewState({ type: PLOT_TIMELINE_VIEW_TYPE, active: true });
-				await this.app.workspace.revealLeaf(leaf);
-			}
+	private async migrateLegacyPlotViews(): Promise<void> {
+		for (const leaf of this.app.workspace.getLeavesOfType(LEGACY_PLOT_VIEW_TYPE)) {
+			await leaf.setViewState({ type: PLOT_WORKBOOK_VIEW_TYPE, active: false });
 		}
+		this.app.workspace.getLeavesOfType(LEGACY_PLOT_TIMELINE_VIEW_TYPE).forEach(leaf => leaf.detach());
+	}
+
+	async togglePlotWorkbookView() {
+		const leaves = this.app.workspace.getLeavesOfType(PLOT_WORKBOOK_VIEW_TYPE);
+		if (leaves.length > 0) {
+			await this.app.workspace.revealLeaf(leaves[0]);
+			return;
+		}
+		const leaf = this.app.workspace.getLeaf('tab');
+		await leaf.setViewState({ type: PLOT_WORKBOOK_VIEW_TYPE, active: true });
+		await this.app.workspace.revealLeaf(leaf);
+	}
+
+	async openPagedWritingView(file: TFile) {
+		if (!this.projectContext.getProjectForFile(file)) return;
+		const existing = this.app.workspace.getLeavesOfType(PAGED_WRITING_VIEW_TYPE)
+			.find(leaf => leaf.view instanceof PagedWritingView && leaf.view.file?.path === file.path);
+		if (existing) {
+			await this.app.workspace.revealLeaf(existing);
+			return;
+		}
+
+		const activeLeaf = this.app.workspace.activeLeaf;
+		const leaf = activeLeaf?.view instanceof MarkdownView && activeLeaf.view.file?.path === file.path
+			? activeLeaf
+			: this.app.workspace.getLeaf('tab');
+		await leaf.setViewState({
+			type: PAGED_WRITING_VIEW_TYPE,
+			state: { file: file.path },
+			active: true,
+		});
+		await this.app.workspace.revealLeaf(leaf);
 	}
 
 	async toggleCalendarView() {
@@ -577,35 +571,21 @@ export default class WritingMenuPlugin extends Plugin {
 		}
 	}
 
-	async openFileInWiki(file: import('obsidian').TFile) {
-		let leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CALENDAR);
-		if (leaves.length === 0) {
-			const leaf = this.app.workspace.getRightLeaf(false);
-			if (!leaf) return;
+	async openFileInWiki(
+		file: import('obsidian').TFile,
+		target: 'tab' | 'current' | 'sidebar' = 'sidebar',
+	) {
+		const leaf = target === 'sidebar'
+			? this.app.workspace.getRightLeaf(false)
+			: target === 'tab'
+				? this.app.workspace.getLeaf('tab')
+				: (this.app.workspace.activeLeaf ?? this.app.workspace.getLeaf(false));
+		if (!leaf) return;
+		if (leaf.view.getViewType() !== VIEW_TYPE_CALENDAR) {
 			await leaf.setViewState({ type: VIEW_TYPE_CALENDAR, active: true });
-			await this.app.workspace.revealLeaf(leaf);
-			leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CALENDAR);
-		} else {
-			await this.app.workspace.revealLeaf(leaves[0]);
 		}
-		if (leaves.length === 0) return;
-		(leaves[0].view as CalendarView).openFileInWiki(file);
-	}
-
-	async toggleTimeTrackingSidebar() {
-		const leaves = this.app.workspace.getLeavesOfType(TIME_TRACKING_VIEW_TYPE);
-		if (leaves.length > 0) {
-			leaves.forEach(leaf => leaf.detach());
-		} else {
-			const leaf = this.app.workspace.getRightLeaf(false);
-			if (leaf) {
-				await leaf.setViewState({
-					type: TIME_TRACKING_VIEW_TYPE,
-					active: true
-				});
-				await this.app.workspace.revealLeaf(leaf);
-			}
-		}
+		await this.app.workspace.revealLeaf(leaf);
+		if (leaf.view instanceof CalendarView) leaf.view.openFileInWiki(file);
 	}
 
 	async openMusicLibrarySidebar() {
@@ -626,6 +606,7 @@ export default class WritingMenuPlugin extends Plugin {
 			delete runtimeWindow.__writingMenuPluginInstance;
 		}
 		this.stopwatchManager?.destroy();
+		this.toolbarManager?.destroy();
 		this.charStore?.destroy();
 		this.musicPlayer?.destroy();
 		this.musicPlayer = null;
@@ -642,8 +623,9 @@ export default class WritingMenuPlugin extends Plugin {
 		this.headerCharCountElements.forEach((el) => el.remove());
 		this.headerCharCountElements.clear();
 		this.charCountElements.clear();
+		this.pagedEditorChangeListeners.clear();
 		this.leafStyleVersions.forEach((_, leaf) => {
-			if (leaf.view instanceof MarkdownView) {
+			if (leaf.view instanceof MarkdownView || leaf.view instanceof PagedWritingView) {
 				leaf.view.containerEl.removeAttribute('data-writing-menu-id');
 			}
 		});
@@ -660,7 +642,6 @@ export default class WritingMenuPlugin extends Plugin {
 			this.app.workspace.offref(this.zenLeafEventRef);
 			this.zenLeafEventRef = null;
 		}
-		this.mobilePreviewFloating?.close();
 	}
 
 	formatTime(seconds: number, showHoursWhenNeeded: boolean = false): string {
@@ -675,8 +656,42 @@ export default class WritingMenuPlugin extends Plugin {
 
 
 	async loadSettings() {
-		const savedData = await this.loadData() as Partial<WritingMenuSettings>;
+		const savedData = await this.loadData() as Partial<WritingMenuSettings> & { showTimeInStatusBar?: boolean };
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, savedData);
+		const obsoleteSettings = this.settings as unknown as Record<string, unknown>;
+		const currentTheme = activeDocument.body.classList.contains('theme-dark') ? 'dark' : 'light';
+		for (const key of ['pagedLastTextColor', 'pagedLastBackgroundColor'] as const) {
+			const value = obsoleteSettings[key];
+			if (typeof value === 'string') continue;
+			if (value && typeof value === 'object' && !Array.isArray(value)) {
+				const candidate = (value as Record<string, unknown>)[currentTheme];
+				obsoleteSettings[key] = typeof candidate === 'string' ? candidate : '';
+			} else obsoleteSettings[key] = '';
+		}
+		delete obsoleteSettings.calendarPreviewItems;
+		delete obsoleteSettings.timeAvgFolderLevel;
+		delete obsoleteSettings.plotCharFolder;
+		delete obsoleteSettings.plotCharNoteTemplate;
+		delete obsoleteSettings.plotHiddenCharIds;
+		delete obsoleteSettings.plotCharNoteOpenMode;
+		delete obsoleteSettings.plotLinkOpenMode;
+		delete obsoleteSettings.plotSortPageSize;
+		delete obsoleteSettings.plotCellWidth;
+		delete obsoleteSettings.wikiDefaultGroupField;
+		delete obsoleteSettings.enableStopwatchAlarm;
+		if (savedData.showMunpiaWidget === undefined && savedData.showNovelpiaWidget === undefined) {
+			this.settings.showMunpiaWidget = this.settings.charCountMode !== 'novelpia';
+			this.settings.showNovelpiaWidget = this.settings.charCountMode === 'novelpia';
+		}
+		if (savedData.showTimerWidget === undefined) {
+			this.settings.showTimerWidget = savedData.showTimeInStatusBar === true;
+		}
+		const widgetOrder = this.settings.writingWidgetOrder ?? [];
+		this.settings.writingWidgetOrder = ['munpia', 'novelpia', 'timer']
+			.filter(id => widgetOrder.includes(id as 'munpia' | 'novelpia' | 'timer'))
+			.concat(['munpia', 'novelpia', 'timer'].filter(id => !widgetOrder.includes(id as 'munpia' | 'novelpia' | 'timer'))) as WritingMenuSettings['writingWidgetOrder'];
+		delete savedData.showTimeInStatusBar;
+		delete (this.settings as WritingMenuSettings & { showTimeInStatusBar?: boolean }).showTimeInStatusBar;
 		const legacyAiSettings = this.settings as WritingMenuSettings & {
 			aiChatCerebrasApiKey?: string;
 			zenWideEnabled?: boolean;
@@ -727,6 +742,20 @@ export default class WritingMenuPlugin extends Plugin {
 		}
 		if (!this.settings.customFonts) this.settings.customFonts = [];
 
+		let projectSettingsMigrated = false;
+		this.settings.projects = Array.isArray(savedData.projects)
+			? savedData.projects.map((project, index) => ({
+				id: project.id || `project-${index + 1}`,
+				name: project.name?.trim() || project.rootFolder?.split('/').pop() || `프로젝트 ${index + 1}`,
+				rootFolder: normalizePath(project.rootFolder ?? '').replace(/^\/+|\/+$/g, ''),
+				manuscriptFolder: normalizePath(project.manuscriptFolder ?? '').replace(/^\/+|\/+$/g, ''),
+				characterFolder: normalizePath(project.characterFolder ?? '').replace(/^\/+|\/+$/g, ''),
+				statisticsEnabled: project.statisticsEnabled !== false,
+				statisticsFolders: Array.isArray(project.statisticsFolders) ? project.statisticsFolders : [],
+				statisticsExcludeFolders: Array.isArray(project.statisticsExcludeFolders) ? project.statisticsExcludeFolders : [],
+			}))
+			: [];
+
 		// trackingFolder 마이그레이션: heatmapFolder + timeTrackingFolder → trackingFolder
 		if (!this.settings.trackingFolder) {
 			// @ts-ignore
@@ -740,6 +769,25 @@ export default class WritingMenuPlugin extends Plugin {
 			delete this.settings.heatmapFolder;
 			void this.saveSettings();
 		}
+		if (this.settings.projects.length === 0 && this.settings.trackingFolder.trim()) {
+			const rootFolder = normalizePath(this.settings.trackingFolder).replace(/^\/+|\/+$/g, '');
+			this.settings.projects.push({
+				id: 'legacy-tracking-project',
+				name: rootFolder.split('/').pop() || '프로젝트',
+				rootFolder,
+				manuscriptFolder: '',
+				characterFolder: '',
+				statisticsEnabled: true,
+				statisticsFolders: [],
+				statisticsExcludeFolders: [...(this.settings.timeExcludeFolders ?? [])],
+			});
+			projectSettingsMigrated = true;
+		}
+		if (savedData.restrictStatisticsToProjects === undefined) {
+			this.settings.restrictStatisticsToProjects = true;
+			projectSettingsMigrated = true;
+		}
+		if (projectSettingsMigrated) void this.saveSettings();
 
 		// timeModes 마이그레이션: 구버전 timeKeys/timeGoals → timeModes
 		if (!this.settings.timeModes?.length && this.settings.timeKeys) {
@@ -788,7 +836,8 @@ export default class WritingMenuPlugin extends Plugin {
 		this.updateEditorExtensions();
 		this.updateAllLeafStyles();
 		this.updateDynamicStyles();
-		this.updateStatusBarDisplay();
+		this.toolbarManager.updateAllToolbars();
+		this.toolbarManager.refreshAllToolbars();
 	}
 
 	async refreshDashboardView() {
@@ -798,6 +847,25 @@ export default class WritingMenuPlugin extends Plugin {
 				(leaf.view as unknown as { render?: () => void }).render?.();
 			}
 		});
+	}
+
+	getActiveWritingEditor(): Editor | null {
+		const view = this.app.workspace.activeLeaf?.view;
+		if ((view instanceof MarkdownView || view instanceof PagedWritingView) && !this.shouldApplyToFile(view.file)) return null;
+		if (view instanceof MarkdownView) return view.editor;
+		if (view instanceof PagedWritingView) return view.getEditorAdapter();
+		return null;
+	}
+
+	notifyPagedEditorChanged(view: PagedWritingView): void {
+		this.lastTypedAt = Date.now();
+		this.updateCharCountDebounced(view.leaf);
+		for (const listener of this.pagedEditorChangeListeners) listener(view);
+	}
+
+	onPagedEditorChange(listener: (view: PagedWritingView) => void): () => void {
+		this.pagedEditorChangeListeners.add(listener);
+		return () => this.pagedEditorChangeListeners.delete(listener);
 	}
 
 	// ── LeafStyleManager wrappers ──
@@ -830,12 +898,7 @@ export default class WritingMenuPlugin extends Plugin {
 	stopStopwatch() { this.stopwatchManager.stopStopwatch(); }
 	resetStopwatch() { this.stopwatchManager.resetStopwatch(); }
 	updateStopwatchDisplay() { this.stopwatchManager.updateStopwatchDisplay(); }
-	buildStatusPopup(container: HTMLElement) { this.stopwatchManager.buildStatusPopup(container); }
 	playAlarm() { this.stopwatchManager.playAlarm(); }
-
-	// ── StatusBarManager wrappers ──
-	updateStatusBarDisplay() { this.statusBarManager.updateStatusBarDisplay(); }
-	toggleStatusPopup(anchor: HTMLElement) { this.statusBarManager.toggleStatusPopup(anchor); }
 
 	// ── ToolbarManager wrappers ──
 	updateAllToolbars() { this.toolbarManager.updateAllToolbars(); }
@@ -883,10 +946,4 @@ export default class WritingMenuPlugin extends Plugin {
 		(this.app as AppWithSettings).setting?.openTabById(this.manifest.id);
 	}
 
-	openPlotSettings() {
-		interface AppWithSettings extends App { setting?: { open(): void; openTabById(id: string): void } }
-		(this.app as AppWithSettings).setting?.open();
-		(this.app as AppWithSettings).setting?.openTabById(this.manifest.id);
-		window.setTimeout(() => this.settingTab?.renderPage('plot'), 50);
-	}
 }

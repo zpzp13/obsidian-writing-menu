@@ -17,14 +17,36 @@ export interface TextSubstitution {
 	enabled: boolean;
 }
 
-export interface PreviewTypography {
-	fontFamily: string;
-	fontSize: number;
-	lineHeight: number;
-	paragraphSpacing: number;
-	indentation: number;
-	bgColor: string;
-	textColor: string;
+export type WritingWidgetId = 'munpia' | 'novelpia' | 'timer';
+
+export type ColorThemeMode = 'light' | 'dark';
+
+export interface ThemeColorPair {
+	light: string;
+	dark: string;
+}
+
+export type ThemeAwareColor = string | ThemeColorPair;
+
+export interface PagedTextColorRange {
+	from: number;
+	to: number;
+	color: string;
+}
+
+export type PagedInlineFormatKind = 'bold' | 'italic' | 'underline' | 'strikethrough';
+
+export interface PagedInlineFormatRange {
+	from: number;
+	to: number;
+	kind: PagedInlineFormatKind;
+}
+
+export type PagedParagraphAlignmentValue = 'left' | 'center' | 'right' | 'justify';
+
+export interface PagedParagraphAlignment {
+	from: number;
+	align: PagedParagraphAlignmentValue;
 }
 
 export interface TimeModeConfig {
@@ -42,9 +64,25 @@ export interface DeadlineSchedule {
 	time: string;
 }
 
+export interface WritingProject {
+	id: string;
+	name: string;
+	rootFolder: string;
+	/** 플롯 매니저에서 새 본문 노트를 만들 기본 폴더. */
+	manuscriptFolder: string;
+	/** 플롯 매니저와 위키에서 인물 노트를 찾고 만들 기본 폴더. */
+	characterFolder: string;
+	statisticsEnabled: boolean;
+	/** 통계를 집계할 볼트 기준 폴더. 비어 있으면 프로젝트 루트 전체를 사용합니다. */
+	statisticsFolders: string[];
+	/** 통계에서 제외할 볼트 기준 폴더. */
+	statisticsExcludeFolders: string[];
+}
+
 export interface WritingMenuSettings {
 	fontFamily: string;
 	customFonts: string[];
+	fontWeight: number;
 	fontSize: number;
 	fontColor: string | { light: string; dark: string };
 	lineHeight: number;
@@ -53,6 +91,23 @@ export interface WritingMenuSettings {
 	lineWidth: number;
 	inlinePadding: number;
 	backgroundColor: string | { light: string; dark: string };
+	pagedPageWidth: number;
+	pagedPageHeight: number;
+	pagedMarginTop: number;
+	pagedMarginRight: number;
+	pagedMarginBottom: number;
+	pagedMarginLeft: number;
+	pagedTextColors: Record<string, PagedTextColorRange[]>;
+	pagedTextBackgrounds: Record<string, PagedTextColorRange[]>;
+	pagedInlineFormats: Record<string, PagedInlineFormatRange[]>;
+	pagedParagraphAlignments: Record<string, PagedParagraphAlignment[]>;
+	pagedDefaultAlignment: PagedParagraphAlignmentValue;
+	pagedLastTextColor: string;
+	pagedLastBackgroundColor: string;
+	plotWorkbookLastTextColor: ThemeAwareColor;
+	plotWorkbookLastBackgroundColor: ThemeAwareColor;
+	plotCharacterLinkOpenMode: 'tab' | 'current' | 'sidebar';
+	plotCharacterLinkFormat: 'markdown' | 'wiki';
 	applyToFolder: string;
 	disableLinkColor: boolean;
 	hrEnabled: boolean;
@@ -74,13 +129,17 @@ export interface WritingMenuSettings {
 	enableTextSubstitution: boolean;
 	textSubstitutions: TextSubstitution[];
 	charCountMode: 'munpia' | 'novelpia';
+	showMunpiaWidget: boolean;
+	showNovelpiaWidget: boolean;
+	showTimerWidget: boolean;
+	writingWidgetOrder: WritingWidgetId[];
+	markdownToolbarAutoHide: boolean;
+	pagedToolbarAutoHide: boolean;
 	statCardDisplay: 'munpia' | 'novelpia' | 'both';
 	dashboardCharRange: '7' | '30' | '90' | '365';
 	enableTimeTracking: boolean;
-	showTimeInStatusBar: boolean;
 	currentTimeMode: string;
 	stopwatchMinutes: number;
-	enableStopwatchAlarm: boolean;
 	stopwatchAlarmSound: 'bell' | 'chime' | 'beep' | 'ding' | 'gong';
 	hwpExportPath: string;
 	hwpTemplatePath: string;
@@ -96,7 +155,6 @@ export interface WritingMenuSettings {
 	footnoteColor: string;
 	copyExcludeHeadings: boolean;
 	copyExcludeFootnotes: boolean;
-	previewTypography: PreviewTypography;
 	stdictApiKey: string;
 	hanjaBracketMode: boolean;
 	recentSearches: string[];
@@ -104,6 +162,9 @@ export interface WritingMenuSettings {
 	versionMaxCount: number;
 	versionStages: { name: string; color: string }[];
 	versionToolbarAutoHide: boolean;
+	projects: WritingProject[];
+	restrictStatisticsToProjects: boolean;
+	/** @deprecated 다중 프로젝트 마이그레이션을 위해 당분간 유지합니다. */
 	trackingFolder: string;
 	dailyNotesFolder: string;
 	dailyNotesFormat: string;
@@ -112,7 +173,6 @@ export interface WritingMenuSettings {
 	dailyCharCountKey: string;
 	timeModes: TimeModeConfig[];
 	timeTotalKey: string;
-	timeAvgFolderLevel: number;
 	timeExcludeFolders?: string[];
 	timeCardPalette?: 'accent' | 'solid' | 'pastel' | 'mono';
 	deadlineSchedule: DeadlineSchedule;
@@ -137,7 +197,6 @@ export interface WritingMenuSettings {
 	/** 관계 strip 목록화에 사용할 프론트매터 키들 (쉼표 구분, 예: "조력자, 적대자") */
 	wikiRelationFields: string;
 	wikiSavedViews: WikiSavedView[];
-	wikiDefaultGroupField: string;
 	wikiCustomGroups: WikiGroupRule[];
 	wikiSortRules: SortRule[];
 	wikiOpenLinksInWiki: boolean;
@@ -157,27 +216,13 @@ export interface WritingMenuSettings {
 	wikiGraphRelationLabelColors: Record<string, string>;
 	wikiGraphRelationVisibilityScale: number;
 	wikiToolbarAutoHide: boolean;
-	calendarPreviewItems: {
-		tasks: boolean;
-		charCount: boolean;
-		avgCharCount: boolean;
-		timeModes: boolean;
-		totalTime: boolean;
-	};
 	// ── Special Chars ──────────────────────────────────────────────────────────
 	specialCharCloseOnInsert: boolean;
 	specialCharFavorites: string[];
 	specialCharCustom: { char: string; desc: string }[];
-	// ── Plot Manager ───────────────────────────────────────────────────────────
+	// ── Legacy plot import (kept so existing users can migrate safely) ─────────
 	plotManagerFolder: string;
 	plotDataFolder: string;
-	plotCharFolder: string;
-	plotCharNoteTemplate: string;
-	plotHiddenCharIds: string[];
-	plotCharNoteOpenMode: 'current' | 'tab' | 'window';
-	plotLinkOpenMode: 'current' | 'tab' | 'window';
-	plotSortPageSize: number;
-	plotCellWidth: number;
 	// ── Spell Check ────────────────────────────────────────────────────────────
 	spellCheckIgnoredWords: string[];
 	// ── AI 챗 ──────────────────────────────────────────────────────────────────
@@ -227,6 +272,7 @@ export interface DashSectionConfig {
 export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	fontFamily: 'inherit',
 	customFonts: [],
+	fontWeight: 400,
 	fontSize: 16,
 	fontColor: 'inherit',
 	lineHeight: 1.5,
@@ -235,6 +281,23 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	lineWidth: 700,
 	inlinePadding: 40,
 	backgroundColor: 'transparent',
+	pagedPageWidth: 794,
+	pagedPageHeight: 1123,
+	pagedMarginTop: 76,
+	pagedMarginRight: 72,
+	pagedMarginBottom: 76,
+	pagedMarginLeft: 72,
+	pagedTextColors: {},
+	pagedTextBackgrounds: {},
+	pagedInlineFormats: {},
+	pagedParagraphAlignments: {},
+	pagedDefaultAlignment: 'left',
+	pagedLastTextColor: '',
+	pagedLastBackgroundColor: '',
+	plotWorkbookLastTextColor: { light: '#202020', dark: '#f1f1f1' },
+	plotWorkbookLastBackgroundColor: { light: '#fef3c7', dark: '#514719' },
+	plotCharacterLinkOpenMode: 'sidebar',
+	plotCharacterLinkFormat: 'wiki',
 	applyToFolder: '',
 	disableLinkColor: false,
 	hrEnabled: false,
@@ -277,13 +340,17 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 		{ from: '>=', to: '≥', enabled: true },
 	],
 	charCountMode: 'munpia',
+	showMunpiaWidget: true,
+	showNovelpiaWidget: false,
+	showTimerWidget: false,
+	writingWidgetOrder: ['munpia', 'novelpia', 'timer'],
+	markdownToolbarAutoHide: false,
+	pagedToolbarAutoHide: false,
 	statCardDisplay: 'both',
 	dashboardCharRange: '30',
 	enableTimeTracking: true,
-	showTimeInStatusBar: false,
 	currentTimeMode: 'draft',
 	stopwatchMinutes: 25,
-	enableStopwatchAlarm: true,
 	stopwatchAlarmSound: 'bell',
 	hwpExportPath: '',
 	hwpTemplatePath: '',
@@ -310,15 +377,8 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 		{ name: '연출', color: '#c8a8f0' },
 	],
 	versionToolbarAutoHide: false,
-	previewTypography: {
-		fontFamily: 'inherit',
-		fontSize: 16,
-		lineHeight: 1.8,
-		paragraphSpacing: 1,
-		indentation: 0,
-		bgColor: 'var(--background-primary)',
-		textColor: 'var(--text-normal)',
-	},
+	projects: [],
+	restrictStatisticsToProjects: true,
 	trackingFolder: '',
 	dailyNotesFolder: '',
 	dailyNotesFormat: 'YYYY-MM-DD',
@@ -331,7 +391,6 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 		{ id: 'editing', label: '퇴고', icon: 'spell-check',  frontmatterKey: '퇴고_시간', goalSeconds: 7200 },
 	],
 	timeTotalKey: '총_시간',
-	timeAvgFolderLevel: 0,
 	timeExcludeFolders: [],
 	deadlineSchedule: { weekdays: [], time: '10:00' },
 	dashboardSections: [
@@ -356,7 +415,6 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	wikiColoredProperties: '',
 	wikiRelationFields: '',
 	wikiSavedViews: [],
-	wikiDefaultGroupField: 'None',
 	wikiCustomGroups: [],
 	wikiSortRules: [],
 	wikiOpenLinksInWiki: false,
@@ -376,25 +434,12 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	wikiGraphRelationLabelColors: {},
 	wikiGraphRelationVisibilityScale: 0.72,
 	wikiToolbarAutoHide: false,
-	calendarPreviewItems: {
-		tasks: true,
-		charCount: true,
-		avgCharCount: true,
-		timeModes: true,
-		totalTime: true,
-	},
 	specialCharCloseOnInsert: true,
 	specialCharFavorites: [],
 	specialCharCustom: [],
 	plotManagerFolder: '',
 	plotDataFolder: '',
-	plotCharFolder: '',
-	plotCharNoteTemplate: '',
-	plotHiddenCharIds: [],
-	plotCharNoteOpenMode: 'tab',
-	plotLinkOpenMode: 'tab',
-	plotSortPageSize: 5,
-	plotCellWidth: 200,
+	spellCheckEngine: 'daum',
 	spellCheckIgnoredWords: [],
 	aiChatApiKey: '',
 	aiChatGeminiApiKey: '',
