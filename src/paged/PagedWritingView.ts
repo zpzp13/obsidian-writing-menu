@@ -24,6 +24,7 @@ import { PaginationEngine } from './PaginationEngine';
 import { closestParagraph, closestTextRun, getTextRuns, logicalTextLength, renderPagedText, serializePagedText } from './textLayout';
 import { DEFAULT_PAGE_GEOMETRY, type PageGeometry, type PageRange } from './types';
 import { CSS_PX_PER_MM as PX_PER_MM } from '../utils/typography';
+import { createPagedEditorContextMenu } from './PagedEditorContextMenu';
 
 export const PAGED_WRITING_VIEW_TYPE = 'writing-menu-paged-writing';
 
@@ -1338,6 +1339,7 @@ export class PagedWritingView extends TextFileView {
 		this.editRootEl.addEventListener('copy', this.handleCopy);
 		this.editRootEl.addEventListener('cut', this.handleCut);
 		this.editRootEl.addEventListener('paste', this.handlePaste);
+		this.editRootEl.addEventListener('contextmenu', this.handleContextMenu);
 		this.editRootEl.addEventListener('compositionstart', this.handleCompositionStart);
 		this.editRootEl.addEventListener('compositionend', this.handleCompositionEnd);
 		this.editRootEl.addEventListener('pointerdown', this.handlePointerDown);
@@ -1903,7 +1905,61 @@ export class PagedWritingView extends TextFileView {
 		);
 	};
 
+	private readonly handleContextMenu = (event: MouseEvent): void => {
+		if (this.composing || !this.file || !this.editRootEl) return;
+		event.preventDefault();
+		const selection = { ...(this.readSelection() ?? this.cachedSelection) };
+		this.cachedSelection = selection;
+		const file = this.file;
+		const source = this.getEditableData();
+		const doc = this.editRootEl.ownerDocument;
+		const editor = this.getEditorAdapter();
+		const restore = (): boolean => {
+			if (this.file !== file || this.getEditableData() !== source || !this.editRootEl?.isConnected) {
+				new Notice('문서가 변경되었습니다. 편집할 위치를 다시 선택해 주세요.');
+				return false;
+			}
+			this.cachedSelection = { ...selection };
+			this.restoreSelection(selection, true);
+			return true;
+		};
+		const clipboard = doc.defaultView?.navigator.clipboard;
+		const menu = createPagedEditorContextMenu({
+			editor, canUndo: this.undoStack.length > 0, canRedo: this.redoStack.length > 0,
+			undo: () => { if (restore()) this.undo(); },
+			redo: () => { if (restore()) this.redo(); },
+			copy: async cut => {
+				try {
+					if (!clipboard) throw new Error('Clipboard unavailable');
+					const from = Math.min(selection.anchor, selection.head), to = Math.max(selection.anchor, selection.head);
+					await clipboard.writeText(source.slice(from, to));
+					if (cut && restore()) this.applyEdit(from, to, '', 'cut');
+				} catch { new Notice('클립보드에 복사하지 못했습니다.'); }
+			},
+			paste: async () => {
+				try {
+					if (!clipboard) throw new Error('Clipboard unavailable');
+					const text = await clipboard.readText();
+					if (restore()) this.applyEdit(Math.min(selection.anchor, selection.head), Math.max(selection.anchor, selection.head), text.replace(/\r\n?/g, '\n'), 'paste');
+				} catch { new Notice('클립보드를 읽지 못했습니다. Ctrl/Cmd+V로 붙여넣어 주세요.'); }
+			},
+			toggleFormat: kind => { if (restore()) this.toggleFormatFromToolbar(kind); },
+			selectAll: () => { if (restore()) editor.setSelection({ line:0, ch:0 }, editor.offsetToPos(source.length)); },
+			find: () => this.openFindBar(),
+			extend: menu => this.app.workspace.trigger('editor-menu', menu, editor, { app:this.app, file, editor, hoverPopover:null }),
+		});
+		menu.showAtMouseEvent(event);
+	};
+
 	private readonly handlePointerDown = (event: PointerEvent): void => {
+		if (event.button !== 0) {
+			const selection = this.readSelection();
+			if (selection && selection.anchor !== selection.head) {
+				this.cachedSelection = selection;
+				event.preventDefault();
+			}
+			return;
+		}
 		this.dismissAutocomplete();
 		const target = event.target as Element | null;
 		const shell = target?.closest<HTMLElement>('.wm-paged-page-shell');

@@ -1,0 +1,53 @@
+export async function verifySidebarNavigation({sidebar,sidebarHost,session,row,plotColumn,taskColumn}) {
+	const assert=(value,message)=>{if(!value)throw new Error(message);};
+	const settle=()=>new Promise(resolve=>setTimeout(resolve,65));
+	const sheet=session.activeSheet;
+	const previous=sidebarHost.querySelector('[data-sidebar-step="-1"]');
+	const next=sidebarHost.querySelector('[data-sidebar-step="1"]');
+	const location=sidebarHost.querySelector('[data-sidebar-axis-label]');
+	assert(previous && next && location && previous.parentElement.parentElement.firstElementChild===previous.parentElement && previous.parentElement.firstElementChild===previous && previous.nextElementSibling===location && location.nextElementSibling===next,'Current axis label is not between the left-side previous/next actions');
+	const chrome=sidebarHost.querySelector('.wm-plotbook-sidebar-chrome');
+	assert(getComputedStyle(chrome).padding==='0px 16px 12px','Sidebar chrome padding does not match the compact top layout');
+	const labelStyle=getComputedStyle(location),labelRect=location.getBoundingClientRect(),buttonRect=previous.getBoundingClientRect();
+	assert(labelStyle.fontSize==='13px' && labelStyle.display==='flex' && labelStyle.alignItems==='center' && labelStyle.justifyContent==='center' && labelRect.height===26 && Math.abs((labelRect.top+labelRect.bottom-buttonRect.top-buttonRect.bottom)/2)<=1,'Current axis label is not a vertically centered 13px toolbar item');
+	for(const button of [previous,next]) {
+		const rect=button.getBoundingClientRect(),icon=button.querySelector('svg').getBoundingClientRect();
+		assert(rect.width===26 && rect.height===26 && icon.width===16 && icon.height===16,'Previous/next icon is not optically sized inside the standard toolbar button');
+		assert(Math.abs((rect.left+rect.right-icon.left-icon.right)/2)<=1 && Math.abs((rect.top+rect.bottom-icon.top-icon.bottom)/2)<=1,'Previous/next icon is not centered in its toolbar button');
+	}
+	await sidebar.setState({mode:'column',columnId:plotColumn,rowId:row},{});await settle();
+	assert(previous.disabled && !next.disabled && next.getAttribute('aria-label')==='다음 열','Column navigation does not expose its boundary/meaning');
+	assert(location.textContent===sidebar.columnTitle(sheet,plotColumn) && location.getAttribute('aria-label')===`현재 열: ${sidebar.columnTitle(sheet,plotColumn)}` && location.clientWidth>0,'Column navigation does not display its current title');
+	const selectable=sidebarHost.querySelector('.wm-plotbook-timeline-card');
+	const unselectedWidth=selectable.getBoundingClientRect().width;
+	selectable.querySelector('.wm-plotbook-sidebar-card-title').click();
+	assert(getComputedStyle(selectable).borderTopWidth==='2px' && Math.abs(selectable.getBoundingClientRect().width-unselectedWidth)<=1,'Selected sidebar card does not use a stable 2px border');
+	assert([...sidebarHost.querySelectorAll('.wm-plotbook-timeline-card:not(.is-current)')].every(card=>getComputedStyle(card).borderTopWidth==='1px'),'Selecting one sidebar card changed unselected card borders');
+	selectable.querySelector('.wm-plotbook-sidebar-card-title').click();
+	next.focus();next.click();await settle();
+	assert(sidebar.state.columnId===taskColumn && document.activeElement===next && sidebarHost.querySelector('select[aria-label="열"]').value===taskColumn,'Next-column action did not share picker state or retain keyboard focus');
+	assert(location.textContent===sidebar.columnTitle(sheet,taskColumn),'Next-column action left a stale visible title');
+	previous.click();assert(sidebar.state.columnId===plotColumn,'Previous-column action did not move back');
+	const subcard=sidebarHost.querySelector('.wm-plotbook-timeline-card.is-subrow');
+	const maincard=sidebarHost.querySelector('.wm-plotbook-timeline-card:not(.is-subrow)');
+	assert(subcard && getComputedStyle(subcard).marginLeft==='0px' && Math.abs(subcard.getBoundingClientRect().left-maincard.getBoundingClientRect().left)<=1 && Math.abs(subcard.getBoundingClientRect().width-maincard.getBoundingClientRect().width)<=1,'Subrow cards are still indented or narrower');
+	await sidebar.setState({columnId:sheet.columnOrder.at(-1)},{});await settle();
+	assert(next.disabled && !previous.disabled,'Last-column navigation does not stop at the boundary');
+	next.click();assert(sidebar.state.columnId===sheet.columnOrder.at(-1),'Disabled next-column action wrapped or created a column');
+	await sidebar.setState({mode:'row',rowId:sheet.rowOrder[0],columnId:plotColumn},{});await settle();
+	assert(previous.disabled && next.getAttribute('aria-label')==='다음 행','Switching to row mode did not update navigation');
+	assert(location.textContent==='1' && location.getAttribute('aria-label')==='현재 행: 1','Row navigation does not display only its current row number');
+	next.click();await settle();
+	assert(sidebar.state.rowId===sheet.rowOrder[1] && sidebarHost.querySelector('select[aria-label="행"]').selectedOptions[0].textContent==='1-1행','Next-row action skipped a child row or desynchronized the row picker');
+	assert(location.textContent==='1-1','Next-row action left a stale visible row number or retained the row suffix');
+	next.click();assert(sidebar.state.rowId===sheet.rowOrder[2],'Row navigation did not follow sheet order');
+	previous.click();assert(sidebar.state.rowId===sheet.rowOrder[1],'Previous-row action did not return to the child row');
+	const hide=sidebarHost.querySelector('[data-sidebar-hide-pickers]');hide.click();
+	previous.click();assert(sidebar.state.rowId===sheet.rowOrder[0] && location.textContent==='1' && sidebarHost.querySelector('.wm-plotbook-sidebar-pickers').hidden,'Navigation or its visible row number stopped updating with hidden pickers');
+	hide.click();
+	await sidebar.setState({rowId:sheet.rowOrder.at(-1)},{});await settle();
+	assert(next.disabled && !previous.disabled,'Last-row navigation does not stop at the boundary');
+	next.click();assert(sidebar.state.rowId===sheet.rowOrder.at(-1),'Disabled next-row action wrapped or appended rows');
+	await sidebar.setState({mode:'column',columnId:plotColumn,rowId:row},{});await settle();
+	console.info('Sidebar previous/next row/column navigation, child-row order, boundaries, hidden selectors, keyboard focus and unindented subrow cards passed');
+}

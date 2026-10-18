@@ -3,6 +3,7 @@ export async function runPlotChecks() {
 	const { InfinitePlotSheet, PlotWorkbookForeshadowModal, PlotWorkbookSheetTrashModal, PlotWorkbookSession, createPlotWorkbookSheet,
 		PlotWorkbookToolbar, WritingToolbar, InstalledFontCache, PlotWorkbookRepository, renderPlotWorkbookSettingsPage, parsePlotWorkbookSearch,
 		LeafStyleManager, ToolbarManager, MarkdownView, PagedWritingView, DEFAULT_SETTINGS } = globalThis;
+	const { PlotWorkbookSessionStore, plotWorkbookSessions, PlotWorkbookSidebarView, PlotWorkbookChecklistEditor, parseChecklist, createPagedEditorContextMenu } = globalThis;
 	const assert = (value, message) => { if (!value) throw new Error(message); };
 	window.requestAnimationFrame = callback => setTimeout(() => callback(performance.now()), 16);
 	window.cancelAnimationFrame = clearTimeout;
@@ -94,21 +95,79 @@ export async function runPlotChecks() {
 	const leaf = { app, containerEl: scopeHost.createDiv() };
 	leaf.containerEl.createDiv();
 	const content = leaf.containerEl.createDiv();
-	const editor = content.createDiv({ cls: 'cm-content', text: '문서 서식 검사' });
+	const source = content.createDiv({ cls: 'markdown-source-view mod-cm6' });
+	const sizer = source.createDiv({ cls:'cm-editor' }).createDiv({ cls:'cm-scroller' }).createDiv({ cls:'cm-sizer' });
+	const editor = sizer.createDiv({ cls: 'cm-content', text: '문서 서식 검사' });
+	const reading = content.createDiv({ cls:'markdown-reading-view', text:'읽기 서식 검사' });
 	leaf.view = new MarkdownView(leaf);
-	leaf.view.file = { path: 'Project/story.md' };
+	leaf.view.file = { path: 'Project/3. 본문/story.md' };
 	leaves.push(leaf);
+	// Older vaults retain the former typography folder after registering projects.
+	plugin.settings.applyToFolder = '4. 본문';
 	styles.updateLeafStyles(leaf);
-	assert(getComputedStyle(editor).fontSize === '24px', 'Project note did not receive typography');
+	assert(getComputedStyle(editor).fontSize === '24px', 'Legacy typography folder blocked a registered project note');
+	assert(getComputedStyle(editor).color === 'rgb(129, 35, 35)', 'Registered project note lost its text color');
+	assert(getComputedStyle(sizer).backgroundColor === 'rgb(221, 255, 255)', 'Registered project note lost its background');
+	assert(getComputedStyle(reading).fontSize === '24px', 'Reading mode did not receive project typography');
+	const recentLeaf = app.workspace.getMostRecentLeaf;
+	app.workspace.getMostRecentLeaf = () => leaf;
+	app.workspace.on = () => ({});
+	app.workspace.offref = () => {};
+	plugin.zenState = 'off';
+	styles.toggleZenMode('wide');
+	assert(plugin.zenState === 'wide' && document.body.classList.contains('wm-wide-mode'), 'Legacy typography folder blocked the wide shortcut');
+	styles.toggleZenMode('wide');
+	assert(plugin.zenState === 'off', 'Wide shortcut did not toggle off');
+	styles.toggleZenMode('focus');
+	assert(plugin.zenState === 'focus' && document.body.classList.contains('wm-focus-mode'), 'Legacy typography folder blocked the focus shortcut');
+	styles.toggleZenMode('focus');
+	assert(plugin.zenState === 'off' && !document.body.classList.contains('wm-focus-mode'), 'Focus shortcut did not toggle off');
+	// A toolbar belongs to its document even when Obsidian's most recent leaf is elsewhere.
+	const otherLeaf = { view: { file: { path:'Notes/other.md' } } };
+	app.workspace.getMostRecentLeaf = () => otherLeaf;
+	const modePlugin = { ...plugin, settings: { ...plugin.settings, writingWidgetOrder:[] },
+		stopwatchManager: { subscribeWidget: () => () => {} },
+		addDualColorControl() {},
+		calculateAllCharCounts: text => ({ munpia:text.length, novelpia:text.length }),
+		toggleZenMode: (mode, target) => styles.toggleZenMode(mode, target) };
+	const modeHost = scopeHost.createDiv();
+	const modeSurface = { kind:'markdown', leaf, getFile:() => leaf.view.file, getText:() => '문서',
+		focus() {}, undo() {}, redo() {}, toggleFormat() {}, isFormatActive:() => false,
+		getAlignment:() => null, setAlignment() {}, applyTextColor() {}, clearTextColors() {},
+		getRecentTextColor:() => '', switchView() {}, getZoom:() => 1, setZoom() {} };
+	const modeToolbar = new WritingToolbar(modePlugin, modeHost, modeSurface);
+	modePlugin.saveSettings = async () => {
+		Object.assign(plugin.settings, modePlugin.settings);
+		styles.regenerateCSSTemplate();
+		styles.updateAllLeafStyles();
+	};
+	modeToolbar.toolbarEl.querySelector('[aria-label="서식"]').click();
+	const lineSlider = modeToolbar.activePopover.querySelector('input[aria-label="줄 간격"]');
+	assert(lineSlider, 'Toolbar line-height control is missing');
+	lineSlider.value = '2.3';
+	lineSlider.dispatchEvent(new Event('input', { bubbles:true }));
+	lineSlider.dispatchEvent(new Event('change', { bubbles:true }));
+	await settle();
+	assert(getComputedStyle(editor).lineHeight === '55.2px', 'Toolbar format slider did not update the Markdown editor');
+	modeToolbar.closePopover();
+	modeToolbar.toolbarEl.querySelector('.wm-writing-wide-mode-button').click();
+	assert(plugin.zenState === 'wide', 'Wide icon ignored the toolbar document');
+	modeToolbar.toolbarEl.querySelector('.wm-writing-wide-mode-button').click();
+	modeToolbar.toolbarEl.querySelector('.wm-writing-focus-mode-button').click();
+	assert(plugin.zenState === 'focus' && plugin.zenLeaf === leaf, 'Focus icon did not target the toolbar document');
+	modeToolbar.toolbarEl.querySelector('.wm-writing-focus-mode-button').click();
+	assert(plugin.zenState === 'off', 'Focus icon did not toggle off');
+	modeToolbar.destroy(); modeHost.remove();
+	app.workspace.getMostRecentLeaf = () => leaf;
 	leaf.view.file = { path: 'Project-other/plain.md' };
 	styles.updateLeafStyles(leaf);
 	assert(!leaf.containerEl.hasAttribute('data-writing-menu-id'), 'Outside note retained scope marker');
 	assert(!Array.from(leaf.containerEl.style).some(key => key.startsWith('--wm-')), 'Outside note retained plugin CSS variables');
 	assert(getComputedStyle(editor).fontSize === '16px', 'Outside note retained custom font size');
 	assert(getComputedStyle(editor).color !== 'rgb(129, 35, 35)', 'Outside note retained custom text color');
+	assert(getComputedStyle(sizer).backgroundColor !== 'rgb(221, 255, 255)', 'Outside note retained project background');
+	assert(getComputedStyle(reading).fontSize === '16px', 'Outside reading mode retained project typography');
 	plugin.zenState = 'off';
-	const recentLeaf = app.workspace.getMostRecentLeaf;
-	app.workspace.getMostRecentLeaf = () => leaf;
 	styles.toggleZenMode('wide');
 	assert(plugin.zenState === 'off' && !document.body.classList.contains('wm-wide-mode'), 'Outside note entered wide mode through a shortcut');
 	styles.toggleZenMode('focus');
@@ -126,7 +185,7 @@ export async function runPlotChecks() {
 	toolbar.mountPagedToolbar(root, paged);
 	assert(!root.querySelector('.wm-writing-toolbar'), 'Outside note retained toolbar');
 	root.remove(); scopeHost.remove();
-	console.info('Project scope and late toolbar mount passed');
+	console.info('Legacy vault folder regression, Markdown/reading styles, format slider, zen shortcuts/icons and project scope passed');
 
 	const repository = { async saveForeshadowsState() {}, recordOperation() {}, async saveManifestState() {} };
 	const sheet = createPlotWorkbookSheet('메인 시트', 10000, 80);
@@ -364,11 +423,12 @@ export async function runPlotChecks() {
 	assert(colorToolbar.activePopover.querySelector('.wm-search-help') && !colorToolbar.activePopover.querySelector('[class*="wiki-graph-"]'), 'Plot search still depended on wiki graph CSS classes');
 	colorToolbar.activePopover.querySelector('.wm-plotbook-search-info').click();
 	assert(getComputedStyle(colorToolbar.activePopover.querySelector('.wm-search-help')).display !== 'none', 'Shared search help did not open');
+	assert(!colorToolbar.activePopover.textContent.includes('기존 열:') && !colorToolbar.activePopover.textContent.includes('행: 문법'), 'Search help still advertises removed selectors');
 	colorToolbar.destroy(); colorGrid.destroy(); colorHost.remove(); colorSession.dispose();
 	console.info('Light/dark color picker, edits, undo/redo, journal and snapshot reload passed');
 
 	assert(JSON.stringify(parsePlotWorkbookSearch('@B #2-3 열쇠')) === JSON.stringify({ text: '열쇠', row: '2-3', column: 'B' }), 'Symbol query parsing failed');
-	assert(JSON.stringify(parsePlotWorkbookSearch('열:"메인 플롯" 행:2-3 열쇠')) === JSON.stringify({ text: '열쇠', row: '2-3', column: '메인 플롯' }), 'Legacy query compatibility failed');
+	assert(JSON.stringify(parsePlotWorkbookSearch('열:"메인 플롯" 행:2-3 열쇠')) === JSON.stringify({ text: '열:"메인 플롯" 행:2-3 열쇠', row: '', column: '' }), 'Removed word selectors are still interpreted as filters');
 	assert(parsePlotWorkbookSearch('C# #태그').text === 'C# #태그', 'Ordinary hash text was mistaken for a row selector');
 	const searchSheet = createPlotWorkbookSheet('검색', 12, 7);
 	const searchColumns = searchSheet.columnOrder;
@@ -388,6 +448,7 @@ export async function runPlotChecks() {
 	const searchGrid = new InfinitePlotSheet(searchHost, plugin, 'Project', 'Project/Text', 'Project/Characters', searchSession);
 	clearTimeout(searchGrid.frontmatterSyncTimer); searchGrid.frontmatterSyncTimer = null; searchGrid.scheduleFrontmatterSync = () => {};
 	const task = searchGrid.canvas.querySelector('.wm-plotbook-foreshadow-task');
+	assert(searchGrid.canvas.querySelector('.wm-plotbook-column-header[data-role="status"] .wm-plotbook-column-meta svg')?.dataset.icon === 'info', 'Status column header does not use the info icon');
 	assert([...searchGrid.canvas.querySelectorAll('.wm-plotbook-row-header, .wm-plotbook-column-header')].every(header => getComputedStyle(header).fontSize === '10px'), 'Row/column header defaults differ from 10px');
 	assert(searchGrid.headerDisplayStyle('row', {fontSize:17}).fontSize === 17 && searchGrid.headerDisplayStyle('column', {fontSize:18}).fontSize === 18, 'Default font size overwrote explicit user header styles');
 	assert(task && !task.querySelector('svg') && task.querySelector('.wm-plotbook-foreshadow-marker')?.getAttribute('aria-label') === '미회수', 'Foreshadow cell did not use an accessible state marker');
@@ -397,7 +458,16 @@ export async function runPlotChecks() {
 	assert(emptyForeshadow?.matches('.wm-plotbook-foreshadow-cell-item') && emptyForeshadow.parentElement.className === task.parentElement.className, 'Empty and filled foreshadow cells do not share the same structure');
 	assert(getComputedStyle(emptyForeshadow).padding === getComputedStyle(task).padding && getComputedStyle(emptyForeshadow).margin === getComputedStyle(task).margin, 'Empty and filled foreshadow cell spacing differs');
 	assert(emptyForeshadow.textContent === '', 'An empty foreshadow cell still displays placeholder text');
-	const sheetTag = task.querySelector('.wm-plotbook-foreshadow-marker');
+	const exactStory = await searchSession.createForeshadow('선택할 복선', '', { sheetId: searchSheet.sheetId, rowId: searchRow, columnId: searchColumns[1] });
+	await settle();
+	const exactStoryTask = [...searchGrid.canvas.querySelectorAll('.wm-plotbook-foreshadow-task')]
+		.find(item => item.dataset.foreshadowId === exactStory.id);
+	exactStoryTask.dispatchEvent(new MouseEvent('dblclick',{bubbles:true,cancelable:true}));
+	assert(globalThis.lastTestModal?.selectedId === exactStory.id,
+		'Double-clicking a sheet foreshadow did not select that exact item in the manager');
+	globalThis.lastTestModal.close();
+	await searchSession.deleteForeshadow(exactStory.id); await settle();
+	const sheetTag = searchGrid.canvas.querySelector('.wm-plotbook-foreshadow-task .wm-plotbook-foreshadow-marker');
 	assert(sheetTag && sheetTag.textContent === '' && getComputedStyle(sheetTag).borderRadius === '3px' && getComputedStyle(sheetTag).backgroundColor === 'rgb(183, 152, 67)', 'Open sheet marker is not a textless amber rounded square');
 	document.body.classList.add('theme-dark');
 	assert(getComputedStyle(sheetTag).backgroundColor === 'rgb(210, 180, 93)', 'Dark open marker is not yellow');
@@ -565,10 +635,13 @@ export async function runPlotChecks() {
 	assert(sameLocation(savedRouteModal.draft.payoff, laterContext), 'Context defaults replaced a stored payoff');
 	savedRouteModal.close();
 	await registry.deleteForeshadow(probe.id);
-	await registry.createForeshadow('낡은 열쇠의 주인', '문 앞에서 다시 등장하는 단서.', plant);
-	await registry.createForeshadow('사라진 편지', '마지막 장면에서 회수.', { ...plant, rowId: small.rowOrder[5] });
+	const firstListedForeshadow = await registry.createForeshadow('낡은 열쇠의 주인', '문 앞에서 다시 등장하는 단서.', plant);
+	const secondListedForeshadow = await registry.createForeshadow('사라진 편지', '마지막 장면에서 회수.', { ...plant, rowId: small.rowOrder[5] });
 	const modal = new PlotWorkbookForeshadowModal(plugin, registry, { ...plant, columnId: small.columnOrder[4] }, () => true).open();
 	const find = label => modal.contentEl.querySelector(`[aria-label="${label}"]`);
+	assert([...modal.listEl.querySelectorAll('.wm-plotbook-foreshadow-list-item')].map(item=>item.dataset.foreshadowId).join(',')
+		=== `${firstListedForeshadow.id},${secondListedForeshadow.id}`,
+		'Foreshadow cards are not ordered by sheet, registration row and plot column');
 	assert(modal.detailEl.querySelectorAll('.wm-plotbook-foreshadow-edit-card select').length === 4 && !modal.previewEl.querySelector('select'), 'Edit card should have only column and row pickers');
 	assert(!find('등록 시트') && !find('회수 시트') && !modal.detailEl.querySelector('input[type="checkbox"]'), 'Sheet pickers or completion checkbox remain');
 	assert(getComputedStyle(modal.detailEl).padding === '30px', 'Detail padding differs from 30px');
@@ -593,7 +666,7 @@ export async function runPlotChecks() {
 	assert(rowPopup.querySelector(`[data-value="${small.rowOrder[1]}"]`).disabled, 'Search popup allowed a payoff before registration');
 	rowPopup.querySelector('input').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
 	assert(!document.querySelector('.wm-plotbook-row-popover') && document.activeElement === find('회수 행 선택'), 'Escape did not close only the row popup');
-	assert(modal.contentEl.querySelector('.wm-plotbook-foreshadow-item-row').textContent === '1-2', 'Subrow number was not displayed');
+	assert(modal.contentEl.querySelector('.wm-plotbook-foreshadow-card.is-active .wm-plotbook-foreshadow-item-row').textContent === '1-2', 'Selected subrow number was not displayed');
 	const meta = modal.contentEl.querySelector('.wm-plotbook-foreshadow-item-meta');
 	assert(meta.firstElementChild.matches('.wm-plotbook-foreshadow-marker') && meta.lastElementChild.matches('.wm-plotbook-foreshadow-item-row'), 'Sidebar marker/title/row metadata order is wrong');
 	assert(getComputedStyle(meta.querySelector('.wm-plotbook-foreshadow-item-plot')).fontSize === '12px' && getComputedStyle(modal.contentEl.querySelector('.wm-plotbook-foreshadow-item-title')).fontSize === '14px', 'Sidebar typography differs from requested sizes');
@@ -765,9 +838,10 @@ export async function runPlotChecks() {
 	renderPlotWorkbookSettingsPage(absentHost, { ...statusPlugin, projectContext: { getProjects: () => [{...statusProject, rootFolder:'NotCreated'}] } }); await settle();
 	assert(files.size === filesBeforeAbsentRead, 'Opening settings created an unrequested workbook');
 	absentHost.remove(); readOnlyRepo.dispose(); statusSession.dispose();
+	await globalThis.runPlotChecklistSidebarChecks(colorPlugin);
 	return { ok: true, scope: 'inside → outside cleared typography and toolbar', scroll: scrollMetrics,
 		colors: 'light/dark picker mode changes, formatting, undo/redo, journal and snapshot reload passed',
-		search: 'symbol/legacy operators, semantic column values, fresh registry/cell edits, safe replace and shared help passed',
+		search: 'symbol-only operators, semantic column values, fresh registry/cell edits, safe replace and shared help passed',
 		longCells: longCellMetrics,
 		foreshadow: 'textless markers in both themes, ordered searchable row popup with keyboard/escape, context defaults and chronology guards passed',
 		statuses: 'native palette/reset/add, serialized color writes, live/closed persistence and toolbar settings shortcut passed',

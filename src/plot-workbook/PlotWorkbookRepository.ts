@@ -600,7 +600,7 @@ export class PlotWorkbookRepository {
 		for (const id of sheet.columnOrder) {
 			const column = sheet.columns[id];
 			if (!column) throw new Error(`열 정보가 없습니다: ${id}`);
-			if (column.role !== undefined && !['text', 'plot', 'character', 'cast', 'status', 'date', 'foreshadow'].includes(column.role)) {
+			if (column.role !== undefined && !['text', 'plot', 'character', 'cast', 'status', 'date', 'foreshadow', 'checklist'].includes(column.role)) {
 				throw new Error(`열 역할이 올바르지 않습니다: ${id}`);
 			}
 			if (column.characterNotePath !== undefined && typeof column.characterNotePath !== 'string') {

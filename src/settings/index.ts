@@ -9,6 +9,7 @@ import { fireAndForget } from '../utils/asyncUtils';
 import { AI_CHAT_MODELS } from '../aichat/AiChatApi';
 import { DEFAULT_EPISODE_PROMPT } from '../aichat/EpisodeChatEngine';
 import { DEFAULT_CHAT_STYLE_NOTE } from '../aichat/AiChatContext';
+import { configureApiKeyInput } from './ApiKeyInput';
 
 
 export class WritingMenuSettingTab extends PluginSettingTab {
@@ -450,7 +451,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 						this.plugin.settings.stdictApiKey = value.trim();
 						await this.plugin.saveSettings();
 					});
-				text.inputEl.type = 'password';
+				configureApiKeyInput(text.inputEl);
 			});
 
 		this.addGroupTitle(containerEl, 'AI');
@@ -465,7 +466,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 						this.plugin.settings.aiChatApiKey = value.trim();
 						await this.plugin.saveSettings();
 					});
-				text.inputEl.type = 'password';
+				configureApiKeyInput(text.inputEl);
 			});
 		new Setting(aiBox)
 			.setName('Google AI Studio')
@@ -477,7 +478,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 						this.plugin.settings.aiChatGeminiApiKey = value.trim();
 						await this.plugin.saveSettings();
 					});
-				text.inputEl.type = 'password';
+				configureApiKeyInput(text.inputEl);
 			});
 		new Setting(aiBox)
 			.setName('OpenAI')
@@ -489,7 +490,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 						this.plugin.settings.aiImageOpenaiApiKey = value.trim();
 						await this.plugin.saveSettings();
 					});
-				text.inputEl.type = 'password';
+				configureApiKeyInput(text.inputEl);
 			});
 	}
 

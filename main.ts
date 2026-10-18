@@ -13,7 +13,9 @@ import { openDictionary } from './src/dictionary';
 import { openSpecialChars } from './src/special-chars/SpecialCharsModal';
 import { CalendarView, VIEW_TYPE_CALENDAR } from './src/calendar/views/CalendarView';
 import { PlotWorkbookView } from './src/plot-workbook/PlotWorkbookView';
-import { PLOT_WORKBOOK_VIEW_TYPE } from './src/plot-workbook/PlotWorkbookTypes';
+import { PLOT_WORKBOOK_VIEW_TYPE, PLOT_WORKBOOK_SIDEBAR_TYPE } from './src/plot-workbook/PlotWorkbookTypes';
+import { PlotWorkbookSidebarView } from './src/plot-workbook/PlotWorkbookSidebarView';
+import { disposePlotWorkbookSessions } from './src/plot-workbook/PlotWorkbookSessionStore';
 import { LegacyPlotViewRedirect } from './src/plot-workbook/LegacyPlotViewRedirect';
 import { DailyCharStore } from './src/dashboard/data/DailyCharStore';
 import { stripTrackedTimeFieldsFromPaste } from './src/utils/timeUtils';
@@ -327,6 +329,7 @@ export default class WritingMenuPlugin extends Plugin {
 			PLOT_WORKBOOK_VIEW_TYPE,
 			(leaf) => new PlotWorkbookView(leaf, this)
 		);
+		this.registerView(PLOT_WORKBOOK_SIDEBAR_TYPE, leaf => new PlotWorkbookSidebarView(leaf, this));
 		this.registerView(
 			LEGACY_PLOT_VIEW_TYPE,
 			(leaf) => new LegacyPlotViewRedirect(leaf, LEGACY_PLOT_VIEW_TYPE),
@@ -344,6 +347,7 @@ export default class WritingMenuPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'open-paged-writing-view',
+			icon: 'files',
 			name: '여러 쪽 보기',
 			checkCallback: (checking) => {
 				const file = this.app.workspace.getActiveFile();
@@ -355,12 +359,20 @@ export default class WritingMenuPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'toggle-plot-manager',
+			icon: 'table-2',
 			name: '플롯 매니저',
 			callback: () => { void this.togglePlotWorkbookView(); }
+		});
+		this.addCommand({
+			id: 'open-plot-manager-sidebar',
+			icon: 'panel-right',
+			name: '플롯 매니저 사이드바',
+			callback: () => { void this.openPlotWorkbookSidebar(); },
 		});
 
 		this.addCommand({
 			id: 'toggle-dashboard-view',
+			icon: 'layout-dashboard',
 			name: '대시보드',
 			callback: () => this.toggleCalendarView(),
 		});
@@ -369,6 +381,7 @@ export default class WritingMenuPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'copy-without-excluded',
+			icon: 'copy',
 			name: '복사하기',
 			callback: async () => {
 				const activeLeaf = this.app.workspace.activeLeaf;
@@ -380,6 +393,7 @@ export default class WritingMenuPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'run-spell-check',
+			icon: 'spell-check',
 			name: '맞춤법 검사',
 			checkCallback: checking => {
 				const editor = this.getActiveWritingEditor();
@@ -391,30 +405,35 @@ export default class WritingMenuPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'zen-wide-mode',
+			icon: 'move-horizontal',
 			name: '길게 보기',
 			callback: () => { this.toggleZenMode('wide'); },
 		});
 
 		this.addCommand({
 			id: 'zen-focus-mode',
+			icon: 'focus',
 			name: '집중 모드',
 			callback: () => { this.toggleZenMode('focus'); },
 		});
 
 		this.addCommand({
 			id: 'hanja-convert',
+			icon: 'book-open',
 			name: '국어사전',
 			callback: () => openDictionary(this, this.getActiveWritingEditor()),
 		});
 
 		this.addCommand({
 			id: 'special-chars',
+			icon: 'omega',
 			name: '특수문자',
 			callback: () => openSpecialChars(this, this.getActiveWritingEditor()),
 		});
 
 		this.addCommand({
 			id: 'wiki-folder-picker',
+			icon: 'notebook-tabs',
 			name: '노트를 위키에서 보기',
 			callback: async () => {
 				let leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CALENDAR);
@@ -519,6 +538,22 @@ export default class WritingMenuPlugin extends Plugin {
 		await this.app.workspace.revealLeaf(leaf);
 	}
 
+	async openPlotWorkbookSidebar(state: { projectId?: string; sheetId?: string; columnId?: string; rowId?: string } = {}): Promise<void> {
+		const leaf = this.app.workspace.getLeavesOfType(PLOT_WORKBOOK_SIDEBAR_TYPE)[0] ?? this.app.workspace.getRightLeaf(true);
+		if (!leaf) return;
+		await leaf.setViewState({ type: PLOT_WORKBOOK_SIDEBAR_TYPE, state, active:true });
+		await this.app.workspace.revealLeaf(leaf);
+	}
+
+	async openPlotWorkbookCell(projectId: string, sheetId: string, rowId?: string, columnId?: string): Promise<void> {
+		const leaf = this.app.workspace.getLeavesOfType(PLOT_WORKBOOK_VIEW_TYPE)
+			.find(candidate => candidate.view instanceof PlotWorkbookView && candidate.view.getState().projectId === projectId)
+			?? this.app.workspace.getLeaf('tab');
+		await leaf.setViewState({ type:PLOT_WORKBOOK_VIEW_TYPE, state:{projectId}, active:true });
+		await this.app.workspace.revealLeaf(leaf);
+		if (rowId && columnId && leaf.view instanceof PlotWorkbookView) await leaf.view.revealCell(sheetId, rowId, columnId);
+	}
+
 	private async migrateLegacyPlotViews(): Promise<void> {
 		for (const leaf of this.app.workspace.getLeavesOfType(LEGACY_PLOT_VIEW_TYPE)) {
 			await leaf.setViewState({ type: PLOT_WORKBOOK_VIEW_TYPE, active: false });
@@ -610,6 +645,7 @@ export default class WritingMenuPlugin extends Plugin {
 		this.charStore?.destroy();
 		this.musicPlayer?.destroy();
 		this.musicPlayer = null;
+		disposePlotWorkbookSessions(this);
 
 		for (const unregister of this.nnMenuUnregisterFns) {
 			try { unregister(); } catch { /* intentional */ }
@@ -885,7 +921,7 @@ export default class WritingMenuPlugin extends Plugin {
 	applyZenState(state: 'off' | 'wide' | 'focus') { this.leafStyleManager.applyZenState(state); }
 	exitZenFocus() { this.leafStyleManager.exitZenFocus(); }
 	activateFocusMode() { this.leafStyleManager.activateFocusMode(); }
-	toggleZenMode(mode: 'wide' | 'focus') { this.leafStyleManager.toggleZenMode(mode); }
+	toggleZenMode(mode: 'wide' | 'focus', leaf?: WorkspaceLeaf) { this.leafStyleManager.toggleZenMode(mode, leaf); }
 	applyZenLeaf(leaf: WorkspaceLeaf) { this.leafStyleManager.applyZenLeaf(leaf); }
 	clearZenLeaf() { this.leafStyleManager.clearZenLeaf(); }
 	addCharCountWithModeSelector(container: HTMLElement, count: number, leaf: WorkspaceLeaf) { this.leafStyleManager.addCharCountWithModeSelector(container, count, leaf); }
@@ -940,10 +976,11 @@ export default class WritingMenuPlugin extends Plugin {
 	async addCompactSlider(container: HTMLElement, label: string, value: number, min: number, max: number, step: number, callback: (v: number) => void | Promise<void>, icon?: string){ return await addCompactSlider(this, container, label, value, min, max, step, callback, icon); }
 	async addDualColorControl(container: HTMLElement, label: string, value: string | { light: string, dark: string }, callback: (v: string | { light: string; dark: string }) => void | Promise<void>, icon?: string){ return await addDualColorControl(this, container, label, value, callback, icon); }
 
-	openSettings() {
+	openSettings(page?: string) {
 		interface AppWithSettings extends App { setting?: { open(): void; openTabById(id: string): void } }
 		(this.app as AppWithSettings).setting?.open();
 		(this.app as AppWithSettings).setting?.openTabById(this.manifest.id);
+		if (page) this.settingTab?.renderPage(page);
 	}
 
 }

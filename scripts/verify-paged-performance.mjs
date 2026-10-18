@@ -8,6 +8,7 @@ import { mkdtemp, readFile, rm, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const plotSuite = process.argv.includes('--plot');
@@ -18,6 +19,23 @@ const browserPath = process.env.PAGED_TEST_BROWSER || [
 ].find(existsSync);
 if (!browserPath) throw new Error('Set PAGED_TEST_BROWSER to an installed Chromium executable.');
 
+if (plotSuite) {
+	const source = ts.createSourceFile('main.ts',await readFile(path.join(root,'main.ts'),'utf8'),ts.ScriptTarget.Latest,true);
+	const commands = [];
+	const visit = node => {
+		if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'addCommand') {
+			const properties = node.arguments[0]?.properties;
+			const value = name => properties?.find(property=>property.name?.getText(source) === name)?.initializer;
+			if (!value('icon') || !ts.isStringLiteral(value('icon')) || !value('icon').text) throw new Error(`Command without an icon: ${value('id')?.getText(source)}`);
+			commands.push(value('id')?.getText(source));
+		}
+		ts.forEachChild(node,visit);
+	};
+	visit(source);
+	if (!commands.length) throw new Error('No command registrations were checked');
+	console.log(`All ${commands.length} registered plugin commands have explicit icons`);
+}
+
 const obsidianStub = `
 export class Scope { register() {} }
 export class Notice { constructor(message) { console.warn(message); } }
@@ -26,6 +44,8 @@ export class App {}
 export class TFile {}
 export function parseYaml() { return {}; }
 export const Platform = { isMobile: false };
+export function setTooltip(element,text) { element.setAttribute('aria-label',text); }
+export function requestUrl() { throw new Error('Network access is not allowed in UI regression tests'); }
 export function normalizePath(value) { return value.replace(/\\\\/g, '/'); }
 export function sanitizeHTMLToDom(value) { const t = document.createElement('template'); t.innerHTML = value; return t.content; }
 export function setIcon(element, name) {
@@ -34,11 +54,22 @@ export function setIcon(element, name) {
 	svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('fill', 'none'); svg.setAttribute('stroke', 'currentColor'); svg.dataset.icon = name;
 	const shape = document.createElementNS(svg.namespaceURI, 'path');
 	shape.setAttribute('d', name === 'plus' ? 'M12 5v14M5 12h14' : name === 'chevron-down' ? 'm6 9 6 6 6-6' : name === 'search' ? 'M20 20l-5-5M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0' : name === 'columns-3' ? 'M3 3h18v18H3ZM9 3v18M15 3v18' : name === 'rows-3' ? 'M3 3h18v18H3ZM3 9h18M3 15h18' : 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0');
+	const paths = {
+		'square':'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z',
+		'square-check':'m9 11 3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11',
+		'check':'m20 6-11 11-5-5','x':'m18 6-12 12M6 6l12 12','ellipsis':'M5 12h.01M12 12h.01M19 12h.01',
+		'arrow-up-right':'M7 7h10v10M7 17 17 7','panel-right':'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM15 3v18',
+		'info':'M12 8h.01M12 12v4M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0',
+		'calendar-days':'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2ZM8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01',
+	};
+	if(paths[name]) { shape.setAttribute('d',paths[name]);svg.setAttribute('stroke-width','1.8');svg.setAttribute('stroke-linecap','round');svg.setAttribute('stroke-linejoin','round'); }
 	svg.appendChild(shape); element.appendChild(svg);
 }
 export class Modal {
 	constructor(app) {
+		globalThis.lastTestModal = this;
 		this.app = app;
+		this.scope = new Scope();
 		this.containerEl = document.body.createDiv({ cls: 'modal-container' });
 		this.modalEl = this.containerEl.createDiv({ cls: 'modal' });
 		this.titleEl = this.modalEl.createDiv({ cls: 'modal-header' });
@@ -92,12 +123,15 @@ export class Menu {
 	addItem(render) {
 		const dom = this.dom.createDiv({ cls:'menu-item' });
 		const icon = dom.createSpan({ cls:'menu-item-icon' });
-		const item = { dom, setTitle(value) { this.title = value; return this; }, setIcon(value) { this.icon = value; setIcon(icon, value); return this; }, setChecked(value) { this.checked = value; return this; }, setDisabled() { return this; }, onClick(fn) { this.click = fn; return this; } };
+		const item = { dom, setTitle(value) { this.title = value; return this; }, setIcon(value) { this.icon = value; setIcon(icon, value); return this; }, setChecked(value) { this.checked = value; return this; }, setDisabled(value) { this.disabled = value; return this; }, onClick(fn) { this.click = fn; return this; },
+			setSubmenu() { this.submenu = Object.create(Menu.prototype); this.submenu.items = []; this.submenu.dom = dom.createDiv({cls:'menu-submenu'}); return this.submenu; } };
 		render(item); this.items.push(item); return this;
 	}
 	addSeparator() { return this; }
 	showAtPosition() {}
 	showAtMouseEvent() {}
+	onHide(callback) { this.hideCallback = callback; }
+	hide() { const callback = this.hideCallback; this.hideCallback = null; callback?.(); return this; }
 }
 export class TextFileView {
 	constructor(leaf) {
@@ -111,6 +145,9 @@ export class TextFileView {
 	requestSave() {}
 }
 export class MarkdownView extends TextFileView {}
+export class ItemView extends TextFileView {
+	constructor(leaf) { super(leaf); this.contentEl = this.containerEl.createDiv({cls:'view-content'}); }
+}
 `;
 const bundle = await build({
 	absWorkingDir: root,
@@ -119,6 +156,13 @@ const bundle = await build({
 			import { PlotWorkbookForeshadowModal } from './src/plot-workbook/PlotWorkbookForeshadowModal';
 			import { PlotWorkbookSheetTrashModal } from './src/plot-workbook/PlotWorkbookSheetTrashModal';
 			import { PlotWorkbookSession } from './src/plot-workbook/PlotWorkbookSession';
+			import { PlotWorkbookSessionStore, plotWorkbookSessions } from './src/plot-workbook/PlotWorkbookSessionStore';
+			import { PlotWorkbookSidebarView } from './src/plot-workbook/PlotWorkbookSidebarView';
+			import { PlotWorkbookChecklistEditor } from './src/plot-workbook/PlotWorkbookChecklistEditor';
+			import { parseChecklist } from './src/plot-workbook/PlotWorkbookChecklist';
+			import { createPagedEditorContextMenu } from './src/paged/PagedEditorContextMenu';
+			import { runPlotChecklistSidebarChecks } from './scripts/verify-plot-checklist-sidebar.mjs';
+			import { runMobileSettingsChecks } from './scripts/verify-mobile-settings.mjs';
 			import { PlotWorkbookToolbar } from './src/plot-workbook/PlotWorkbookToolbar';
 			import { WritingToolbar } from './src/toolbar/WritingToolbar';
 			import { InstalledFontCache } from './src/toolbar/InstalledFontCache';
@@ -130,7 +174,7 @@ const bundle = await build({
 			import { ToolbarManager } from './src/toolbar/ToolbarManager';
 			import { MarkdownView } from 'obsidian';
 			import { DEFAULT_SETTINGS } from './src/types';
-			Object.assign(globalThis, { InfinitePlotSheet, PlotWorkbookForeshadowModal, PlotWorkbookSheetTrashModal, PlotWorkbookSession, PlotWorkbookToolbar, WritingToolbar, InstalledFontCache, PlotWorkbookRepository, renderPlotWorkbookSettingsPage, parsePlotWorkbookSearch, createPlotWorkbookSheet, LeafStyleManager, ToolbarManager, MarkdownView, DEFAULT_SETTINGS });` : '') + `import { PagedWritingView } from './src/paged/PagedWritingView';
+			Object.assign(globalThis, { InfinitePlotSheet, PlotWorkbookForeshadowModal, PlotWorkbookSheetTrashModal, PlotWorkbookSession, PlotWorkbookSessionStore, plotWorkbookSessions, PlotWorkbookSidebarView, PlotWorkbookChecklistEditor, parseChecklist, createPagedEditorContextMenu, runPlotChecklistSidebarChecks, runMobileSettingsChecks, PlotWorkbookToolbar, WritingToolbar, InstalledFontCache, PlotWorkbookRepository, renderPlotWorkbookSettingsPage, parsePlotWorkbookSearch, createPlotWorkbookSheet, LeafStyleManager, ToolbarManager, MarkdownView, DEFAULT_SETTINGS });` : '') + `import { PagedWritingView } from './src/paged/PagedWritingView';
 			import { PaginationEngine } from './src/paged/PaginationEngine';
 			import { serializePagedText } from './src/paged/textLayout';
 			Object.assign(globalThis, { PagedWritingView, PaginationEngine, serializePagedText });`,
@@ -449,6 +493,9 @@ try {
 			if (response.exceptionDetails) throw new Error(response.exceptionDetails.exception?.description || JSON.stringify(response.exceptionDetails));
 			return response.result.value;
 		};
+		await command('Emulation.setDeviceMetricsOverride', {width:390,height:844,deviceScaleFactor:1,mobile:false});
+		await evaluate('window.runMobileSettingsChecks()');
+		await command('Emulation.setDeviceMetricsOverride', {width:1100,height:850,deviceScaleFactor:1,mobile:false});
 		try {
 			const start = await evaluate('window.beginNativePlotScrollCheck()');
 			for (let burst = 0; burst < 3; burst++) {
@@ -480,6 +527,27 @@ try {
 		await evaluate("document.body.classList.add('theme-dark')");
 		const darkScreenshot = await command('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
 		await writeFile(path.join(root, '.codex-tmp', 'foreshadow-modal-preview-dark.png'), Buffer.from(darkScreenshot.data, 'base64'));
+		await evaluate("document.body.classList.remove('theme-dark'); window.beginPlotSidebarPreview()");
+		const sidebarScreenshot = await command('Page.captureScreenshot', { format:'png', captureBeyondViewport:false });
+		await writeFile(path.join(root,'.codex-tmp','plot-sidebar-preview.png'),Buffer.from(sidebarScreenshot.data,'base64'));
+		await evaluate("document.body.classList.add('theme-dark')");
+		await evaluate('new Promise(resolve => setTimeout(resolve, 80))');
+		const sidebarDarkScreenshot = await command('Page.captureScreenshot', { format:'png', captureBeyondViewport:false });
+		await writeFile(path.join(root,'.codex-tmp','plot-sidebar-preview-dark.png'),Buffer.from(sidebarDarkScreenshot.data,'base64'));
+		await evaluate("document.body.classList.remove('theme-dark'); window.previewPlotSidebarColumn('plot')");
+		const timelineScreenshot = await command('Page.captureScreenshot', { format:'png', captureBeyondViewport:false });
+		await writeFile(path.join(root,'.codex-tmp','plot-sidebar-timeline-preview.png'),Buffer.from(timelineScreenshot.data,'base64'));
+		await evaluate('window.previewPlotSidebarRow()');
+		const rowScreenshot = await command('Page.captureScreenshot', { format:'png', captureBeyondViewport:false });
+		await writeFile(path.join(root,'.codex-tmp','plot-sidebar-row-preview.png'),Buffer.from(rowScreenshot.data,'base64'));
+		await evaluate("window.previewPlotSidebarColumn('checklist'); window.previewPlotChecklistPopup()");
+		const popupScreenshot = await command('Page.captureScreenshot', { format:'png', captureBeyondViewport:false });
+		await writeFile(path.join(root,'.codex-tmp','plot-checklist-popup-preview.png'),Buffer.from(popupScreenshot.data,'base64'));
+		await evaluate("document.body.classList.add('theme-dark')");
+		await evaluate('new Promise(resolve => setTimeout(resolve, 80))');
+		const popupDarkScreenshot = await command('Page.captureScreenshot', { format:'png', captureBeyondViewport:false });
+		await writeFile(path.join(root,'.codex-tmp','plot-checklist-popup-preview-dark.png'),Buffer.from(popupDarkScreenshot.data,'base64'));
+		await evaluate('window.endPlotSidebarPreview()');
 		await evaluate("document.body.classList.remove('theme-dark')");
 	}
 } finally {

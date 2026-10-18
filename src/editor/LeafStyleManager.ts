@@ -37,15 +37,9 @@ export class LeafStyleManager {
 	}
 
 	shouldApplyToFile(file: { path: string } | null): boolean {
-		if (!file || !this.plugin.projectContext.getProjectForPath(file.path)) return false;
-		if (!this.plugin.settings.applyToFolder) return true;
-		const folderName = this.plugin.settings.applyToFolder.trim().toLowerCase();
-		if (folderName === '') return true;
-		const pathSegments = file.path.split('/');
-		for (let i = 0; i < pathSegments.length - 1; i++) {
-			if (pathSegments[i].toLowerCase() === folderName) return true;
-		}
-		return false;
+		// Registered projects now own editor scope; older vaults can still retain
+		// applyToFolder, but it must not silently veto the project toolbar's actions.
+		return !!file && this.plugin.projectContext.getProjectForPath(file.path) !== null;
 	}
 
 	private getLeafId(leaf: WorkspaceLeaf): string {
@@ -244,7 +238,7 @@ export class LeafStyleManager {
 		this.updateHrClasses(activeLeaf);
 	}
 
-	applyZenState(state: 'off' | 'wide' | 'focus') {
+	applyZenState(state: 'off' | 'wide' | 'focus', leaf?: WorkspaceLeaf) {
 		const prevState = this.plugin.zenState;
 		this.plugin.zenState = state;
 
@@ -268,7 +262,7 @@ export class LeafStyleManager {
 		}
 
 		// 집중 UI는 전체화면 성공 여부와 무관하게 즉시 적용한다. 전체화면은 부가 효과다.
-		this.activateFocusMode();
+		this.activateFocusMode(leaf);
 		if (!activeDocument.fullscreenElement) {
 			void activeDocument.documentElement.requestFullscreen().catch(() => {});
 		}
@@ -284,10 +278,11 @@ export class LeafStyleManager {
 		}
 	}
 
-	activateFocusMode() {
+	activateFocusMode(leaf?: WorkspaceLeaf) {
 		activeDocument.body.classList.remove('wm-wide-mode');
 		activeDocument.body.classList.add('wm-focus-mode');
 		const activeLeaf =
+			leaf ??
 			this.plugin.app.workspace.getMostRecentLeaf() ??
 			this.plugin.app.workspace.getActiveViewOfType(MarkdownView)?.leaf ??
 			null;
@@ -299,14 +294,15 @@ export class LeafStyleManager {
 		}
 	}
 
-	toggleZenMode(mode: 'wide' | 'focus') {
+	toggleZenMode(mode: 'wide' | 'focus', targetLeaf?: WorkspaceLeaf) {
 		const body = activeDocument.body;
 		const focusActive = this.plugin.zenState === 'focus' || body.classList.contains('wm-focus-mode');
 		const wideActive = this.plugin.zenState === 'wide' || body.classList.contains('wm-wide-mode');
 		const requestedModeActive = mode === 'focus' ? focusActive : wideActive;
-		const activeView = this.plugin.app.workspace.getMostRecentLeaf()?.view;
+		const leaf = targetLeaf ?? this.plugin.app.workspace.getMostRecentLeaf() ?? this.plugin.app.workspace.activeLeaf;
+		const activeView = leaf?.view;
 		if (!requestedModeActive && (!this.isWritingView(activeView) || !this.shouldApplyToFile(activeView.file))) return;
-		this.applyZenState(requestedModeActive ? 'off' : mode);
+		this.applyZenState(requestedModeActive ? 'off' : mode, leaf ?? undefined);
 	}
 
 	applyZenLeaf(leaf: WorkspaceLeaf) {

@@ -5001,8 +5001,7 @@ input.slider.wm-music-vol-slider::-webkit-slider-thumb {
 
 			/* 검색 박스 */
 			.wm-dict-search-container { position: relative; width: 100%; margin: 0; }
-			.wm-dict-search-box { box-sizing: border-box; height: 34px; overflow: hidden; border: 2px solid var(--background-modifier-border); border-radius: 999px; background: transparent; background-clip: padding-box; box-shadow: none; transition: border-color 0.15s; }
-			.wm-dict-search-box:focus-within { border-color: var(--text-muted); box-shadow: none; }
+			.wm-dict-search-box { overflow: hidden; }
 			.wm-dict-search-input-row { display: flex; align-items: center; height: 30px; }
 			.wm-dict-search-input-row input.wm-dict-search { flex: 1; height: 30px; min-height: 30px; border: none; background: transparent; color: var(--text-normal); font-size: 14px; line-height: 30px; padding: 0 10px 0 0; outline: none; box-shadow: none; min-width: 0; }
 			.wm-dict-search-input-row input.wm-dict-search:hover,
@@ -5575,36 +5574,35 @@ input[type="color"].wm-compact-color-input {
 .wm-heading-raw { color: inherit; pointer-events: none; cursor: text; }
 
 /* ── Dictionary Modal ──────────────────────────────────────────────────────── */
-.wm-dict-modal-container {
+.modal.wm-dict-modal-container {
 	width: min(560px, 92vw);
 	max-width: 92vw;
-	padding: 0 !important;
+	padding: 0;
 	overflow: hidden;
 }
-.wm-dict-modal-container .modal-header-button.mod-raised.clickable-icon,
-.wm-dict-modal-container .modal-header-button.mod-raise.clickable-icon,
-.wm-dict-modal-container .modal-close-button {
-	display: none !important;
+.modal.wm-dict-modal-container .modal-header-button.mod-raised.clickable-icon,
+.modal.wm-dict-modal-container .modal-header-button.mod-raise.clickable-icon,
+.modal.wm-dict-modal-container .modal-close-button {
+	display: none;
 }
 
 /* ── Special Chars Modal ────────────────────────────────────────────────────── */
-.wm-sc-modal-container {
+.modal.wm-sc-modal-container {
 	width: min(560px, 92vw);
 	max-width: 92vw;
-	padding: 0 !important;
+	padding: 0;
 	overflow: hidden;
 }
-.wm-sc-modal-container .modal-header-button.mod-raised.clickable-icon,
-.wm-sc-modal-container .modal-header-button.mod-raise.clickable-icon,
-.wm-sc-modal-container .modal-close-button {
-	display: none !important;
+.modal.wm-sc-modal-container .modal-header-button.mod-raised.clickable-icon,
+.modal.wm-sc-modal-container .modal-header-button.mod-raise.clickable-icon,
+.modal.wm-sc-modal-container .modal-close-button {
+	display: none;
 }
 .wm-sc-modal { padding: 0; overflow: hidden; }
 
 /* 헤더: 가변 검색창 */
 .wm-sc-header { padding: 14px 16px 10px; }
-.wm-sc-search-wrap { display: flex; align-items: center; box-sizing: border-box; min-width: 0; height: 34px; overflow: hidden; border: 2px solid var(--background-modifier-border); border-radius: 999px; background: transparent; background-clip: padding-box; box-shadow: none; transition: border-color 0.15s; }
-.wm-sc-search-wrap:focus-within { border-color: var(--text-muted); box-shadow: none; }
+.wm-sc-search-wrap { overflow: hidden; }
 .wm-sc-search-icon { display: flex; align-items: center; justify-content: center; width: 34px; color: var(--text-muted); flex-shrink: 0; pointer-events: none; }
 .wm-sc-search-icon .svg-icon { width: 14px; height: 14px; }
 .wm-sc-search-wrap:focus-within .wm-sc-search-icon { color: var(--text-normal); }
@@ -5689,21 +5687,28 @@ button.wm-sc-cell-star { position: absolute; top: 1px; right: 1px; z-index: 1; d
    stay above the software keyboard instead of attaching to its top edge. */
 .is-mobile .wm-dict-modal-host,
 .is-mobile .wm-sc-modal-host {
+	--wm-search-safe-top: max(24px, env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px));
+	--wm-search-safe-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+	position: fixed;
+	top: var(--wm-search-viewport-top, 0px);
+	bottom: auto;
+	height: var(--wm-search-viewport-height, 100dvh);
 	align-items: flex-start;
 	justify-content: center;
 	box-sizing: border-box;
-	padding: env(safe-area-inset-top, 0px) 0 0;
+	padding: var(--wm-search-safe-top) 0 var(--wm-search-safe-bottom);
 }
 
-.is-mobile .wm-dict-modal-container,
-.is-mobile .wm-sc-modal-container {
+.is-mobile .modal.wm-dict-modal-container,
+.is-mobile .modal.wm-sc-modal-container {
 	box-sizing: border-box;
 	width: 100%;
 	max-width: none;
-	height: min(72dvh, 620px);
-	max-height: calc(100dvh - env(safe-area-inset-top, 0px));
+	height: min(560px, 72dvh, calc(var(--wm-search-viewport-height, 100dvh) - var(--wm-search-safe-top) - var(--wm-search-safe-bottom) - 8px));
+	max-height: 100%;
+	min-height: 0;
 	margin: 0;
-	padding: 0 !important;
+	padding: 0;
 	border: 0;
 	border-bottom: 1px solid var(--background-modifier-border-hover);
 	border-radius: 0 0 var(--radius-l, 12px) var(--radius-l, 12px);
@@ -5727,11 +5732,11 @@ button.wm-sc-cell-star { position: absolute; top: 1px; right: 1px; z-index: 1; d
 
 .is-mobile .wm-dict-modal-host .modal-header,
 .is-mobile .wm-sc-modal-host .modal-header {
-	display: none !important;
-	height: 0 !important;
-	min-height: 0 !important;
-	margin: 0 !important;
-	padding: 0 !important;
+	display: none;
+	height: 0;
+	min-height: 0;
+	margin: 0;
+	padding: 0;
 }
 
 .is-mobile .wm-dict-header,
@@ -5752,6 +5757,8 @@ button.wm-sc-cell-star { position: absolute; top: 1px; right: 1px; z-index: 1; d
 	min-height: 38px;
 	line-height: 38px;
 }
+.is-mobile .wm-dict-modal .wm-search-field input,
+.is-mobile .wm-sc-modal .wm-search-field input { font-size: 16px; }
 
 .is-mobile .wm-dict-search-icon,
 .is-mobile .wm-sc-search-icon {
@@ -5834,13 +5841,6 @@ button.wm-sc-cell-star { position: absolute; top: 1px; right: 1px; z-index: 1; d
 	min-height: 52px;
 	padding: 10px max(12px, env(safe-area-inset-right)) 10px max(12px, env(safe-area-inset-left));
 	background: var(--background-primary);
-}
-
-@media (max-height: 520px) {
-	.is-mobile .wm-dict-modal-container,
-	.is-mobile .wm-sc-modal-container {
-		height: 78dvh;
-	}
 }
 
 .wm-settings-group-add-row { display: flex; justify-content: center; }
@@ -10298,6 +10298,35 @@ input.slider.wm-writing-format-slider::-moz-range-thumb {
 	box-sizing: border-box;
 }
 
+.wm-plotbook-selected-cell-preview-content[data-role="cast"] .wm-plotbook-cast-strip {
+	height: auto;
+	min-height: 32px;
+	flex-wrap: wrap;
+	justify-content: flex-start;
+	overflow: visible;
+}
+.wm-plotbook-selected-cell-preview-content[data-role="cast"] { padding: 5px; }
+.wm-plotbook-selected-cell-preview-content[data-role="cast"] .wm-plotbook-profile-avatar {
+	width: var(--wm-plotbook-preview-avatar-width, auto);
+	height: var(--wm-plotbook-preview-avatar-height, min(32px, calc(100% - 2px)));
+}
+.wm-plotbook-selected-cell-preview-content[data-role="status"],
+.wm-plotbook-selected-cell-preview-content[data-role="date"] {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 6px;
+}
+.wm-plotbook-selected-cell-preview-content[data-role="status"] .wm-plotbook-status-value,
+.wm-plotbook-selected-cell-preview-content[data-role="date"] .wm-plotbook-date-value,
+.wm-plotbook-selected-cell-preview-content[data-role="foreshadow"] .wm-plotbook-foreshadow-task-title {
+	overflow: visible;
+	text-overflow: clip;
+	white-space: normal;
+}
+.wm-plotbook-selected-cell-preview-content[data-role="checklist"] .wm-plotbook-checklist-cell-items {
+	overflow: visible;
+}
 .wm-plotbook-selected-cell-preview > .wm-plotbook-fill-handle {
 	z-index: 2;
 	right: -4px;
@@ -11027,8 +11056,10 @@ input.wm-plotbook-date-editor {
 	background: var(--background-primary);
 }
 
-.wm-plotbook-foreshadow-search-box {
+.wm-search-field {
 	display: flex;
+	box-sizing: border-box;
+	min-width: 0;
 	align-items: center;
 	gap: 7px;
 	height: 34px;
@@ -11039,12 +11070,16 @@ input.wm-plotbook-date-editor {
 	background: transparent;
 }
 
-.wm-plotbook-foreshadow-search-box > span { display: flex; color: var(--text-faint); }
-.wm-plotbook-foreshadow-search-box svg { width: 14px; height: 14px; }
-.wm-plotbook-foreshadow-search-box:focus-within { border-color: var(--text-muted); }
+.wm-search-field > span { display: flex; flex: 0 0 auto; color: var(--text-faint); }
+.wm-search-field svg { width: 14px; height: 14px; }
+.wm-search-field:focus-within { border-color: var(--text-muted); }
+.wm-dict-modal .wm-search-field,
+.wm-sc-modal .wm-search-field { gap: 0; padding: 0; }
+.is-mobile .wm-dict-modal .wm-search-field,
+.is-mobile .wm-sc-modal .wm-search-field { height: 42px; }
 
-.modal.wm-plotbook-foreshadow-modal .wm-plotbook-foreshadow-search-box input,
-.modal.wm-plotbook-foreshadow-modal .wm-plotbook-foreshadow-search-box input:focus {
+.wm-search-field input,
+.wm-search-field input:focus {
 	width: 100%;
 	min-width: 0;
 	height: 28px;
@@ -11176,7 +11211,9 @@ input.wm-plotbook-date-editor {
 }
 .modal.wm-plotbook-foreshadow-modal .wm-plotbook-foreshadow-point-fields select[hidden] { display: none; }
 .modal.wm-plotbook-foreshadow-modal button.wm-plotbook-row-picker,
-.modal.wm-plotbook-foreshadow-modal button.wm-plotbook-row-picker:hover {
+.modal.wm-plotbook-foreshadow-modal button.wm-plotbook-row-picker:hover,
+.wm-plotbook-axis-picker button.wm-plotbook-row-picker,
+.wm-plotbook-axis-picker button.wm-plotbook-row-picker:hover {
 	display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-width: 0; height: 34px;
 	padding: 0 10px 0 32px; border: 1px solid var(--background-modifier-border); border-radius: 6px; box-shadow: none;
 	background: var(--background-primary); color: var(--text-normal); font-size: 12px; font-weight: 400;
@@ -11184,7 +11221,7 @@ input.wm-plotbook-date-editor {
 .wm-plotbook-row-picker-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wm-plotbook-row-picker-chevron { display: flex; flex: none; color: var(--text-muted); }
 .wm-plotbook-row-picker-chevron svg { width: 12px; height: 12px; }
-.wm-plotbook-row-popover { position: fixed; z-index: 1; box-sizing: border-box; display: flex; flex-direction: column; min-height: 100px; padding: 6px; border: 1px solid var(--background-modifier-border); border-radius: 8px; background: var(--background-primary); box-shadow: var(--shadow-s); color: var(--text-normal); }
+.wm-plotbook-row-popover { position: fixed; z-index: var(--layer-popover, 100); box-sizing: border-box; display: flex; flex-direction: column; min-height: 100px; padding: 6px; border: 1px solid var(--background-modifier-border); border-radius: 8px; background: var(--background-primary); box-shadow: var(--shadow-s); color: var(--text-normal); }
 .wm-plotbook-row-search { display: flex; flex: none; align-items: center; gap: 6px; padding: 4px 6px 8px; border-bottom: 1px solid var(--background-modifier-border); }
 .wm-plotbook-row-search > span { display: flex; color: var(--text-muted); }
 .wm-plotbook-row-search svg { width: 14px; height: 14px; }
@@ -12028,3 +12065,227 @@ input.wm-plotbook-date-editor {
 		width: 132px;
 	}
 }
+
+/* Plot sidebar and checklist share the plugin's monochrome controls. */
+.wm-plotbook-sidebar,
+.wm-plotbook-checklist-popover {
+	--wm-plot-ui-line: color-mix(in srgb, var(--text-normal) 10%, transparent);
+	--wm-plot-ui-surface: color-mix(in srgb, var(--text-normal) 3%, var(--background-primary));
+	--wm-plot-ui-hover: color-mix(in srgb, var(--text-normal) 5%, var(--background-primary));
+	--wm-plot-ui-focus: color-mix(in srgb, var(--text-normal) 40%, transparent);
+}
+.wm-plotbook-sidebar {
+	display: flex;
+	min-width: 0;
+	min-height: 0;
+	flex-direction: column;
+	padding: 0;
+	overflow: hidden;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	font-size: 13px;
+}
+.wm-plotbook-sidebar-chrome { display: flex; flex: 0 0 auto; flex-direction: column; gap: 12px; min-width: 0; padding: 0 16px 12px; }
+
+.wm-plotbook-sidebar-heading,
+.wm-plotbook-checklist-popover-heading {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.wm-plotbook-sidebar-axis-navigation { display: flex; flex: 1 1 84px; min-width: 58px; max-width: 140px; align-items: center; }
+.wm-plotbook-sidebar-axis-label { display: flex; flex: 1; min-width: 0; height: 26px; align-items: center; justify-content: center; overflow: hidden; color: var(--text-normal); font-size: 13px; line-height: 1; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+.wm-plotbook-sidebar-toolbar-spacer { flex: 0 1 12px; width: 12px; min-width: 0; }
+.wm-plotbook-sidebar .wm-plotbook-sidebar-heading button.clickable-icon { background: transparent; }
+.wm-plotbook-sidebar .wm-plotbook-sidebar-heading button.clickable-icon[aria-pressed="true"] { background: transparent; color: var(--text-accent); }
+.wm-plotbook-sidebar .wm-plotbook-sidebar-heading button.clickable-icon:hover { background: transparent; color: var(--text-normal); }
+.wm-plotbook-sidebar .wm-plotbook-sidebar-heading button.wm-plotbook-sidebar-step svg { width: 16px; height: 16px; }
+
+.wm-plotbook-sidebar-heading { min-width: 0; gap: 2px; font-size: 11px; }
+.wm-plotbook-sidebar-pickers { display: flex; flex-direction: column; gap: 6px; }
+.wm-plotbook-sidebar-pickers[hidden] { display: none; }
+.wm-plotbook-sidebar-context { display: flex; min-width: 0; align-items: center; gap: 8px; }
+.wm-project-select-field { display: inline-flex; box-sizing: border-box; min-width: 0; height: 30px; align-items: center; justify-content: space-between; gap: 8px; padding: 0 8px 0 10px; border: 1px solid var(--background-modifier-border); border-radius: var(--radius-s, 4px); background: transparent; color: var(--text-normal); box-shadow: none; font-size: var(--font-ui-small, 13px); }
+.wm-plotbook-sidebar-select {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	align-items: center;
+	gap: 6px;
+}
+.wm-plotbook-sidebar-select.is-column { position: relative; display: block; flex: 0 0 auto; width: 100%; }
+.wm-plotbook-sidebar-select > span { display: flex; flex: 0 0 auto; color: var(--text-muted); }
+.wm-plotbook-sidebar-select svg { width: 14px; height: 14px; }
+.wm-plotbook-sidebar-select.is-column > span { position: absolute; top: 10px; left: 10px; pointer-events: none; }
+.wm-plotbook-sidebar .wm-plotbook-sidebar-select > select {
+	width: 100%; min-width: 0; height: 28px; padding: 0 18px 0 0;
+	border: 0; box-shadow: none; background-color: transparent;
+	color: var(--text-normal); font: inherit; text-overflow: ellipsis;
+}
+.wm-plotbook-sidebar .wm-plotbook-sidebar-context select { font-size: 12px; }
+.wm-plotbook-sidebar .wm-plotbook-sidebar-select > select[hidden] { display: none; }
+.wm-plotbook-sidebar .wm-plotbook-sidebar-pickers button:focus-visible { outline: 0; box-shadow: none; }
+.wm-plotbook-sidebar button.wm-plotbook-scope-select { display: flex; flex: 1; min-width: 0; height: 28px; align-items: center; justify-content: space-between; gap: 6px; padding: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; color: var(--text-normal); font: inherit; font-size: 12px; }
+.wm-plotbook-scope-select .wm-paged-select-chevron { display: flex; flex: 0 0 auto; }
+.wm-plotbook-scope-popover { z-index: var(--layer-popover,100); overflow-y: auto; overscroll-behavior: contain; }
+.wm-plotbook-sidebar .wm-search-field { width: 100%; }
+.wm-plotbook-checklist-filters { display: flex; align-items: center; gap: 2px; padding: 8px 0; margin-right: auto; border-radius: 7px; background: transparent; }
+.wm-plotbook-checklist-filters > button {
+	height: 26px; padding: 3px 10px; border: 0; border-radius: 5px; box-shadow: none;
+	background: transparent; color: var(--text-muted); font-size: 13px;
+}
+.wm-plotbook-checklist-popover .wm-plotbook-checklist-filters > button[aria-pressed="true"] { box-shadow: none; background: transparent; color: var(--text-accent); }
+.wm-plotbook-checklist-popover .wm-plotbook-checklist-filters > button:not([aria-pressed="true"]):hover { color: var(--text-normal); background: var(--wm-plot-ui-hover); }
+.wm-plotbook-sidebar-list { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 4px 14px 24px 16px; scrollbar-gutter: stable; }
+.wm-plotbook-sidebar-empty { padding: 24px 8px; color: var(--text-muted); font-size: 12px; line-height: 1.7; }
+.wm-plotbook-timeline-card {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin: 0 0 10px;
+	padding: 12px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	background: transparent;
+}
+.wm-plotbook-timeline-card.is-current { padding: 11px; border-width: 2px; border-color: var(--text-muted); }
+.wm-plotbook-timeline-card-heading { display: flex; min-height: 26px; align-items: center; gap: 6px; color: var(--text-muted); font-size: 11px; }
+.wm-plotbook-sidebar .wm-plotbook-sidebar-text-style { color: var(--wm-plotbook-sidebar-text-light, var(--text-normal)); }
+.theme-dark .wm-plotbook-sidebar .wm-plotbook-sidebar-text-style { color: var(--wm-plotbook-sidebar-text-dark, var(--text-normal)); }
+.wm-plotbook-sidebar-card-icon { display: flex; flex: 0 0 auto; align-items: center; justify-content: center; }
+.wm-plotbook-sidebar-card-icon[hidden] { display: none; }
+.wm-plotbook-sidebar-card-icon svg { width: 13px; height: 13px; }
+.wm-plotbook-sidebar button.wm-plotbook-sidebar-card-title { display: flex; flex: 1; min-width: 0; height: auto; align-items: center; justify-content: flex-start; padding: 0; border: 0; background: transparent; color: inherit; box-shadow: none; font: inherit; font-size: 13px; font-weight: 500; line-height: 1.5; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.wm-plotbook-sidebar .is-current button.wm-plotbook-sidebar-card-title { font-weight: 600; }
+.wm-plotbook-timeline-card-heading > button.clickable-icon { opacity: 0; }
+.wm-plotbook-timeline-card:hover .wm-plotbook-timeline-card-heading > button.clickable-icon,
+.wm-plotbook-timeline-card:focus-within .wm-plotbook-timeline-card-heading > button.clickable-icon { opacity: 1; }
+.wm-plotbook-timeline-card-body { min-height: 32px; max-height: 112px; overflow: hidden; overflow-wrap: anywhere; white-space: pre-wrap; font-size: 13px; line-height: 1.75; }
+.wm-plotbook-timeline-card.is-expanded .wm-plotbook-timeline-card-body { max-height: none; overflow: visible; }
+.wm-plotbook-sidebar .wm-plotbook-sidebar-status,
+.wm-plotbook-sidebar .wm-plotbook-sidebar-date-open { display: flex; width: 100%; min-height: 34px; height: auto; min-width: 0; align-items: center; justify-content: space-between; gap: 8px; padding: 0; border: 0; border-radius: 6px; background: transparent; box-shadow: none; color: inherit; font: inherit; line-height: 1.5; }
+.wm-plotbook-sidebar-status > [aria-hidden="true"],
+.wm-plotbook-sidebar-date-open > [aria-hidden="true"] { display: flex; flex: 0 0 auto; align-items: center; justify-content: center; line-height: 1; }
+.wm-plotbook-sidebar-date-open > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wm-plotbook-sidebar-status svg,
+.wm-plotbook-sidebar-date-open svg { width: 14px; height: 14px; }
+.wm-plotbook-sidebar-date { position: relative; display: flex; min-width: 0; }
+/* Obsidian's input[type='date'] sets position:relative; the picker must stay out of flow. */
+.wm-plotbook-sidebar input.wm-plotbook-sidebar-date-input[type="date"] { position: absolute; right: 0; top: 0; min-width: 0; min-height: 0; width: 1px; height: 1px; margin: 0; padding: 0; border: 0; opacity: 0; pointer-events: none; }
+.wm-plotbook-sidebar-characters { display: flex; flex-wrap: wrap; gap: 6px 10px; }
+.wm-plotbook-sidebar a.wm-plotbook-sidebar-character-link,
+.wm-plotbook-sidebar-foreshadow > button { min-width: 0; height: auto; padding: 0; border: 0; box-shadow: none; background: transparent; color: inherit; font: inherit; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.wm-plotbook-sidebar-foreshadow > button {
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	cursor: pointer;
+	text-decoration: none;
+}
+.wm-plotbook-sidebar-foreshadow > button:hover,
+.wm-plotbook-sidebar-foreshadow > button:focus-visible,
+.wm-plotbook-sidebar-foreshadow > button:active { background: transparent; text-decoration: none; }
+.wm-plotbook-sidebar a.wm-plotbook-sidebar-character-link,
+.wm-plotbook-sidebar a.wm-plotbook-sidebar-character-link:hover,
+.wm-plotbook-sidebar a.wm-plotbook-sidebar-character-link:focus-visible,
+.wm-plotbook-sidebar a.wm-plotbook-sidebar-character-link:active { color: var(--wm-plotbook-character-color); text-decoration: none; background: transparent; }
+.wm-plotbook-sidebar-foreshadow { display: flex; align-items: center; gap: 7px; padding-block: 2px; }
+.wm-plotbook-sidebar-cell-empty { color: var(--text-muted); font-size: 12px; }
+.wm-plotbook-sidebar-more { width: 100%; margin-top: 6px; color: var(--text-muted); }
+
+.wm-plotbook-checklist-editor { min-width: 0; white-space: normal; }
+.wm-plotbook-checklist-empty { padding: 10px 0; color: var(--text-muted); font-size: 12px; line-height: 1.6; }
+.wm-plotbook-checklist-items { display: flex; flex-direction: column; gap: 2px; }
+.wm-plotbook-checklist-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto 24px; min-width: 0; align-items: center; gap: 8px; padding: 3px 4px; border-radius: 6px; }
+.wm-plotbook-checklist-item:hover,
+.wm-plotbook-checklist-item:focus-within { background: var(--wm-plot-ui-surface); }
+.wm-plotbook-checklist-toggle.task-list-item-checkbox { flex: 0 0 auto; align-self: center; }
+.wm-plotbook-checklist-editor button.wm-plotbook-checklist-title {
+	display: flex; align-items: center; justify-content: flex-start;
+	min-width: 0; height: auto; min-height: 26px; margin: 0; padding: 3px 0;
+	border: 0; box-shadow: none; background: transparent; color: var(--text-normal);
+	font: inherit; line-height: 1.55; text-align: left; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.wm-plotbook-checklist-item.is-complete .wm-plotbook-checklist-title,
+.wm-plotbook-checklist-cell-item.is-complete > .wm-plotbook-checklist-task-text { color: var(--text-muted); text-decoration: line-through; }
+.wm-plotbook-checklist-completion-date { color: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; text-decoration: none; }
+.wm-plotbook-checklist-item > .wm-plotbook-checklist-completion-date { grid-column: 3; }
+.wm-plotbook-checklist-editor .wm-plotbook-checklist-title-input { min-width: 0; width: 100%; }
+.wm-plotbook-checklist-actions { grid-column: 4; display: flex; align-items: center; padding-top: 1px; opacity: 0; }
+.wm-plotbook-checklist-item:hover .wm-plotbook-checklist-actions,
+.wm-plotbook-checklist-item:focus-within .wm-plotbook-checklist-actions { opacity: 1; }
+.wm-plotbook-checklist-actions .clickable-icon { padding: 3px; }
+.wm-plotbook-checklist-actions svg { width: 12px; height: 12px; }
+.wm-plotbook-checklist-add { display: flex; align-items: center; gap: 6px; padding: 3px 6px; margin-top: 10px; border: 1px solid var(--wm-plot-ui-line); border-radius: 8px; background: var(--wm-plot-ui-surface); }
+.wm-plotbook-checklist-add:focus-within { border-color: var(--wm-plot-ui-focus); background: var(--background-primary); }
+.wm-plotbook-checklist-add > input { flex: 1; width: 100%; min-width: 0; }
+.wm-plotbook-checklist-add[hidden] { display: none; }
+.wm-plotbook-checklist-popover {
+	position: fixed; z-index: var(--layer-popover, 100);
+	display: flex; flex-direction: column; max-height: calc(100vh - 24px); overflow: hidden; padding: 0;
+	border: 1px solid var(--wm-plot-ui-line); border-radius: 12px;
+	background: var(--background-primary); color: var(--text-normal); box-shadow: var(--shadow-s);
+	font-size: 13px; box-sizing: border-box;
+}
+.wm-plotbook-checklist-popover-heading { flex: 0 0 auto; justify-content: flex-end; padding: 6px 8px 2px; }
+.wm-plotbook-checklist-popover-composer { flex: 0 0 auto; padding: 4px 12px 0; }
+.wm-plotbook-checklist-popover > .wm-plotbook-checklist-editor { display: flex; flex-direction: column; min-height: 0; padding: 12px; }
+.wm-plotbook-checklist-popover .wm-plotbook-checklist-items { min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.wm-plotbook-checklist-popover .wm-plotbook-checklist-add { box-sizing: border-box; flex: 0 0 auto; height: 34px; margin: 0; padding: 0 6px 0 10px; gap: 7px; border: 2px solid var(--background-modifier-border); border-radius: 999px; background: transparent; }
+.wm-plotbook-checklist-popover .wm-plotbook-checklist-add:focus-within { border-color: var(--text-muted); }
+.wm-plotbook-checklist-popover .wm-plotbook-checklist-add > input { flex: 1; min-width: 0; width: 100%; height: 28px; padding: 0; margin: 0; border: 0; outline: 0; background: transparent; box-shadow: none; color: var(--text-normal); font: inherit; font-size: 12px; }
+.wm-plotbook-cell.is-checklist { display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+.wm-plotbook-checklist-cell-items { min-height: 0; overflow: hidden; }
+.wm-plotbook-checklist-cell-item { display: flex; min-width: 0; align-items: center; gap: 6px; line-height: 1.6; }
+.wm-plotbook-checklist-cell-item > .wm-plotbook-checklist-task-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wm-plotbook-checklist-cell-item > .wm-plotbook-checklist-completion-date { flex: 0 0 auto; margin-left: auto; font-size: .9em; }
+.wm-plotbook-sidebar button.clickable-icon,
+.wm-plotbook-checklist-popover button.clickable-icon {
+	border: 0; box-shadow: none; background: transparent; color: var(--text-muted);
+}
+.wm-plotbook-sidebar button.clickable-icon:hover,
+.wm-plotbook-checklist-popover button.clickable-icon:hover {
+	background: var(--wm-plot-ui-hover); color: var(--text-normal);
+}
+.wm-plotbook-sidebar .clickable-icon,
+.wm-plotbook-checklist-popover .clickable-icon {
+	display: inline-flex; flex: 0 0 auto; width: 26px; height: 26px;
+	align-items: center; justify-content: center; padding: 4px;
+}
+.wm-plotbook-sidebar .clickable-icon svg,
+.wm-plotbook-checklist-popover .clickable-icon svg { width: 14px; height: 14px; }
+.wm-plotbook-checklist-editor .wm-plotbook-checklist-actions .clickable-icon { width: 24px; height: 24px; padding: 4px; }
+.wm-plotbook-checklist-editor .wm-plotbook-checklist-add > input {
+	width: 100%; min-width: 0; height: 30px; margin: 0; padding: 4px 0;
+	border: 0; outline: 0; border-radius: 0;
+	background: transparent; color: var(--text-normal); box-shadow: none; font: inherit; font-size: 12px;
+}
+.wm-plotbook-checklist-editor .wm-plotbook-checklist-title-input { height: 28px; padding: 3px 5px; border: 1px solid var(--wm-plot-ui-focus); border-radius: 5px; background: var(--background-primary); color: var(--text-normal); box-shadow: none; font: inherit; }
+.wm-plotbook-sidebar .wm-plotbook-checklist-add { margin-top: 8px; border-color: transparent; background: transparent; }
+.wm-plotbook-sidebar .wm-plotbook-checklist-item { align-items: center; }
+.wm-plotbook-sidebar .wm-plotbook-checklist-actions { padding-top: 0; }
+.wm-plotbook-sidebar .wm-plotbook-checklist-editor button.wm-plotbook-checklist-title { color: inherit; }
+.wm-plotbook-sidebar .wm-plotbook-checklist-add:hover { background: var(--wm-plot-ui-surface); }
+.wm-plotbook-sidebar .wm-plotbook-checklist-add:focus-within { border-color: var(--wm-plot-ui-focus); background: var(--background-primary); }
+.wm-plotbook-sidebar button.wm-plotbook-sidebar-more { height: 30px; border: 1px solid var(--wm-plot-ui-line); border-radius: 7px; background: transparent; box-shadow: none; font-size: 11px; }
+.wm-plotbook-sidebar button.wm-plotbook-sidebar-more:hover { background: var(--wm-plot-ui-hover); color: var(--text-normal); }
+.wm-plotbook-sidebar button:focus-visible,
+.wm-plotbook-checklist-popover button:focus-visible { outline: 1px solid var(--wm-plot-ui-focus); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: no-preference) {
+	.wm-plotbook-sidebar button,
+	.wm-plotbook-checklist-popover button { transition: background-color 120ms ease; }
+}
+
+@media (hover: none) {
+	.wm-plotbook-checklist-actions,
+	.wm-plotbook-timeline-card-heading > button.clickable-icon { opacity: 1; }
+}
+
+.wm-api-key-field { display: flex; min-width: 0; align-items: center; gap: 6px; }
+.wm-api-key-field > input { flex: 1; width: 100%; min-width: 0; }
+.wm-api-key-field button.wm-api-key-visibility { flex: 0 0 auto; width: 28px; height: 28px; padding: 5px; border: 0; box-shadow: none; background: transparent; color: var(--text-muted); }
+.wm-api-key-field button.wm-api-key-visibility.is-active { color: var(--text-normal); background: var(--background-modifier-hover); }
+.wm-api-key-field button.wm-api-key-visibility:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.wm-api-key-visibility svg { width: 16px; height: 16px; }

@@ -7,8 +7,11 @@ import { PlotWorkbookRepository } from './PlotWorkbookRepository';
 import { PlotWorkbookSession } from './PlotWorkbookSession';
 import { PlotWorkbookStatusDeleteModal, PlotWorkbookStatusModal } from './PlotWorkbookStatusModal';
 import { plotWorkbookStatusColor, plotWorkbookStatusDefaultColor, plotWorkbookStatusIcon } from './PlotWorkbookStatus';
+import { plotWorkbookSessions } from './PlotWorkbookSessionStore';
 
 function liveStatusSession(plugin: WritingMenuPlugin, project: WritingProject): PlotWorkbookSession | null {
+	const shared = plotWorkbookSessions(plugin).peek(project);
+	if (shared) return shared;
 	for (const leaf of plugin.app.workspace.getLeavesOfType(PLOT_WORKBOOK_VIEW_TYPE)) {
 		const session = (leaf.view as PlotWorkbookView).getStatusSettingsSession?.(project.id);
 		if (session) return session;

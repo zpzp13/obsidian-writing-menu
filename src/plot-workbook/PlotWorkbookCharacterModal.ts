@@ -115,7 +115,7 @@ export class PlotWorkbookCastConfirmModal extends Modal {
 export class PlotWorkbookRoleConfirmModal extends Modal {
 	constructor(
 		app: WritingMenuPlugin['app'],
-		private readonly roleLabel: '상태' | '날짜' | '복선',
+		private readonly roleLabel: '상태' | '날짜' | '복선' | '체크리스트',
 		private readonly onConfirm: () => void,
 	) {
 		super(app);

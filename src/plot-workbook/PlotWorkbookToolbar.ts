@@ -127,6 +127,7 @@ export class PlotWorkbookToolbar {
 
 		const projectGroup = this.toolbarEl.createDiv({ cls: 'wm-paged-toolbar-group is-project' });
 		const project = this.createSelect(projectGroup, '프로젝트 폴더', '프로젝트', 'is-project', 'folder');
+		project.addClass('wm-project-select-field');
 		this.projectLabelEl = project.querySelector('.wm-paged-select-label');
 		project.addEventListener('click', event => {
 			event.stopPropagation();
@@ -179,6 +180,9 @@ export class PlotWorkbookToolbar {
 		}
 		this.createColorControl(formatting, 'color');
 		this.createColorControl(formatting, 'backgroundColor');
+		this.createIconButton(formatting, 'panel-right', '플롯 매니저 사이드바', () => {
+			void this.plugin.openPlotWorkbookSidebar({ projectId:this.projectId ?? undefined, ...this.sheet.getSelectedLocation() });
+		});
 
 		this.toolbarEl.createDiv({ cls: 'wm-paged-toolbar-spacer', attr: { 'aria-hidden': 'true' } });
 		const settings = this.toolbarEl.createDiv({ cls: 'wm-paged-toolbar-group is-settings' });
@@ -292,7 +296,7 @@ export class PlotWorkbookToolbar {
 			coverageRow.createSpan({ text: '본문, 인물 이름, 등장인물, 복선 제목·메모, 상태, 날짜를 검색합니다. 바꾸기는 직접 입력한 본문에만 적용됩니다.' });
 			const helpRow = help.createDiv({ cls: 'wm-search-help-row' });
 			helpRow.createEl('strong', { text: '범위 조합' });
-			helpRow.createSpan({ text: '@B #2-3 검색어 — @는 열 문자·제목·종류, #는 행 번호입니다. @"메인 플롯", @cast, @foreshadow도 사용할 수 있습니다. 기존 열:·행: 문법도 지원합니다.' });
+			helpRow.createSpan({ text: '@B #2-3 검색어 — @는 열 문자·제목·종류, #는 행 번호입니다. @"메인 플롯", @cast, @foreshadow도 사용할 수 있습니다.' });
 			const details = searchFrame.createDiv({ cls: 'wm-plotbook-search-details' });
 			const navigation = details.createDiv({ cls: 'wm-plotbook-search-navigation' });
 			const result = navigation.createDiv({ cls: 'wm-plotbook-filter-result' });

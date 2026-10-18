@@ -2,12 +2,11 @@ import { ItemView, Menu, Notice, Scope, WorkspaceLeaf, setIcon, type ViewStateRe
 import type WritingMenuPlugin from '../../main';
 import type { WritingProject } from '../types';
 import { InfinitePlotSheet, type PlotSheetSelection } from './InfinitePlotSheet';
-import { PlotWorkbookRepository } from './PlotWorkbookRepository';
 import { PlotWorkbookSession } from './PlotWorkbookSession';
+import { plotWorkbookSessions, type PlotWorkbookSessionLease } from './PlotWorkbookSessionStore';
 import { PlotWorkbookToolbar } from './PlotWorkbookToolbar';
 import { PlotWorkbookSheetTrashModal } from './PlotWorkbookSheetTrashModal';
 import { PLOT_WORKBOOK_VIEW_TYPE, type PlotWorkbookForeshadowLocation } from './PlotWorkbookTypes';
-import { LegacyPlotImporter } from './LegacyPlotImporter';
 
 interface PlotWorkbookViewState {
 	projectId?: string;
@@ -23,6 +22,8 @@ export class PlotWorkbookView extends ItemView {
 	private sheetThumbPosition: { x: number; y: number; w: number; h: number } | null = null;
 	private opened = false;
 	private loadToken = 0;
+	private sessionLease: PlotWorkbookSessionLease | null = null;
+	private sheetTabsSignature = '';
 
 	constructor(leaf: WorkspaceLeaf, private readonly plugin: WritingMenuPlugin) {
 		super(leaf);
@@ -46,6 +47,10 @@ export class PlotWorkbookView extends ItemView {
 		return this.projectId === projectId ? this.session : null;
 	}
 
+	async revealCell(sheetId: string, rowId: string, columnId: string): Promise<boolean> {
+		return this.revealForeshadowLocation({ sheetId, rowId, columnId });
+	}
+
 	getState(): Record<string, unknown> {
 		return { projectId: this.projectId };
 	}
@@ -67,15 +72,14 @@ export class PlotWorkbookView extends ItemView {
 	async onClose(): Promise<void> {
 		this.opened = false;
 		this.destroyViews();
-		const session = this.session;
+		const lease = this.sessionLease;
+		this.sessionLease = null;
 		this.session = null;
-		if (session) {
+		if (lease) {
 			try {
-				await session.flush();
+				await lease.release();
 			} catch (error) {
 				new Notice(`플롯 시트를 저장하지 못했습니다: ${this.errorMessage(error)}`);
-			} finally {
-				session.dispose();
 			}
 		}
 	}
@@ -83,15 +87,14 @@ export class PlotWorkbookView extends ItemView {
 	private async loadProject(): Promise<void> {
 		const token = ++this.loadToken;
 		this.destroyViews();
-		const previous = this.session;
+		const previous = this.sessionLease;
+		this.sessionLease = null;
 		this.session = null;
 		if (previous) {
 			try {
-				await previous.flush();
+				await previous.release();
 			} catch (error) {
 				new Notice(`이전 프로젝트를 저장하지 못했습니다: ${this.errorMessage(error)}`);
-			} finally {
-				previous.dispose();
 			}
 		}
 
@@ -104,35 +107,19 @@ export class PlotWorkbookView extends ItemView {
 		this.projectId = project.id;
 		this.renderLoading(project.name);
 		try {
-			const importer = new LegacyPlotImporter(this.plugin);
-			if (importer.matchesProject(project) && await importer.hasSourceData()) {
-				try {
-					const migration = await importer.importInto(project);
-					if (migration.imported) {
-						new Notice(`기존 플롯을 “기존 플롯” 시트로 안전하게 가져왔습니다. 원본 파일은 그대로 보존됩니다.`);
-					}
-				} catch (error) {
-					new Notice(`기존 플롯 자동 가져오기를 건너뛰었습니다. 설정에서 다시 시도할 수 있습니다. ${this.errorMessage(error)}`);
-				}
-			}
-			const repository = new PlotWorkbookRepository(this.plugin, project.rootFolder);
-			const loaded = await repository.loadOrCreate(project.id, project.name);
+			const lease = await plotWorkbookSessions(this.plugin).acquire(project);
 			if (token !== this.loadToken || !this.opened) {
-				repository.dispose();
+				await lease.release();
 				return;
 			}
-			this.session = new PlotWorkbookSession(
-				repository,
-				loaded.manifest,
-				loaded.sheets,
-				loaded.foreshadows,
-				loaded.warnings,
-			);
-			this.sessionUnsubscribe = this.session.subscribe(() => this.toolbarView?.refresh());
+			this.sessionLease = lease;
+			this.session = lease.session;
+			this.sessionUnsubscribe = this.session.subscribe(() => {
+				this.toolbarView?.refresh();
+				const signature = this.currentSheetTabsSignature();
+				if (signature !== this.sheetTabsSignature) this.refreshSheetTabs();
+			});
 			this.render();
-			if (loaded.warnings.length > 0) {
-				new Notice(`플롯 시트를 복구해 열었습니다.\n${loaded.warnings[0]}`);
-			}
 		} catch (error) {
 			if (token !== this.loadToken) return;
 			this.renderError(project, error);
@@ -209,6 +196,7 @@ export class PlotWorkbookView extends ItemView {
 
 	private renderSheetTabs(content: HTMLElement): void {
 		if (!this.session) return;
+		this.sheetTabsSignature = this.currentSheetTabsSignature();
 		const dock = content.createDiv({ cls: 'wm-plotbook-sheet-dock' });
 		const bar = dock.createDiv({
 			cls: 'wm-plotbook-sheet-tabs wm-dash-char-range-seg',
@@ -298,6 +286,17 @@ export class PlotWorkbookView extends ItemView {
 			thumb.removeClass('is-still');
 			window.requestAnimationFrame(() => placeThumb(activeTab));
 		});
+	}
+
+	private currentSheetTabsSignature(): string {
+		return JSON.stringify([this.session?.manifest.activeSheetId, this.session?.manifest.sheets, this.session?.manifest.deletedSheets]);
+	}
+
+	private refreshSheetTabs(): void {
+		const workspace = this.contentEl.querySelector<HTMLElement>('.wm-plotbook-workspace');
+		if (!workspace) return;
+		workspace.querySelector('.wm-plotbook-sheet-dock')?.remove();
+		this.renderSheetTabs(workspace);
 	}
 
 	private beginSheetRename(tab: HTMLElement, sheetId: string, name: string): void {

@@ -14,10 +14,14 @@ import { PlotWorkbookCastConfirmModal, PlotWorkbookCharacterModal, PlotWorkbookR
 import { PlotWorkbookLabelModal } from './PlotWorkbookLabelModal';
 import { PlotWorkbookMoveColumnsModal } from './PlotWorkbookMoveColumnsModal';
 import { PlotWorkbookSnapshotModal } from './PlotWorkbookSnapshotModal';
-import { PlotWorkbookStatusModal } from './PlotWorkbookStatusModal';
 import { PlotWorkbookForeshadowModal } from './PlotWorkbookForeshadowModal';
 import { renderForeshadowBadge } from './PlotWorkbookForeshadowCard';
-import { plotWorkbookStatusIcon } from './PlotWorkbookStatus';
+import { parseChecklist } from './PlotWorkbookChecklist';
+import { PlotWorkbookChecklistPopover } from './PlotWorkbookChecklistPopover';
+import { createChecklistControl, renderChecklistCompletionDate } from './PlotWorkbookChecklistControl';
+import { PlotWorkbookCellEditorSize } from './PlotWorkbookCellEditorSize';
+import { openPlotWorkbookCharacter, openPlotWorkbookStatusMenu } from './PlotWorkbookCellActions';
+import { PLOT_COLUMN_ICONS as COLUMN_ROLE_ICONS } from './PlotWorkbookColumnPresentation';
 import { parsePlotWorkbookSearch } from './PlotWorkbookSearch';
 import { PlotWorkbookCreateNoteModal, PlotWorkbookNumberingModal, PlotWorkbookProjectNoteModal } from './PlotWorkbookNoteModal';
 import type { ThemeAwareColor } from '../types';
@@ -47,16 +51,8 @@ const COLUMN_ROLES: Array<{ value: PlotWorkbookColumnRole; label: string }> = [
 	{ value: 'status', label: '상태' },
 	{ value: 'date', label: '날짜' },
 	{ value: 'foreshadow', label: '복선' },
+	{ value: 'checklist', label: '체크리스트' },
 ];
-const COLUMN_ROLE_ICONS: Partial<Record<PlotWorkbookColumnRole, string>> = {
-	text: 'text',
-	plot: 'git-branch',
-	character: 'user-round',
-	cast: 'users',
-	status: 'list-todo',
-	date: 'calendar-days',
-	foreshadow: 'sprout',
-};
 
 interface AxisLayout {
 	offsets: number[];
@@ -142,6 +138,7 @@ export class InfinitePlotSheet {
 	private selectedCellKeys = new Set<string>();
 	private zoom = 1;
 	private editingCell: HTMLTextAreaElement | HTMLInputElement | null = null;
+	private editorSize: PlotWorkbookCellEditorSize | null = null;
 	private selectedCellPreview: HTMLElement;
 	private selectedCellPreviewContent: HTMLElement;
 	private selectedCellPreviewSource: HTMLElement | null = null;
@@ -209,6 +206,7 @@ export class InfinitePlotSheet {
 	private readonly pendingCellText = new Map<HTMLElement, {
 		content: HTMLElement; value: string; length: number; rowId: string; columnId: string;
 	}>();
+	private checklistPopover: PlotWorkbookChecklistPopover | null = null;
 
 	constructor(
 		parent: HTMLElement,
@@ -287,13 +285,42 @@ export class InfinitePlotSheet {
 		this.previewFillHandle = this.selectedCellPreview.createDiv({ cls: 'wm-plotbook-fill-handle' });
 		this.previewFillHandle.addEventListener('pointerdown', event => this.beginFill(event));
 		this.selectedCellPreview.addEventListener('pointerdown', event => event.stopPropagation());
+		this.selectedCellPreview.addEventListener('click', event => {
+			if ((event.target as Element | null)?.closest('.wm-plotbook-fill-handle')) return;
+			const sheet = this.session.activeSheet;
+			const rowId = sheet.rowOrder[this.selected.rowIndex];
+			const columnId = this.columnOrder(sheet)[this.selected.columnIndex];
+			const role = sheet.columns[columnId]?.role ?? 'text';
+			const source = this.selectedCellPreviewSource;
+			if (!rowId || !columnId || !source) return;
+			if (role === 'status') this.openStatusMenu(event, rowId, columnId);
+			else if (role === 'date') this.beginDateEditingCell(
+				source, this.selected.rowIndex, this.selected.columnIndex,
+				Boolean((event.target as Element | null)?.closest('.wm-plotbook-structured-chevron')),
+			);
+			else if (role === 'cast') {
+				const avatar = (event.target as Element | null)?.closest('.wm-plotbook-profile-avatar');
+				if (!avatar) return;
+				const index = Array.from(this.selectedCellPreviewContent.querySelectorAll('.wm-plotbook-profile-avatar')).indexOf(avatar);
+				source.querySelectorAll<HTMLButtonElement>('.wm-plotbook-profile-avatar')[index]?.click();
+			}
+		});
 		this.selectedCellPreview.addEventListener('dblclick', event => {
 			event.preventDefault();
 			event.stopPropagation();
-			const cell = this.canvas.querySelector<HTMLElement>(
-				`.wm-plotbook-cell[data-row="${this.selected.rowIndex}"][data-column="${this.selected.columnIndex}"]`,
+			if ((event.target as Element | null)?.closest('input, button, a, select, textarea')) return;
+			const sheet = this.session.activeSheet;
+			const rowId = sheet.rowOrder[this.selected.rowIndex];
+			const columnId = this.columnOrder(sheet)[this.selected.columnIndex];
+			const role = sheet.columns[columnId]?.role ?? 'text';
+			const cell = this.selectedCellPreviewSource;
+			if (!cell || !rowId || !columnId) return;
+			if (role === 'checklist') this.openChecklistCell(cell, sheet, rowId, columnId);
+			else if (role === 'foreshadow') this.openForeshadowModal(
+				{ sheetId: sheet.sheetId, rowId, columnId },
+				(event.target as Element | null)?.closest<HTMLElement>('[data-foreshadow-id]')?.dataset.foreshadowId,
 			);
-			if (cell) this.beginEditingCell(cell, this.selected.rowIndex, this.selected.columnIndex);
+			else if (role !== 'status' && role !== 'date' && role !== 'cast') this.beginEditingCell(cell, this.selected.rowIndex, this.selected.columnIndex);
 		});
 		this.selectionBox = this.canvas.createDiv({ cls: 'wm-plotbook-selection-box' });
 		this.fillHandle = this.selectionBox.createDiv({ cls: 'wm-plotbook-fill-handle' });
@@ -608,6 +635,9 @@ export class InfinitePlotSheet {
 	}
 
 	destroy(): void {
+		this.editorSize?.destroy();
+		this.editorSize = null;
+		this.checklistPopover?.close();
 		this.viewportResizeObserver.disconnect();
 		this.cancelWheelScroll();
 		this.stopAutoScroll();
@@ -838,7 +868,7 @@ export class InfinitePlotSheet {
 		const beforeOrder = this.columnOrder(sheet);
 		const previousMode = this.selectionMode;
 		const hadCellKeys = this.selectedCellKeys.size > 0;
-		const seedTargets = toggle && previousMode === 'cell' ? this.selectedCellTargets() : [];
+		const seedTargets = toggle && previousMode === 'cell' ? this.selectedCellTargets(true) : [];
 		this.selectionMode = 'cell';
 		this.selectedRowIdsSet.clear();
 		this.selectedColumnIdsSet.clear();
@@ -1106,6 +1136,11 @@ export class InfinitePlotSheet {
 		};
 	}
 
+	getSelectedLocation(): PlotWorkbookForeshadowLocation {
+		const sheet = this.session.activeSheet;
+		return {sheetId:sheet.sheetId,rowId:sheet.rowOrder[this.selected.rowIndex],columnId:this.columnOrder(sheet)[this.selected.columnIndex]};
+	}
+
 	getSelectionStyle(): PlotWorkbookCellStyle {
 		if (this.selectionMode !== 'cell' && this.headerStyleTarget === 'headers') {
 			const { rowIds, columnIds } = this.selectedHeaderIds();
@@ -1114,7 +1149,7 @@ export class InfinitePlotSheet {
 				...columnIds.map(columnId => this.headerDisplayStyle('column', this.session.getColumnHeaderStyle(columnId))),
 			]);
 		}
-		const targets = this.selectedCellTargets();
+		const targets = this.selectedCellTargets(true);
 		if (targets.length === 0) return {};
 		const sheet = this.session.activeSheet;
 		return this.commonStyle(targets.map(target =>
@@ -1152,10 +1187,10 @@ export class InfinitePlotSheet {
 
 	applySelectionStyle(patch: Partial<PlotWorkbookCellStyle>): void {
 		if (this.selectionMode === 'cell') {
-			this.session.setCellStyles(this.selectedCellTargets(), patch);
+			this.session.setCellStyles(this.selectedCellTargets(true), patch);
 		} else if (this.headerStyleTarget === 'cells') {
 			const { rowIds, columnIds } = this.selectedHeaderIds();
-			this.session.setCellAndAxisStyles(this.selectedCellTargets(), rowIds, columnIds, patch);
+			this.session.setCellAndAxisStyles(this.selectedCellTargets(true), rowIds, columnIds, patch);
 		} else {
 			const { rowIds, columnIds } = this.selectedHeaderIds();
 			this.session.setHeaderStyles(rowIds, columnIds, patch);
@@ -1175,7 +1210,7 @@ export class InfinitePlotSheet {
 			this.focus();
 			return;
 		}
-		const targets = this.selectedCellTargets();
+		const targets = this.selectedCellTargets(true);
 		const sheet = this.session.activeSheet;
 		const allActive = targets.length > 0 && targets.every(target =>
 			this.session.getCellStyle(sheet, target.rowId, target.columnId)[kind] === true);
@@ -1969,6 +2004,7 @@ export class InfinitePlotSheet {
 		cell.toggleClass('is-status', role === 'status');
 		cell.toggleClass('is-date', role === 'date');
 		cell.toggleClass('is-foreshadow', foreshadow);
+		cell.toggleClass('is-checklist', role === 'checklist');
 		cell.toggleClass('is-structured-disabled', structuredSubrow);
 		const style = this.session.getCellStyle(sheet, rowId, columnId);
 		if (Object.keys(style).length > 0) this.applyCellStyle(cell, style);
@@ -1977,8 +2013,9 @@ export class InfinitePlotSheet {
 		else if (role === 'status') this.renderStatusCell(cell, value);
 		else if (role === 'date') this.renderDateCell(cell, value);
 		else if (foreshadow) this.renderForeshadowCell(cell, sheet, rowId, columnId, value);
+		else if (role === 'checklist') this.renderChecklistCell(cell, sheet, rowId, columnId, value);
 		else this.renderSearchableCellText(cell, value, rowId, columnId);
-		cell.draggable = !collapsedRow && !collapsedColumn && !locked && !structured && !foreshadow && value.length > 0;
+		cell.draggable = !collapsedRow && !collapsedColumn && !locked && !structured && !foreshadow && role !== 'checklist' && value.length > 0;
 		if (!collapsedRow && !collapsedColumn && role === 'status' && !structuredSubrow) {
 			cell.addEventListener('click', event => {
 				if (event.ctrlKey || event.metaKey || event.shiftKey) return;
@@ -1995,7 +2032,12 @@ export class InfinitePlotSheet {
 				);
 			});
 		} else if (!collapsedRow && !collapsedColumn && foreshadow) {
-			cell.addEventListener('dblclick', () => this.openForeshadowModal({ sheetId: sheet.sheetId, rowId, columnId }));
+			cell.addEventListener('dblclick', event => this.openForeshadowModal(
+				{ sheetId: sheet.sheetId, rowId, columnId },
+				(event.target as Element | null)?.closest<HTMLElement>('[data-foreshadow-id]')?.dataset.foreshadowId,
+			));
+		} else if (!collapsedRow && !collapsedColumn && role === 'checklist') {
+			cell.addEventListener('dblclick', () => this.openChecklistCell(cell, sheet, rowId, columnId));
 		}
 	}
 
@@ -2028,7 +2070,7 @@ export class InfinitePlotSheet {
 			this.openCellMenu(event as MouseEvent, cell, rowIndex, columnIndex);
 			return;
 		}
-		if (role === 'cast' || role === 'status' || role === 'date' || role === 'foreshadow') return;
+		if (role === 'cast' || role === 'status' || role === 'date' || role === 'foreshadow' || role === 'checklist') return;
 		switch (event.type) {
 			case 'dblclick': if (!collapsedRow && !collapsedColumn) this.beginEditingCell(cell, rowIndex, columnIndex); break;
 			case 'dragstart': this.beginCellDrag(event as DragEvent, cell, rowIndex, columnIndex); break;
@@ -2037,6 +2079,35 @@ export class InfinitePlotSheet {
 			case 'dragend': this.clearCellDrag(); break;
 		}
 	};
+
+	private renderChecklistCell(cell: HTMLElement, sheet: PlotWorkbookSheet, rowId: string, columnId: string, value: string, limit = 2): void {
+		cell.empty();
+		const tasks = parseChecklist(value);
+		if (!tasks.length) return;
+		const list = cell.createDiv({ cls:'wm-plotbook-checklist-cell-items' });
+		for (const task of tasks.slice(0, limit)) {
+			const row = list.createDiv({ cls:`wm-plotbook-checklist-cell-item${task.completed ? ' is-complete' : ''}` });
+			createChecklistControl(row,task.completed,`${task.text} 완료`,completed => this.session.changeChecklistTask(sheet.sheetId,rowId,columnId,task,{completed}));
+			const text = row.createSpan({ cls: 'wm-plotbook-checklist-task-text' });
+			this.renderMatchingLabel(text, task.text);
+			renderChecklistCompletionDate(row, task.completionDate);
+		}
+	}
+
+	private openChecklistCell(cell: HTMLElement, sheet: PlotWorkbookSheet, rowId: string, columnId: string): void {
+		this.checklistPopover?.close();
+		const rowIndex = sheet.rowOrder.indexOf(rowId);
+		const columnIndex = this.columnOrder(sheet).indexOf(columnId);
+		const currentCell = rowIndex >= 0 && columnIndex >= 0
+			? this.canvas.querySelector<HTMLElement>(`.wm-plotbook-cell[data-row="${rowIndex}"][data-column="${columnIndex}"]`)
+			: null;
+		const anchor = currentCell?.isConnected ? currentCell : cell;
+		this.clearSelectionPreview();
+		const location = {sheetId:sheet.sheetId, rowId, columnId};
+		this.checklistPopover = new PlotWorkbookChecklistPopover(anchor, this.session, location,
+			() => void this.plugin.openPlotWorkbookSidebar({projectId:this.session.manifest.projectId, ...location}),
+			() => { this.checklistPopover = null; });
+	}
 
 	private renderForeshadowCell(
 		cell: HTMLElement,
@@ -2064,6 +2135,7 @@ export class InfinitePlotSheet {
 					title: `${resolvedHere ? '회수' : plantedHere ? '등록' : '연결'} · ${item.status === 'resolved' ? '회수됨' : '미회수'}`,
 				},
 			});
+			task.dataset.foreshadowId = item.id;
 			renderForeshadowBadge(task, item.status);
 			this.renderMatchingLabel(task.createSpan({ cls: 'wm-plotbook-foreshadow-task-title' }), item.title);
 			if (resolvedHere) task.setAttribute('data-location-kind', 'resolve');
@@ -2155,44 +2227,16 @@ export class InfinitePlotSheet {
 	}
 
 	private openStatusMenu(event: MouseEvent, rowId: string, columnId: string): void {
-		event.preventDefault();
-		event.stopPropagation();
-		const current = this.session.getCell(this.session.activeSheet, rowId, columnId);
-		const menu = new Menu();
-		for (const status of this.session.getStatuses()) {
-			menu.addItem(item => {
-				item.setTitle(status.name)
-					.setIcon(plotWorkbookStatusIcon(status.id))
-					.onClick(() => this.session.setCell(rowId, columnId, status.id));
-				const menuItemEl = (item as unknown as { dom: HTMLElement }).dom;
-				menuItemEl.addClass('wm-plotbook-status-option');
-				menuItemEl.addClass(status.id === 'done' ? 'is-done' : 'is-open');
-				menuItemEl.toggleClass('is-current', current === status.id);
-				menuItemEl.style.setProperty('--wm-plotbook-status-color', this.session.statusColor(status.id));
-			});
-		}
-		menu.addSeparator();
-		menu.addItem(item => item
-			.setTitle('새 상태…')
-			.setIcon('plus')
-			.onClick(() => new PlotWorkbookStatusModal(this.plugin, async name => {
-				const status = await this.session.addStatus(name);
-				if (status) this.session.setCell(rowId, columnId, status.id);
-			}).open()));
-		menu.addItem(item => item
-			.setTitle('상태 없음')
-			.setIcon('x')
-			.setDisabled(!current)
-			.onClick(() => this.session.setCell(rowId, columnId, '')));
-		menu.showAtMouseEvent(event);
+		openPlotWorkbookStatusMenu(this.plugin,this.session,event,rowId,columnId);
 	}
 
-	private openForeshadowModal(location?: PlotWorkbookForeshadowLocation): void {
+	private openForeshadowModal(location?: PlotWorkbookForeshadowLocation, selectedId?: string): void {
 		new PlotWorkbookForeshadowModal(
 			this.plugin,
 			this.session,
 			location,
 			candidate => this.revealForeshadowLocation(candidate),
+			selectedId,
 		).open();
 	}
 
@@ -2459,20 +2503,8 @@ export class InfinitePlotSheet {
 				).open()));
 			menu.addSeparator();
 		}
-		if (foreshadow) {
-			const location = { sheetId: sheet.sheetId, rowId, columnId };
-			menu.addItem(item => item
-				.setTitle('복선 등록 및 회수')
-				.setIcon('sprout')
-				.onClick(() => this.openForeshadowModal(location)));
-			menu.addItem(item => item
-				.setTitle('복선 목록')
-				.setIcon('list')
-				.onClick(() => this.openForeshadowModal()));
-			menu.addSeparator();
-		}
 		menu.addItem(item => item
-			.setTitle(role === 'status' ? '상태 선택' : role === 'date' ? '날짜 선택' : foreshadow ? '복선 관리' : '셀 편집')
+			.setTitle(role === 'status' ? '상태 선택' : role === 'date' ? '날짜 선택' : foreshadow ? '복선 관리' : role === 'checklist' ? '체크리스트 편집' : '셀 편집')
 			.setIcon(role === 'status' ? 'list-todo' : role === 'date' ? 'calendar-days' : foreshadow ? 'sprout' : 'pencil')
 			.setDisabled(locked || (subrow && (role === 'status' || role === 'date')))
 			.onClick(() => {
@@ -2480,6 +2512,7 @@ export class InfinitePlotSheet {
 				if (role === 'status') this.openStatusMenu(event, rowId, columnId);
 				else if (role === 'date') this.beginEditingSelected();
 				else if (foreshadow) this.openForeshadowModal({ sheetId: sheet.sheetId, rowId, columnId });
+				else if (role === 'checklist') this.openChecklistCell(_cell, sheet, rowId, columnId);
 				else this.beginEditingSelected();
 			}));
 		menu.addItem(item => item
@@ -2488,6 +2521,12 @@ export class InfinitePlotSheet {
 			.setDisabled(locked || foreshadow)
 			.onClick(() => this.clearSelectedRange()));
 		menu.addSeparator();
+		menu.addItem(item => item
+			.setTitle('사이드바에서 보기')
+			.setIcon('panel-right')
+			.onClick(() => void this.plugin.openPlotWorkbookSidebar({
+				projectId:this.session.manifest.projectId, sheetId:sheet.sheetId, rowId, columnId,
+			})));
 		menu.addItem(item => item
 			.setTitle('행 전체 선택')
 			.setIcon('rows-3')
@@ -2659,24 +2698,7 @@ export class InfinitePlotSheet {
 	}
 
 	private async openCharacterNote(notePath: string): Promise<void> {
-		const file = this.plugin.app.vault.getAbstractFileByPath(normalizePath(notePath));
-		if (!(file instanceof TFile)) {
-			new Notice('연결된 인물 노트를 찾을 수 없습니다.');
-			return;
-		}
-		const mode = this.plugin.settings.plotCharacterLinkOpenMode ?? 'sidebar';
-		if (this.plugin.settings.plotCharacterLinkFormat === 'wiki') {
-			await this.plugin.openFileInWiki(file, mode);
-			return;
-		}
-		const leaf = mode === 'sidebar'
-			? this.plugin.app.workspace.getRightLeaf(false)
-			: mode === 'tab'
-				? this.plugin.app.workspace.getLeaf('tab')
-				: (this.plugin.app.workspace.activeLeaf ?? this.plugin.app.workspace.getLeaf(false));
-		if (!leaf) return;
-		await leaf.openFile(file);
-		await this.plugin.app.workspace.revealLeaf(leaf);
+		await openPlotWorkbookCharacter(this.plugin,notePath);
 	}
 
 	private renderRowHeader(sheet: PlotWorkbookSheet, rowId: string, rowIndex: number, label: string, rows: AxisLayout): void {
@@ -3008,9 +3030,9 @@ export class InfinitePlotSheet {
 							new PlotWorkbookCastConfirmModal(this.plugin.app, () => this.session.setCastColumns(actionIds)).open();
 							return;
 						}
-						if (option.value === 'status' || option.value === 'date' || option.value === 'foreshadow') {
-							const structuredRole: 'status' | 'date' | 'foreshadow' = option.value;
-							const roleLabel = structuredRole === 'status' ? '상태' : structuredRole === 'date' ? '날짜' : '복선';
+						if (option.value === 'status' || option.value === 'date' || option.value === 'foreshadow' || option.value === 'checklist') {
+							const structuredRole = option.value;
+							const roleLabel = structuredRole === 'status' ? '상태' : structuredRole === 'date' ? '날짜' : structuredRole === 'checklist' ? '체크리스트' : '복선';
 							new PlotWorkbookRoleConfirmModal(this.plugin.app, roleLabel, () =>
 								this.session.setStructuredColumns(actionIds, structuredRole)).open();
 							return;
@@ -3618,6 +3640,11 @@ export class InfinitePlotSheet {
 			if (rowId && columnId) this.openForeshadowModal({ sheetId: sheet.sheetId, rowId, columnId });
 			return;
 		}
+		if (role === 'checklist') {
+			const rowId = sheet.rowOrder[this.selected.rowIndex];
+			if (rowId && columnId) this.openChecklistCell(cell, sheet, rowId, columnId);
+			return;
+		}
 		if (role === 'status' || role === 'cast') return;
 		this.beginEditingCell(cell, this.selected.rowIndex, this.selected.columnIndex, initialValue, replace);
 	}
@@ -3628,7 +3655,7 @@ export class InfinitePlotSheet {
 		const rowId = sheet.rowOrder[rowIndex];
 		const columnId = this.columnOrder(sheet)[columnIndex];
 		const role = sheet.columns[columnId]?.role;
-		if (!rowId || !columnId || role === 'cast' || role === 'status' || role === 'date' || role === 'foreshadow') return;
+		if (!rowId || !columnId || role === 'cast' || role === 'status' || role === 'date' || role === 'foreshadow' || role === 'checklist') return;
 		this.clearSelectionPreview();
 		if (this.renderFrame !== null) {
 			window.cancelAnimationFrame(this.renderFrame);
@@ -3660,17 +3687,13 @@ export class InfinitePlotSheet {
 		cell.addClass('is-editing-expanded');
 		this.selectionBox.addClass('is-editing-cell');
 		this.editingCell = input;
-		const resizeEditor = () => {
-			input.style.height = 'auto';
-			const viewportRect = this.viewport.getBoundingClientRect();
-			const cellRect = cell.getBoundingClientRect();
-			const available = Math.max(cell.clientHeight, viewportRect.bottom - cellRect.top - 12);
-			input.style.height = `${Math.max(cell.clientHeight, Math.min(input.scrollHeight + 4, available, 360))}px`;
-		};
+		this.editorSize = new PlotWorkbookCellEditorSize(input, cell, this.viewport, this.zoom);
 		let finished = false;
 		const finish = (commit: boolean) => {
 			if (finished) return;
 			finished = true;
+			this.editorSize?.destroy();
+			this.editorSize = null;
 			const value = input.value;
 			// Remove the temporary expanded editor before moving the selection. Waiting
 			// for the scheduled grid render leaves its large border visible for one
@@ -3683,14 +3706,20 @@ export class InfinitePlotSheet {
 			this.editingCell = null;
 			this.scheduleRender();
 		};
-		input.addEventListener('input', resizeEditor);
 		input.addEventListener('blur', () => finish(true));
 		input.addEventListener('keydown', event => {
+			if (event.isComposing) return;
 			if (event.key === 'Escape') {
 				event.preventDefault();
 				finish(false);
 				this.viewport.focus();
-			} else if (event.key === 'Enter' && !event.altKey) {
+			} else if (event.key === 'Enter' && (event.shiftKey || event.altKey)) {
+				event.preventDefault();
+				const start = input.selectionStart ?? input.value.length;
+				const end = input.selectionEnd ?? start;
+				input.setRangeText('\n', start, end, 'end');
+				input.dispatchEvent(new Event('input', { bubbles: true }));
+			} else if (event.key === 'Enter') {
 				event.preventDefault();
 				finish(true);
 				if (rowIndex + 1 >= this.session.activeSheet.rowOrder.length) {
@@ -3705,7 +3734,6 @@ export class InfinitePlotSheet {
 		input.focus();
 		if (!replace) input.select();
 		else input.setSelectionRange(input.value.length, input.value.length);
-		resizeEditor();
 	}
 
 	private setSelectedValue(value: string): void {
@@ -3876,12 +3904,13 @@ export class InfinitePlotSheet {
 		};
 	}
 
-	private selectedCellTargets(): Array<{ rowId: string; columnId: string }> {
+	// Appearance values remain protected; only formatting may include those cells.
+	private selectedCellTargets(forFormatting = false): Array<{ rowId: string; columnId: string }> {
 		const sheet = this.session.activeSheet;
 		if (this.selectionMode === 'cell' && this.selectedCellKeys.size > 0) {
 			return [...this.selectedCellKeys].flatMap(key => {
 				const [rowId, columnId] = this.cellIdsFromKey(key);
-				return sheet.rows[rowId] && sheet.columns[columnId] && sheet.columns[columnId]?.role !== 'cast'
+				return sheet.rows[rowId] && sheet.columns[columnId] && (forFormatting || sheet.columns[columnId]?.role !== 'cast')
 					? [{ rowId, columnId }]
 					: [];
 			});
@@ -3897,7 +3926,7 @@ export class InfinitePlotSheet {
 		const targets: Array<{ rowId: string; columnId: string }> = [];
 		for (const rowId of rowIds) {
 			for (const columnId of columnIds) {
-				if (columnId && sheet.columns[columnId]?.role !== 'cast') targets.push({ rowId, columnId });
+				if (columnId && (forFormatting || sheet.columns[columnId]?.role !== 'cast')) targets.push({ rowId, columnId });
 			}
 		}
 		return targets;
@@ -3989,6 +4018,7 @@ export class InfinitePlotSheet {
 		this.selectedCellPreviewSource = null;
 		this.selectedCellPreview.addClass('is-hidden');
 		this.selectedCellPreviewContent.empty();
+		this.selectedCellPreviewContent.removeAttribute('data-role');
 		this.selectedCellPreview.style.removeProperty('height');
 		this.selectedCellPreview.style.removeProperty('--wm-plotbook-preview-background');
 		this.selectedCellPreview.removeClass('is-on-frozen-pane', 'is-scroll-x', 'is-scroll-y');
@@ -4005,15 +4035,15 @@ export class InfinitePlotSheet {
 		const columnId = this.columnOrder(sheet)[this.selected.columnIndex];
 		const row = sheet.rows[rowId];
 		const column = sheet.columns[columnId];
-		if (!rowId || !columnId || row?.collapsed || column?.collapsed
-			|| column.role === 'cast' || column.role === 'status' || column.role === 'date' || column.role === 'foreshadow') {
+		if (!rowId || !columnId || row?.collapsed || column?.collapsed) {
 			this.clearSelectionPreview();
 			return;
 		}
 		const value = this.session.getCell(sheet, rowId, columnId);
+		const role = column.role ?? 'text';
 		const selector = `.wm-plotbook-cell[data-row="${this.selected.rowIndex}"][data-column="${this.selected.columnIndex}"]`;
 		const cell = this.canvas.querySelector<HTMLElement>(selector);
-		if (!value || !cell?.isConnected || cell.scrollHeight <= cell.clientHeight + 1) {
+		if (!cell?.isConnected || !this.cellHasHiddenContent(cell, role, value)) {
 			this.clearSelectionPreview();
 			return;
 		}
@@ -4024,8 +4054,7 @@ export class InfinitePlotSheet {
 		this.selectedCellPreviewSource?.removeClass('has-selected-cell-preview');
 		this.selectedCellPreviewSource = cell;
 		cell.addClass('has-selected-cell-preview');
-		this.selectedCellPreviewContent.empty();
-		this.renderSearchableText(this.selectedCellPreviewContent, value, rowId, columnId);
+		this.renderSelectionPreviewContent(cell, sheet, rowId, columnId, role, value);
 		this.applyCellStyle(this.selectedCellPreview, this.session.getCellStyle(sheet, rowId, columnId));
 		const computedBackground = cell.ownerDocument.defaultView?.getComputedStyle(cell).backgroundColor ?? '';
 		const transparentBackground = !computedBackground
@@ -4052,6 +4081,51 @@ export class InfinitePlotSheet {
 			Math.min(this.selectedCellPreviewContent.scrollHeight + 4, available, 360),
 		)}px`;
 		this.selectionBox.addClass('is-previewing-cell');
+	}
+
+	private cellHasHiddenContent(cell: HTMLElement, role: PlotWorkbookColumnRole, value: string): boolean {
+		if (role === 'checklist' && parseChecklist(value).length > 2) return true;
+		if (!value && role !== 'cast' && role !== 'status' && role !== 'date' && role !== 'foreshadow') return false;
+		return [cell, ...cell.querySelectorAll<HTMLElement>('*')].some(element =>
+			element.scrollHeight > element.clientHeight + 1 || element.scrollWidth > element.clientWidth + 1);
+	}
+
+	private renderSelectionPreviewContent(
+		cell: HTMLElement,
+		sheet: PlotWorkbookSheet,
+		rowId: string,
+		columnId: string,
+		role: PlotWorkbookColumnRole,
+		value: string,
+	): void {
+		this.selectedCellPreviewContent.empty();
+		this.selectedCellPreviewContent.style.removeProperty('--wm-plotbook-preview-avatar-width');
+		this.selectedCellPreviewContent.style.removeProperty('--wm-plotbook-preview-avatar-height');
+		this.selectedCellPreviewContent.dataset.role = role;
+		if (role === 'checklist') {
+			this.selectedCellPreview.setAttribute('role', 'group');
+			this.selectedCellPreview.setAttribute('aria-label', '선택한 체크리스트 미리보기');
+			this.selectedCellPreview.removeAttribute('aria-readonly');
+			this.renderChecklistCell(this.selectedCellPreviewContent, sheet, rowId, columnId, value, Infinity);
+			return;
+		}
+		this.selectedCellPreview.setAttribute('role', 'textbox');
+		this.selectedCellPreview.setAttribute('aria-readonly', 'true');
+		this.selectedCellPreview.removeAttribute('aria-label');
+		if (role === 'cast') {
+			const sourceAvatar = cell.querySelector<HTMLElement>('.wm-plotbook-profile-avatar');
+			if (sourceAvatar && sourceAvatar.offsetWidth > 0 && sourceAvatar.offsetHeight > 0) {
+				this.selectedCellPreviewContent.style.setProperty('--wm-plotbook-preview-avatar-width', `${sourceAvatar.offsetWidth}px`);
+				this.selectedCellPreviewContent.style.setProperty('--wm-plotbook-preview-avatar-height', `${sourceAvatar.offsetHeight}px`);
+			}
+			this.renderCastCell(this.selectedCellPreviewContent, sheet, rowId, columnId);
+			return;
+		}
+		if (role === 'status' || role === 'date' || role === 'foreshadow') {
+			for (const child of Array.from(cell.childNodes)) this.selectedCellPreviewContent.appendChild(child.cloneNode(true));
+			return;
+		}
+		this.renderSearchableText(this.selectedCellPreviewContent, value, rowId, columnId);
 	}
 
 	private revealSelection(center = false): void {
@@ -4274,6 +4348,7 @@ export class InfinitePlotSheet {
 				else if (role === 'foreshadow') value = this.session.foreshadowsInRow(sheet.sheetId, rowId)
 					.map(item => `${item.title}\n${item.note ?? ''}`).join('\n') || value;
 				else if (role === 'status') value = value ? this.session.statusName(value) : '';
+				else if (role === 'checklist') value = parseChecklist(value).map(task=>task.text).join('\n');
 				if ((role === 'status' || role === 'date') && sheet.rows[rowId]?.parentRowId) continue;
 				if (!value) continue;
 				if (role === 'character') metadata = this.characterProfile(sheet, columnId).name;
@@ -4304,7 +4379,9 @@ export class InfinitePlotSheet {
 			cell.toggleClass('is-find-match', this.findMatchCellKeys.has(key));
 			cell.toggleClass('is-active-find-match', active?.rowId === rowId && active.columnId === columnId);
 			const role = sheet.columns[columnId]?.role ?? 'text';
-			if (role !== 'cast' && role !== 'status' && role !== 'date' && role !== 'foreshadow' && !cell.hasClass('is-date-editing')) {
+			if (role === 'checklist') {
+				this.renderChecklistCell(cell, sheet, rowId, columnId, this.session.getCell(sheet, rowId, columnId));
+			} else if (role !== 'cast' && role !== 'status' && role !== 'date' && role !== 'foreshadow' && !cell.hasClass('is-date-editing')) {
 				this.renderSearchableCellText(cell, this.session.getCell(sheet, rowId, columnId), rowId, columnId);
 			} else if (role === 'foreshadow') {
 				this.renderForeshadowCell(cell, sheet, rowId, columnId, this.session.getCell(sheet, rowId, columnId));

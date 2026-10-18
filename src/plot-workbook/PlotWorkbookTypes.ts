@@ -1,6 +1,7 @@
 import type { ThemeAwareColor } from '../types';
 
 export const PLOT_WORKBOOK_VIEW_TYPE = 'writing-menu-plot-workbook';
+export const PLOT_WORKBOOK_SIDEBAR_TYPE = 'writing-menu-plot-sidebar';
 export const PLOT_WORKBOOK_FORMAT_VERSION = 1;
 export const DEFAULT_PLOTBOOK_FONT_SIZE = 10;
 
@@ -113,7 +114,7 @@ export interface PlotWorkbookColumn {
 	collapsed?: boolean;
 }
 
-export type PlotWorkbookColumnRole = 'text' | 'plot' | 'character' | 'cast' | 'status' | 'date' | 'foreshadow';
+export type PlotWorkbookColumnRole = 'text' | 'plot' | 'character' | 'cast' | 'status' | 'date' | 'foreshadow' | 'checklist';
 
 export interface PlotWorkbookColumnRoleChange {
 	columnId: string;

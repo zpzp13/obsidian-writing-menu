@@ -1,6 +1,7 @@
 ﻿import { App, Modal, Editor, setIcon, setTooltip } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import charData from './charData.json';
+import { bindMobileSearchModalViewport } from '../ui/MobileSearchModalViewport';
 
 interface CharCategory {
 	id: string;
@@ -201,6 +202,7 @@ export class SpecialCharsModal extends Modal {
 	private renderedChars: string[] = [];
 	private boundKeyDown: (e: KeyboardEvent) => void;
 	private boundClickOutside: (e: MouseEvent) => void;
+	private releaseViewport?: () => void;
 
 	constructor(app: App, plugin: WritingMenuPlugin, editor: Editor | null) {
 		super(app);
@@ -216,6 +218,8 @@ export class SpecialCharsModal extends Modal {
 		contentEl.addClass('wm-sc-modal');
 		modalEl.addClass('wm-sc-modal-container');
 		this.containerEl.addClass('wm-sc-modal-host');
+		this.releaseViewport?.();
+		this.releaseViewport = bindMobileSearchModalViewport(this.containerEl);
 
 		// 즐겨찾기 로드
 		const favCat = CATEGORIES.find(c => c.id === 'favorites')!;
@@ -255,6 +259,7 @@ export class SpecialCharsModal extends Modal {
 	}
 
 	onClose() {
+		this.releaseViewport?.(); this.releaseViewport = undefined;
 		this.modalEl.removeEventListener('keydown', this.boundKeyDown);
 		this.modalEl.removeEventListener('mousedown', this.boundClickOutside);
 		this.containerEl.removeClass('wm-sc-modal-host');
@@ -267,7 +272,7 @@ export class SpecialCharsModal extends Modal {
 		const header = container.createDiv({ cls: 'wm-sc-header' });
 
 		// 검색창
-		const searchWrap = header.createDiv({ cls: 'wm-sc-search-wrap' });
+		const searchWrap = header.createDiv({ cls: 'wm-search-field wm-sc-search-wrap' });
 		const searchIcon = searchWrap.createDiv({ cls: 'wm-sc-search-icon' });
 		setIcon(searchIcon, 'search');
 		const input = searchWrap.createEl('input', {

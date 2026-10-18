@@ -3,6 +3,7 @@ import type WritingMenuPlugin from '../../main';
 import type { DictEntry } from './types';
 import { callStdictSearch, callStdictAutocomplete, callStdictView } from './api';
 import { normalizeQuery, getWordAtCursor } from './utils';
+import { bindMobileSearchModalViewport } from '../ui/MobileSearchModalViewport';
 
 export class DictionaryModal extends Modal {
 	private plugin: WritingMenuPlugin;
@@ -24,6 +25,7 @@ export class DictionaryModal extends Modal {
 	private searchBoxEl!: HTMLElement;
 	private dropdownEl!: HTMLElement;
 	private dropdownNavIdx = -1;
+	private releaseViewport?: () => void;
 
 	constructor(app: App, plugin: WritingMenuPlugin, editor: Editor | null, word: string, from: EditorPosition | null, to: EditorPosition | null) {
 		super(app);
@@ -40,13 +42,15 @@ export class DictionaryModal extends Modal {
 		contentEl.addClass('wm-dict-modal');
 		modalEl.addClass('wm-dict-modal-container');
 		this.containerEl.addClass('wm-dict-modal-host');
+		this.releaseViewport?.();
+		this.releaseViewport = bindMobileSearchModalViewport(this.containerEl);
 
 		// ── 헤더 ───────────────────────────────────────────────────
 
 		const header = contentEl.createDiv({ cls: 'wm-dict-header' });
 
 		const searchContainer = header.createDiv({ cls: 'wm-dict-search-container' });
-		const searchBox = searchContainer.createDiv({ cls: 'wm-dict-search-box' });
+		const searchBox = searchContainer.createDiv({ cls: 'wm-search-field wm-dict-search-box' });
 		this.searchBoxEl = searchBox;
 
 		const inputRow = searchBox.createDiv({ cls: 'wm-dict-search-input-row' });
@@ -483,6 +487,7 @@ export class DictionaryModal extends Modal {
 	}
 
 	onClose() {
+		this.releaseViewport?.(); this.releaseViewport = undefined;
 		this.containerEl.removeClass('wm-dict-modal-host');
 		this.contentEl.empty();
 	}

@@ -32,6 +32,7 @@ import {
 import { plotWorkbookStatuses, plotWorkbookStatusColor } from './PlotWorkbookStatus';
 import { PlotWorkbookRepository } from './PlotWorkbookRepository';
 import { isThemeAwareColor } from '../utils/themeColor';
+import { appendChecklistTask, changeChecklistTask, normalizeChecklistValue, type ChecklistTask, type ChecklistChange } from './PlotWorkbookChecklist';
 
 interface HistoryEntry {
 	sheetId: string;
@@ -103,6 +104,7 @@ export class PlotWorkbookSession {
 
 	setCell(rowId: string, columnId: string, value: string): void {
 		const sheet = this.activeSheet;
+		if (sheet.columns[columnId]?.role === 'checklist') value = normalizeChecklistValue(value);
 		if (!this.canSetCellValue(sheet, rowId, columnId, value)) return;
 		const before = this.getCell(sheet, rowId, columnId);
 		if (before === value || !sheet.rows[rowId] || !sheet.columns[columnId]) return;
@@ -118,7 +120,8 @@ export class PlotWorkbookSession {
 		for (const update of updates) {
 			if (!sheet.rows[update.rowId] || !sheet.columns[update.columnId]
 				|| !this.canSetCellValue(sheet, update.rowId, update.columnId, update.value)) continue;
-			unique.set(`${update.rowId}\u0000${update.columnId}`, update);
+			unique.set(`${update.rowId}\u0000${update.columnId}`, sheet.columns[update.columnId].role === 'checklist'
+				? { ...update, value:normalizeChecklistValue(update.value) } : update);
 		}
 		const changes: PlotWorkbookCellChange[] = [];
 		for (const update of unique.values()) {
@@ -126,7 +129,12 @@ export class PlotWorkbookSession {
 			if (before === update.value) continue;
 			changes.push({ ...update, before, after: update.value });
 		}
+		this.commitCellChanges(changes);
+	}
+
+	private commitCellChanges(changes: PlotWorkbookCellChange[]): void {
 		if (changes.length === 0) return;
+		const sheet = this.activeSheet;
 		const tx = newPlotWorkbookId('tx');
 		const redo = this.makeOperation(sheet, { op: 'setCells', changes, tx });
 		const undo = this.makeOperation(sheet, {
@@ -144,8 +152,7 @@ export class PlotWorkbookSession {
 		const sheet = this.activeSheet;
 		const unique = new Map<string, { rowId: string; columnId: string }>();
 		for (const target of targets) {
-			if (!sheet.rows[target.rowId] || !sheet.columns[target.columnId]
-				|| sheet.columns[target.columnId].role === 'cast') continue;
+			if (!sheet.rows[target.rowId] || !sheet.columns[target.columnId]) continue;
 			unique.set(`${target.rowId}\u0000${target.columnId}`, target);
 		}
 		const changes: PlotWorkbookCellStyleChange[] = [];
@@ -249,8 +256,7 @@ export class PlotWorkbookSession {
 		const cellChanges: PlotWorkbookCellStyleChange[] = [];
 		const uniqueTargets = new Map<string, { rowId: string; columnId: string }>();
 		for (const target of targets) {
-			if (!sheet.rows[target.rowId] || !sheet.columns[target.columnId]
-				|| sheet.columns[target.columnId].role === 'cast') continue;
+			if (!sheet.rows[target.rowId] || !sheet.columns[target.columnId]) continue;
 			uniqueTargets.set(`${target.rowId}\u0000${target.columnId}`, target);
 		}
 		for (const target of uniqueTargets.values()) {
@@ -602,11 +608,14 @@ export class PlotWorkbookSession {
 			state.paths.filter(candidate => candidate !== path),
 			[...state.excluded, path],
 		);
-		if (before === after) return;
-		const tx = newPlotWorkbookId('tx');
-		const redo = this.makeOperation(sheet, { op: 'setCell', rowId, columnId, before, after, tx });
-		const undo = this.makeOperation(sheet, { op: 'setCell', rowId, columnId, before: after, after: before, tx });
-		this.commit(redo, { sheetId: sheet.sheetId, undo, redo });
+		const changes: PlotWorkbookCellChange[] = before === after ? [] : [{ rowId, columnId, before, after }];
+		for (const characterColumnId of sheet.columnOrder) {
+			const column = sheet.columns[characterColumnId];
+			if (column?.role !== 'character' || column.characterNotePath !== path) continue;
+			const value = this.getCell(sheet, rowId, characterColumnId);
+			if (value) changes.push({ rowId, columnId: characterColumnId, before: value, after: '' });
+		}
+		this.commitCellChanges(changes);
 	}
 
 	ensureCharacterColumn(notePath: string, afterColumnId: string): string | null {
@@ -652,7 +661,7 @@ export class PlotWorkbookSession {
 		this.commit(redo, { sheetId: sheet.sheetId, undo, redo });
 	}
 
-	setStructuredColumns(columnIds: string[], role: 'status' | 'date' | 'foreshadow'): void {
+	setStructuredColumns(columnIds: string[], role: 'status' | 'date' | 'foreshadow' | 'checklist'): void {
 		const sheet = this.activeSheet;
 		const selected = new Set(columnIds.filter(columnId =>
 			sheet.columns[columnId] && (sheet.columns[columnId].role ?? 'text') !== role));
@@ -665,7 +674,7 @@ export class PlotWorkbookSession {
 					before: column.role ?? 'text',
 					after: role,
 					beforeTitle: column.title,
-					afterTitle: role === 'status' ? '상태' : role === 'foreshadow' ? '복선' : (column.title || '날짜'),
+					afterTitle: role === 'status' ? '상태' : role === 'foreshadow' ? '복선' : role === 'checklist' ? (column.title || '체크리스트') : (column.title || '날짜'),
 					beforeCharacterNotePath: column.characterNotePath,
 					afterCharacterNotePath: undefined,
 					beforeLabelId: column.labelId,
@@ -682,6 +691,26 @@ export class PlotWorkbookSession {
 			}
 		}
 		this.commitColumnStates(changes, cellChanges);
+	}
+
+	addChecklistTask(sheetId: string, rowId: string, columnId: string, text: string): boolean {
+		const sheet = this.activeSheet;
+		if (sheet.sheetId !== sheetId || !sheet.rows[rowId] || sheet.columns[columnId]?.role !== 'checklist') return false;
+		const value = this.getCell(sheet, rowId, columnId);
+		const next = appendChecklistTask(value, text);
+		if (next === value) return false;
+		this.setCell(rowId, columnId, next);
+		return true;
+	}
+
+	changeChecklistTask(sheetId: string, rowId: string, columnId: string, task: ChecklistTask, change: ChecklistChange): boolean {
+		const sheet = this.activeSheet;
+		if (sheet.sheetId !== sheetId || !sheet.rows[rowId] || sheet.columns[columnId]?.role !== 'checklist') return false;
+		const value = this.getCell(sheet, rowId, columnId);
+		const next = changeChecklistTask(value, task, change);
+		if (next === null) return false;
+		if (next !== value) this.setCell(rowId, columnId, next);
+		return true;
 	}
 
 	setColumnTracking(columnIds: string[], enabled: boolean): void {

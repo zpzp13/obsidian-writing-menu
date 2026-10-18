@@ -1,6 +1,6 @@
 import { Menu, Modal, Notice, setIcon } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
-import { columnLabel, type PlotWorkbookForeshadowLocation, type PlotWorkbookSheet } from './PlotWorkbookTypes';
+import { columnLabel, type PlotWorkbookForeshadow, type PlotWorkbookForeshadowLocation, type PlotWorkbookSheet } from './PlotWorkbookTypes';
 import type { PlotWorkbookSession } from './PlotWorkbookSession';
 import { renderForeshadowCard } from './PlotWorkbookForeshadowCard';
 import { PlotWorkbookRowPicker } from './PlotWorkbookRowPicker';
@@ -37,19 +37,21 @@ export class PlotWorkbookForeshadowModal extends Modal {
 		private readonly session: PlotWorkbookSession,
 		private readonly location?: PlotWorkbookForeshadowLocation,
 		private readonly onJump?: (location: PlotWorkbookForeshadowLocation) => boolean | Promise<boolean>,
+		private readonly initialSelectedId?: string,
 	) { super(plugin.app); }
 
 	onOpen(): void {
 		this.setTitle('복선');
 		this.modalEl.addClass('mod-sidebar-layout', 'wm-plotbook-foreshadow-modal');
-		const items = this.session.listForeshadows();
+		const items = this.orderedForeshadows(this.session.listForeshadows());
+		const requested = this.initialSelectedId ? items.find(item => item.id === this.initialSelectedId) : undefined;
 		const local = this.location ? items.find(item => [...item.plantedAt, ...item.resolvedAt]
 			.some(point => point.sheetId === this.location!.sheetId && point.rowId === this.location!.rowId)) : undefined;
-		this.selectedId = local?.id ?? items[0]?.id ?? null;
+		this.selectedId = requested?.id ?? local?.id ?? items[0]?.id ?? null;
 		this.creating = items.length === 0;
 		this.contentEl.empty();
 		const sidebar = this.contentEl.createDiv({ cls: 'wm-plotbook-foreshadow-sidebar' });
-		const search = sidebar.createDiv({ cls: 'wm-plotbook-foreshadow-search-box' });
+		const search = sidebar.createDiv({ cls: 'wm-search-field wm-plotbook-foreshadow-search-box' });
 		setIcon(search.createSpan({ attr: { 'aria-hidden': 'true' } }), 'search');
 		const input = search.createEl('input', {
 			type: 'search', placeholder: '복선 검색',
@@ -112,6 +114,35 @@ export class PlotWorkbookForeshadowModal extends Modal {
 		return columnId ? { ...point, columnId } : undefined;
 	}
 
+	private orderedForeshadows(items: PlotWorkbookForeshadow[]): PlotWorkbookForeshadow[] {
+		const sheetOrder = new Map(this.session.manifest.sheets.map((sheet, index) => [sheet.id, index]));
+		const rowOrders = new Map<string, Map<string, number>>();
+		const columnOrders = new Map<string, Map<string, number>>();
+		const registryOrder = new Map(this.session.foreshadows.map((item, index) => [item.id, index]));
+		const positions = new Map(items.map(item => {
+			const location = this.plotLocation(item.plantedAt[item.plantedAt.length - 1]);
+			const sheet = location ? this.session.sheets.get(location.sheetId) : undefined;
+			if (!location || !sheet) return [item.id, [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER]] as const;
+			if (!rowOrders.has(sheet.sheetId)) {
+				rowOrders.set(sheet.sheetId, new Map(sheet.rowOrder.map((id, index) => [id, index])));
+				columnOrders.set(sheet.sheetId, new Map(sheet.columnOrder.map((id, index) => [id, index])));
+			}
+			return [item.id, [
+				sheetOrder.get(sheet.sheetId) ?? Number.MAX_SAFE_INTEGER,
+				rowOrders.get(sheet.sheetId)!.get(location.rowId) ?? Number.MAX_SAFE_INTEGER,
+				columnOrders.get(sheet.sheetId)!.get(location.columnId) ?? Number.MAX_SAFE_INTEGER,
+			]] as const;
+		}));
+		return [...items].sort((left, right) => {
+			const leftPosition = positions.get(left.id)!;
+			const rightPosition = positions.get(right.id)!;
+			for (let index = 0; index < leftPosition.length; index++) {
+				if (leftPosition[index] !== rightPosition[index]) return leftPosition[index] - rightPosition[index];
+			}
+			return left.createdAt - right.createdAt || registryOrder.get(left.id)! - registryOrder.get(right.id)!;
+		});
+	}
+
 	private renderList(): void {
 		const scrollTop = this.listEl.scrollTop;
 		const restoreFocus = this.listEl.contains(this.listEl.ownerDocument.activeElement);
@@ -120,7 +151,7 @@ export class PlotWorkbookForeshadowModal extends Modal {
 		setIcon(this.filterButton.createSpan({ attr: { 'aria-hidden': 'true' } }), 'chevron-down');
 		this.listEl.empty();
 		const needle = this.query.trim().toLocaleLowerCase('ko-KR');
-		const items = this.session.listForeshadows().filter(item => (this.filter === 'all' || item.status === this.filter)
+		const items = this.orderedForeshadows(this.session.listForeshadows()).filter(item => (this.filter === 'all' || item.status === this.filter)
 			&& (!needle || `${item.title}\n${item.note ?? ''}`.toLocaleLowerCase('ko-KR').includes(needle)));
 		if (!this.creating && !items.some(item => item.id === this.selectedId)) {
 			this.selectedId = items[0]?.id ?? null;
@@ -134,6 +165,7 @@ export class PlotWorkbookForeshadowModal extends Modal {
 			const location = this.plotLocation(item.plantedAt[item.plantedAt.length - 1]);
 			const sheet = location ? this.session.sheets.get(location.sheetId) : undefined;
 			const row = this.listEl.createDiv({ cls: 'wm-plotbook-foreshadow-list-item', attr: { role: 'listitem' } });
+			row.dataset.foreshadowId = item.id;
 			if (sheet && !labelsBySheet.has(sheet.sheetId)) labelsBySheet.set(sheet.sheetId, this.session.rowLabels(sheet));
 			renderForeshadowCard(row, {
 				title: item.title, status: item.status,

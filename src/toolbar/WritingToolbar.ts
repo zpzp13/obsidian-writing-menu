@@ -201,19 +201,23 @@ export class WritingToolbar {
 		exportButton.addEventListener('click', event => { event.stopPropagation(); this.openExportPopover(exportButton); });
 
 		this.wideModeButtonEl = this.createIconButton(actions, 'maximize-2', '길게 보기', () => {
-			this.plugin.toggleZenMode('wide');
+			this.plugin.toggleZenMode('wide', this.surface.leaf);
 			this.refreshZenModeButtons();
 		});
 		this.wideModeButtonEl.addClass('wm-writing-wide-mode-button');
 		this.wideModeButtonEl.setAttribute('aria-pressed', 'false');
 		this.focusModeButtonEl = this.createIconButton(actions, 'flame', '집중 모드', () => {
-			this.plugin.toggleZenMode('focus');
+			this.plugin.toggleZenMode('focus', this.surface.leaf);
 			this.refreshZenModeButtons();
 		});
 		this.focusModeButtonEl.addClass('wm-writing-focus-mode-button');
 		this.focusModeButtonEl.setAttribute('aria-pressed', 'false');
 		this.createIconButton(actions, 'git-branch', '플롯 매니저를 새 탭에서 열기', () => {
 			void this.plugin.openPlotManagerInNewTab();
+		});
+		this.createIconButton(actions, 'panel-right', '플롯 매니저 사이드바', () => {
+			const project = this.plugin.projectContext.getProjectForFile(this.surface.getFile());
+			void this.plugin.openPlotWorkbookSidebar(project ? { projectId:project.id } : {});
 		});
 
 		const tower = this.createIconButton(actions, 'toggle-left', '기능 제어', () => {});
