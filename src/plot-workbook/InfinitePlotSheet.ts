@@ -9,7 +9,7 @@ import {
 	type PlotWorkbookForeshadowLocation,
 	type PlotWorkbookSheet,
 } from './PlotWorkbookTypes';
-import { PlotWorkbookSession, plotColumnWidth, plotRowHeight } from './PlotWorkbookSession';
+import { PlotWorkbookSession, plotColumnWidth, plotRowHeight, type PlotWorkbookStylePatch } from './PlotWorkbookSession';
 import { PlotWorkbookCastConfirmModal, PlotWorkbookCharacterModal, PlotWorkbookRoleConfirmModal } from './PlotWorkbookCharacterModal';
 import { PlotWorkbookLabelModal } from './PlotWorkbookLabelModal';
 import { PlotWorkbookMoveColumnsModal } from './PlotWorkbookMoveColumnsModal';
@@ -284,7 +284,6 @@ export class InfinitePlotSheet {
 		});
 		this.previewFillHandle = this.selectedCellPreview.createDiv({ cls: 'wm-plotbook-fill-handle' });
 		this.previewFillHandle.addEventListener('pointerdown', event => this.beginFill(event));
-		this.selectedCellPreview.addEventListener('pointerdown', event => event.stopPropagation());
 		this.selectedCellPreview.addEventListener('click', event => {
 			if ((event.target as Element | null)?.closest('.wm-plotbook-fill-handle')) return;
 			const sheet = this.session.activeSheet;
@@ -1185,7 +1184,7 @@ export class InfinitePlotSheet {
 		};
 	}
 
-	applySelectionStyle(patch: Partial<PlotWorkbookCellStyle>): void {
+	applySelectionStyle(patch: PlotWorkbookStylePatch): void {
 		if (this.selectionMode === 'cell') {
 			this.session.setCellStyles(this.selectedCellTargets(true), patch);
 		} else if (this.headerStyleTarget === 'cells') {
@@ -2042,7 +2041,22 @@ export class InfinitePlotSheet {
 	}
 
 	private readonly handleCellEvent = (event: Event): void => {
-		const cell = (event.target as Element | null)?.closest?.<HTMLElement>('.wm-plotbook-cell');
+		// Native textarea selection, focus and text dragging belong to the editor,
+		// not to the surrounding spreadsheet cell.
+		if ((event.target as Element | null)?.closest('.wm-plotbook-cell-editor')) return;
+		const surface = (event.target as Element | null)?.closest?.<HTMLElement>('.wm-plotbook-cell, .wm-plotbook-selected-cell-preview');
+		const preview = surface === this.selectedCellPreview;
+		let cell = preview ? this.selectedCellPreviewSource : surface;
+		if (preview && event.type === 'pointerdown') {
+			const pointer = event as PointerEvent;
+			if (pointer.shiftKey || pointer.ctrlKey || pointer.metaKey) {
+				cell = this.cellFromPoint(pointer.clientX, pointer.clientY) ?? cell;
+			}
+		}
+		if (this.dragSource && (event.type === 'dragover' || event.type === 'drop')) {
+			const drag = event as DragEvent;
+			cell = this.cellFromPoint(drag.clientX, drag.clientY) ?? cell;
+		}
 		if (!cell || !this.canvas.contains(cell)) return;
 		const rowIndex = Number(cell.dataset.row);
 		const columnIndex = Number(cell.dataset.column);
@@ -2056,12 +2070,17 @@ export class InfinitePlotSheet {
 		if (event.type === 'pointerdown') {
 			const pointer = event as PointerEvent;
 			if (pointer.button !== 0) return;
+			if (preview && !pointer.shiftKey && !pointer.ctrlKey && !pointer.metaKey) {
+				this.viewport.focus();
+				return;
+			}
 			if (collapsedRow || collapsedColumn) {
 				pointer.preventDefault(); pointer.stopPropagation();
 				if (collapsedRow) this.session.setRowCollapsed(rowId, false);
 				if (collapsedColumn) this.session.setColumnCollapsed(columnId, false);
 				return;
 			}
+			if (pointer.shiftKey || pointer.ctrlKey || pointer.metaKey) pointer.preventDefault();
 			this.select(rowIndex, columnIndex, false, pointer.shiftKey, pointer.ctrlKey || pointer.metaKey);
 			this.viewport.focus();
 			return;
@@ -2079,6 +2098,12 @@ export class InfinitePlotSheet {
 			case 'dragend': this.clearCellDrag(); break;
 		}
 	};
+
+	private cellFromPoint(x: number, y: number): HTMLElement | null {
+		// Ignore preview/selection overlays when targeting the sheet underneath.
+		return this.canvas.ownerDocument.elementsFromPoint(x, y).find((element): element is HTMLElement =>
+			element.matches('.wm-plotbook-cell') && this.canvas.contains(element)) ?? null;
+	}
 
 	private renderChecklistCell(cell: HTMLElement, sheet: PlotWorkbookSheet, rowId: string, columnId: string, value: string, limit = 2): void {
 		cell.empty();
@@ -2106,7 +2131,14 @@ export class InfinitePlotSheet {
 		const location = {sheetId:sheet.sheetId, rowId, columnId};
 		this.checklistPopover = new PlotWorkbookChecklistPopover(anchor, this.session, location,
 			() => void this.plugin.openPlotWorkbookSidebar({projectId:this.session.manifest.projectId, ...location}),
-			() => { this.checklistPopover = null; });
+			() => { this.checklistPopover = null; },
+			() => {
+				const activeSheet = this.session.activeSheet;
+				if (activeSheet.sheetId !== location.sheetId) return null;
+				const row = activeSheet.rowOrder.indexOf(rowId);
+				const column = this.columnOrder(activeSheet).indexOf(columnId);
+				return this.canvas.querySelector<HTMLElement>(`.wm-plotbook-cell[data-row="${row}"][data-column="${column}"]`);
+			});
 	}
 
 	private renderForeshadowCell(
@@ -3373,6 +3405,9 @@ export class InfinitePlotSheet {
 		this.dragSource = { rowIndex, columnIndex };
 		this.dragSourceCell = cell;
 		cell.addClass('is-drag-source');
+		// Keep the native source mounted. Hit testing ignores the expanded
+		// preview so destinations beneath it are available as well.
+		this.selectedCellPreview.addClass('is-dragging-cell');
 		if (event.dataTransfer) {
 			event.dataTransfer.effectAllowed = 'move';
 			event.dataTransfer.setData('text/x-writing-menu-cell', `${rowIndex}:${columnIndex}`);
@@ -3406,6 +3441,7 @@ export class InfinitePlotSheet {
 	}
 
 	private clearCellDrag(): void {
+		this.selectedCellPreview.removeClass('is-dragging-cell');
 		this.dragSourceCell?.removeClass('is-drag-source');
 		this.dragSourceCell = null;
 		this.dragTargetCell?.removeClass('is-drag-target');
@@ -3439,7 +3475,7 @@ export class InfinitePlotSheet {
 
 	private updateFillTarget(event: PointerEvent, source: SelectionBounds): void {
 		this.autoScrollForPointer(event);
-		const target = activeDocument.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('.wm-plotbook-cell');
+		const target = this.cellFromPoint(event.clientX, event.clientY);
 		if (!target || !this.canvas.contains(target)) return;
 		const rowIndex = Number.parseInt(target.dataset.row ?? '', 10);
 		const columnIndex = Number.parseInt(target.dataset.column ?? '', 10);
@@ -3656,6 +3692,7 @@ export class InfinitePlotSheet {
 		const columnId = this.columnOrder(sheet)[columnIndex];
 		const role = sheet.columns[columnId]?.role;
 		if (!rowId || !columnId || role === 'cast' || role === 'status' || role === 'date' || role === 'foreshadow' || role === 'checklist') return;
+		this.clearCellDrag();
 		this.clearSelectionPreview();
 		if (this.renderFrame !== null) {
 			window.cancelAnimationFrame(this.renderFrame);
@@ -3669,6 +3706,8 @@ export class InfinitePlotSheet {
 		this.refreshSelectionBox();
 		this.onSelectionChange?.(this.selected);
 		const before = this.session.getCell(sheet, rowId, columnId);
+		const wasDraggable = cell.draggable;
+		cell.draggable = false;
 		cell.textContent = '';
 		const input = cell.createEl('textarea', {
 			cls: 'wm-plotbook-cell-editor',
@@ -3699,6 +3738,7 @@ export class InfinitePlotSheet {
 			// for the scheduled grid render leaves its large border visible for one
 			// frame and makes it overlap the next selection after Enter.
 			input.remove();
+			cell.draggable = wasDraggable;
 			cell.removeClass('is-editing-expanded');
 			cell.setText(commit ? value : before);
 			this.selectionBox.removeClass('is-editing-cell');
@@ -4017,6 +4057,7 @@ export class InfinitePlotSheet {
 		this.selectedCellPreviewSource?.removeClass('has-selected-cell-preview');
 		this.selectedCellPreviewSource = null;
 		this.selectedCellPreview.addClass('is-hidden');
+		this.selectedCellPreview.draggable = false;
 		this.selectedCellPreviewContent.empty();
 		this.selectedCellPreviewContent.removeAttribute('data-role');
 		this.selectedCellPreview.style.removeProperty('height');
@@ -4026,7 +4067,9 @@ export class InfinitePlotSheet {
 	}
 
 	private refreshSelectionPreview(): void {
-		if (this.selectionMode !== 'cell' || this.selectedCellKeys.size > 0 || this.editingCell) {
+		if (this.selectionMode !== 'cell' || this.selectedCellKeys.size > 0 || this.editingCell
+			|| this.selected.rowIndex !== this.selectionAnchor.rowIndex
+			|| this.selected.columnIndex !== this.selectionAnchor.columnIndex) {
 			this.clearSelectionPreview();
 			return;
 		}
@@ -4053,6 +4096,7 @@ export class InfinitePlotSheet {
 			|| this.selected.columnIndex < this.frozenColumnCount(sheet);
 		this.selectedCellPreviewSource?.removeClass('has-selected-cell-preview');
 		this.selectedCellPreviewSource = cell;
+		this.selectedCellPreview.draggable = cell.draggable;
 		cell.addClass('has-selected-cell-preview');
 		this.renderSelectionPreviewContent(cell, sheet, rowId, columnId, role, value);
 		this.applyCellStyle(this.selectedCellPreview, this.session.getCellStyle(sheet, rowId, columnId));
@@ -4060,10 +4104,14 @@ export class InfinitePlotSheet {
 		const transparentBackground = !computedBackground
 			|| computedBackground === 'transparent'
 			|| /rgba\([^)]*,\s*0(?:\.0+)?\s*\)$/u.test(computedBackground);
-		this.selectedCellPreview.style.setProperty(
-			'--wm-plotbook-preview-background',
-			transparentBackground ? 'var(--background-primary)' : computedBackground,
-		);
+		if (cell.classList.contains('wm-themed-background-color')) {
+			this.selectedCellPreview.style.removeProperty('--wm-plotbook-preview-background');
+		} else {
+			this.selectedCellPreview.style.setProperty(
+				'--wm-plotbook-preview-background',
+				transparentBackground ? 'var(--background-primary)' : computedBackground,
+			);
+		}
 		this.selectedCellPreview.removeClass('is-hidden');
 		this.selectedCellPreview.toggleClass('is-on-frozen-pane', frozen);
 		this.positionOverlay(this.selectedCellPreview, {

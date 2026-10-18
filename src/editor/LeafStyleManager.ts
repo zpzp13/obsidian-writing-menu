@@ -94,8 +94,6 @@ export class LeafStyleManager {
 			}
 			const charCountEl = this.plugin.charCountElements.get(leaf);
 			if (charCountEl) charCountEl.textContent = displayText;
-			const headerCharCountEl = this.plugin.headerCharCountElements.get(leaf);
-			if (headerCharCountEl) headerCharCountEl.textContent = displayText;
 			const selectedCounts = selectedText ? this.calculateAllCharCounts(selectedText) : null;
 			this.plugin.toolbarManager.updateWidgetCharCounts(leaf, counts, selectedCounts);
 		} catch {

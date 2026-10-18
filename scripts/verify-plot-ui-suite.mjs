@@ -2,7 +2,7 @@
 export async function runPlotChecks() {
 	const { InfinitePlotSheet, PlotWorkbookForeshadowModal, PlotWorkbookSheetTrashModal, PlotWorkbookSession, createPlotWorkbookSheet,
 		PlotWorkbookToolbar, WritingToolbar, InstalledFontCache, PlotWorkbookRepository, renderPlotWorkbookSettingsPage, parsePlotWorkbookSearch,
-		LeafStyleManager, ToolbarManager, MarkdownView, PagedWritingView, DEFAULT_SETTINGS } = globalThis;
+		LeafStyleManager, ToolbarManager, MarkdownView, PagedWritingView, Platform, DEFAULT_SETTINGS } = globalThis;
 	const { PlotWorkbookSessionStore, plotWorkbookSessions, PlotWorkbookSidebarView, PlotWorkbookChecklistEditor, parseChecklist, createPagedEditorContextMenu } = globalThis;
 	const assert = (value, message) => { if (!value) throw new Error(message); };
 	window.requestAnimationFrame = callback => setTimeout(() => callback(performance.now()), 16);
@@ -49,7 +49,7 @@ export async function runPlotChecks() {
 		app, settings: { ...DEFAULT_SETTINGS, applyToFolder: '', fontFamily: 'Arial', fontSize: 24, fontColor: '#812323', backgroundColor: '#ddffff' },
 		projectContext: { getProjectForPath(path) { return path.startsWith('Project/') ? { id: 'project' } : null; }, getProjectForFile(file) { return file ? this.getProjectForPath(file.path) : null; } },
 		leafStyleVersions: new Map(), cssSettingsVersion: 1, leafIdCounter: 1,
-		toolbarElements: new Map(), headerCharCountElements: new Map(), charCountElements: new Map(),
+		toolbarElements: new Map(), charCountElements: new Map(),
 	};
 	const styles = new LeafStyleManager(plugin);
 	plugin.shouldApplyToFile = file => styles.shouldApplyToFile(file);
@@ -75,6 +75,22 @@ export async function runPlotChecks() {
 		if (kind === 'paged') { zoomIn.click(); assert(zoom === 1.1, 'Paged zoom button no longer works'); }
 		toolbar.destroy(); assert(!host.querySelector('.wm-writing-toolbar, .wm-writing-widget-dock'), 'Toolbar destroy left UI behind'); host.remove();
 	}
+	const mobileWritingHost = document.body.createDiv();
+	const mobileWritingPlugin = { ...plugin, settings:{...DEFAULT_SETTINGS,writingWidgetOrder:[]},
+		stopwatchManager:{subscribeWidget:()=>()=>{}}, calculateAllCharCounts:text=>({munpia:text.length,novelpia:text.length}) };
+	const mobileWritingSurface = { kind:'markdown', leaf:{}, getFile:()=>null, getText:()=>'', focus(){}, undo(){}, redo(){},
+		toggleFormat(){}, isFormatActive:()=>false, getAlignment:()=>null, setAlignment(){}, applyTextColor(){}, clearTextColors(){},
+		getRecentTextColor:()=>'', switchView(){}, getZoom:()=>1, setZoom(){} };
+	Platform.isMobile = true;
+	const mobileWritingToolbar = new WritingToolbar(mobileWritingPlugin,mobileWritingHost,mobileWritingSurface);
+	try {
+		assert(mobileWritingToolbar.toolbarEl.matches('.wm-writing-toolbar.is-markdown'), 'Shared Markdown toolbar did not render in mobile mode');
+		assert(mobileWritingToolbar.toolbarEl.querySelector('.is-formatting'), 'Mobile Markdown toolbar lost formatting controls');
+		assert(!mobileWritingToolbar.toolbarEl.querySelector('.wm-writing-toolbar-switch'), 'Mobile Markdown exposed the desktop-only paged view switch');
+		assert(!mobileWritingToolbar.toolbarEl.querySelector('.is-history, .is-zoom'), 'Mobile writing toolbar still exposes undo/redo or zoom controls');
+	} finally {
+		mobileWritingToolbar.destroy(); mobileWritingHost.remove(); Platform.isMobile = false;
+	}
 	const fontDescriptor = Object.getOwnPropertyDescriptor(window, 'queryLocalFonts');
 	let fontQueries = 0;
 	try {
@@ -93,8 +109,8 @@ export async function runPlotChecks() {
 	console.info('Real paged/Markdown toolbar settings placement, zoom, lifecycle and shared font cache passed');
 	const scopeHost = document.body.createDiv({ cls: 'scope-host' });
 	const leaf = { app, containerEl: scopeHost.createDiv() };
-	leaf.containerEl.createDiv();
-	const content = leaf.containerEl.createDiv();
+	const viewHeader = leaf.containerEl.createDiv({ cls:'view-header' });
+	const content = leaf.containerEl.createDiv({ cls:'view-content' });
 	const source = content.createDiv({ cls: 'markdown-source-view mod-cm6' });
 	const sizer = source.createDiv({ cls:'cm-editor' }).createDiv({ cls:'cm-scroller' }).createDiv({ cls:'cm-sizer' });
 	const editor = sizer.createDiv({ cls: 'cm-content', text: '문서 서식 검사' });
@@ -158,6 +174,122 @@ export async function runPlotChecks() {
 	modeToolbar.toolbarEl.querySelector('.wm-writing-focus-mode-button').click();
 	assert(plugin.zenState === 'off', 'Focus icon did not toggle off');
 	modeToolbar.destroy(); modeHost.remove();
+	const mobilePlugin = { ...modePlugin, toolbarElements:new Map(), charCountElements:new Map(), updateLeafStyles() {} };
+	const mobileToolbar = new ToolbarManager(mobilePlugin);
+	let mobileControls = null;
+	const mobileViewportDescriptor = Object.getOwnPropertyDescriptor(window, 'visualViewport');
+	const mobileViewport = new EventTarget();
+	Object.assign(mobileViewport, { width:390, height:600, offsetLeft:0, offsetTop:0 });
+	Object.defineProperty(window, 'visualViewport', { configurable:true, value:mobileViewport });
+	const mobileLayoutStyle = document.head.createEl('style');
+	// These native mobile rules reproduce the fixed-header overlap: Markdown
+	// deliberately sets --view-top-spacing to zero while the header leaves flow.
+	mobileLayoutStyle.textContent = `
+		body.is-phone { --view-header-height:48px; --safe-area-inset-top:24px; --view-top-spacing:80px; }
+		.mobile-toolbar-layout-fixture { position:fixed; left:0; top:0; width:390px; height:600px; z-index:100; background:white; }
+		.mobile-toolbar-layout-fixture > .workspace-leaf-content { display:flex; flex-direction:column; width:100%; height:100%; --view-top-spacing:0px; }
+		.mobile-toolbar-layout-fixture .view-header { position:relative; flex:none; box-sizing:border-box; width:390px; height:48px; padding:0; z-index:1; transition:transform 80ms linear, opacity 80ms linear; }
+		.mobile-toolbar-layout-fixture .view-content { position:relative; z-index:5; background:var(--background-primary); }
+		.is-floating-nav .mobile-toolbar-layout-fixture .view-header { position:fixed; top:24px; left:0; }
+		.is-hidden-nav .mobile-toolbar-layout-fixture .view-header { transform:translateY(calc(-100% - 24px)); opacity:0; }
+	`;
+	scopeHost.addClass('mod-root', 'mobile-toolbar-layout-fixture');
+	leaf.containerEl.addClass('workspace-leaf-content');
+	document.body.addClass('is-mobile', 'is-phone', 'is-floating-nav');
+	Platform.isMobile = true;
+	try {
+		mobileToolbar.addToolbarToLeaf(leaf);
+		const mobileHost = leaf.containerEl.querySelector(':scope > .wm-markdown-toolbar-host.is-mobile-mount');
+		assert(mobileHost && viewHeader.nextElementSibling === mobileHost && mobileHost.nextElementSibling === content, 'Mobile Markdown toolbar was not mounted directly below the native view header');
+		assert(mobileHost.querySelector('.wm-writing-toolbar') && !content.querySelector('.wm-writing-toolbar'), 'Mobile Markdown toolbar content is missing or remained inside the editor viewport');
+		mobileHost.empty();
+		mobileControls = new WritingToolbar(mobilePlugin, mobileHost, modeSurface);
+		await settle();
+		assert(getComputedStyle(leaf.containerEl).getPropertyValue('--view-top-spacing').trim() === '0px', 'Mobile fixture did not reproduce native Markdown top-spacing override');
+		const assertBelowHeader = () => {
+			const headerBounds = viewHeader.getBoundingClientRect(), toolbarBounds = mobileHost.getBoundingClientRect();
+			assert(Math.abs(toolbarBounds.top-headerBounds.bottom) < .5, `Mobile toolbar overlaps or leaves excess space below header: ${JSON.stringify({headerBottom:headerBounds.bottom, toolbarTop:toolbarBounds.top})}`);
+			const firstButton = mobileHost.querySelector('button'), bounds = firstButton.getBoundingClientRect();
+			assert(firstButton.contains(document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2)), 'Mobile toolbar control is covered by native navigation');
+		};
+		assertBelowHeader();
+		viewHeader.style.height = '64px';
+		await settle(); await settle(); assertBelowHeader();
+		document.body.removeClass('is-floating-nav');
+		await settle(); assertBelowHeader();
+		document.body.addClass('is-floating-nav');
+		await settle(); assertBelowHeader();
+		document.body.addClass('is-hidden-nav');
+		await settle();
+		assert(Math.abs(Number(getComputedStyle(mobileHost).opacity) - Number(getComputedStyle(viewHeader).opacity)) < .3, 'Mobile toolbar did not follow header fade during the scroll transition');
+		await settle(); await settle();
+		assert(mobileHost.getBoundingClientRect().height <= 1 && getComputedStyle(mobileHost).pointerEvents === 'none', 'Collapsed mobile header left the editor toolbar or empty toolbar space visible');
+		document.body.removeClass('is-hidden-nav');
+		await settle(); await settle(); await settle();
+		assert(mobileHost.getBoundingClientRect().height >= 40 && getComputedStyle(mobileHost).pointerEvents !== 'none', 'Editor toolbar did not return with the mobile header');
+		assertBelowHeader();
+		const fontButton = mobileControls.toolbarEl.querySelector('.is-font');
+		fontButton.click(); await settle();
+		const fontPopover = mobileControls.activePopover;
+		assert(fontPopover?.parentElement === document.body && getComputedStyle(fontPopover).position === 'fixed', 'Mobile dropdown remained in the editor stacking/masking context');
+		const assertMenuInteractive = element => {
+			const bounds = element.getBoundingClientRect();
+			const hit = document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2);
+			assert(element.contains(hit), 'Mobile dropdown search or option is covered by the editor');
+		};
+		const fontSearch = fontPopover.querySelector('input');
+		assertMenuInteractive(fontSearch);
+		const previousCustomFonts = mobilePlugin.settings.customFonts;
+		mobilePlugin.settings.customFonts = [...previousCustomFonts,'마루 부리OTF'];
+		fontSearch.value = '마루'; fontSearch.dispatchEvent(new Event('input',{bubbles:true}));
+		assert(fontPopover.querySelector('.wm-paged-popover-item').textContent.includes('마루 부리OTF'), 'Mobile font search ignored registered families when native font enumeration was unavailable');
+		mobilePlugin.settings.customFonts = previousCustomFonts;
+		fontSearch.value = 'MobileDropdownFont';
+		fontSearch.dispatchEvent(new Event('input', { bubbles:true }));
+		await settle();
+		const fontOption = fontPopover.querySelector('.wm-paged-popover-item');
+		assert(fontOption.textContent.includes('MobileDropdownFont'), 'Mobile font dropdown search did not update its results');
+		assertMenuInteractive(fontOption);
+		mobileViewport.height = 240;
+		mobileViewport.dispatchEvent(new Event('resize')); await settle();
+		const menuBounds = fontPopover.getBoundingClientRect();
+		assert(menuBounds.left >= 8 && menuBounds.right <= 382 && menuBounds.bottom <= 232, 'Mobile dropdown overflowed the visible viewport above the keyboard');
+		assertMenuInteractive(fontOption);
+		const previousFont = mobilePlugin.settings.fontFamily;
+		const fontTouch = new PointerEvent('pointerdown', {bubbles:true,cancelable:true,pointerType:'touch',button:0});
+		fontOption.dispatchEvent(fontTouch);
+		assert(fontTouch.defaultPrevented && document.activeElement === fontSearch, 'Touching a mobile font option can blur its IME before click');
+		assert(mobileControls.activePopover === fontPopover, 'Touching a mobile dropdown option dismissed it before the click');
+		fontOption.click(); await settle();
+		assert(mobilePlugin.settings.fontFamily === 'MobileDropdownFont' && !fontPopover.isConnected, 'Mobile dropdown option did not apply settings or close its portal');
+		assert(getComputedStyle(editor).fontFamily.includes('MobileDropdownFont'), 'Mobile font choice changed settings but not its Markdown editor CSS');
+		fontButton.click(); await settle();
+		const enteredFont = mobileControls.activePopover.querySelector('input');
+		enteredFont.value = 'monospace'; enteredFont.dispatchEvent(new Event('input',{bubbles:true}));
+		enteredFont.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',isComposing:true,bubbles:true,cancelable:true}));
+		assert(mobileControls.activePopover && mobilePlugin.settings.fontFamily === 'MobileDropdownFont', 'Font input committed an unfinished IME composition');
+		enteredFont.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true})); await settle();
+		assert(mobilePlugin.settings.fontFamily === 'monospace' && getComputedStyle(editor).fontFamily.startsWith('monospace') && !mobileControls.activePopover, 'Entering a font name did not apply it to mobile Markdown');
+		mobilePlugin.settings.fontFamily = previousFont;
+		await mobilePlugin.saveSettings();
+		mobileViewport.height = 600;
+		mobileControls.toolbarEl.querySelector('.is-weight').click();
+		assert(mobileControls.activePopover?.parentElement === document.body, 'Subsequent mobile dropdown did not use the portal');
+		assert(!leaf.containerEl.querySelector('.writing-menu-button'), 'Legacy mobile tab-header menu button returned');
+	} finally {
+		mobileControls?.destroy();
+		mobileToolbar.destroy();
+		assert(!document.querySelector('.wm-paged-toolbar-popover.is-mobile-portal'), 'Destroying the mobile toolbar left a dropdown portal attached to the document');
+		assert(!leaf.containerEl.classList.contains('wm-markdown-toolbar-leaf'), 'Mobile toolbar cleanup left its leaf layout class behind');
+		viewHeader.style.removeProperty('height');
+		document.body.removeClass('is-mobile', 'is-phone', 'is-floating-nav', 'is-hidden-nav');
+		scopeHost.removeClass('mod-root', 'mobile-toolbar-layout-fixture');
+		leaf.containerEl.removeClass('workspace-leaf-content');
+		mobileLayoutStyle.remove();
+		if (mobileViewportDescriptor) Object.defineProperty(window, 'visualViewport', mobileViewportDescriptor);
+		else delete window.visualViewport;
+		Platform.isMobile = false;
+	}
 	app.workspace.getMostRecentLeaf = () => leaf;
 	leaf.view.file = { path: 'Project-other/plain.md' };
 	styles.updateLeafStyles(leaf);
@@ -179,6 +311,10 @@ export async function runPlotChecks() {
 	const paged = Object.create(PagedWritingView.prototype);
 	paged.file = { path: 'Project/test.md' };
 	paged.leaf = { view: paged };
+	Platform.isMobile = true;
+	toolbar.mountPagedToolbar(root, paged);
+	assert(!root.querySelector('.wm-writing-toolbar'), 'Desktop-only paged toolbar mounted on mobile');
+	Platform.isMobile = false;
 	toolbar.mountPagedToolbar(root, paged);
 	assert(root.firstElementChild.matches('.wm-writing-toolbar'), 'Late-mounted toolbar was placed below the viewport');
 	paged.file = { path: 'Notes/test.md' };
@@ -347,6 +483,47 @@ export async function runPlotChecks() {
 		globalThis.endNativePlotScrollCheck = () => { native.destroy(); nativeHost.remove(); };
 		return globalThis.nativePlotScrollSnapshot();
 	};
+	globalThis.beginNativePlotPreviewDragCheck = async (zoom = 1, vertical = false) => {
+		const dragSheet = createPlotWorkbookSheet('드래그 검증', 60, 10);
+		const sourceRow = dragSheet.rowOrder[0];
+		const column = dragSheet.columnOrder[0];
+		const targetRow = vertical ? dragSheet.rowOrder[1] : sourceRow, emptyRow = vertical ? dragSheet.rowOrder[2] : sourceRow;
+		const targetColumn = vertical ? column : dragSheet.columnOrder[1], emptyColumn = vertical ? column : dragSheet.columnOrder[2];
+		dragSheet.columns[column].role = 'plot';
+		const source = '미리보기에서도 이동과 교환이 되는 긴 본문입니다. '.repeat(80);
+		dragSheet.cells[sourceRow] = {[column]:{type:'text',value:source}};
+		dragSheet.cells[targetRow] ??= {};
+		dragSheet.cells[targetRow][targetColumn] = {type:'text',value:'교환 대상'};
+		const dragSession = new PlotWorkbookSession(repository,{activeSheetId:dragSheet.sheetId,sheets:[{id:dragSheet.sheetId,name:dragSheet.name}]},new Map([[dragSheet.sheetId,dragSheet]]),[],[]);
+		const dragHost = document.body.createDiv({cls:'plot-test-host'});
+		dragHost.setCssStyles({position:'fixed',top:'0',left:'0',zIndex:'1001',background:'white'});
+		const dragGrid = new InfinitePlotSheet(dragHost,plugin,'Project','','',dragSession);
+		clearTimeout(dragGrid.frontmatterSyncTimer); dragGrid.frontmatterSyncTimer = null; dragGrid.scheduleFrontmatterSync = () => {};
+		dragGrid.setZoom(zoom); dragGrid.select(0,0,false); await settle(); dragGrid.refreshSelectionPreview();
+		let trustedStarts = 0, trustedDrops = 0;
+		dragGrid.canvas.addEventListener('dragstart',event=>{if(event.isTrusted) trustedStarts++;});
+		dragGrid.canvas.addEventListener('drop',event=>{if(event.isTrusted) trustedDrops++;});
+		const preview = dragGrid.selectedCellPreview.getBoundingClientRect();
+		const dragPoint = {x:preview.left + 65 * zoom,y:preview.top + 16 * zoom};
+		assert(!dragGrid.selectedCellPreview.querySelector('.wm-plotbook-preview-drag-edge'), 'Redundant preview edge drag handles remain');
+		const targetPoint = columnIndex => {
+			const cell = dragGrid.canvas.querySelector(`.wm-plotbook-cell[data-row="${vertical ? columnIndex : 0}"][data-column="${vertical ? 0 : columnIndex}"]`).getBoundingClientRect();
+			return {x:cell.left + cell.width / 2,y:cell.top + cell.height / 2};
+		};
+		globalThis.nativePlotPreviewDragSnapshot = () => ({
+			trustedStarts,trustedDrops,active:Boolean(dragGrid.dragSource),
+			swapped:dragSession.getCell(dragSheet,sourceRow,column) === '교환 대상' && dragSession.getCell(dragSheet,targetRow,targetColumn) === source,
+			moved:dragSession.getCell(dragSheet,sourceRow,column) === '' && dragSession.getCell(dragSheet,emptyRow,emptyColumn) === source,
+		});
+		globalThis.prepareNativePlotPreviewMove = async () => {
+			dragSession.undo(); await settle(); dragGrid.select(0,0,false); dragGrid.refreshSelectionPreview();
+			const box = dragGrid.selectedCellPreview.getBoundingClientRect();
+			return {from:{x:box.left + 85 * zoom,y:box.top + 16 * zoom},to:targetPoint(2)};
+		};
+		globalThis.endNativePlotPreviewDragCheck = () => {dragGrid.destroy(); dragHost.remove();};
+		return {from:dragPoint,to:targetPoint(1)};
+	};
+	globalThis.installNativePlotSelectionChecks(plugin);
 
 	const files = new Map();
 	const directories = new Set();
@@ -369,6 +546,48 @@ export async function runPlotChecks() {
 	const colorGrid = new InfinitePlotSheet(colorHost, colorPlugin, 'Project', 'Project/Text', 'Project/Characters', colorSession);
 	clearTimeout(colorGrid.frontmatterSyncTimer); colorGrid.frontmatterSyncTimer = null; colorGrid.scheduleFrontmatterSync = () => {};
 	const colorToolbar = new PlotWorkbookToolbar(colorPlugin, colorHost, colorSession, colorGrid, [], null, () => {});
+	colorToolbar.toolbarEl.querySelector('[aria-label="내보내기"]').click();
+	assert(colorToolbar.activePopover.matches('.wm-writing-action-popover') && colorToolbar.activePopover.querySelectorAll('button').length === 1, 'Plot export did not reuse the existing dropdown with Markdown as its only option');
+	const exportItem = colorToolbar.activePopover.querySelector('button'), exportIcon = exportItem.querySelector('svg').getBoundingClientRect(), exportLabel = exportItem.lastElementChild.getBoundingClientRect();
+	assert(Math.abs((exportIcon.top + exportIcon.bottom - exportLabel.top - exportLabel.bottom) / 2) < 1, 'Markdown export icon and label are not vertically centered');
+	colorToolbar.activePopover.querySelector('button').click();
+	assert(globalThis.lastTestModal instanceof globalThis.PlotWorkbookMarkdownExportModal && !colorToolbar.activePopover, 'Markdown export did not open its path dialog or close the dropdown');
+	globalThis.lastTestModal.close();
+	const exportSheet = createPlotWorkbookSheet('메인: 플롯',8,8);
+	const [exportRow,exportSubrow] = exportSheet.rowOrder, exportColumns = exportSheet.columnOrder;
+	exportSheet.rows[exportSubrow].parentRowId = exportRow;
+	exportSheet.rows[exportRow].linkedNotePath = 'Project/원고/첫 장면.md';
+	for (const [index,role,title] of [[0,'plot','줄거리'],[1,'checklist','할 일'],[2,'cast','등장'],[3,'status','상태'],[4,'date','연재일'],[5,'foreshadow','복선'],[6,'character','']]) Object.assign(exportSheet.columns[exportColumns[index]],{role,title});
+	exportSheet.columns[exportColumns[6]].characterNotePath = 'Project/인물/지민.md';
+	exportSheet.cells[exportRow] = Object.fromEntries([[0,'첫 문단\n\n두 번째 문단 👩🏽‍🚀'],[1,'- [ ] 확인\n- [x] 완료 ✅ 2026-10-18'],[2,'["Project/인물/지민.md"]'],[3,'draft'],[4,'2026-10-23'],[6,'인물 메모']].map(([index,value])=>[exportColumns[index],{type:'text',value}]));
+	exportSheet.cells[exportSubrow] = {[exportColumns[0]]:{type:'text',value:'세부 행 내용'}};
+	const exportPlant = {sheetId:exportSheet.sheetId,rowId:exportRow,columnId:exportColumns[0]}, exportPayoff = {...exportPlant,rowId:exportSubrow};
+	const exportSession = new PlotWorkbookSession(repository,{projectName:'한글 프로젝트',activeSheetId:exportSheet.sheetId,sheets:[{id:exportSheet.sheetId,name:exportSheet.name}]},new Map([[exportSheet.sheetId,exportSheet]]),[{id:'export-story',title:'돌아올 단서',note:'첫 메모\n이어지는 메모',status:'resolved',plantedAt:[exportPlant],resolvedAt:[exportPayoff]}],[]);
+	const beforeExport = JSON.stringify([exportSheet,exportSession.manifest,exportSession.foreshadows]);
+	const markdown = globalThis.plotWorkbookMarkdown(exportSession);
+	assert(markdown.startsWith('---\nwriting_menu_export: plot-sheet\nproject: "한글 프로젝트"\n') && markdown.includes('## 1-1\n') && !markdown.includes('## 8\n'), 'Export lost metadata/subrows or included unused empty rows');
+	for (const value of ['첫 문단\n\n두 번째 문단 👩🏽‍🚀','- [x] 완료 ✅ 2026-10-18','### 등장','### 지민','초고','2026-10-23','- [x] 돌아올 단서','등록: 메인: 플롯 · 줄거리 · 1','회수: 메인: 플롯 · 줄거리 · 1-1','세부 행 내용']) assert(markdown.includes(value), `Markdown export lost a structured value: ${value}`);
+	assert(!markdown.includes('"Project/인물/지민.md"') && JSON.stringify([exportSheet,exportSession.manifest,exportSession.foreshadows]) === beforeExport, 'Export leaked cast JSON or changed source data');
+	assert(globalThis.plotExportFileName('메인: 플롯') === '메인_ 플롯' && globalThis.plotExportFileName('CON') === '_CON', 'Export filename sanitization failed');
+	const exportedFiles = new Map(), exportedFolders = new Set();
+	const exportVault = {adapter:{async exists(path) {return exportedFiles.has(path) || exportedFolders.has(path);}},async createFolder(path) {exportedFolders.add(path);},async create(path,text) {assert(!exportedFiles.has(path),'Export overwrote an existing file');exportedFiles.set(path,text);}};
+	const exportPath = '프로젝트/내보내기/플롯.md';
+	assert(await globalThis.savePlotMarkdown(exportVault,exportPath,markdown) === exportPath && await globalThis.savePlotMarkdown(exportVault,exportPath,'두 번째') === '프로젝트/내보내기/플롯 (2).md' && exportedFiles.get(exportPath) === markdown, 'Export overwrote its first file instead of assigning a unique name');
+	for (const path of ['../원본.md','C:/밖.md','/밖.md','내보내기/../원본.md','내보내기/CON.md']) {
+		let rejected = false; try {await globalThis.savePlotMarkdown(exportVault,path,'bad');} catch {rejected = true;}
+		assert(rejected,`Unsafe export path was accepted: ${path}`);
+	}
+	const exportDialog = new globalThis.PlotWorkbookMarkdownExportModal({vault:exportVault},exportSession,'프로젝트');
+	exportDialog.open();
+	assert(exportDialog.contentEl.querySelector('input').value === '프로젝트/내보내기/메인_ 플롯.md', 'Export dialog default is not a visible project-relative Markdown path');
+	exportDialog.contentEl.querySelector('.mod-cta').click(); await settle();
+	assert(!exportDialog.containerEl.isConnected && exportedFiles.get('프로젝트/내보내기/메인_ 플롯.md') === markdown, 'Export dialog did not save the current sheet and close after success');
+	const invalidExportDialog = new globalThis.PlotWorkbookMarkdownExportModal({vault:exportVault},exportSession,'프로젝트');
+	invalidExportDialog.open(); invalidExportDialog.contentEl.querySelector('input').value = '../밖.md';
+	invalidExportDialog.contentEl.querySelector('.mod-cta').click(); await settle();
+	assert(invalidExportDialog.containerEl.isConnected && invalidExportDialog.contentEl.querySelector('[role="alert"]').textContent && !invalidExportDialog.contentEl.querySelector('.mod-cta').disabled, 'Invalid export did not report its error or allow retry');
+	invalidExportDialog.close();
+	console.info('Markdown export: structured fields, multiline text, tasks, subrows, immutable source and no-overwrite paths passed');
 	let settingsOpened = 0, settingsPage = '';
 	colorPlugin.openSettings = () => { settingsOpened++; };
 	colorPlugin.settingTab = { renderPage: page => { settingsPage = page; } };
@@ -419,6 +638,33 @@ export async function runPlotChecks() {
 	await checkReload('Journal reload');
 	await colorSession.flush();
 	await checkReload('Snapshot reload');
+	colorSession.setCell(colorRow, colorColumn, '테마를 바꾸어도 유지할 긴 본문 '.repeat(80));
+	await settle(); colorGrid.select(0,0,false); colorGrid.refreshSelectionPreview();
+	assert(!colorGrid.selectedCellPreview.classList.contains('is-hidden'), 'Theme preview fixture did not expand');
+	for (const dark of [true, false, true, false]) {
+		document.body.classList.toggle('theme-dark', dark);
+		assert(getComputedStyle(colorGrid.selectedCellPreview).backgroundColor === (dark ? 'rgb(69, 52, 46)' : 'rgb(230, 218, 207)'), 'Selected-cell preview retained the previous theme background');
+	}
+	const mixedRow = colorSheet.rowOrder[1];
+	colorSession.setCellStyles([{rowId:mixedRow,columnId:colorColumn}], {
+		color:{light:'#445566',dark:'#a1b2c3'}, backgroundColor:{light:'#eeddbb',dark:'#334455'},
+	});
+	colorGrid.select(0,0,false); colorGrid.select(1,0,false,true);
+	for (const target of ['color','backgroundColor']) {
+		const oldDark = [colorSession.getCellStyle(colorSheet,colorRow,colorColumn)[target].dark, colorSession.getCellStyle(colorSheet,mixedRow,colorColumn)[target].dark];
+		const anchor = colorToolbar.toolbarEl.querySelector(`.wm-plotbook-color-control.is-${target === 'color' ? 'text' : 'background'} .wm-paged-text-color-chevron`);
+		colorToolbar.openColorPopover(anchor,target);
+		let picker = colorToolbar.activePopover.querySelector('input[type="color"]');
+		picker.value='#778899'; picker.dispatchEvent(new Event('change'));
+		assert([colorRow,mixedRow].every((row,index) => colorSession.getCellStyle(colorSheet,row,colorColumn)[target].dark === oldDark[index]), 'Editing a mixed light selection overwrote distinct dark theme colors');
+		colorToolbar.activePopover.querySelector('[aria-pressed="false"]').click();
+		picker = colorToolbar.activePopover.querySelector('input[type="color"]');
+		picker.value='#223344'; picker.dispatchEvent(new Event('change')); colorToolbar.closePopover();
+		assert([colorRow,mixedRow].every(row => colorSession.getCellStyle(colorSheet,row,colorColumn)[target].light === '#778899'), 'Editing a mixed dark selection overwrote its light color');
+		colorSession.undo();
+		assert([colorRow,mixedRow].every((row,index) => colorSession.getCellStyle(colorSheet,row,colorColumn)[target].dark === oldDark[index]), 'One undo did not restore each selected cell’s dark color');
+		colorSession.redo();
+	}
 	colorToolbar.openSearch();
 	assert(colorToolbar.activePopover.querySelector('.wm-search-help') && !colorToolbar.activePopover.querySelector('[class*="wiki-graph-"]'), 'Plot search still depended on wiki graph CSS classes');
 	colorToolbar.activePopover.querySelector('.wm-plotbook-search-info').click();
@@ -560,6 +806,24 @@ export async function runPlotChecks() {
 	await settle(); searchGrid.select(2, 1, false); searchGrid.refreshSelectionPreview();
 	assert(searchGrid.selectedCellPreviewContent.textContent === completeCellSource, 'Selected-cell preview lost offscreen source text');
 	assert(searchGrid.selectionClipboardText() === completeCellSource, 'Clipboard copied a shortened preview instead of source text');
+	assert(searchGrid.selectedCellPreview.draggable, 'Expanded text preview did not inherit cell dragging');
+	const swapRow = searchSheet.rowOrder[9];
+	searchSession.setCell(swapRow,searchColumns[1],'교체 대상');
+	await settle(); searchGrid.select(2,1,false); searchGrid.refreshSelectionPreview();
+	const dragData = new DataTransfer();
+	searchGrid.selectedCellPreview.dispatchEvent(new DragEvent('dragstart',{bubbles:true,cancelable:true,dataTransfer:dragData}));
+	assert(searchGrid.dragSource?.rowIndex === 2, 'Dragging an expanded preview did not start the ordinary cell move');
+	const swapCell = searchGrid.canvas.querySelector('.wm-plotbook-cell[data-row="9"][data-column="1"]');
+	swapCell.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:dragData}));
+	swapCell.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:dragData}));
+	assert(searchSession.getCell(searchSheet,searchRow,searchColumns[1]) === '교체 대상' && searchSession.getCell(searchSheet,swapRow,searchColumns[1]) === completeCellSource, 'Expanded preview could not exchange contents with an ordinary cell');
+	searchSession.undo(); await settle(); searchGrid.select(2,1,false); searchGrid.refreshSelectionPreview();
+	const swapBackCell = searchGrid.canvas.querySelector('.wm-plotbook-cell[data-row="9"][data-column="1"]');
+	swapBackCell.dispatchEvent(new DragEvent('dragstart',{bubbles:true,cancelable:true,dataTransfer:dragData}));
+	searchGrid.selectedCellPreview.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:dragData}));
+	searchGrid.selectedCellPreview.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:dragData}));
+	assert(searchSession.getCell(searchSheet,searchRow,searchColumns[1]) === '교체 대상', 'Expanded preview could not receive an ordinary cell drop');
+	searchSession.undo(); await settle(); searchGrid.select(2,1,false);
 	const editedCell = searchGrid.canvas.querySelector('.wm-plotbook-cell[data-row="2"][data-column="1"]');
 	searchGrid.beginEditingCell(editedCell, 2, 1);
 	assert(searchGrid.editingCell.value === completeCellSource, 'Cell editing opened a shortened source value');

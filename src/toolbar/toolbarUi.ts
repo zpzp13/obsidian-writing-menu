@@ -21,6 +21,14 @@ export function appendToolbarChevron(container: HTMLElement, className = 'wm-pag
 	setIcon(container.createSpan({ cls: className, attr: { 'aria-hidden': 'true' } }), 'chevron-down');
 }
 
+export function createToolbarActionOption(container: HTMLElement, icon: string, label: string, action: () => void): HTMLButtonElement {
+	const button = container.createEl('button', { cls: 'wm-paged-popover-item', attr: { type: 'button', role: 'menuitem' } });
+	setIcon(button.createSpan({ cls: 'wm-paged-popover-item-icon', attr: { 'aria-hidden': 'true' } }), icon);
+	button.createSpan({ text: label });
+	button.addEventListener('click', action);
+	return button;
+}
+
 export function createToolbarOption(container: HTMLElement, label: string, active: boolean, action: () => void): HTMLButtonElement {
 	const button = container.createEl('button', { cls: `wm-paged-popover-item${active ? ' is-active' : ''}`,
 		attr: { type: 'button', role: 'menuitemradio', 'aria-checked': String(active) } });

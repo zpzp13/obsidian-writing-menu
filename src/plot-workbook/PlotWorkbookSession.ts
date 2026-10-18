@@ -40,6 +40,9 @@ interface HistoryEntry {
 	redo: PlotWorkbookOperation | PlotWorkbookOperation[];
 }
 
+export type PlotWorkbookStylePatch = Partial<PlotWorkbookCellStyle>
+	| ((current: PlotWorkbookCellStyle) => Partial<PlotWorkbookCellStyle>);
+
 type PlotWorkbookOperationDraft = PlotWorkbookOperation extends infer Operation
 	? Operation extends PlotWorkbookOperation
 		? Omit<Operation, 'seq' | 'at' | 'sheetId'>
@@ -147,7 +150,7 @@ export class PlotWorkbookSession {
 
 	setCellStyles(
 		targets: Array<{ rowId: string; columnId: string }>,
-		patch: Partial<PlotWorkbookCellStyle>,
+		patch: PlotWorkbookStylePatch,
 	): void {
 		const sheet = this.activeSheet;
 		const unique = new Map<string, { rowId: string; columnId: string }>();
@@ -158,7 +161,7 @@ export class PlotWorkbookSession {
 		const changes: PlotWorkbookCellStyleChange[] = [];
 		for (const target of unique.values()) {
 			const before = cloneCellStyle(sheet.cells[target.rowId]?.[target.columnId]?.style);
-			const after = normalizeCellStyle({ ...(before ?? {}), ...patch });
+			const after = mergeCellStylePatch(before, patch, this.getCellStyle(sheet, target.rowId, target.columnId));
 			if (cellStylesEqual(before, after)) continue;
 			changes.push({ ...target, before, after });
 		}
@@ -186,14 +189,14 @@ export class PlotWorkbookSession {
 		return cloneCellStyle(this.activeSheet.columns[columnId]?.style) ?? {};
 	}
 
-	setHeaderStyles(rowIds: string[], columnIds: string[], patch: Partial<PlotWorkbookCellStyle>): void {
+	setHeaderStyles(rowIds: string[], columnIds: string[], patch: PlotWorkbookStylePatch): void {
 		const sheet = this.activeSheet;
 		const rowChanges: PlotWorkbookRowStyleChange[] = [];
 		for (const rowId of new Set(rowIds)) {
 			const row = sheet.rows[rowId];
 			if (!row) continue;
 			const before = cloneCellStyle(row.style);
-			const after = normalizeCellStyle({ ...(before ?? {}), ...patch });
+			const after = mergeCellStylePatch(before, patch);
 			if (!cellStylesEqual(before, after)) rowChanges.push({ rowId, before, after });
 		}
 		const columnChanges: PlotWorkbookColumnStyleChange[] = [];
@@ -201,7 +204,7 @@ export class PlotWorkbookSession {
 			const column = sheet.columns[columnId];
 			if (!column) continue;
 			const before = cloneCellStyle(column.style);
-			const after = normalizeCellStyle({ ...(before ?? {}), ...patch });
+			const after = mergeCellStylePatch(before, patch);
 			if (!cellStylesEqual(before, after)) columnChanges.push({ columnId, before, after });
 		}
 		if (rowChanges.length === 0 && columnChanges.length === 0) return;
@@ -250,7 +253,7 @@ export class PlotWorkbookSession {
 		targets: Array<{ rowId: string; columnId: string }>,
 		rowIds: string[],
 		columnIds: string[],
-		patch: Partial<PlotWorkbookCellStyle>,
+		patch: PlotWorkbookStylePatch,
 	): void {
 		const sheet = this.activeSheet;
 		const cellChanges: PlotWorkbookCellStyleChange[] = [];
@@ -261,7 +264,7 @@ export class PlotWorkbookSession {
 		}
 		for (const target of uniqueTargets.values()) {
 			const before = cloneCellStyle(sheet.cells[target.rowId]?.[target.columnId]?.style);
-			const after = normalizeCellStyle({ ...(before ?? {}), ...patch });
+			const after = mergeCellStylePatch(before, patch, this.getCellStyle(sheet, target.rowId, target.columnId));
 			if (!cellStylesEqual(before, after)) cellChanges.push({ ...target, before, after });
 		}
 		const rowChanges: PlotWorkbookRowStyleChange[] = [];
@@ -269,7 +272,7 @@ export class PlotWorkbookSession {
 			const row = sheet.rows[rowId];
 			if (!row) continue;
 			const before = cloneCellStyle(row.cellStyle);
-			const after = normalizeCellStyle({ ...(before ?? {}), ...patch });
+			const after = mergeCellStylePatch(before, patch);
 			if (!cellStylesEqual(before, after)) rowChanges.push({ rowId, before, after });
 		}
 		const columnChanges: PlotWorkbookColumnStyleChange[] = [];
@@ -277,7 +280,7 @@ export class PlotWorkbookSession {
 			const column = sheet.columns[columnId];
 			if (!column) continue;
 			const before = cloneCellStyle(column.cellStyle);
-			const after = normalizeCellStyle({ ...(before ?? {}), ...patch });
+			const after = mergeCellStylePatch(before, patch);
 			if (!cellStylesEqual(before, after)) columnChanges.push({ columnId, before, after });
 		}
 		if (cellChanges.length === 0 && rowChanges.length === 0 && columnChanges.length === 0) return;
@@ -1835,6 +1838,10 @@ function normalizeCellStyle(style: Partial<PlotWorkbookCellStyle>): PlotWorkbook
 function cloneCellStyle(style?: PlotWorkbookCellStyle): PlotWorkbookCellStyle | undefined {
 	const normalized = style ? normalizeCellStyle(style) : undefined;
 	return normalized ? { ...normalized } : undefined;
+}
+
+function mergeCellStylePatch(before: PlotWorkbookCellStyle | undefined, patch: PlotWorkbookStylePatch, effective = before ?? {}): PlotWorkbookCellStyle | undefined {
+	return normalizeCellStyle({ ...(before ?? {}), ...(typeof patch === 'function' ? patch(effective) : patch) });
 }
 
 function cellStylesEqual(left?: PlotWorkbookCellStyle, right?: PlotWorkbookCellStyle): boolean {

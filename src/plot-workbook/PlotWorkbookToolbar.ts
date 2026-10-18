@@ -21,7 +21,8 @@ import {
 	type PlotWorkbookCellStyle,
 } from './PlotWorkbookTypes';
 import type { PlotWorkbookSession } from './PlotWorkbookSession';
-import { createToolbarIconButton, createToolbarOption, createToolbarSelect } from '../toolbar/toolbarUi';
+import { createToolbarActionOption, createToolbarIconButton, createToolbarOption, createToolbarSelect } from '../toolbar/toolbarUi';
+import { PlotWorkbookMarkdownExportModal } from './PlotWorkbookMarkdownExport';
 import { InstalledFontCache } from '../toolbar/InstalledFontCache';
 import { CSS_PX_PER_PT, formatTypographyNumber, pixelsToPoints } from '../utils/typography';
 
@@ -180,6 +181,16 @@ export class PlotWorkbookToolbar {
 		}
 		this.createColorControl(formatting, 'color');
 		this.createColorControl(formatting, 'backgroundColor');
+		const exportButton = this.createIconButton(formatting, 'file-output', '내보내기', () => {
+			this.openPopover(exportButton, 'wm-writing-action-popover', popover => {
+				createToolbarActionOption(popover, 'file-text', 'Markdown으로 내보내기', () => {
+					this.closePopover();
+					const project = this.projects.find(item => item.id === this.projectId);
+					new PlotWorkbookMarkdownExportModal(this.plugin.app, this.session, project?.rootFolder ?? '').open();
+				});
+			});
+		});
+		exportButton.setAttribute('aria-haspopup', 'menu');
 		this.createIconButton(formatting, 'panel-right', '플롯 매니저 사이드바', () => {
 			void this.plugin.openPlotWorkbookSidebar({ projectId:this.projectId ?? undefined, ...this.sheet.getSelectedLocation() });
 		});
@@ -548,7 +559,18 @@ export class PlotWorkbookToolbar {
 				});
 				const currentPair = () => toThemeColorPair(this.sheet.getSelectionStyle()[target]
 					?? (textTarget ? this.getRecentTextColor() : this.getRecentBackgroundColor()), fallback);
-				const applyModeColor = (color: string) => this.applyColor(target, { ...currentPair(), [editingMode]: color });
+				const applyModeColor = (color: string) => {
+					const recent = { ...currentPair(), [editingMode]: color };
+					if (target === 'color') this.plugin.settings.plotWorkbookLastTextColor = recent;
+					else this.plugin.settings.plotWorkbookLastBackgroundColor = recent;
+					// A mixed selection has no common pair. Preserve each target's
+					// opposite theme instead of replacing it with the recent color.
+					this.sheet.applySelectionStyle(style => ({
+						[target]: { ...toThemeColorPair(style[target], fallback), [editingMode]: color },
+					}));
+					void this.plugin.saveSettings();
+					this.refresh();
+				};
 				const row = popover.createDiv({ cls: 'wm-paged-color-row' });
 				row.createSpan({ cls: 'wm-paged-color-row-label', text: label });
 				const palette = row.createDiv({ cls: 'wm-paged-color-row-palette' });
@@ -617,14 +639,6 @@ export class PlotWorkbookToolbar {
 				transform: `translate(${active.offsetLeft}px, ${active.offsetTop}px)`,
 			});
 		});
-	}
-
-	private applyColor(target: PlotWorkbookColorTarget, color: ThemeAwareColor): void {
-		if (target === 'color') this.plugin.settings.plotWorkbookLastTextColor = color;
-		else this.plugin.settings.plotWorkbookLastBackgroundColor = color;
-		void this.plugin.saveSettings();
-		this.sheet.applySelectionStyle({ [target]: color });
-		this.refresh();
 	}
 
 	private getRecentTextColor(): ThemeAwareColor {

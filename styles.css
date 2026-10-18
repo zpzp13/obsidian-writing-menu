@@ -212,15 +212,6 @@
     transform: translateX(14px);
 }
 
-/* Character Count in Toolbar */
-.writing-menu-char-count {
-    font-size: 12px;
-    color: var(--text-muted);
-    padding: 0 8px;
-    display: flex;
-    align-items: center;
-}
-
 /* UI Structure Helpers */
 .writing-menu-separator {
     height: 1px;
@@ -5682,9 +5673,9 @@ button.wm-sc-cell-star { position: absolute; top: 1px; right: 1px; z-index: 1; d
 	.wm-dict-footer-left { min-width: 0; }
 }
 
-/* Mobile dictionary / special characters: full-width sheets anchored to the
-   top of the usable viewport. Unlike proofreading, these search-first tools
-   stay above the software keyboard instead of attaching to its top edge. */
+/* Mobile dictionary / special characters: compact sheets anchored to the top
+   of the usable viewport. Their JS-computed height stays below half of the
+   full screen and is capped again by the keyboard's visual viewport. */
 .is-mobile .wm-dict-modal-host,
 .is-mobile .wm-sc-modal-host {
 	--wm-search-safe-top: max(24px, env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px));
@@ -5704,7 +5695,7 @@ button.wm-sc-cell-star { position: absolute; top: 1px; right: 1px; z-index: 1; d
 	box-sizing: border-box;
 	width: 100%;
 	max-width: none;
-	height: min(560px, 72dvh, calc(var(--wm-search-viewport-height, 100dvh) - var(--wm-search-safe-top) - var(--wm-search-safe-bottom) - 8px));
+	height: min(var(--wm-search-modal-height, 48dvh), calc(var(--wm-search-viewport-height, 100dvh) - var(--wm-search-safe-top) - var(--wm-search-safe-bottom) - 8px));
 	max-height: 100%;
 	min-height: 0;
 	margin: 0;
@@ -8757,6 +8748,15 @@ body.theme-dark .wm-paged-toolbar .wm-paged-toolbar-button.wm-writing-focus-mode
 	box-shadow: var(--shadow-s);
 }
 
+.is-mobile .wm-paged-toolbar-popover.is-mobile-portal {
+	position: fixed;
+	z-index: var(--layer-popover, 100);
+	min-width: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	font-family: var(--font-interface);
+}
+
 .wm-paged-popover-search {
 	display: flex;
 	align-items: center;
@@ -8822,6 +8822,7 @@ body.theme-dark .wm-paged-toolbar .wm-paged-toolbar-button.wm-writing-focus-mode
 }
 .wm-paged-popover-item:hover { color: var(--text-accent); }
 .wm-paged-popover-check { display: inline-flex; margin-left: auto; }
+.wm-paged-popover-item-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 14px; line-height: 0; }
 .wm-paged-popover-check svg,
 .wm-paged-popover-item-icon svg { width: 14px; height: 14px; }
 .wm-paged-font-popover,
@@ -9158,14 +9159,30 @@ body.theme-dark .wm-paged-toolbar .wm-paged-toolbar-button.wm-writing-focus-mode
 	flex-direction: column;
 	min-width: 0;
 	min-height: 0;
-	padding: 0 !important;
 }
+
+body:not(.is-mobile) .wm-markdown-toolbar-content { padding: 0 !important; }
 
 .wm-markdown-toolbar-host {
 	position: relative;
 	z-index: 20;
 	flex: 0 0 auto;
 	min-width: 0;
+}
+
+.wm-markdown-toolbar-leaf > .view-content {
+	flex: 1 1 auto;
+	height: auto;
+	min-height: 0;
+}
+
+.is-mobile .wm-markdown-toolbar-leaf > .wm-markdown-toolbar-host.is-mobile-mount {
+	margin-top: var(--wm-mobile-toolbar-top-offset, 0px);
+}
+
+.is-phone .mod-root .wm-markdown-toolbar-leaf > .view-content {
+	--view-top-spacing-markdown: var(--size-4-2, 8px);
+	margin-top: 0;
 }
 
 .wm-markdown-toolbar-content > .markdown-source-view,
@@ -9177,6 +9194,16 @@ body.theme-dark .wm-paged-toolbar .wm-paged-toolbar-button.wm-writing-focus-mode
 .wm-writing-toolbar {
 	width: 100%;
 	font-family: var(--font-interface);
+}
+
+.is-mobile .wm-markdown-toolbar-host > .wm-writing-toolbar.is-markdown {
+	overscroll-behavior-x: contain;
+	touch-action: pan-x;
+}
+
+/* Keep Obsidian's mobile tab header above this editor-owned toolbar. */
+.is-mobile .wm-markdown-toolbar-host {
+	z-index: 0;
 }
 
 /* 편집 통합 툴바 자동 숨김 — 다른 패널과 동일하게 14px 진입 영역을 남긴다. */
@@ -9361,6 +9388,9 @@ button.wm-writing-widget-card.is-running {
 
 .wm-paged-metric-popover { width: 188px; }
 .wm-writing-action-popover { width: 210px; }
+.wm-plotbook-export-path { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
+.wm-plotbook-export-path > input { width: 100%; }
+.wm-plotbook-export-error { color: var(--text-error); }
 .wm-writing-control-popover,
 .wm-writing-style-popover {
 	width: 270px;
@@ -10298,6 +10328,10 @@ input.slider.wm-writing-format-slider::-moz-range-thumb {
 	box-sizing: border-box;
 }
 
+.wm-plotbook-selected-cell-preview.is-dragging-cell {
+	opacity: .2;
+}
+
 .wm-plotbook-selected-cell-preview-content[data-role="cast"] .wm-plotbook-cast-strip {
 	height: auto;
 	min-height: 32px;
@@ -10340,6 +10374,14 @@ input.slider.wm-writing-format-slider::-moz-range-thumb {
 
 .wm-plotbook-selected-cell-preview.is-hidden {
 	display: none;
+}
+
+.wm-plotbook-selected-cell-preview.wm-themed-background-color {
+	--wm-plotbook-preview-background: var(--wm-themed-background-light);
+}
+
+.theme-dark .wm-plotbook-selected-cell-preview.wm-themed-background-color {
+	--wm-plotbook-preview-background: var(--wm-themed-background-dark);
 }
 
 .wm-plotbook-selection-box.is-editing-cell,
@@ -12130,6 +12172,12 @@ input.wm-plotbook-date-editor {
 .wm-plotbook-scope-select .wm-paged-select-chevron { display: flex; flex: 0 0 auto; }
 .wm-plotbook-scope-popover { z-index: var(--layer-popover,100); overflow-y: auto; overscroll-behavior: contain; }
 .wm-plotbook-sidebar .wm-search-field { width: 100%; }
+.wm-plotbook-sidebar .wm-search-field,
+.wm-plotbook-sidebar .wm-search-field:hover,
+.wm-plotbook-sidebar .wm-search-field:focus-within,
+.wm-plotbook-sidebar .wm-search-field input,
+.wm-plotbook-sidebar .wm-search-field input:hover,
+.wm-plotbook-sidebar .wm-search-field input:focus { background: transparent; }
 .wm-plotbook-checklist-filters { display: flex; align-items: center; gap: 2px; padding: 8px 0; margin-right: auto; border-radius: 7px; background: transparent; }
 .wm-plotbook-checklist-filters > button {
 	height: 26px; padding: 3px 10px; border: 0; border-radius: 5px; box-shadow: none;

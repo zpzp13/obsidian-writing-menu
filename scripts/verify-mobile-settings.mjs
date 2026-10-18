@@ -28,6 +28,8 @@ export async function runMobileSettingsChecks() {
 		for (const kind of ['dictionary','special']) {
 			const modal = kind === 'dictionary' ? new DictionaryModal(plugin.app,plugin,null,'',null,null) : new SpecialCharsModal(plugin.app,plugin,null);
 			await modal.onOpen(); await settle();
+			const initialHeightCap = Number.parseFloat(modal.containerEl.style.getPropertyValue('--wm-search-modal-height'));
+			assert(initialHeightCap >= 300 && initialHeightCap <= 420,`${kind}: compact mobile height cap was not applied`);
 			for (const [height,top] of [[844,0],[360,20],[300,0],[844,0]]) {
 				viewport.height = height; viewport.offsetTop = top; viewport.dispatchEvent(new Event('resize')); await settle();
 				const search = modal.contentEl.querySelector('.wm-search-field');
@@ -40,6 +42,7 @@ export async function runMobileSettingsChecks() {
 			modal.close();
 			viewport.height = 320; viewport.dispatchEvent(new Event('resize')); await settle();
 			assert(!modal.containerEl.style.getPropertyValue('--wm-search-viewport-height'),`${kind}: visual viewport listeners were not released`);
+			assert(!modal.containerEl.style.getPropertyValue('--wm-search-modal-height'),`${kind}: compact height cap was not released`);
 			viewport.height = 844;
 		}
 	} finally {

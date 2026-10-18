@@ -162,8 +162,11 @@ const bundle = await build({
 			import { parseChecklist } from './src/plot-workbook/PlotWorkbookChecklist';
 			import { createPagedEditorContextMenu } from './src/paged/PagedEditorContextMenu';
 			import { runPlotChecklistSidebarChecks } from './scripts/verify-plot-checklist-sidebar.mjs';
+			import { installNativePlotSelectionChecks } from './scripts/verify-plot-selection.mjs';
+			import { installMobileToolbarChecks } from './scripts/verify-mobile-toolbar.mjs';
 			import { runMobileSettingsChecks } from './scripts/verify-mobile-settings.mjs';
 			import { PlotWorkbookToolbar } from './src/plot-workbook/PlotWorkbookToolbar';
+			import { plotWorkbookMarkdown, plotExportFileName, savePlotMarkdown, PlotWorkbookMarkdownExportModal } from './src/plot-workbook/PlotWorkbookMarkdownExport';
 			import { WritingToolbar } from './src/toolbar/WritingToolbar';
 			import { InstalledFontCache } from './src/toolbar/InstalledFontCache';
 			import { PlotWorkbookRepository } from './src/plot-workbook/PlotWorkbookRepository';
@@ -172,9 +175,9 @@ const bundle = await build({
 			import { createPlotWorkbookSheet } from './src/plot-workbook/PlotWorkbookTypes';
 			import { LeafStyleManager } from './src/editor/LeafStyleManager';
 			import { ToolbarManager } from './src/toolbar/ToolbarManager';
-			import { MarkdownView } from 'obsidian';
+			import { MarkdownView, Platform } from 'obsidian';
 			import { DEFAULT_SETTINGS } from './src/types';
-			Object.assign(globalThis, { InfinitePlotSheet, PlotWorkbookForeshadowModal, PlotWorkbookSheetTrashModal, PlotWorkbookSession, PlotWorkbookSessionStore, plotWorkbookSessions, PlotWorkbookSidebarView, PlotWorkbookChecklistEditor, parseChecklist, createPagedEditorContextMenu, runPlotChecklistSidebarChecks, runMobileSettingsChecks, PlotWorkbookToolbar, WritingToolbar, InstalledFontCache, PlotWorkbookRepository, renderPlotWorkbookSettingsPage, parsePlotWorkbookSearch, createPlotWorkbookSheet, LeafStyleManager, ToolbarManager, MarkdownView, DEFAULT_SETTINGS });` : '') + `import { PagedWritingView } from './src/paged/PagedWritingView';
+			Object.assign(globalThis, { InfinitePlotSheet, PlotWorkbookForeshadowModal, PlotWorkbookSheetTrashModal, PlotWorkbookSession, PlotWorkbookSessionStore, plotWorkbookSessions, PlotWorkbookSidebarView, PlotWorkbookChecklistEditor, parseChecklist, createPagedEditorContextMenu, runPlotChecklistSidebarChecks, installNativePlotSelectionChecks, installMobileToolbarChecks, runMobileSettingsChecks, plotWorkbookMarkdown, plotExportFileName, savePlotMarkdown, PlotWorkbookMarkdownExportModal, PlotWorkbookToolbar, WritingToolbar, InstalledFontCache, PlotWorkbookRepository, renderPlotWorkbookSettingsPage, parsePlotWorkbookSearch, createPlotWorkbookSheet, LeafStyleManager, ToolbarManager, MarkdownView, Platform, DEFAULT_SETTINGS });` : '') + `import { PagedWritingView } from './src/paged/PagedWritingView';
 			import { PaginationEngine } from './src/paged/PaginationEngine';
 			import { serializePagedText } from './src/paged/textLayout';
 			Object.assign(globalThis, { PagedWritingView, PaginationEngine, serializePagedText });`,
@@ -495,7 +498,82 @@ try {
 		};
 		await command('Emulation.setDeviceMetricsOverride', {width:390,height:844,deviceScaleFactor:1,mobile:false});
 		await evaluate('window.runMobileSettingsChecks()');
+		await evaluate('window.installMobileToolbarChecks(); window.verifyMobileToolbarAnimation()');
+		await command('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:1});
+		try {
+			await evaluate('window.mobileFontProbe.open()');
+			await command('Input.insertText',{text:'mono'});
+			const point = await evaluate('window.mobileFontProbe.optionPoint()');
+			await command('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point]});
+			let state = await evaluate('window.mobileFontProbe.snapshot()');
+			if (!state.searchFocused || !state.popover) throw new Error(`Touch-down blurred or closed mobile font search: ${JSON.stringify(state)}`);
+			await command('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+			await evaluate('new Promise(resolve=>setTimeout(resolve,80))');
+			state = await evaluate('window.mobileFontProbe.snapshot()');
+			if (state.font !== 'monospace' || !state.cssFont.startsWith('monospace') || state.popover || Math.abs(state.width-state.beforeWidth) < 1) throw new Error(`Trusted mobile font choice did not change rendered text: ${JSON.stringify(state)}`);
+			await evaluate('window.mobileFontProbe.open()');
+			await command('Input.insertText',{text:'mono'});
+			await command('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter'});
+			await command('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter'});
+			await evaluate('new Promise(resolve=>setTimeout(resolve,80))');
+			state = await evaluate('window.mobileFontProbe.snapshot()');
+			if (state.font !== 'monospace' || state.popover || !state.cssFont.startsWith('monospace')) throw new Error(`Trusted Enter did not apply the mobile font: ${JSON.stringify(state)}`);
+			console.log('Trusted mobile touch/Enter font selection updates Markdown CSS and rendered glyph widths');
+		} finally {
+			await evaluate('window.mobileFontProbe.dispose()');
+			await command('Emulation.setTouchEmulationEnabled',{enabled:false});
+		}
 		await command('Emulation.setDeviceMetricsOverride', {width:1100,height:850,deviceScaleFactor:1,mobile:false});
+		const dragMouse = async ({from,to}) => {
+			await command('Input.dispatchMouseEvent',{type:'mouseMoved',...from});
+			await command('Input.dispatchMouseEvent',{type:'mousePressed',...from,button:'left',buttons:1,clickCount:1});
+			await command('Input.dispatchMouseEvent',{type:'mouseMoved',x:from.x+18,y:from.y+8,button:'left',buttons:1});
+			await command('Input.dispatchMouseEvent',{type:'mouseMoved',...to,button:'left',buttons:1});
+			await command('Input.dispatchMouseEvent',{type:'mouseMoved',...to,button:'left',buttons:1});
+			await command('Input.dispatchMouseEvent',{type:'mouseReleased',...to,button:'left',buttons:0,clickCount:1});
+			await evaluate('new Promise(resolve=>setTimeout(resolve,80))');
+		};
+		for (const zoom of [1,1.6]) for (const vertical of [false,true]) {
+			try {
+				await dragMouse(await evaluate(`window.beginNativePlotPreviewDragCheck(${zoom},${vertical})`));
+				let state = await evaluate('window.nativePlotPreviewDragSnapshot()');
+				if (!state.swapped || !state.trustedStarts || !state.trustedDrops || state.active) throw new Error(`Trusted preview swap failed at ${zoom},vertical=${vertical}: ${JSON.stringify(state)}`);
+				await dragMouse(await evaluate('window.prepareNativePlotPreviewMove()'));
+				state = await evaluate('window.nativePlotPreviewDragSnapshot()');
+				if (!state.moved || state.trustedStarts < 2 || state.trustedDrops < 2 || state.active) throw new Error(`Trusted preview move failed at ${zoom},vertical=${vertical}: ${JSON.stringify(state)}`);
+			} finally { await evaluate('window.endNativePlotPreviewDragCheck?.()'); }
+		}
+		console.log('Trusted browser preview body dragging without edge handles: horizontal/covered vertical cell swap and move at 100%/160% passed');
+		const clickMouse = async (point,modifiers=0,clickCount=1) => {
+			await command('Input.dispatchMouseEvent',{type:'mouseMoved',...point,modifiers});
+			await command('Input.dispatchMouseEvent',{type:'mousePressed',...point,button:'left',buttons:1,modifiers,clickCount});
+			await command('Input.dispatchMouseEvent',{type:'mouseReleased',...point,button:'left',buttons:0,modifiers,clickCount});
+		};
+		for (const zoom of [1,1.6]) {
+			try {
+				for (const mode of ['enter','double-click']) {
+					const point = await evaluate(`window.plotSelectionProbe.beginEditor(${zoom})`);
+					if (mode === 'enter') {
+						await command('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter'});
+						await command('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter'});
+					} else { await clickMouse(point); await clickMouse(point,0,2); }
+					await evaluate('new Promise(resolve=>setTimeout(resolve,40))');
+					const points = await evaluate(`window.plotSelectionProbe.editorPoints(${zoom})`);
+					await clickMouse(points.from); // Collapse the initial select-all before selecting a new phrase.
+					await dragMouse(points);
+					const state = await evaluate('window.plotSelectionProbe.editorSnapshot()');
+					if (!state.editing || !state.focused || !state.selected || state.drags || state.cellDrag || !state.unchanged) throw new Error(`Native textarea phrase selection failed (${mode},${zoom}): ${JSON.stringify(state)}`);
+				}
+				for (const kind of ['long-to-long','covered','short-to-long']) {
+					const range = await evaluate(`window.plotSelectionProbe.beginRange(${zoom},${JSON.stringify(kind)})`);
+					await clickMouse(range.point,8);
+					await evaluate('new Promise(resolve=>setTimeout(resolve,50))');
+					const state = await evaluate('window.plotSelectionProbe.rangeSnapshot()');
+					if (JSON.stringify(state.bounds) !== JSON.stringify(range.bounds) || !state.previewHidden || !state.boxVisible || !state.unchanged || state.drags) throw new Error(`Native preview Shift+click range failed (${kind},${zoom}): ${JSON.stringify(state)}`);
+				}
+			} finally {await evaluate('window.plotSelectionProbe.dispose()');}
+		}
+		console.log('Trusted browser Enter/double-click textarea phrase selection and Shift+click ranges through previews at 100%/160% passed');
 		try {
 			const start = await evaluate('window.beginNativePlotScrollCheck()');
 			for (let burst = 0; burst < 3; burst++) {

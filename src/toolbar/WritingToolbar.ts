@@ -12,8 +12,9 @@ import { FONT_COLOR_ICON_PATH, FONT_COLOR_ICON_VIEWBOX } from '../assets/fontCol
 import { MARKDOWN_ICON_SVG } from '../assets/markdownIcon';
 import { MUNPIA_SVG, NOVELPIA_SVG } from '../assets/platformLogos';
 import type { PagedInlineFormatKind, PagedParagraphAlignmentValue, WritingWidgetId } from '../types';
-import { appendToolbarChevron, createToolbarIconButton, createToolbarOption, createToolbarSelect } from './toolbarUi';
+import { appendToolbarChevron, createToolbarActionOption, createToolbarIconButton, createToolbarOption, createToolbarSelect } from './toolbarUi';
 import { InstalledFontCache } from './InstalledFontCache';
+import { bindMobileToolbarPopover } from './MobileToolbarPopover';
 import { CSS_PX_PER_MM as PX_PER_MM, CSS_PX_PER_PT, formatTypographyNumber, pixelsToPoints } from '../utils/typography';
 
 export interface WritingToolbarSurface {
@@ -40,6 +41,7 @@ export interface WritingToolbarSurface {
 export class WritingToolbar {
 	readonly toolbarEl: HTMLElement;
 	private activePopover: HTMLElement | null = null;
+	private popoverLayoutCleanup: (() => void) | null = null;
 	private activeAnchor: HTMLElement | null = null;
 	private fontLabelEl: HTMLElement | null = null;
 	private weightLabelEl: HTMLElement | null = null;
@@ -156,9 +158,11 @@ export class WritingToolbar {
 	}
 
 	private render(): void {
-		const history = this.toolbarEl.createDiv({ cls: 'wm-paged-toolbar-group is-history' });
-		this.createIconButton(history, 'undo-2', '이전 (Ctrl/Cmd+Z)', () => this.surface.undo());
-		this.createIconButton(history, 'redo-2', '다음 (Ctrl/Cmd+Shift+Z)', () => this.surface.redo());
+		if (!Platform.isMobile) {
+			const history = this.toolbarEl.createDiv({ cls: 'wm-paged-toolbar-group is-history' });
+			this.createIconButton(history, 'undo-2', '이전 (Ctrl/Cmd+Z)', () => this.surface.undo());
+			this.createIconButton(history, 'redo-2', '다음 (Ctrl/Cmd+Shift+Z)', () => this.surface.redo());
+		}
 
 		const typography = this.toolbarEl.createDiv({ cls: 'wm-paged-toolbar-group is-typography' });
 		const font = this.createSelect(typography, '글꼴', '시스템 폰트', 'is-font');
@@ -223,16 +227,18 @@ export class WritingToolbar {
 		const tower = this.createIconButton(actions, 'toggle-left', '기능 제어', () => {});
 		tower.addEventListener('click', event => { event.stopPropagation(); this.openControlTowerPopover(tower); });
 
-		const switchButton = this.createIconButton(
-			actions,
-			null,
-			this.surface.kind === 'markdown' ? '여러 쪽 보기로 전환' : 'Markdown으로 전환',
-			() => { void this.surface.switchView(); },
-		);
-		switchButton.addClass('wm-writing-toolbar-switch');
-		switchButton.addClass(this.surface.kind === 'markdown' ? 'is-paged-target' : 'is-markdown-target');
-		if (this.surface.kind === 'markdown') setIcon(switchButton, 'layout-grid');
-		else switchButton.appendChild(sanitizeHTMLToDom(MARKDOWN_ICON_SVG));
+		if (!Platform.isMobile) {
+			const switchButton = this.createIconButton(
+				actions,
+				null,
+				this.surface.kind === 'markdown' ? '여러 쪽 보기로 전환' : 'Markdown으로 전환',
+				() => { void this.surface.switchView(); },
+			);
+			switchButton.addClass('wm-writing-toolbar-switch');
+			switchButton.addClass(this.surface.kind === 'markdown' ? 'is-paged-target' : 'is-markdown-target');
+			if (this.surface.kind === 'markdown') setIcon(switchButton, 'layout-grid');
+			else switchButton.appendChild(sanitizeHTMLToDom(MARKDOWN_ICON_SVG));
+		}
 
 		this.toolbarEl.createDiv({ cls: 'wm-paged-toolbar-spacer', attr: { 'aria-hidden': 'true' } });
 		const settingsGroup = this.toolbarEl.createDiv({ cls: 'wm-paged-toolbar-group is-settings' });
@@ -243,6 +249,14 @@ export class WritingToolbar {
 			this.plugin.openSettings();
 		});
 
+		if (!Platform.isMobile) this.renderZoomControls();
+		this.widgetDockEl = this.mountEl.createDiv({
+			cls: `wm-writing-widget-dock is-${this.surface.kind}`,
+			attr: { 'aria-label': '작성 위젯' },
+		});
+	}
+
+	private renderZoomControls(): void {
 		const zoom = this.toolbarEl.createDiv({ cls: 'wm-paged-toolbar-group is-zoom' });
 		const zoomOut = this.createIconButton(zoom, 'zoom-out', '축소 (Ctrl/Cmd+마우스 휠 아래)', () => {
 			this.surface.setZoom(this.surface.getZoom() - 0.1);
@@ -263,10 +277,6 @@ export class WritingToolbar {
 			button.disabled = zoomDisabled;
 			button.setAttribute('aria-disabled', String(zoomDisabled));
 		}
-		this.widgetDockEl = this.mountEl.createDiv({
-			cls: `wm-writing-widget-dock is-${this.surface.kind}`,
-			attr: { 'aria-label': '작성 위젯' },
-		});
 	}
 
 	private getWidgetOrder(): WritingWidgetId[] {
@@ -386,8 +396,10 @@ export class WritingToolbar {
 			const searchRow = popover.createDiv({ cls: 'wm-paged-popover-search' });
 			const icon = searchRow.createSpan({ attr: { 'aria-hidden': 'true' } });
 			setIcon(icon, 'search');
-			const search = searchRow.createEl('input', { type: 'text', placeholder: '시스템 글꼴 검색' });
+			const search = searchRow.createEl('input', { type: 'text', placeholder: '시스템 글꼴 검색',
+				attr: { 'aria-label': '글꼴 이름', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', enterkeyhint: 'done' } });
 			const list = popover.createDiv({ cls: 'wm-paged-popover-list' });
+			if (Platform.isMobile) popover.createDiv({ cls: 'wm-paged-popover-heading', text: 'PC에서 등록한 글꼴은 모바일에 자동 설치되지 않습니다.' });
 			const registeredFonts = () => Array.from(new Set([
 				'inherit',
 				...(this.plugin.settings.customFonts ?? []),
@@ -400,18 +412,26 @@ export class WritingToolbar {
 				this.plugin.settings.fontFamily = font;
 				void this.saveAndRefresh();
 			};
+			let choices: string[] = [];
 			const render = () => {
 				list.empty();
 				const raw = search.value.trim();
 				const query = raw.toLocaleLowerCase('ko-KR');
 				const registered = registeredFonts();
+				const available = Array.from(new Set([...registered, ...(this.installedFontFamilies ?? [])]));
 				let fonts = query
-					? (this.installedFontFamilies ?? []).filter(font => font.toLocaleLowerCase('ko-KR').includes(query))
+					? available.filter(font => font.toLocaleLowerCase('ko-KR').includes(query))
 					: registered;
 				if (query && fonts.length === 0) fonts = [raw];
-				for (const font of fonts.slice(0, 80)) {
+				choices = fonts.slice(0, 80);
+				for (const font of choices) {
 					const active = font === this.plugin.settings.fontFamily;
 					const item = this.createOption(list, font === 'inherit' ? '시스템 폰트' : font, active, () => selectFont(font));
+					// Keep the IME/keyboard in place until click commits the choice.
+					// Blurring on touch-down can resize/rebuild the list before click.
+					item.addEventListener('pointerdown', event => {
+						if (Platform.isMobile && event.button === 0) event.preventDefault();
+					});
 					item.style.fontFamily = font === 'inherit' ? 'var(--font-interface)' : `"${font}"`;
 					if (!active && query && !registered.includes(font)) {
 						const plus = item.createSpan({ cls: 'wm-paged-popover-check', attr: { 'aria-hidden': 'true' } });
@@ -420,6 +440,14 @@ export class WritingToolbar {
 				}
 			};
 			search.addEventListener('input', render);
+			search.addEventListener('keydown', event => {
+				if (event.key !== 'Enter' || event.isComposing) return;
+				const raw = search.value.trim();
+				if (!raw) return;
+				const font = choices.find(font => font.toLocaleLowerCase('ko-KR') === raw.toLocaleLowerCase('ko-KR')) ?? choices[0] ?? raw;
+				event.preventDefault();
+				selectFont(font);
+			});
 			render();
 			void this.loadInstalledFonts().then(() => { if (popover.isConnected) render(); });
 			window.setTimeout(() => search.focus(), 0);
@@ -973,13 +1001,7 @@ export class WritingToolbar {
 		});
 	}
 
-	private createActionOption(container: HTMLElement, iconName: string, label: string, action: () => void): void {
-		const button = container.createEl('button', { cls: 'wm-paged-popover-item', attr: { type: 'button' } });
-		const icon = button.createSpan({ cls: 'wm-paged-popover-item-icon', attr: { 'aria-hidden': 'true' } });
-		setIcon(icon, iconName);
-		button.createSpan({ text: label });
-		button.addEventListener('click', action);
-	}
+	private readonly createActionOption = createToolbarActionOption;
 
 	private readonly createOption = createToolbarOption;
 
@@ -989,8 +1011,9 @@ export class WritingToolbar {
 			return;
 		}
 		this.closePopover();
-		const popover = this.mountEl.createDiv({
-			cls: `wm-paged-toolbar-popover ${className}`,
+		const popoverRoot = Platform.isMobile ? this.ownerDocument.body : this.mountEl;
+		const popover = popoverRoot.createDiv({
+			cls: `wm-paged-toolbar-popover ${className}${Platform.isMobile ? ' is-mobile-portal' : ''}`,
 			attr: { role: 'menu' },
 		});
 		this.activePopover = popover;
@@ -1003,6 +1026,10 @@ export class WritingToolbar {
 			if (this.toolbarEl.contains(event.relatedTarget as Node | null)) return;
 			this.scheduleAutoHideCollapse();
 		});
+		if (Platform.isMobile) {
+			this.popoverLayoutCleanup = bindMobileToolbarPopover(anchor, popover);
+			return;
+		}
 		const rootRect = this.mountEl.getBoundingClientRect();
 		const anchorRect = anchor.getBoundingClientRect();
 		const popoverRect = popover.getBoundingClientRect();
@@ -1014,6 +1041,8 @@ export class WritingToolbar {
 
 	private closePopover(): void {
 		this.flushPendingColorCommit();
+		this.popoverLayoutCleanup?.();
+		this.popoverLayoutCleanup = null;
 		this.activeAnchor?.removeClass('is-open');
 		this.activePopover?.remove();
 		this.activePopover = null;

@@ -181,10 +181,20 @@ export async function runPlotChecklistSidebarChecks(base) {
 	assert(popover.getBoundingClientRect().width <= 301, 'Checklist popup did not become narrower');
 	assert(popover.querySelector('.wm-plotbook-checklist-add input').placeholder === '체크리스트 추가' && popover.querySelector('.wm-plotbook-checklist-add').getBoundingClientRect().top < popover.querySelector('.wm-plotbook-checklist-items').getBoundingClientRect().top, 'Checklist composer is not above its items');
 	const originalPopupValue = session.getCell(sheet,row,taskColumn);
+	const popupLeftBeforeMutation = popover.getBoundingClientRect().left;
+	// A connected virtual cell can temporarily have no layout during an update.
+	// Content ResizeObserver callbacks must not use that transient (0,0) anchor.
+	const resolvePopupAnchor = grid.checklistPopover.resolveAnchor;
+	const hiddenPopupAnchor = document.body.createDiv(); hiddenPopupAnchor.style.display = 'none';
+	grid.checklistPopover.resolveAnchor = () => hiddenPopupAnchor;
 	session.setCell(row,taskColumn,`${originalPopupValue}\n${Array.from({length:36},(_,index)=>`- [ ] 긴 목록의 확인 항목 ${index+1}`).join('\n')}`); await settle();
 	const popupBounds = popover.getBoundingClientRect(), popupList = popover.querySelector('.wm-plotbook-checklist-items');
+	assert(Math.abs(popupBounds.left - popupLeftBeforeMutation) <= 1, 'Editing a checklist moved its popup to the left edge after the source cell rerendered');
 	assert(popupBounds.top >= 11 && popupBounds.bottom <= window.innerHeight - 11, 'Long checklist popup extends beyond the viewport');
 	assert(popupList.scrollHeight > popupList.clientHeight && popover.querySelector('.wm-plotbook-checklist-add').getBoundingClientRect().bottom <= popupBounds.bottom, 'Long checklist hides its add field instead of scrolling its items');
+	window.dispatchEvent(new Event('resize')); await settle();
+	assert(Math.abs(popover.getBoundingClientRect().left - popupLeftBeforeMutation) <= 1, 'A zero-size connected anchor overwrote the popup position during resize');
+	grid.checklistPopover.resolveAnchor = resolvePopupAnchor; hiddenPopupAnchor.remove();
 	session.setCell(row,taskColumn,originalPopupValue); await settle();
 	assert(popover.querySelectorAll('.wm-plotbook-checklist-actions button').length === 3, 'Task rows did not collapse actions into one menu per item');
 	popover.querySelector('.wm-plotbook-checklist-actions button').click();
@@ -226,6 +236,8 @@ export async function runPlotChecklistSidebarChecks(base) {
 	sidebarHost.querySelector('.wm-plotbook-sidebar-more').click();
 	assert(sidebarHost.querySelectorAll('.wm-plotbook-timeline-card').length === 125, 'Timeline load-more lost rows');
 	const search = sidebarHost.querySelector('input[type="search"]');
+	search.focus();
+	assert(getComputedStyle(search).backgroundColor === 'rgba(0, 0, 0, 0)' && getComputedStyle(search.closest('.wm-search-field')).backgroundColor === 'rgba(0, 0, 0, 0)', 'Focused sidebar search retained a background fill');
 	search.value = '찾을 단서'; search.dispatchEvent(new Event('input')); await settle();
 	assert(sidebarHost.querySelectorAll('.wm-plotbook-timeline-card').length === 1, 'Sidebar search did not filter the selected column');
 	sidebarHost.querySelector('[aria-label="이 셀을 표에서 열기"]').click(); await settle();

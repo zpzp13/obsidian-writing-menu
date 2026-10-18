@@ -4,6 +4,7 @@ import { HwpExportModal, TxtExportModal } from '../export';
 import type WritingMenuPlugin from '../../main';
 import { PagedWritingView, PAGED_WRITING_VIEW_TYPE } from '../paged/PagedWritingView';
 import { WritingToolbar, type WritingToolbarSurface } from './WritingToolbar';
+import { bindMobileToolbarLayout } from './MobileToolbarLayout';
 import type { PagedInlineFormatKind } from '../types';
 
 interface SettingTabLike {
@@ -17,6 +18,7 @@ interface AppWithSettings extends App {
 
 export class ToolbarManager {
 	private readonly writingToolbars = new Map<WorkspaceLeaf, WritingToolbar>();
+	private readonly mobileLayoutCleanups = new Map<WorkspaceLeaf, () => void>();
 
 	constructor(private plugin: WritingMenuPlugin) {}
 
@@ -32,28 +34,41 @@ export class ToolbarManager {
 		return view instanceof MarkdownView ? view.editor.getValue() : view.getEditableData();
 	}
 
-	private getViewHeader(view: MarkdownView | PagedWritingView): HTMLElement | null {
-		const container = view.containerEl;
-		if (container.matches('.view-header')) return container;
-		return container.querySelector<HTMLElement>(':scope > .view-header')
-			?? container.querySelector<HTMLElement>('.view-header')
-			?? container.closest<HTMLElement>('.workspace-leaf-content')?.querySelector<HTMLElement>(':scope > .view-header')
-			?? null;
+	private getMarkdownContent(view: MarkdownView): HTMLElement | null {
+		return view.containerEl.querySelector<HTMLElement>(':scope > .view-content')
+			?? view.containerEl.querySelector<HTMLElement>('.view-content');
 	}
 
 	private forgetToolbar(leaf: WorkspaceLeaf): void {
+		this.mobileLayoutCleanups.get(leaf)?.();
+		this.mobileLayoutCleanups.delete(leaf);
 		this.writingToolbars.get(leaf)?.destroy();
 		this.writingToolbars.delete(leaf);
 		this.plugin.toolbarElements.get(leaf)?.remove();
 		this.plugin.toolbarElements.delete(leaf);
 		if (leaf.view instanceof MarkdownView) {
-			const contentEl = (leaf.view.containerEl.children[1] as HTMLElement | undefined)
-				?? leaf.view.containerEl.querySelector<HTMLElement>('.view-content');
-			contentEl?.removeClass('wm-markdown-toolbar-content');
+			this.getMarkdownContent(leaf.view)?.removeClass('wm-markdown-toolbar-content');
+			leaf.view.containerEl.removeClass('wm-markdown-toolbar-leaf');
 		}
-		this.plugin.headerCharCountElements.get(leaf)?.remove();
-		this.plugin.headerCharCountElements.delete(leaf);
 		this.plugin.charCountElements.delete(leaf);
+	}
+
+	private createMarkdownToolbarHost(view: MarkdownView, contentEl: HTMLElement): HTMLElement {
+		if (!Platform.isMobile) {
+			contentEl.addClass('wm-markdown-toolbar-content');
+			const host = contentEl.createDiv({ cls: 'wm-markdown-toolbar-host' });
+			contentEl.prepend(host);
+			return host;
+		}
+
+		// Mobile headers can be fixed above the leaf; bind their actual bounds
+		// after rendering instead of inheriting Markdown's zero top-spacing value.
+		view.containerEl.addClass('wm-markdown-toolbar-leaf');
+		const host = view.containerEl.createDiv({ cls: 'wm-markdown-toolbar-host is-mobile-mount' });
+		const header = view.containerEl.querySelector<HTMLElement>(':scope > .view-header');
+		if (header) header.after(host);
+		else contentEl.before(host);
+		return host;
 	}
 
 	updateAllToolbars() {
@@ -78,10 +93,12 @@ export class ToolbarManager {
 			if (existing && !existing.isConnected) {
 				this.forgetToolbar(leaf);
 			}
-			if (!this.plugin.toolbarElements.has(leaf)) {
-				if (!Platform.isMobile && view instanceof PagedWritingView) view.refreshToolbarMount();
-				else this.addToolbarToLeaf(leaf);
+			if (this.plugin.toolbarElements.has(leaf)) return;
+			if (view instanceof PagedWritingView) {
+				if (!Platform.isMobile) view.refreshToolbarMount();
+				return;
 			}
+			this.addToolbarToLeaf(leaf);
 		});
 	}
 
@@ -92,13 +109,8 @@ export class ToolbarManager {
 			this.forgetToolbar(leaf);
 			return;
 		}
-		if (Platform.isMobile) {
-			this.addMobileHeaderMenu(leaf, view, attempt);
-			return;
-		}
 		if (!(view instanceof MarkdownView)) return;
-		const contentEl = (view.containerEl.children[1] as HTMLElement | undefined)
-			?? view.containerEl.querySelector<HTMLElement>('.view-content');
+		const contentEl = this.getMarkdownContent(view);
 		if (!contentEl) {
 			if (attempt < 2) window.requestAnimationFrame(() => this.addToolbarToLeaf(leaf, attempt + 1));
 			return;
@@ -106,12 +118,11 @@ export class ToolbarManager {
 		const connected = this.plugin.toolbarElements.get(leaf);
 		if (connected?.isConnected) return;
 		if (this.plugin.toolbarElements.has(leaf)) this.forgetToolbar(leaf);
-		contentEl.addClass('wm-markdown-toolbar-content');
-		const host = contentEl.createDiv({ cls: 'wm-markdown-toolbar-host' });
-		contentEl.prepend(host);
+		const host = this.createMarkdownToolbarHost(view, contentEl);
 		const toolbar = new WritingToolbar(this.plugin, host, this.createMarkdownSurface(view));
 		this.writingToolbars.set(leaf, toolbar);
 		this.plugin.toolbarElements.set(leaf, host);
+		if (Platform.isMobile) this.mobileLayoutCleanups.set(leaf, bindMobileToolbarLayout(view.containerEl, host));
 		this.plugin.updateLeafStyles(leaf);
 	}
 
@@ -120,69 +131,20 @@ export class ToolbarManager {
 			this.forgetToolbar(view.leaf);
 			return;
 		}
+		if (Platform.isMobile) {
+			this.forgetToolbar(view.leaf);
+			return;
+		}
 		const existing = this.plugin.toolbarElements.get(view.leaf);
 		if (existing?.isConnected) {
-			if (!Platform.isMobile && existing.parentElement === container && container.firstElementChild !== existing) container.prepend(existing);
+			if (existing.parentElement === container && container.firstElementChild !== existing) container.prepend(existing);
 			return;
 		}
 		this.forgetToolbar(view.leaf);
-		if (Platform.isMobile) {
-			this.addMobileHeaderMenu(view.leaf, view);
-			return;
-		}
 		const toolbar = new WritingToolbar(this.plugin, container, this.createPagedSurface(view));
 		container.prepend(toolbar.toolbarEl);
 		this.writingToolbars.set(view.leaf, toolbar);
 		this.plugin.toolbarElements.set(view.leaf, toolbar.toolbarEl);
-	}
-
-	private addMobileHeaderMenu(
-		leaf: WorkspaceLeaf,
-		view: MarkdownView | PagedWritingView,
-		attempt = 0,
-	): void {
-		if (!this.isProjectWritingView(view)) {
-			this.forgetToolbar(leaf);
-			return;
-		}
-		const viewHeader = this.getViewHeader(view);
-		if (!viewHeader) {
-			if (attempt < 2) window.requestAnimationFrame(() => this.addMobileHeaderMenu(leaf, view, attempt + 1));
-			return;
-		}
-		const existing = viewHeader.querySelector<HTMLElement>('.writing-menu-button');
-		if (existing) {
-			this.plugin.toolbarElements.set(leaf, existing);
-			return;
-		}
-		const charCountEl = viewHeader.createDiv({ cls: 'writing-menu-char-count' });
-		this.plugin.headerCharCountElements.set(leaf, charCountEl);
-		const button = viewHeader.createDiv({
-			cls: 'clickable-icon writing-menu-button',
-			attr: { role: 'button', tabindex: '0', 'aria-label': 'Writing Menu' },
-		});
-		setIcon(button, 'settings');
-		const open = (event: Event) => {
-			event.stopPropagation();
-			this.showDropdown(button, leaf);
-		};
-		button.addEventListener('click', open);
-		button.addEventListener('keydown', event => {
-			if (event.key !== 'Enter' && event.key !== ' ') return;
-			event.preventDefault();
-			open(event);
-		});
-		const viewActions = viewHeader.querySelector('.view-actions');
-		if (viewActions) {
-			viewActions.insertBefore(button, viewActions.firstChild);
-			viewActions.insertBefore(charCountEl, button);
-		} else {
-			viewHeader.appendChild(charCountEl);
-			viewHeader.appendChild(button);
-		}
-		this.plugin.toolbarElements.set(leaf, button);
-		this.plugin.updateCharCount(leaf);
-		this.plugin.updateLeafStyles(leaf);
 	}
 
 	removeToolbarFromLeaf(leaf: WorkspaceLeaf): void {

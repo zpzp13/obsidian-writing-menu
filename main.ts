@@ -45,7 +45,6 @@ export default class WritingMenuPlugin extends Plugin {
 	toolbarElements: Map<WorkspaceLeaf, HTMLElement> = new Map();
 	leafIdCounter: number = 0;
 	charCountElements: Map<WorkspaceLeaf, HTMLElement> = new Map();
-	headerCharCountElements: Map<WorkspaceLeaf, HTMLElement> = new Map();
 	charCountDebounceTimers: Map<WorkspaceLeaf, number> = new Map();
 	cachedCSSTemplate: string = '';
 	cssSettingsVersion: number = 0;
@@ -234,13 +233,13 @@ export default class WritingMenuPlugin extends Plugin {
 		this.registerEvent(
 			this.app.workspace.on('file-menu', (menu, file) => {
 				if (file instanceof TFile && file.extension === 'md' && this.projectContext.getProjectForFile(file)) {
-					menu.addItem((item) => {
-						item
-							.setTitle('여러 쪽 보기로 열기')
-							.setIcon('layout-grid')
-							.onClick(() => { void this.openPagedWritingView(file); });
-					});
 					if (Platform.isDesktop) {
+						menu.addItem((item) => {
+							item
+								.setTitle('여러 쪽 보기로 열기')
+								.setIcon('layout-grid')
+								.onClick(() => { void this.openPagedWritingView(file); });
+						});
 						menu.addItem((item) => {
 							item
 								.setTitle('TXT로 내보내기')
@@ -350,6 +349,7 @@ export default class WritingMenuPlugin extends Plugin {
 			icon: 'files',
 			name: '여러 쪽 보기',
 			checkCallback: (checking) => {
+				if (!Platform.isDesktop) return false;
 				const file = this.app.workspace.getActiveFile();
 				if (!file || file.extension !== 'md' || !this.projectContext.getProjectForFile(file)) return false;
 				if (!checking) void this.openPagedWritingView(file);
@@ -573,7 +573,7 @@ export default class WritingMenuPlugin extends Plugin {
 	}
 
 	async openPagedWritingView(file: TFile) {
-		if (!this.projectContext.getProjectForFile(file)) return;
+		if (!Platform.isDesktop || !this.projectContext.getProjectForFile(file)) return;
 		const existing = this.app.workspace.getLeavesOfType(PAGED_WRITING_VIEW_TYPE)
 			.find(leaf => leaf.view instanceof PagedWritingView && leaf.view.file?.path === file.path);
 		if (existing) {
@@ -656,8 +656,6 @@ export default class WritingMenuPlugin extends Plugin {
 		this.charCountDebounceTimers.clear();
 		this.toolbarElements.forEach((toolbar) => toolbar.remove());
 		this.toolbarElements.clear();
-		this.headerCharCountElements.forEach((el) => el.remove());
-		this.headerCharCountElements.clear();
 		this.charCountElements.clear();
 		this.pagedEditorChangeListeners.clear();
 		this.leafStyleVersions.forEach((_, leaf) => {
