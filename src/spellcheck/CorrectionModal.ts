@@ -229,7 +229,6 @@ export class CorrectionModal extends Modal {
 	private mobileEditorText = '';
 	private mobileSyncTimer: number | null = null;
 	private mobileEditorClickHandler: ((event: MouseEvent) => void) | null = null;
-	private totalOccurrenceCount = 0;
 	private mobileToolbarEl!: HTMLElement;
 	private mobilePanel: MobilePanel = 'list';
 	private mobileCenterFocusedItem = false;
@@ -245,7 +244,6 @@ export class CorrectionModal extends Modal {
 		this.modalEl.addClass('wm-spell-modal');
 
 		this.buildOccurrences();
-		this.totalOccurrenceCount = this.occurrences.length;
 	}
 
 	private get bodyText(): string {

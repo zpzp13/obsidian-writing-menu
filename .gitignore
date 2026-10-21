@@ -4,7 +4,17 @@ node_modules
 # build
 main.js
 garu-worker.js
+rag-worker.js
+rag-runtime/
 *.js.map
 
 # obsidian
 data.json
+
+# local development and generated release artifacts
+.obsidian/
+.codex-tmp/
+.codex-attachments/
+.backups/
+.claude/settings.local.json
+dist/

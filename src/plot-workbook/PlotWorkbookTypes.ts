@@ -3,6 +3,7 @@ import type { ThemeAwareColor } from '../types';
 export const PLOT_WORKBOOK_VIEW_TYPE = 'writing-menu-plot-workbook';
 export const PLOT_WORKBOOK_SIDEBAR_TYPE = 'writing-menu-plot-sidebar';
 export const PLOT_WORKBOOK_FORMAT_VERSION = 1;
+export const PLOT_WORKBOOK_MANIFEST_VERSION = 2;
 export const DEFAULT_PLOTBOOK_FONT_SIZE = 10;
 
 export interface PlotWorkbookManifest {
@@ -16,6 +17,15 @@ export interface PlotWorkbookManifest {
 	statuses?: PlotWorkbookStatus[];
 	snapshots?: PlotWorkbookCellSnapshotRef[];
 	legacyImports?: PlotWorkbookLegacyImport[];
+	/** A fully verified restore is published by switching this pointer last. */
+	storageGeneration?: string;
+}
+
+export interface PlotWorkbookSnapshotData {
+	manifest: PlotWorkbookManifest;
+	sheets: PlotWorkbookSheet[];
+	foreshadows: PlotWorkbookForeshadow[];
+	cellSnapshots: PlotWorkbookCellSnapshot[];
 }
 
 export interface PlotWorkbookStatus {

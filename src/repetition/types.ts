@@ -34,9 +34,3 @@ export interface RepetitionResult {
 	eojeol: RepetitionEntry[];
 	eomi: RepetitionEntry[];
 }
-
-/** 단어장 표의 한 행 */
-export interface DictEntry {
-	word: string;
-	candidates: string[];
-}

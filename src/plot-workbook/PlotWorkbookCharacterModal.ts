@@ -4,7 +4,7 @@ import { PlotWorkbookProjectNoteModal } from './PlotWorkbookNoteModal';
 
 export class PlotWorkbookCharacterModal extends Modal {
 	constructor(
-		private readonly plugin: WritingMenuPlugin,
+		plugin: WritingMenuPlugin,
 		private readonly characterFolder: string,
 		private readonly onChoose: (file: TFile) => void,
 	) {

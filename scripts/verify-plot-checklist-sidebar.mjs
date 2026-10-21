@@ -324,6 +324,7 @@ export async function runPlotChecklistSidebarChecks(base) {
 		toolbarManager:{mountPagedToolbar(){},removeToolbarFromLeaf(){},refreshToolbar(){},refreshToolbarSelection(){}},
 		notifyPagedEditorChanged(){},updateCharCountDebounced(){},async saveData(){} };
 	const pagedApp = {scope:{},workspace:{trigger(name,menu,editor,info){
+		if (name === 'quick-preview') return;
 		assert(name === 'editor-menu' && info.file && info.editor === editor,'Editor extension received invalid context');
 		extensionCalls++; menu.addItem(item=>item.setTitle('외부 도구').onClick(()=>editor.replaceSelection('교정')));
 	}}};

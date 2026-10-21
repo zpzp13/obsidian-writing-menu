@@ -1,97 +1,103 @@
-/** Keep an editor-owned toolbar below Obsidian's normal or floating header. */
+/** Share the native header's compositor timeline without resizing the editor every frame. */
 export function bindMobileToolbarLayout(container: HTMLElement, host: HTMLElement): () => void {
-	const ownerWindow = container.ownerDocument.defaultView;
-	if (!ownerWindow) return () => {};
-	let frame = 0;
-	let disposed = false;
-	let header: HTMLElement | null = null;
-	let toolbar: HTMLElement | null = null;
-	let offset = 0;
-	const transitions = new Set<string>();
-
-	const schedule = () => {
-		if (!disposed && !frame) frame = ownerWindow.requestAnimationFrame(update);
+	const win = container.ownerDocument.defaultView;
+	if (!win) return () => {};
+	let frame = 0, disposed = false;
+	let header: HTMLElement | null = null, toolbar: HTMLElement | null = null;
+	const mirrors = new Map<Animation, Animation>();
+	const schedule = () => { if (!disposed && !frame) frame = win.requestAnimationFrame(update); };
+	const sizes = new ResizeObserver(schedule);
+	const headerChanges = new MutationObserver(schedule);
+	const set = (element: HTMLElement, key: string, value: string) => {
+		if (element.style.getPropertyValue(key) !== value) element.style.setProperty(key, value);
 	};
-	const resizeObserver = new ResizeObserver(schedule);
-	const headerObserver = new MutationObserver(schedule);
-	const onTransition = (event: TransitionEvent) => {
-		if (event.target !== header) return;
-		if (event.type === 'transitionrun') transitions.add(event.propertyName);
-		else transitions.delete(event.propertyName);
-		schedule();
-	};
+	const stopMirrors = () => { for (const mirror of mirrors.values()) mirror.cancel(); mirrors.clear(); };
 	const update = () => {
 		frame = 0;
 		if (disposed || !host.isConnected) return;
-		const currentHeader = container.querySelector<HTMLElement>(':scope > .view-header');
-		if (header !== currentHeader) {
-			transitions.clear();
-			if (header) resizeObserver.unobserve(header);
-			headerObserver.disconnect();
-			header = currentHeader;
+		const nextHeader = container.querySelector<HTMLElement>(':scope > .view-header');
+		if (nextHeader !== header) {
+			if (header) sizes.unobserve(header);
+			headerChanges.disconnect(); stopMirrors(); header = nextHeader;
 			if (header) {
-				resizeObserver.observe(header);
-				headerObserver.observe(header, { attributes: true, attributeFilter: ['class', 'style'] });
+				sizes.observe(header);
+				headerChanges.observe(header, { attributes: true, attributeFilter: ['class', 'style'] });
 			}
 		}
 		if (header && header.nextElementSibling !== host) header.after(host);
-		const currentToolbar = host.querySelector<HTMLElement>(':scope > .wm-writing-toolbar');
-		if (toolbar !== currentToolbar) {
-			if (toolbar) resizeObserver.unobserve(toolbar);
-			toolbar = currentToolbar;
-			if (toolbar) resizeObserver.observe(toolbar);
+		const nextToolbar = host.querySelector<HTMLElement>(':scope > .wm-writing-toolbar');
+		if (toolbar !== nextToolbar) {
+			if (toolbar) sizes.unobserve(toolbar);
+			toolbar = nextToolbar;
+			if (toolbar) sizes.observe(toolbar);
 		}
-		// Read the whole frame before writing any layout styles. Measuring the
-		// host after clipping it feeds our own animation back into its next size.
 		const bounds = header?.getBoundingClientRect();
-		const headerStyle = header ? ownerWindow.getComputedStyle(header) : null;
-		const opacity = headerStyle && (!bounds?.width || !bounds.height
-			|| headerStyle.visibility === 'hidden' || headerStyle.display === 'none')
-			? 0 : Math.max(0, Math.min(1, Number(headerStyle?.opacity ?? 1)));
-		const naturalHeight = toolbar?.getBoundingClientRect().height ?? host.scrollHeight;
-		// Subtract our previous offset to measure the host's natural flow position.
-		// A fixed header has no flow height; a normal header already reserves it.
-		const flowTop = host.getBoundingClientRect().top - offset;
-		const nextOffset = bounds && bounds.width > 0 && bounds.height > 0
-			? Math.max(0, bounds.bottom - flowTop) : 0;
-		if (nextOffset !== offset) {
-			offset = nextOffset;
-			host.style.setProperty('--wm-mobile-toolbar-top-offset', `${offset}px`);
+		const style = header ? win.getComputedStyle(header) : null;
+		const matrix = style?.transform && style.transform !== 'none' ? new DOMMatrixReadOnly(style.transform) : null;
+		const fixed = style?.position === 'fixed';
+		const restBottom = bounds ? bounds.bottom - (matrix?.m42 ?? 0) : 0;
+		const restLeft = bounds ? bounds.left - (matrix?.m41 ?? 0) : 0;
+		const toolbarHeight = toolbar?.getBoundingClientRect().height ?? 0;
+		const containerTop = container.getBoundingClientRect().top;
+		host.toggleClass('is-floating-header', fixed);
+		set(host, '--wm-mobile-toolbar-top', `${restBottom}px`);
+		set(host, '--wm-mobile-toolbar-left', `${restLeft}px`);
+		set(host, '--wm-mobile-toolbar-width', `${bounds?.width ?? container.clientWidth}px`);
+		// Native floating navigation overlays the document. Reserve its initial
+		// reading inset once; scroll transitions never change the editor viewport.
+		set(container, '--wm-mobile-editor-top-space', `${fixed ? Math.max(0, restBottom - containerTop) + toolbarHeight + 8 : 8}px`);
+		const sources = header?.getAnimations?.() ?? [];
+		const activeProperties = new Set<string>();
+		for (const source of sources) {
+			const effect = source.effect as KeyframeEffect | null;
+			if (!effect || effect.target !== header || source.playState === 'finished') continue;
+			const frames = effect.getKeyframes();
+			const property = ['transform', 'opacity'].find(key => frames.some(frame => frame[key] !== undefined));
+			if (!property) continue;
+			activeProperties.add(property);
+			const end = frames[frames.length - 1]?.[property];
+			if (end !== undefined) set(host, property, String(end));
+			if (mirrors.has(source)) continue;
+			const mirror = host.animate(frames.map(frame => ({ [property]: frame[property], offset: frame.offset,
+				easing: frame.easing, composite: frame.composite })), { ...effect.getTiming(), fill: 'both' });
+			mirrors.set(source, mirror);
+			const synchronize = () => {
+				if (!mirrors.has(source)) return;
+				if (source.startTime !== null) mirror.startTime = source.startTime;
+				else mirror.currentTime = source.currentTime;
+			};
+			synchronize();
+			void mirror.ready.then(synchronize).catch(() => {});
+			void mirror.finished.then(() => {
+				if (mirrors.get(source) === mirror) { mirrors.delete(source); mirror.cancel(); }
+			}).catch(() => {});
 		}
-		const setStyle = (property: string, value: string) => {
-			if (host.style.getPropertyValue(property) !== value) host.style.setProperty(property, value);
-		};
-		setStyle('opacity', String(opacity));
-		// Keep a single sizing rule at both endpoints, avoiding the max-height →
-		// intrinsic-height switch when the native header finishes appearing.
-		setStyle('height', `${Math.max(0, naturalHeight * opacity)}px`);
-		setStyle('overflow', opacity < 1 ? 'hidden' : '');
-		setStyle('pointer-events', opacity < 0.01 ? 'none' : '');
-		if (transitions.size) schedule();
+		for (const [source, mirror] of mirrors) if (!sources.includes(source) || source.playState === 'idle') {
+			mirror.cancel(); mirrors.delete(source);
+		}
+		if (!activeProperties.has('transform')) set(host, 'transform', style?.transform ?? 'none');
+		if (!activeProperties.has('opacity')) set(host, 'opacity', style?.opacity ?? '1');
+		const hidden = !bounds?.height || style?.display === 'none' || style?.visibility === 'hidden'
+			|| host.style.opacity === '0';
+		set(host, 'pointer-events', hidden ? 'none' : '');
 	};
-
-	resizeObserver.observe(container);
-	const treeObserver = new MutationObserver(schedule);
-	treeObserver.observe(container, { childList: true });
-	treeObserver.observe(host, { childList: true });
-	const bodyObserver = new MutationObserver(schedule);
-	bodyObserver.observe(container.ownerDocument.body, { attributes: true, attributeFilter: ['class', 'style'] });
-	ownerWindow.addEventListener('resize', schedule);
-	ownerWindow.visualViewport?.addEventListener('resize', schedule);
+	const onTransition = (event: TransitionEvent) => { if (event.target === header) update(); };
+	sizes.observe(container);
+	const tree = new MutationObserver(schedule);
+	tree.observe(container, { childList: true }); tree.observe(host, { childList: true });
+	const body = new MutationObserver(schedule);
+	body.observe(container.ownerDocument.body, { attributes: true, attributeFilter: ['class', 'style'] });
+	win.addEventListener('resize', schedule);
+	win.visualViewport?.addEventListener('resize', schedule);
 	for (const type of ['transitionrun', 'transitionend', 'transitioncancel']) container.addEventListener(type, onTransition as EventListener);
 	update();
-
 	return () => {
-		disposed = true;
-		ownerWindow.cancelAnimationFrame(frame);
-		resizeObserver.disconnect();
-		headerObserver.disconnect();
-		treeObserver.disconnect();
-		bodyObserver.disconnect();
-		ownerWindow.removeEventListener('resize', schedule);
-		ownerWindow.visualViewport?.removeEventListener('resize', schedule);
+		disposed = true; win.cancelAnimationFrame(frame); stopMirrors();
+		sizes.disconnect(); headerChanges.disconnect(); tree.disconnect(); body.disconnect();
+		win.removeEventListener('resize', schedule); win.visualViewport?.removeEventListener('resize', schedule);
 		for (const type of ['transitionrun', 'transitionend', 'transitioncancel']) container.removeEventListener(type, onTransition as EventListener);
-		host.style.removeProperty('--wm-mobile-toolbar-top-offset');
-		for (const property of ['opacity', 'height', 'overflow', 'pointer-events']) host.style.removeProperty(property);
+		host.removeClass('is-floating-header');
+		for (const key of ['transform', 'opacity', 'pointer-events', '--wm-mobile-toolbar-top', '--wm-mobile-toolbar-left', '--wm-mobile-toolbar-width']) host.style.removeProperty(key);
+		container.style.removeProperty('--wm-mobile-editor-top-space');
 	};
 }

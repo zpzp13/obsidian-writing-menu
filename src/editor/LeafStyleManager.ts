@@ -1,7 +1,7 @@
-import { MarkdownView, WorkspaceLeaf, setIcon, sanitizeHTMLToDom } from 'obsidian';
+import { MarkdownView, Platform, WorkspaceLeaf, setIcon, sanitizeHTMLToDom } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { MUNPIA_SVG, NOVELPIA_SVG } from '../assets/platformLogos';
-import { calcAllCharCounts } from '../version/charCount';
+import { calcAllCharCounts } from '../utils/charCount';
 import { PagedWritingView, PAGED_WRITING_VIEW_TYPE } from '../paged/PagedWritingView';
 import type { EditorView } from '@codemirror/view';
 import { setRepetitionHighlights } from './repetitionHighlight';
@@ -187,14 +187,16 @@ export class LeafStyleManager {
 	private applyLeafCssProps(container: HTMLElement): void {
 		const { fontFamily, fontWeight, fontSize, fontColor, lineHeight, paragraphSpacing, indentation, lineWidth, inlinePadding, backgroundColor, h1FontFamily, h1FontSize, h1LineHeight, h1Color, footnoteFontFamily, footnoteFontSize, footnoteLineHeight, footnoteColor, disableLinkColor } = this.plugin.settings;
 		const inlinePad = inlinePadding ?? 40;
-		const fontFamilyValue = fontFamily === 'inherit' ? 'inherit' : fontFamily.includes(' ') ? `"${fontFamily}", serif` : `${fontFamily}, serif`;
+		if (Platform.isMobile) void this.plugin.mobileFonts?.ensureSelected(container.ownerDocument);
+		const fontFamilyValue = Platform.isMobile ? this.plugin.mobileFonts?.cssFamily(container.ownerDocument) ?? 'inherit'
+			: fontFamily === 'inherit' ? 'inherit' : fontFamily.includes(' ') ? `"${fontFamily}", serif` : `${fontFamily}, serif`;
 		const resolvedFontColor = this.resolveThemeColor(fontColor);
 		const fontColorValue = resolvedFontColor === 'inherit' ? 'var(--text-normal)' : resolvedFontColor;
 		const resolvedBgColor = this.resolveThemeColor(backgroundColor);
 		const bgColorValue = resolvedBgColor === 'transparent' ? 'transparent' : resolvedBgColor;
-		const h1FontFamilyValue = h1FontFamily === 'inherit' ? 'inherit' : h1FontFamily.includes(' ') ? `"${h1FontFamily}", serif` : `${h1FontFamily}, serif`;
+		const h1FontFamilyValue = Platform.isMobile || h1FontFamily === 'inherit' ? 'inherit' : h1FontFamily.includes(' ') ? `"${h1FontFamily}", serif` : `${h1FontFamily}, serif`;
 		const h1ColorValue = (h1Color && h1Color !== 'inherit') ? h1Color : '';
-		const footnoteFontFamilyValue = footnoteFontFamily === 'inherit' ? 'inherit' : footnoteFontFamily.includes(' ') ? `"${footnoteFontFamily}", serif` : `${footnoteFontFamily}, serif`;
+		const footnoteFontFamilyValue = Platform.isMobile || footnoteFontFamily === 'inherit' ? 'inherit' : footnoteFontFamily.includes(' ') ? `"${footnoteFontFamily}", serif` : `${footnoteFontFamily}, serif`;
 		const footnoteColorValue = (footnoteColor && footnoteColor !== 'inherit') ? footnoteColor : '';
 
 		container.setCssProps({

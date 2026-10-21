@@ -11,6 +11,7 @@ export async function runPlotChecks() {
 	Object.assign(HTMLElement.prototype, {
 		empty() { this.replaceChildren(); }, addClass(...names) { this.classList.add(...names); },
 		removeClass(...names) { this.classList.remove(...names); }, hasClass(name) { return this.classList.contains(name); },
+		toggle(visible) { this.style.display = visible ? '' : 'none'; },
 		toggleClass(name, value) { this.classList.toggle(name, value); }, setText(value) { this.textContent = value; },
 		setCssStyles(values) { Object.assign(this.style, values); },
 		setCssProps(values) { for (const [key, value] of Object.entries(values)) this.style.setProperty(key, value); },
@@ -39,6 +40,8 @@ export async function runPlotChecks() {
 		.scope-host { display:flex; gap:10px; } .scope-host > div { width:300px; } .plot-test-host { width:1100px; height:630px; } .plot-test-host > .wm-plotbook-sheet { height:630px; }
 	`;
 	document.head.appendChild(style);
+	await globalThis.runPagedDocumentChecks();
+	await globalThis.runPlotTransferChecks();
 	const leaves = [];
 	const app = {
 		vault: { on() { return {}; }, offref() {}, getAbstractFileByPath() { return null; } },
@@ -65,13 +68,13 @@ export async function runPlotChecks() {
 			getRecentTextColor:() => '', switchView() {}, getZoom:() => zoom, setZoom:value => { zoom = value; } };
 		const toolbar = new WritingToolbar(writingPlugin, host, surface);
 		const settings = toolbar.toolbarEl.querySelector('.is-settings');
-		assert(settings.previousElementSibling.matches('.wm-paged-toolbar-spacer') && settings.nextElementSibling.matches('.is-zoom'), `${kind} settings are not immediately left of zoom`);
+		assert(settings.previousElementSibling?.matches('.wm-paged-toolbar-spacer') && (kind === 'paged' ? settings.nextElementSibling?.matches('.is-zoom') : !settings.nextElementSibling), `${kind} settings/zoom placement is incorrect`);
 		toolbar.toolbarEl.querySelector('[aria-label="글꼴 두께"]').click();
 		assert(toolbar.activePopover?.querySelector('[role="menuitemradio"][aria-checked="true"]'), 'Shared toolbar options lost their checked/role semantics');
 		settings.querySelector('button').click();
 		assert(opened === 1 && !toolbar.activePopover, `${kind} settings button lost its click action or popup cleanup`);
 		const zoomIn = toolbar.toolbarEl.querySelector('[aria-label="확대 (Ctrl/Cmd+마우스 휠 위)"]');
-		assert(zoomIn.disabled === (kind === 'markdown'), 'Refactor changed the Markdown zoom guard');
+		assert(kind === 'markdown' ? !zoomIn : zoomIn && !zoomIn.disabled, 'Markdown must not expose paged zoom controls');
 		if (kind === 'paged') { zoomIn.click(); assert(zoom === 1.1, 'Paged zoom button no longer works'); }
 		toolbar.destroy(); assert(!host.querySelector('.wm-writing-toolbar, .wm-writing-widget-dock'), 'Toolbar destroy left UI behind'); host.remove();
 	}
@@ -114,7 +117,8 @@ export async function runPlotChecks() {
 	const source = content.createDiv({ cls: 'markdown-source-view mod-cm6' });
 	const sizer = source.createDiv({ cls:'cm-editor' }).createDiv({ cls:'cm-scroller' }).createDiv({ cls:'cm-sizer' });
 	const editor = sizer.createDiv({ cls: 'cm-content', text: '문서 서식 검사' });
-	const reading = content.createDiv({ cls:'markdown-reading-view', text:'읽기 서식 검사' });
+	const reading = content.createDiv({ cls:'markdown-reading-view markdown-preview-view' });
+	const readingSizer = reading.createDiv({cls:'markdown-preview-sizer',text:'읽기 서식 검사'});
 	leaf.view = new MarkdownView(leaf);
 	leaf.view.file = { path: 'Project/3. 본문/story.md' };
 	leaves.push(leaf);
@@ -124,6 +128,7 @@ export async function runPlotChecks() {
 	assert(getComputedStyle(editor).fontSize === '24px', 'Legacy typography folder blocked a registered project note');
 	assert(getComputedStyle(editor).color === 'rgb(129, 35, 35)', 'Registered project note lost its text color');
 	assert(getComputedStyle(sizer).backgroundColor === 'rgb(221, 255, 255)', 'Registered project note lost its background');
+	assert(getComputedStyle(content).backgroundColor !== 'rgb(221, 255, 255)', 'Mobile full-width background changed the desktop canvas');
 	assert(getComputedStyle(reading).fontSize === '24px', 'Reading mode did not receive project typography');
 	const recentLeaf = app.workspace.getMostRecentLeaf;
 	app.workspace.getMostRecentLeaf = () => leaf;
@@ -175,6 +180,7 @@ export async function runPlotChecks() {
 	assert(plugin.zenState === 'off', 'Focus icon did not toggle off');
 	modeToolbar.destroy(); modeHost.remove();
 	const mobilePlugin = { ...modePlugin, toolbarElements:new Map(), charCountElements:new Map(), updateLeafStyles() {} };
+	plugin.mobileFonts = mobilePlugin.mobileFonts = {ensureSelected:async()=>{},cssFamily:()=>mobilePlugin.settings.mobileFontFamily === 'ridibatang' ? 'monospace' : mobilePlugin.settings.mobileFontFamily === 'maruburi' ? 'serif' : 'inherit'};
 	const mobileToolbar = new ToolbarManager(mobilePlugin);
 	let mobileControls = null;
 	const mobileViewportDescriptor = Object.getOwnPropertyDescriptor(window, 'visualViewport');
@@ -198,6 +204,22 @@ export async function runPlotChecks() {
 	document.body.addClass('is-mobile', 'is-phone', 'is-floating-nav');
 	Platform.isMobile = true;
 	try {
+		const previousBackground = plugin.settings.backgroundColor, wasDark = document.body.hasClass('theme-dark');
+		try {
+			plugin.settings.backgroundColor = {light:'#ddffff',dark:'#233344'};
+			for(const dark of [false,true]) {
+				document.body.toggleClass('theme-dark',dark); styles.updateLeafStyles(leaf,true);
+				const expected=dark ? 'rgb(35, 51, 68)' : 'rgb(221, 255, 255)';
+				for(const area of [content,source,source.querySelector('.cm-editor'),source.querySelector('.cm-scroller'),sizer,reading,readingSizer])
+					assert(getComputedStyle(area).backgroundColor===expected,'Mobile editor/reading canvas leaves an uncolored gutter');
+				assert(getComputedStyle(sizer).paddingLeft==='40px','Full-width mobile background changed the text padding');
+			}
+			leaf.view.file={path:'Notes/outside.md'};styles.updateLeafStyles(leaf,true);
+			assert(getComputedStyle(content).backgroundColor!=='rgb(35, 51, 68)' && getComputedStyle(reading).backgroundColor!=='rgb(35, 51, 68)','Mobile project background leaked into an unrelated document');
+		} finally {
+			plugin.settings.backgroundColor=previousBackground;document.body.toggleClass('theme-dark',wasDark);
+			leaf.view.file={path:'Project/3. 본문/story.md'};styles.updateLeafStyles(leaf,true);
+		}
 		mobileToolbar.addToolbarToLeaf(leaf);
 		const mobileHost = leaf.containerEl.querySelector(':scope > .wm-markdown-toolbar-host.is-mobile-mount');
 		assert(mobileHost && viewHeader.nextElementSibling === mobileHost && mobileHost.nextElementSibling === content, 'Mobile Markdown toolbar was not mounted directly below the native view header');
@@ -223,7 +245,7 @@ export async function runPlotChecks() {
 		await settle();
 		assert(Math.abs(Number(getComputedStyle(mobileHost).opacity) - Number(getComputedStyle(viewHeader).opacity)) < .3, 'Mobile toolbar did not follow header fade during the scroll transition');
 		await settle(); await settle();
-		assert(mobileHost.getBoundingClientRect().height <= 1 && getComputedStyle(mobileHost).pointerEvents === 'none', 'Collapsed mobile header left the editor toolbar or empty toolbar space visible');
+		assert(Number(getComputedStyle(mobileHost).opacity) < .01 && getComputedStyle(mobileHost).pointerEvents === 'none' && getComputedStyle(mobileHost).position === 'fixed', 'Hidden native header left an interactive or in-flow toolbar behind');
 		document.body.removeClass('is-hidden-nav');
 		await settle(); await settle(); await settle();
 		assert(mobileHost.getBoundingClientRect().height >= 40 && getComputedStyle(mobileHost).pointerEvents !== 'none', 'Editor toolbar did not return with the mobile header');
@@ -239,16 +261,13 @@ export async function runPlotChecks() {
 		};
 		const fontSearch = fontPopover.querySelector('input');
 		assertMenuInteractive(fontSearch);
-		const previousCustomFonts = mobilePlugin.settings.customFonts;
-		mobilePlugin.settings.customFonts = [...previousCustomFonts,'마루 부리OTF'];
 		fontSearch.value = '마루'; fontSearch.dispatchEvent(new Event('input',{bubbles:true}));
-		assert(fontPopover.querySelector('.wm-paged-popover-item').textContent.includes('마루 부리OTF'), 'Mobile font search ignored registered families when native font enumeration was unavailable');
-		mobilePlugin.settings.customFonts = previousCustomFonts;
-		fontSearch.value = 'MobileDropdownFont';
+		assert(fontPopover.querySelector('.wm-paged-popover-item').textContent.includes('마루 부리'), 'Mobile font search did not use the mobile webfont catalog');
+		fontSearch.value = '리디';
 		fontSearch.dispatchEvent(new Event('input', { bubbles:true }));
 		await settle();
 		const fontOption = fontPopover.querySelector('.wm-paged-popover-item');
-		assert(fontOption.textContent.includes('MobileDropdownFont'), 'Mobile font dropdown search did not update its results');
+		assert(fontOption.textContent.includes('리디바탕'), 'Mobile font dropdown search did not update its results');
 		assertMenuInteractive(fontOption);
 		mobileViewport.height = 240;
 		mobileViewport.dispatchEvent(new Event('resize')); await settle();
@@ -256,21 +275,23 @@ export async function runPlotChecks() {
 		assert(menuBounds.left >= 8 && menuBounds.right <= 382 && menuBounds.bottom <= 232, 'Mobile dropdown overflowed the visible viewport above the keyboard');
 		assertMenuInteractive(fontOption);
 		const previousFont = mobilePlugin.settings.fontFamily;
+		const previousMobileFont = mobilePlugin.settings.mobileFontFamily;
 		const fontTouch = new PointerEvent('pointerdown', {bubbles:true,cancelable:true,pointerType:'touch',button:0});
 		fontOption.dispatchEvent(fontTouch);
 		assert(fontTouch.defaultPrevented && document.activeElement === fontSearch, 'Touching a mobile font option can blur its IME before click');
 		assert(mobileControls.activePopover === fontPopover, 'Touching a mobile dropdown option dismissed it before the click');
 		fontOption.click(); await settle();
-		assert(mobilePlugin.settings.fontFamily === 'MobileDropdownFont' && !fontPopover.isConnected, 'Mobile dropdown option did not apply settings or close its portal');
-		assert(getComputedStyle(editor).fontFamily.includes('MobileDropdownFont'), 'Mobile font choice changed settings but not its Markdown editor CSS');
+		assert(mobilePlugin.settings.mobileFontFamily === 'ridibatang' && mobilePlugin.settings.fontFamily === previousFont && !fontPopover.isConnected, 'Mobile dropdown changed PC settings or failed to close its portal');
+		assert(getComputedStyle(editor).fontFamily.includes('monospace'), 'Mobile font choice changed settings but not its Markdown editor CSS');
 		fontButton.click(); await settle();
 		const enteredFont = mobileControls.activePopover.querySelector('input');
-		enteredFont.value = 'monospace'; enteredFont.dispatchEvent(new Event('input',{bubbles:true}));
+		enteredFont.value = '마루'; enteredFont.dispatchEvent(new Event('input',{bubbles:true}));
 		enteredFont.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',isComposing:true,bubbles:true,cancelable:true}));
-		assert(mobileControls.activePopover && mobilePlugin.settings.fontFamily === 'MobileDropdownFont', 'Font input committed an unfinished IME composition');
+		assert(mobileControls.activePopover && mobilePlugin.settings.mobileFontFamily === 'ridibatang', 'Font input committed an unfinished IME composition');
 		enteredFont.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true})); await settle();
-		assert(mobilePlugin.settings.fontFamily === 'monospace' && getComputedStyle(editor).fontFamily.startsWith('monospace') && !mobileControls.activePopover, 'Entering a font name did not apply it to mobile Markdown');
+		assert(mobilePlugin.settings.mobileFontFamily === 'maruburi' && getComputedStyle(editor).fontFamily.startsWith('serif') && !mobileControls.activePopover, 'Entering a mobile webfont name did not apply it to mobile Markdown');
 		mobilePlugin.settings.fontFamily = previousFont;
+		mobilePlugin.settings.mobileFontFamily = previousMobileFont;
 		await mobilePlugin.saveSettings();
 		mobileViewport.height = 600;
 		mobileControls.toolbarEl.querySelector('.is-weight').click();
@@ -545,9 +566,11 @@ export async function runPlotChecks() {
 	const colorHost = document.body.createDiv({ cls: 'plot-test-host' });
 	const colorGrid = new InfinitePlotSheet(colorHost, colorPlugin, 'Project', 'Project/Text', 'Project/Characters', colorSession);
 	clearTimeout(colorGrid.frontmatterSyncTimer); colorGrid.frontmatterSyncTimer = null; colorGrid.scheduleFrontmatterSync = () => {};
-	const colorToolbar = new PlotWorkbookToolbar(colorPlugin, colorHost, colorSession, colorGrid, [], null, () => {});
+	const colorToolbar = new PlotWorkbookToolbar(colorPlugin, colorHost, colorSession, colorGrid, [{id:'test-project',name:'테스트',rootFolder:'Project'}], 'test-project', () => {});
+	const snapshotButton = colorToolbar.toolbarEl.querySelector('[aria-label="플롯 스냅샷"]');
+	assert(snapshotButton && !snapshotButton.disabled && snapshotButton.querySelector('svg')?.dataset.icon === 'camera','Standalone camera action was not separated from export');
 	colorToolbar.toolbarEl.querySelector('[aria-label="내보내기"]').click();
-	assert(colorToolbar.activePopover.matches('.wm-writing-action-popover') && colorToolbar.activePopover.querySelectorAll('button').length === 1, 'Plot export did not reuse the existing dropdown with Markdown as its only option');
+	assert(colorToolbar.activePopover.matches('.wm-writing-action-popover') && colorToolbar.activePopover.querySelectorAll('button').length === 1, 'Project export dropdown still mixes snapshot controls with readable Markdown');
 	const exportItem = colorToolbar.activePopover.querySelector('button'), exportIcon = exportItem.querySelector('svg').getBoundingClientRect(), exportLabel = exportItem.lastElementChild.getBoundingClientRect();
 	assert(Math.abs((exportIcon.top + exportIcon.bottom - exportLabel.top - exportLabel.bottom) / 2) < 1, 'Markdown export icon and label are not vertically centered');
 	colorToolbar.activePopover.querySelector('button').click();

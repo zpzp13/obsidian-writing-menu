@@ -49,3 +49,15 @@ export function themeModeFromDocument(ownerDocument: Document): ColorThemeMode {
 	return ownerDocument.body.classList.contains('theme-dark') ? 'dark' : 'light';
 }
 
+/** Navigation/keyboard classes are not theme changes and must not restyle every editor. */
+export function observeThemeMode(ownerDocument: Document, changed: () => void): () => void {
+	let mode = themeModeFromDocument(ownerDocument);
+	const observer = new MutationObserver(() => {
+		const next = themeModeFromDocument(ownerDocument);
+		if (next === mode) return;
+		mode = next; changed();
+	});
+	observer.observe(ownerDocument.body, { attributes: true, attributeFilter: ['class'] });
+	return () => observer.disconnect();
+}
+

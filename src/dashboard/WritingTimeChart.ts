@@ -14,6 +14,8 @@ type ChartSeries = {
 	max: number;
 };
 
+const SERIES_COUNT = 7;
+
 export class WritingTimeChart {
 	private readonly card: HTMLElement;
 	private readonly canvas: HTMLCanvasElement;
@@ -33,7 +35,7 @@ export class WritingTimeChart {
 		modes.forEach((mode, index) => {
 			const item = legend.createSpan();
 			item.createSpan({ cls: 'wm-wt-chart-swatch' })
-				.style.setProperty('--wm-wt-series', `var(--wm-wt-series-${index % 8 + 1})`);
+				.style.setProperty('--wm-wt-series', `var(--wm-wt-series-${index % SERIES_COUNT + 1})`);
 			item.appendText(mode.label);
 		});
 		const averageLegend = legend.createSpan();
@@ -71,8 +73,8 @@ export class WritingTimeChart {
 
 	private colors(): string[] {
 		const css = getComputedStyle(this.card);
-		return Array.from({ length: 8 }, (_, index) =>
-			css.getPropertyValue(`--wm-wt-series-${index + 1}`).trim() || '#ed6a5e');
+		return Array.from({ length: SERIES_COUNT }, (_, index) =>
+			css.getPropertyValue(`--wm-wt-series-${index + 1}`).trim() || '#fe647d');
 	}
 
 	private scheduleDraw(animate: boolean): void {
@@ -231,7 +233,7 @@ export class WritingTimeChart {
 			const value = series.values[modeIndex]?.[index] ?? 0;
 			const row = this.tooltip.createDiv({ cls: 'wm-wt-chart-tooltip-row' });
 			row.createSpan({ cls: 'wm-wt-chart-swatch' })
-				.style.setProperty('--wm-wt-series', `var(--wm-wt-series-${modeIndex % 8 + 1})`);
+				.style.setProperty('--wm-wt-series', `var(--wm-wt-series-${modeIndex % SERIES_COUNT + 1})`);
 			row.createSpan({ text: mode.label });
 			row.createEl('b', { text: fmtTimeFull(Math.round(value)) });
 		});

@@ -1,6 +1,7 @@
 import esbuild from "esbuild";
 import process from "process";
 import { builtinModules } from "module";
+import { mkdir, copyFile, readFile } from 'node:fs/promises';
 
 const banner =
 `/*
@@ -10,12 +11,23 @@ if you want to view the source, please visit the github repository of this plugi
 `;
 
 const prod = (process.argv[2] === 'production');
+const ragBuildOptions = {
+	entryPoints: ['src/aichat/rag/ragWorker.ts'], bundle: true, platform: 'browser', conditions: ['browser'],
+	// Electron exposes Node globals in Obsidian Workers. This bundle must always
+	// select the web backend rather than the unavailable onnxruntime-node stub.
+	define: { process: 'undefined' },
+	format: 'esm', target: 'chrome100', logLevel: 'info', sourcemap: false,
+	treeShaking: true, outfile: 'rag-worker.js',
+};
+await esbuild.build(ragBuildOptions);
+const bundledRagWorker = await readFile('rag-worker.js', 'utf8');
 
-const mainContext = await esbuild.context({
+const mainBuildOptions = {
 	banner: {
 		js: banner,
 	},
 	entryPoints: ['main.ts'],
+	define: { __WM_RAG_WORKER_SOURCE__: JSON.stringify(bundledRagWorker) },
 	bundle: true,
 	external: [
 		'obsidian',
@@ -40,9 +52,9 @@ const mainContext = await esbuild.context({
 	sourcemap: prod ? false : 'inline',
 	treeShaking: true,
 	outfile: 'main.js',
-});
+};
 
-const workerContext = await esbuild.context({
+const workerBuildOptions = {
 	entryPoints: ['src/repetition/garuWorker.ts'],
 	bundle: true,
 	platform: 'browser',
@@ -54,12 +66,26 @@ const workerContext = await esbuild.context({
 	sourcemap: prod ? false : 'inline',
 	treeShaking: true,
 	outfile: 'garu-worker.js',
-});
+};
 
+await mkdir('rag-runtime', { recursive: true });
+await copyFile('node_modules/@huggingface/transformers/LICENSE', 'rag-runtime/Transformers-LICENSE.txt');
+await copyFile('docs/licenses/onnxruntime-MIT.txt', 'rag-runtime/ONNXRuntime-LICENSE.txt');
+await copyFile('docs/licenses/local-rag.md', 'rag-runtime/NOTICE.md');
+for (const file of ['ort-wasm-simd-threaded.asyncify.mjs', 'ort-wasm-simd-threaded.asyncify.wasm']) {
+	await copyFile(`node_modules/onnxruntime-web/dist/${file}`, `rag-runtime/${file}`);
+}
 if (prod) {
-	await Promise.all([mainContext.rebuild(), workerContext.rebuild()]);
-	await Promise.all([mainContext.dispose(), workerContext.dispose()]);
-	process.exit(0);
+	// rag-worker.js was already built above for the embedded fallback. Build it
+	// only once so the standalone and embedded worker always use the same bytes.
+	await Promise.all([esbuild.build(mainBuildOptions), esbuild.build(workerBuildOptions)]);
 } else {
-	await Promise.all([mainContext.watch(), workerContext.watch()]);
+	const contexts = [];
+	try {
+		for (const options of [mainBuildOptions, workerBuildOptions, ragBuildOptions]) contexts.push(await esbuild.context(options));
+		await Promise.all(contexts.map(context => context.watch()));
+	} catch (error) {
+		await Promise.all(contexts.map(context => context.dispose()));
+		throw error;
+	}
 }

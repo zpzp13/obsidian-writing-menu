@@ -89,12 +89,12 @@ export class MonthCalendar {
 						e.stopPropagation();
 						activeDocument.querySelector('.wm-month-task-preview')?.remove();
 
-						const ppop = activeDocument.body.createDiv({ cls: 'wm-month-task-preview wm-ver-popup' });
-						ppop.createDiv({ cls: 'wm-ver-popup-section-label', text: `${viewMonth + 1}월 ${day}일 할 일` });
+						const ppop = activeDocument.body.createDiv({ cls: 'wm-month-task-preview wm-popup' });
+						ppop.createDiv({ cls: 'wm-popup-section-label', text: `${viewMonth + 1}월 ${day}일 할 일` });
 
 						for (const t of tasks) {
-							const item = ppop.createDiv({ cls: 'wm-ver-popup-item' });
-							const dotEl = item.createDiv({ cls: 'wm-ver-popup-icon' });
+							const item = ppop.createDiv({ cls: 'wm-popup-item' });
+							const dotEl = item.createDiv({ cls: 'wm-popup-icon' });
 							setIcon(dotEl, 'circle');
 							item.createSpan({ text: t.text || t.rawText });
 						}

@@ -1,1016 +1,664 @@
-import { App, Component, Editor, MarkdownView, Notice, TFile, setIcon, setTooltip } from 'obsidian';
+import { Component, MarkdownRenderer, Menu, Modal, Notice, Setting, TFile, normalizePath, setIcon, type HoverParent } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
-import { getWikiImgSrc, getWikiDisplayName, getWikiColor } from '../wiki/wikiProfileUtils';
-import { AiChatStorage } from './AiChatStorage';
-import { AiChatSuggestModal } from './AiChatSuggestModal';
-import { getCharacterCandidateFiles } from './AiChatScope';
-import { getEpisodePlotContext, getFullPlotHistoryContext, getPreviousChapterBody, extractChapterName, type PlotHistoryContext } from './AiChatEpisode';
-import { generateEpisodeScene, type EpisodeChatSegment } from './EpisodeChatEngine';
+import { getOpenWritingDocuments, getWritingDocument, getWritingDocumentForView } from '../writing/WritingDocument';
+import { createDeusChatLayout } from './DeusChatLayout';
+import { bindDeusSidebarResize, DEUS_SIDEBAR_BREAKPOINT } from './DeusSidebarResize';
+import { createDeusComposerMenu } from './DeusComposerMenu';
+import { alignDeusSubmenu, compactDeusMenu } from './DeusMenus';
+import { renderDeusNoteLinks } from './DeusNoteLinks';
+import { renderDeusMentions, type DeusComposerInput } from './DeusComposerInput';
+import { bindDeusScrollFollow } from './DeusScrollFollow';
+import type { DeusPlotSelection } from './AiChatPlotKnowledge';
+import { renderDeusCitationChips } from './DeusCitationChips';
+import { getWikiColor, getWikiDisplayName } from '../wiki/wikiProfileUtils';
+import { renderChatAvatar } from './ChatAvatar';
 import { AiChatRenameModal } from './AiChatRenameModal';
-import { callAiChat, hasApiKeyForModel, type AiChatApiKeys } from './AiChatApi';
-import { extractPersonaContent, parseAssistantSegments, loadCustomStyleNote, buildCustomStyleBlock } from './AiChatContext';
-import type { AiChatMessage, AiChatSegment, AiChatSession } from './AiChatTypes';
+import { AI_CHAT_MODELS, deusChatModels, effectiveChatModel, getModelProvider, hasApiKeyForModel } from './AiChatApi';
+import { stripWrapping } from './AiChatContext';
+import { AiChatStorage } from './AiChatStorage';
+import { AiChatRequest, type ChatRequestOptions, type ChatRequestState } from './AiChatRequest';
+import { ChatTextModal, type ChatContextItem } from './AiChatContextModal';
+import type { AiChatMessage, AiChatSession, ChatEpisodeRangeCoverage } from './AiChatTypes';
+import { AiChatKnowledge } from './AiChatKnowledge';
+import { DEUS_CITATIONS, contextSourceText, prepareDeusMarkdown, locateChatQuote } from './AiChatPrompt';
+import { ragIndex } from './rag/RagIndexService';
+import { requestedEpisode, requestedEpisodeScope } from './rag/RagEpisodes';
+import { DEUS_SKILLS, DEUS_REPLY_STYLE, resolveDeusIntent, deusSkillInstructions, parseDeusDialogue, parseDeusCommand } from './DeusSkills';
+import { collectDeusScene, deusSourceAllowed } from './DeusSceneContext';
+import type { DeusSkill } from './AiChatTypes';
 
-interface AppWithSettings extends App {
-	setting?: { open(): void; openTabById(id: string): void };
-}
-
-type SubPage = 'summary' | 'chat' | 'episode';
-type InputMode = 'dialogue' | 'narration';
-
-interface ThoughtSegment { isThought: boolean; text: string; }
-
-/** "(...)" 괄호로 표현된 인물의 속마음 구간과 일반 텍스트 구간을 분리한다. 괄호 안에 괄호가 중첩되는 경우는 다루지 않는다. */
-function splitThoughtSegments(text: string): ThoughtSegment[] {
-	const segments: ThoughtSegment[] = [];
-	const re = /\(([^()]*)\)/g;
-	let idx = 0;
-	let m: RegExpExecArray | null;
-	while ((m = re.exec(text))) {
-		if (m.index > idx) segments.push({ isThought: false, text: text.slice(idx, m.index) });
-		segments.push({ isThought: true, text: m[1] });
-		idx = m.index + m[0].length;
-	}
-	if (idx < text.length) segments.push({ isThought: false, text: text.slice(idx) });
-	return segments;
-}
-
-const RESPONSE_TIMEOUT_MS = 90_000;
-
-/** 응답이 비정상적으로 오래 걸려 영영 안 끝나는 경우, sending 상태가 그 세션에 영구히 걸려있지 않도록 시간 제한을 둔다. */
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-	return Promise.race([
-		promise,
-		new Promise<T>((_, reject) => {
-			window.setTimeout(() => reject(new Error('응답 시간이 너무 오래 걸려 요청을 취소했습니다.')), ms);
-		}),
-	]);
-}
+const messageId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+const report = (error: unknown) => new Notice(error instanceof Error ? error.message : String(error));
 
 export class AiChatPanel {
-	private subPage: SubPage = 'chat';
-	private characterFile: TFile | null = null; // A: AI가 연기하는 인물
-	private speakerFile: TFile | null = null;   // B: 사용자가 지금 연기하는 상대역
+	private storage: AiChatStorage;
+	private requests: AiChatRequest;
+	private knowledge: AiChatKnowledge;
 	private session: AiChatSession | null = null;
 	private container: HTMLElement | null = null;
-	/** 세션별로 "지금 응답 대기 중"인지 추적 — 세션 하나가 오래 걸린다고 다른 세션(새 대화 등)까지 막히면 안 됨 */
-	private sendingSessionIds = new Set<string>();
-	private storage: AiChatStorage;
-
-	private toolbarTitleEl: HTMLElement | null = null;
-	private toolbarHeaderEl: HTMLElement | null = null;
-	private toolbarCollapseTimer = 0;
-	private activeFile: TFile | null = null;
-	private lastEditor: Editor | null = null;
-
-	private inputMode: InputMode = 'dialogue';
-	private modeLabelEl: HTMLElement | null = null;
-	private inputWrapperEl: HTMLElement | null = null;
-
-	/** 다음 renderMessages() 호출에서 이 인덱스의 assistant 메시지만 타자기 효과로 그리도록 예약 */
-	private pendingTypewriterIndex: number | null = null;
-
-	// ── 회차 챗 (에피소드 플롯 기반 씬 자동 생성) ─────────────────────────────
-	private episodeSegments: EpisodeChatSegment[] = [];
-	private episodeGenerating = false;
-	private episodeStatus = '';
-	/** 회차챗 생성 진행 상황이 갱신될 때만 스크롤을 최하단으로 내린다. 그 외(예: active-leaf-change로 인한
-	 * 재렌더링) 렌더링에서는 사용자가 보던 스크롤 위치를 그대로 둔다. */
-	private episodeAutoScroll = false;
-	/** rerender()는 container를 통째로 비우고 다시 그리므로, 다시 그리기 직전 기존 스크롤 위치를 여기 저장해뒀다가 복원한다. */
-	private episodeScrollTop = 0;
-	/** 노트 전환 시 헤더(상태 문구·생성 버튼)만 갱신하기 위한 참조 — 전체 rerender()를 피해 씬 목록이 다시
-	 * 그려지며 생기는 스크롤 깜빡임을 없앤다. */
-	private episodeStatusEl: HTMLElement | null = null;
-	private episodeGenBtnEl: HTMLElement | null = null;
-	private currentPlotHistory: PlotHistoryContext | null = null;
-	/** 씬별 진행 문구 참조 — 생성 도중 씬이 넘어갈 때마다 전체 rerender() 대신 이 텍스트만 갱신해 헤더가 깜빡이지 않게 한다. */
-	private episodeProgressEl: HTMLElement | null = null;
-
-	constructor(private plugin: WritingMenuPlugin, hostComponent: Component) {
-		this.storage = new AiChatStorage(plugin.app);
-
-		const lastChar = plugin.settings.aiChatLastCharacterPath;
-		if (lastChar) {
-			const f = plugin.app.vault.getAbstractFileByPath(lastChar);
-			if (f instanceof TFile) this.characterFile = f;
-		}
-		const lastSpeaker = plugin.settings.aiChatLastSpeakerPath;
-		if (lastSpeaker) {
-			const f = plugin.app.vault.getAbstractFileByPath(lastSpeaker);
-			if (f instanceof TFile) this.speakerFile = f;
-		}
-
-		const initialView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
-		this.activeFile = initialView?.file ?? null;
-		this.lastEditor = initialView?.editor ?? null;
-
-		hostComponent.registerEvent(
-			plugin.app.workspace.on('active-leaf-change', (leaf) => {
-				const view = leaf?.view;
-				if (view instanceof MarkdownView) {
-					this.activeFile = view.file;
-					this.lastEditor = view.editor;
-					this.toolbarTitleEl?.setText(this.activeFile ? this.activeFile.basename : 'AI');
-					// 회차 챗 페이지는 활성 노트에 따라 상태 문구/버튼 활성화가 바뀌므로 갱신하되, 전체 rerender()는
-					// 씬 목록까지 다시 그리며 스크롤이 깜빡이므로 헤더만 가볍게 갱신한다.
-					if (this.subPage === 'episode') void this.refreshEpisodeHeader();
-				}
-			}),
-		);
+	private messagesEl: HTMLElement | null = null;
+	private sendButton: HTMLButtonElement | null = null;
+	private statusEl: HTMLElement | null = null;
+	private drafts = new Map<string, string>();
+	private contexts = new Map<string, ChatContextItem[]>();
+	private states = new Map<string, ChatRequestState>();
+	private history = false;
+	private historyQuery = '';
+	private historySearchOpen = false;
+	private projectExpansion = new Map<string, boolean>();
+	private navigatorGeneration = 0;
+	private layoutCleanup?: () => void;
+	private syncNavigator?: () => void;
+	private disposed = false;
+	private generation = 0;
+	private mode: 'character' | 'deus' = 'deus';
+	private excludedContexts = new Map<string, Set<string>>();
+	private referenceCatalog = new Map<string, ChatContextItem[]>();
+	private selectedSkills = new Map<string, DeusSkill>();
+	private refreshReferenceMenu?: () => void;
+	private contextGeneration = 0;
+	private contextTimer = 0;
+	private hoverParent: HoverParent = { hoverPopover: null };
+	private parkedSessions = new Map<string, AiChatSession>();
+	private deusProjectRoot: string | undefined;
+	private markdownComponent = new Component();
+	private scrollFollow?: ReturnType<typeof bindDeusScrollFollow>;
+	private messageGeneration = 0;
+	private sceneView: { getDeusSceneSelection(): DeusPlotSelection | null } | null = null;
+	constructor(private plugin: WritingMenuPlugin, host: Component) {
+		host.addChild(this.markdownComponent);
+		this.storage = new AiChatStorage(plugin.app); this.requests = new AiChatRequest(this.storage);
+		this.knowledge = new AiChatKnowledge(plugin);
+		plugin.registerHoverLinkSource('writing-menu-deus', { display: 'Deus AI', defaultMod: true });
+		const rememberScene = (view: unknown) => {
+			if (view && typeof (view as typeof this.sceneView)?.getDeusSceneSelection === 'function') this.sceneView = view as NonNullable<typeof this.sceneView>;
+			else if (getWritingDocumentForView(view)) this.sceneView = null;
+		};
+		rememberScene(plugin.app.workspace.getMostRecentLeaf?.()?.view);
+		host.registerEvent(plugin.app.workspace.on('active-leaf-change', leaf => { rememberScene(leaf?.view); this.refreshContextPreview(); }));
+		host.registerEvent(plugin.app.workspace.on('editor-change', () => this.refreshContextPreview()));
+		host.register(() => { this.disposed = true; this.generation++; this.contextGeneration++; this.navigatorGeneration++; this.layoutCleanup?.(); window.clearTimeout(this.contextTimer); this.requests.stopAll(); this.hoverParent.hoverPopover?.unload(); });
 	}
+	private async ensureSession(): Promise<void> {
+		if (this.mode === 'deus' && !this.session) {
+			const project = this.plugin.settings.projects.find(item => item.rootFolder === this.deusProjectRoot)
+				?? this.plugin.settings.projects.find(item => item.rootFolder === this.sceneView?.getDeusSceneSelection()?.projectRoot)
+				?? this.plugin.projectContext.getProjectForFile(getWritingDocument(this.plugin)?.file ?? null)
+				?? this.plugin.settings.projects[0];
+			if (!project) return;
+			this.deusProjectRoot = project.rootFolder;
+			const entry = (await this.storage.listSessions()).find(item => item.mode === 'deus' && item.projectRoot === project.rootFolder);
+			const session = entry ? await this.storage.loadById(entry.id) : await this.storage.createNewSession('', '새 대화');
+			if (this.mode !== 'deus' || this.deusProjectRoot !== project.rootFolder || this.disposed || this.session) return;
+			this.session = session;
+			if (this.session) { this.session.mode = 'deus'; this.session.projectRoot = project.rootFolder; this.restoreSpeaker(this.session); }
+			return;
+		}
 
-	private get app() { return this.plugin.app; }
-
+	}
 	async render(container: HTMLElement): Promise<void> {
-		this.container = container;
-		container.empty();
-
-		const root = container.createDiv({ cls: 'wm-aichat-root' });
-		this.renderToolbar(root);
-
-		const body = root.createDiv({ cls: 'wm-aichat-body' });
-		if (this.subPage === 'summary') this.renderSummaryPage(body);
-		else if (this.subPage === 'episode') await this.renderEpisodeChatPage(body);
-		else await this.renderChatPage(body);
-	}
-
-	private rerender(): void {
-		if (!this.container) return;
-		const existingList = this.container.querySelector<HTMLElement>('.wm-episodechat-list');
-		if (existingList) this.episodeScrollTop = existingList.scrollTop;
-		void this.render(this.container);
-	}
-
-	// ── 상단 툴바 (요약/캐릭터챗/AI설정 이동 전용, 평소엔 접혀있음) ──────────
-
-	private renderToolbar(root: HTMLElement): void {
-		const header = root.createDiv({ cls: 'wm-aichat-toolbar-header' });
-		this.toolbarHeaderEl = header;
-		if (this.plugin.settings.aiChatToolbarAutoHide) {
-			header.addClass('is-collapsed');
-			header.addEventListener('mouseenter', () => {
-				window.clearTimeout(this.toolbarCollapseTimer);
-				header.removeClass('is-collapsed');
-			});
-			header.addEventListener('mouseleave', () => {
-				window.clearTimeout(this.toolbarCollapseTimer);
-				this.toolbarCollapseTimer = window.setTimeout(() => header.addClass('is-collapsed'), 60);
-			});
-		}
-
-		const row = header.createDiv({ cls: 'wm-aichat-toolbar-row' });
-		const actions = row.createDiv({ cls: 'wm-aichat-toolbar-actions' });
-
-		const summaryBtn = actions.createDiv({
-			cls: 'wm-cal-icon-btn' + (this.subPage === 'summary' ? ' is-active' : ''),
-			attr: { 'aria-label': '요약' },
+		this.container = container; const generation = ++this.generation;
+		try { await this.ensureSession(); } catch (error) { report(error); }
+		if (this.disposed || generation !== this.generation) return;
+		this.layoutCleanup?.(); container.empty(); const layout = createDeusChatLayout(container);
+		const sidebarResize = bindDeusSidebarResize(layout.root, layout.resizer, this.plugin.settings.aiChatSidebarWidth, width => { this.plugin.settings.aiChatSidebarWidth = width; void this.plugin.saveSettings().catch(report); });
+		this.syncNavigator = () => {
+			const wide = layout.root.clientWidth >= DEUS_SIDEBAR_BREAKPOINT;
+			layout.root.classList.toggle('is-wide', wide); layout.root.classList.toggle('is-navigator-open', this.history);
+			layout.sidebar.setAttribute('aria-hidden', String(!wide && !this.history));
+			sidebarResize.sync();
+		};
+		const resize = new ResizeObserver(() => this.syncNavigator?.()); resize.observe(layout.root); this.syncNavigator();
+		const closeNavigator = () => { this.history = false; this.syncNavigator?.(); this.container?.querySelector<HTMLButtonElement>('.deus-navigator-toggle')?.focus(); };
+		layout.backdrop.onclick = closeNavigator;
+		const escape = (event: KeyboardEvent) => { if (event.key === 'Escape' && this.history) { event.preventDefault(); closeNavigator(); } };
+		layout.root.addEventListener('keydown', escape);
+		this.layoutCleanup = () => { resize.disconnect(); sidebarResize.dispose(); composerMenu.dispose(); this.scrollFollow?.dispose(); this.scrollFollow = undefined; this.refreshReferenceMenu = undefined; layout.root.removeEventListener('keydown', escape); this.syncNavigator = undefined; };
+		void this.renderNavigator(layout.sidebar, closeNavigator);
+		this.icon(layout.header, 'panel-left', '프로젝트와 세션 열기', () => { this.history = !this.history; this.syncNavigator?.(); }).addClass('deus-navigator-toggle');
+		this.icon(layout.header, 'square-pen', '새 대화', () => void this.newSession());
+		layout.header.createSpan({ cls: 'deus-session-name', text: this.session?.title || '새 대화' });
+		if (this.session?.parentId) this.icon(layout.header, 'corner-up-left', '분기 전 대화', () => void this.loadSession(this.session!.parentId!));
+		this.icon(layout.header, 'ellipsis', '대화 설정', event => this.menu(event)).addClass('deus-header-settings');
+		this.messagesEl = layout.messages; this.scrollFollow = bindDeusScrollFollow(layout.messages); this.renderMessages(true);
+		this.renderContexts(layout.contextRow);
+		const input = layout.input;
+		input.addEventListener('click', event => {
+			const link = (event.target as HTMLElement).closest<HTMLElement>('[data-deus-mention]');
+			if (!link) return; event.preventDefault();
+			void this.plugin.app.workspace.openLinkText(link.dataset.deusMention!, '', event.ctrlKey || event.metaKey).catch(report);
 		});
-		setIcon(summaryBtn, 'notebook-text');
-		summaryBtn.addEventListener('click', () => { this.subPage = 'summary'; this.rerender(); });
-
-		const chatBtn = actions.createDiv({
-			cls: 'wm-cal-icon-btn' + (this.subPage === 'chat' ? ' is-active' : ''),
-			attr: { 'aria-label': '캐릭터 챗봇' },
-		});
-		setIcon(chatBtn, 'message-square-quote');
-		chatBtn.addEventListener('click', () => { this.subPage = 'chat'; this.rerender(); });
-
-		const episodeBtn = actions.createDiv({
-			cls: 'wm-cal-icon-btn' + (this.subPage === 'episode' ? ' is-active' : ''),
-			attr: { 'aria-label': '초고' },
-		});
-		setIcon(episodeBtn, 'clapperboard');
-		episodeBtn.addEventListener('click', () => { this.subPage = 'episode'; this.rerender(); });
-
-		const settingsBtn = actions.createDiv({ cls: 'wm-cal-icon-btn', attr: { 'aria-label': 'AI 설정' } });
-		setIcon(settingsBtn, 'settings');
-		settingsBtn.addEventListener('click', () => {
-			(this.app as AppWithSettings).setting?.open();
-			(this.app as AppWithSettings).setting?.openTabById(this.plugin.manifest.id);
-			window.setTimeout(() => { this.plugin.settingTab?.renderPage('ai'); }, 60);
-		});
-	}
-
-	// ── 요약 (설계만, 미구현) ────────────────────────────────────────────────
-
-	private renderSummaryPage(body: HTMLElement): void {
-		body.addClass('wm-aichat-placeholder');
-		body.createDiv({ text: '요약 기능은 준비 중입니다.' });
-	}
-
-	// ── 회차 챗 (에피소드 플롯을 파싱해 씬을 자동 생성) ────────────────────────
-
-/** 활성 노트를 바탕으로 회차 인식 여부와 플롯 컨텍스트를 계산한다. 전체 rerender()와 가벼운 헤더 갱신에서 공유. */
-	private async computeEpisodeStatus(): Promise<{ chapterName: string | null; plotHistory: PlotHistoryContext | null }> {
-		const chapterName = extractChapterName(this.activeFile);
-		const root = this.plugin.settings.aiEpisodeRootFolder.trim();
-		if (!root || !chapterName || !this.activeFile?.path.startsWith(root.endsWith('/') ? root : `${root}/`)) {
-			return { chapterName: null, plotHistory: null };
-		}
-		const plotHistory = await getFullPlotHistoryContext(this.plugin, this.activeFile);
-		return { chapterName: plotHistory ? chapterName : null, plotHistory };
-	}
-
-	/** 상태 표시 영역(아이콘+문구)을 계산 결과에 맞춰 그린다 — 인식 성공 시 회차명+체크, 실패 시 공통 안내 문구. */
-	private renderEpisodeStatusContent(el: HTMLElement, chapterName: string | null): void {
-		el.empty();
-		if (chapterName) {
-			el.createSpan({ text: chapterName });
-			const check = el.createSpan({ cls: 'wm-episodechat-status-check' });
-			setIcon(check, 'check');
-		} else {
-			el.createSpan({ text: '노트를 인식할 수 없습니다' });
-		}
-	}
-
-	/** 노트 전환 등으로 헤더만 최신화할 때 쓴다 — 씬 목록(listEl)은 건드리지 않아 스크롤이 안 튄다. */
-	private async refreshEpisodeHeader(): Promise<void> {
-		if (this.subPage !== 'episode' || !this.episodeStatusEl || !this.episodeGenBtnEl) return;
-		const { chapterName, plotHistory } = await this.computeEpisodeStatus();
-		this.currentPlotHistory = plotHistory;
-		this.renderEpisodeStatusContent(this.episodeStatusEl, chapterName);
-		this.episodeGenBtnEl.toggleClass('is-disabled', this.episodeGenerating || !plotHistory);
-	}
-
-	/** 씬 하나를 다 쓰고 다음 씬으로 넘어갈 때처럼, 생성 도중 진행 문구만 바뀔 때 쓴다 — 헤더 전체를 다시 그리지
-	 * 않으므로 깜빡임이 없다. 헤더가 아직 없는 시점(생성 시작 전)이면 전체 rerender()로 대체한다. */
-	private updateEpisodeProgress(status: string): void {
-		this.episodeStatus = status;
-		if (!this.episodeProgressEl) { this.rerender(); return; }
-		this.episodeProgressEl.find('.wm-episodechat-progress-text')?.setText(status);
-		this.episodeProgressEl.toggleClass('is-hidden', !status);
-	}
-
-	private async renderEpisodeChatPage(body: HTMLElement): Promise<void> {
-		body.addClass('wm-episodechat');
-
-		const header = body.createDiv({ cls: 'wm-episodechat-header' });
-		const { chapterName, plotHistory } = await this.computeEpisodeStatus();
-		this.currentPlotHistory = plotHistory;
-
-		const row = header.createDiv({ cls: 'wm-episodechat-header-row' });
-		const statusWrap = row.createDiv({ cls: 'wm-episodechat-status-wrap' });
-		const infoIcon = statusWrap.createDiv({ cls: 'wm-episodechat-status-icon' });
-		setIcon(infoIcon, 'info');
-		setTooltip(infoIcon, '인식된 노트(N화)의 상위 폴더를 추적해 에피소드 노트를 읽고, 집필 회차의 플롯을 토대로 초고를 생성합니다.', { placement: 'top' });
-		this.episodeStatusEl = statusWrap.createDiv({ cls: 'wm-episodechat-status' });
-		this.renderEpisodeStatusContent(this.episodeStatusEl, chapterName);
-
-		const genBtn = row.createDiv({ cls: 'wm-episodechat-gen-btn wm-tasks-add-btn' });
-		genBtn.createSpan({ cls: 'wm-tasks-add-label', text: this.episodeGenerating ? '생성 중...' : '생성' });
-		genBtn.toggleClass('is-disabled', this.episodeGenerating || !plotHistory);
-		genBtn.addEventListener('click', () => {
-			if (this.episodeGenerating || !this.currentPlotHistory) return;
-			void this.runEpisodeGeneration(this.currentPlotHistory);
-		});
-		this.episodeGenBtnEl = genBtn;
-
-		const progress = header.createDiv({ cls: 'wm-episodechat-progress' });
-		setIcon(progress.createDiv({ cls: 'wm-episodechat-progress-icon' }), 'loader-2');
-		progress.createSpan({ cls: 'wm-episodechat-progress-text', text: this.episodeStatus });
-		progress.toggleClass('is-hidden', !this.episodeStatus);
-		this.episodeProgressEl = progress;
-
-		const listWrap = body.createDiv({ cls: 'wm-episodechat-list-wrap' });
-		const listEl = listWrap.createDiv({ cls: 'wm-episodechat-list' });
-		this.renderScrollNavButtons(listWrap, listEl);
-		if (this.episodeSegments.length > 0 || this.episodeGenerating) {
-			const nameColor = new Map<string, string>();
-			for (const f of getCharacterCandidateFiles(this.plugin, this.activeFile)) {
-				nameColor.set(getWikiDisplayName(this.app, this.plugin, f), getWikiColor(this.app, this.plugin, f));
+		const draftKey = this.session?.id ?? 'new'; input.value = this.drafts.get(draftKey) ?? '';
+		const suggestions = layout.inputWrapper.createDiv({ cls: 'deus-composer-dropdown', attr: { role: 'listbox', 'aria-label': '스킬·노트 제안' } }); suggestions.hidden = true;
+		let options: Array<{ label: string; detail: string; choose: () => void }> = [], selected = 0;
+		const updateSuggestions = () => {
+			const prefix = input.value.slice(0, input.selectionStart), match = /(?:^|\s)([@/])([^\s@/\[\]]*)$/.exec(prefix);
+			options = []; selected = 0; suggestions.empty();
+			if (match) {
+				const start = input.selectionStart - match[2].length - 1, end = input.selectionStart;
+				const insert = (text: string) => { input.setRangeText(text, start, end, 'end'); this.drafts.set(draftKey, input.value); suggestions.hidden = true; input.focus(); this.refreshContextPreview(); };
+				options = match[1] === '/' && !prefix.slice(0, start).trim()
+					? DEUS_SKILLS.filter(skill => skill.label.toLocaleLowerCase().includes(match[2].toLocaleLowerCase()) || skill.command.includes(match[2].toLocaleLowerCase())).map(skill => ({ label: '/' + skill.command, detail: skill.description, choose: () => { if (this.session) this.selectedSkills.set(this.session.id, skill.id); insert(''); } }))
+					: match[1] === '@' ? this.referenceFiles().filter(file => file.basename.toLocaleLowerCase().includes(match[2].toLocaleLowerCase())).map(file => ({ label: file.basename, detail: '', choose: () => insert('@[[' + file.path + ']] ') })) : [];
+				for (const [index, option] of options.entries()) {
+					const button = suggestions.createEl('button', { cls: 'deus-composer-dropdown-item', attr: { type: 'button', role: 'option', 'aria-selected': String(index === selected) } });
+					button.id = `deus-option-${generation}-${index}`;
+					const copy = button.createDiv({ cls: 'deus-composer-dropdown-copy' }); copy.createSpan({ cls: 'deus-composer-dropdown-label', text: option.label }); if (option.detail) copy.createSpan({ cls: 'deus-composer-dropdown-detail', text: option.detail });
+					button.onmousedown = event => event.preventDefault(); button.onclick = () => option.choose();
+				}
 			}
-			for (const seg of this.episodeSegments) this.renderEpisodeSegment(listEl, seg, nameColor);
-			if (this.episodeAutoScroll) {
-				listEl.scrollTop = listEl.scrollHeight;
-				this.episodeAutoScroll = false;
-			} else {
-				listEl.scrollTop = this.episodeScrollTop;
+			suggestions.hidden = !options.length;
+			suggestions.classList.toggle('is-visible', !suggestions.hidden);
+			input.setAttribute('aria-expanded', String(!suggestions.hidden));
+		};
+		input.oninput = () => { this.drafts.set(draftKey, input.value); updateSuggestions(); this.refreshContextPreview(); };
+		input.onblur = () => { suggestions.hidden = true; input.setAttribute('aria-expanded', 'false'); input.removeAttribute('aria-activedescendant'); };
+		input.onkeydown = event => {
+			if (event.isComposing || event.keyCode === 229) return;
+			if (!suggestions.hidden && options.length) {
+				if (event.key === 'Escape') { event.preventDefault(); suggestions.hidden = true; return; }
+				if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); selected = (selected + (event.key === 'ArrowDown' ? 1 : options.length - 1)) % options.length; suggestions.querySelectorAll<HTMLElement>('[role="option"]').forEach((item, index) => { item.setAttribute('aria-selected', String(index === selected)); if (index === selected) { item.scrollIntoView({ block: 'nearest' }); input.setAttribute('aria-activedescendant', item.id); } }); return; }
+				if ((event.key === 'Enter' && !event.shiftKey) || event.key === 'Tab') { event.preventDefault(); options[selected].choose(); return; }
 			}
+			if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void this.send(input.value); }
+		};
+		const footer = layout.inputToolbar;
+		const plus = this.icon(footer, 'plus', '자료 추가', () => this.refreshContextPreview()); plus.addClass('deus-composer-plus');
+		const composerMenu = createDeusComposerMenu(layout.popover, plus, {
+			references: () => this.referenceChoices(), toggle: (source, checked) => this.toggleReference(source, checked),
+		}); this.refreshReferenceMenu = composerMenu.refresh;
+		footer.createDiv({ cls: 'deus-toolbar-spacer' });
+		const model = footer.createEl('button', { cls: 'deus-toolbar-chip deus-model-selector', attr: { 'aria-label': '모델 선택', type: 'button' } });
+		this.statusEl = model.createSpan({ cls: 'deus-model-label' });
+		setIcon(model.createSpan({ cls: 'deus-model-chevron', attr: { 'aria-hidden': 'true' } }), 'chevron-down');
+		model.onclick = event => this.modelMenu(event);
+		this.sendButton = this.icon(footer, 'arrow-up', '보내기', () => { if (this.session && this.requests.isSending(this.session.id)) this.requests.stop(this.session.id); else void this.send(input.value); });
+		this.updateComposer(); this.refreshContextPreview();
+	}
+	private rerender(): void { if (this.container?.isConnected && !this.disposed) void this.render(this.container); }
+	private referenceFiles(): TFile[] {
+		if (this.deusProjectRoot === undefined) return [];
+		return this.plugin.app.vault.getMarkdownFiles().filter(file => this.plugin.projectContext.getProjectForFile(file)?.rootFolder === this.deusProjectRoot && !file.path.split('/').some(part => part.startsWith('.')));
+	}
+	private populateProjects(menu: Menu): void {
+		for (const project of this.plugin.settings.projects) menu.addItem(item => item.setTitle(project.name || project.rootFolder).setChecked(project.rootFolder === this.deusProjectRoot).onClick(() => this.selectProject(project.rootFolder)));
+	}
+	private selectProject(root: string): void {
+		if (root === this.deusProjectRoot) return;
+		if (this.session) this.parkedSessions.set(`deus:${this.session.projectRoot}`, this.session);
+		this.deusProjectRoot = root; this.session = this.parkedSessions.get(`deus:${root}`) ?? null;
+		this.projectExpansion.set(root, true);
+		this.historyQuery = ''; this.history = false; this.rerender();
+	}
+	private async renderNavigator(parent: HTMLElement, close: () => void): Promise<void> {
+		const header = parent.createDiv({ cls: 'deus-navigator-header' });
+		const brand = header.createSpan({ cls: 'deus-brand', text: 'DEUS' });
+		brand.id = `deus-navigator-heading-${this.generation}`; parent.setAttribute('aria-labelledby', brand.id);
+		const search = header.createDiv({ cls: 'wm-search-field wm-dict-search-box deus-session-search-field' });
+		const input = search.createEl('input', { cls: 'deus-session-search', type: 'search', attr: { placeholder: '대화 검색', 'aria-label': '대화 검색' } }); input.value = this.historyQuery;
+		const sync = () => { search.hidden = !this.historySearchOpen; brand.hidden = this.historySearchOpen; };
+		input.oninput = () => { this.historyQuery = input.value; this.refreshSessionList(); };
+		this.icon(header, 'search', '대화 검색', () => { this.historySearchOpen = !this.historySearchOpen; if (!this.historySearchOpen) { this.historyQuery = ''; input.value = ''; } sync(); this.refreshSessionList(); if (this.historySearchOpen) input.focus(); }).addClass('deus-navigator-search'); sync();
+		this.icon(header, 'panel-left-close', '대화 목록 닫기', close).addClass('deus-navigator-close');
+		const create = parent.createEl('button', { cls: 'deus-navigator-new', attr: { type: 'button' } });
+		setIcon(create.createSpan({ attr: { 'aria-hidden': 'true' } }), 'square-pen'); create.createSpan({ text: '새 채팅' }); create.onclick = () => void this.newSession();
+		const sessions = parent.createDiv({ cls: 'deus-session-list' });
+		await this.renderHistory(sessions);
+	}
+	private modelMenu(event: MouseEvent): void {
+		const menu = new Menu();
+		compactDeusMenu(menu);
+		for (const model of deusChatModels(this.plugin.settings)) menu.addItem(item => item.setTitle(model.label).setChecked(effectiveChatModel(this.plugin.settings) === model.id).onClick(async () => {
+			if (this.plugin.settings.aiChatFreeOnly) this.plugin.settings.aiChatFreeModel = model.id; else this.plugin.settings.aiChatModel = model.id;
+			await this.plugin.saveSettings(); this.updateComposer();
+		}));
+		menu.showAtMouseEvent(event);
+	}
+	private async prepareDeusSources(value: string, session: AiChatSession, signal?: AbortSignal, includeExcluded = false) {
+		const project = this.plugin.settings.projects.find(item => item.rootFolder === session.projectRoot);
+		const source = getWritingDocument(this.plugin), open = getOpenWritingDocuments(this.plugin);
+		const plotSelection = this.sceneView?.getDeusSceneSelection() ?? undefined;
+		const folder = project?.characterFolder?.replace(/\/$/, '');
+		const candidates = this.referenceFiles().filter(file => folder && file.path.startsWith(folder + '/')).map(file => ({ path: file.path, name: getWikiDisplayName(this.plugin.app, this.plugin, file) }));
+		const intent = resolveDeusIntent(value, this.selectedSkills.get(session.id) ?? 'auto', candidates);
+		const excluded = includeExcluded ? new Set<string>() : this.excludedContexts.get(session.id) ?? new Set<string>();
+		const attachments = (this.contexts.get(session.id) ?? []).filter(source => deusSourceAllowed(source, excluded)).map(item => ({ ...item }));
+		const previous = [...session.messages].reverse().find(message => message.role === 'user');
+		if (intent.skill === 'character' && intent.scene === 'active' && previous?.skill === 'character'
+			&& /^(?:이어서|계속|다시|좀\s*더|조금\s*더|더\s|그\s*다음|방금|아까)/.test(value.trim()) && !/현재|선택한|지금\s*장면/.test(value)) {
+			intent.scene = 'explicit'; intent.participants = [...(previous.participants ?? [])];
+			for (const item of previous.context?.sources ?? []) if (['document','selection','plot'].includes(item.kind ?? '') && deusSourceAllowed(item, excluded) && !attachments.some(source => source.id === item.id)) attachments.push({ ...item });
+		}
+		// Collect the catalog independently, then apply each checkbox. Excluding a manuscript
+		// must not silently uncheck its separately selected cast or plot rows.
+		const scene = project ? await collectDeusScene(this.plugin, project, intent, attachments.some(item => item.kind === 'selection' || item.kind === 'document') ? null : source, open, new Set(), signal, plotSelection) : { sources: [], participants: intent.participants };
+		intent.participants = scene.participants.filter(person => deusSourceAllowed({ id: `deus-cast:${person.path}`, kind: 'character', path: person.path, title: person.name, text: '' }, excluded));
+		for (const match of value.matchAll(/@\[\[([^\]\n]+)\]\]/g)) {
+			const path = match[1], file = this.plugin.app.vault.getAbstractFileByPath(path);
+			if (!(file instanceof TFile) || this.plugin.projectContext.getProjectForFile(file)?.rootFolder !== session.projectRoot) throw new Error(`참고 노트를 현재 프로젝트에서 찾을 수 없습니다: ${path}`);
+			const id = `deus-mentioned:${path}`;
+			if (!excluded.has(id) && !excluded.has(`deus-cast:${path}`) && ![...attachments, ...scene.sources].some(item => item.path === path)) attachments.push({ id, kind: folder && path.startsWith(folder + '/') ? 'character' : 'reference', title: file.basename, path, text: open.find(document => document.path === path)?.read() ?? await this.plugin.app.vault.read(file) });
+		}
+		return { intent, attachments: [...attachments, ...scene.sources.filter(source => !attachments.some(item => item.path === source.path && item.text.includes(source.text)))].filter(source => deusSourceAllowed(source, excluded)), project, source, open };
+	}
+	private refreshContextPreview(): void {
+		const generation = ++this.contextGeneration; window.clearTimeout(this.contextTimer);
+		this.contextTimer = window.setTimeout(() => { void (async () => {
+			const session = this.session, parent = this.container?.querySelector<HTMLElement>('.deus-context-row');
+			if (!session || !parent || !parent.isConnected || this.disposed) return;
+			try {
+				const value = this.container?.querySelector<DeusComposerInput>('.deus-input')?.value ?? '';
+				const prepared = await this.prepareDeusSources(value, session, undefined, true);
+				if (generation !== this.contextGeneration || session !== this.session || this.disposed) return;
+				this.referenceCatalog.set(session.id, prepared.attachments);
+				parent.empty(); this.renderContexts(parent);
+				this.refreshReferenceMenu?.();
+			} catch (error) { if (generation === this.contextGeneration) { parent.empty(); parent.createSpan({ cls: 'wm-chat-source-warning', text: error instanceof Error ? error.message : String(error) }); } }
+		})(); }, 250);
+	}
+	private icon(parent: HTMLElement, icon: string, title: string, action: (event: MouseEvent) => void): HTMLButtonElement {
+		const button = parent.createEl('button', { cls: parent.matches('.deus-message-actions, .deus-user-msg-actions') ? 'deus-text-copy-btn' : 'deus-input-nav-btn', attr: { type: 'button', 'aria-label': title } }); setIcon(button, icon); button.onclick = action; return button;
+	}
+	private applyCharacterColor(parent: HTMLElement, file: TFile | null): void {
+		if (!file) return;
+		const color = getWikiColor(this.plugin.app, this.plugin, file);
+		if (CSS.supports('color', color)) parent.style.setProperty('--wm-chat-character-color', color);
+	}
+	private avatar(parent: HTMLElement, file: TFile | null): void {
+		renderChatAvatar(parent, this.plugin, file);
+	}
+	private restoreSpeaker(session: AiChatSession): void {
+		if (!this.contexts.has(session.id)) {
+			const previous = [...session.messages].reverse().find(message => message.role === 'user' && message.context);
+			this.contexts.set(session.id, previous?.context?.sources.filter(source => !source.automatic && !source.id.startsWith('deus-mentioned:')).map(source => ({ ...source })) ?? []);
 		}
 	}
-
-	private async runEpisodeGeneration(plotHistory: PlotHistoryContext | null): Promise<void> {
-		if (this.episodeGenerating || !this.activeFile || !plotHistory) return;
-		if (!hasApiKeyForModel(this.getApiKeys(), this.plugin.settings.aiEpisodeModel)) {
-			new Notice('선택한 초고 모델의 API 키를 AI 설정에 먼저 입력하세요.');
-			return;
-		}
-
-		this.episodeGenerating = true;
-		this.episodeSegments = [];
-		this.episodeStatus = '초안을 쓰는 중...';
-		this.episodeAutoScroll = true;
-		this.rerender();
-
-		const characterFiles = getCharacterCandidateFiles(this.plugin, this.activeFile);
-		const previousChapterBody = await getPreviousChapterBody(this.plugin, this.activeFile);
-
+	private async renderHistory(parent: HTMLElement): Promise<void> {
+		const generation = ++this.navigatorGeneration, root = this.deusProjectRoot;
 		try {
-			const segments = await generateEpisodeScene(
-				this.app, this.plugin, plotHistory, characterFiles,
-				this.getApiKeys(), this.plugin.settings.aiEpisodeModel, this.plugin.settings.aiChatTemperature,
-				this.plugin.settings.aiChatPersonaHeading, previousChapterBody,
-				(status) => this.updateEpisodeProgress(status),
-			);
-			this.episodeSegments = segments;
-			this.episodeStatus = '';
-			this.episodeAutoScroll = true;
-		} catch (e) {
-			this.episodeStatus = '';
-			new Notice('회차 생성 중 오류: ' + (e instanceof Error ? e.message : String(e)));
-		} finally {
-			this.episodeGenerating = false;
+			const entries = await this.storage.listSessions(); if (!parent.isConnected || generation !== this.navigatorGeneration || root !== this.deusProjectRoot) return;
+			parent.empty();
+			const rows = parent.createDiv({ cls: 'deus-session-rows' });
+			const projectRoot = (entry: typeof entries[number]) => entry.projectRoot ?? this.plugin.projectContext.getProjectForFile(this.plugin.app.vault.getAbstractFileByPath(entry.characterPath) as TFile | null)?.rootFolder;
+			const sessionRow = (parent: HTMLElement, entry: typeof entries[number]) => {
+				const row = parent.createDiv({ cls: `deus-session-entry${this.session?.id === entry.id ? ' is-selected' : ''}`, attr: { 'data-session-id': entry.id } });
+				const open = row.createEl('button', { cls: 'deus-session-open', attr: { type: 'button', 'aria-current': String(this.session?.id === entry.id) } });
+				open.createSpan({ cls: 'deus-session-title', text: `${entry.pinned ? '★ ' : ''}${entry.title}` });
+				if (this.requests.isSending(entry.id)) open.createSpan({ cls: 'deus-session-status', text: '응답 중' });
+				open.onclick = () => void this.loadSession(entry.id);
+				row.oncontextmenu = event => { event.preventDefault(); event.stopPropagation(); void this.sessionMenu(entry.id, event); };
+				const actions = row.createDiv({ cls: 'deus-session-actions' });
+				for (const [icon, title, action] of [['pencil', '제목 수정', 'rename'], [entry.pinned ? 'pin-off' : 'pin', entry.pinned ? '고정 해제' : '대화 고정', 'pin'], ['file-output', 'Markdown 내보내기', 'export'], ['trash-2', '대화 삭제', 'delete']] as const) {
+					const button = this.icon(actions, icon, title, event => { event.stopPropagation(); void this.sessionAction(entry.id, action); }); button.disabled = action !== 'export' && this.requests.isSending(entry.id);
+				}
+			};
+			const render = (query: string) => {
+				rows.empty();
+				const matching = entries.filter(entry => entry.title.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
+				rows.createDiv({ cls: 'deus-navigator-section', text: '프로젝트' });
+				const projects = rows.createDiv({ cls: 'deus-project-list' });
+				for (const project of this.plugin.settings.projects) {
+					const root = project.rootFolder, expanded = query ? true : this.projectExpansion.get(root) ?? root === this.deusProjectRoot;
+					const group = projects.createDiv({ cls: 'deus-project-group', attr: { 'data-project-root': root } });
+					const button = group.createEl('button', { cls: 'deus-project-item', attr: { type: 'button', 'aria-expanded': String(expanded), 'aria-current': String(root === this.deusProjectRoot) } });
+					setIcon(button.createSpan({ attr: { 'aria-hidden': 'true' } }), expanded ? 'folder-open' : 'folder'); button.createSpan({ text: project.name || root });
+					button.onclick = () => { if (root !== this.deusProjectRoot) this.selectProject(root); else { this.projectExpansion.set(root, !expanded); render(this.historyQuery); } };
+					if (expanded) {
+						const sessions = group.createDiv({ cls: 'deus-project-sessions' });
+						for (const entry of matching.filter(entry => projectRoot(entry) === root)) sessionRow(sessions, entry);
+					}
+				}
+				rows.createDiv({ cls: 'deus-navigator-section', text: query ? '검색 결과' : '최근' });
+				const recent = rows.createDiv({ cls: 'deus-recent-sessions' });
+				for (const entry of matching) sessionRow(recent, entry);
+				if (!matching.length) recent.createDiv({ cls: 'deus-session-empty', text: query ? '일치하는 대화가 없습니다.' : '새 대화를 시작해 보세요.' });
+			};
+			render(this.historyQuery);
+		} catch (error) { if (parent.isConnected && generation === this.navigatorGeneration) parent.createDiv({ cls: 'wm-chat-error', text: error instanceof Error ? error.message : String(error) }); }
+	}
+	private refreshSessionList(): void {
+		const parent = this.container?.querySelector<HTMLElement>('.deus-session-list');
+		if (parent?.isConnected && !this.disposed) void this.renderHistory(parent);
+	}
+	private async loadSession(id: string): Promise<void> {
+		try {
+			const generation = ++this.generation, session = await this.storage.loadById(id);
+			if (this.disposed || generation !== this.generation || !session) return;
+			this.session = session; this.mode = 'deus';
+			const file = this.plugin.app.vault.getAbstractFileByPath(session.characterPath);
+			if (session.mode !== 'deus') {
+				session.projectRoot ??= file instanceof TFile ? this.plugin.projectContext.getProjectForFile(file)?.rootFolder : this.deusProjectRoot;
+				if (file instanceof TFile) session.participants ??= [{ path: file.path, name: getWikiDisplayName(this.plugin.app, this.plugin, file) }];
+			}
+			session.mode = 'deus'; this.deusProjectRoot = session.projectRoot;
+			this.restoreSpeaker(session);
+			this.history = false; this.rerender();
+		} catch (error) { report(error); }
+	}
+	private async newSession(): Promise<void> {
+		try {
+			this.session = await this.storage.createNewSession('', '새 대화');
+			this.mode = 'deus'; this.session.mode = 'deus';
+			this.session.projectRoot = this.deusProjectRoot;
+			this.history = false;
 			this.rerender();
-		}
+		} catch (error) { report(error); }
 	}
-
-	private renderEpisodeSegment(listEl: HTMLElement, seg: EpisodeChatSegment, nameColor: Map<string, string>): void {
-		if (seg.type === 'scene-divider') {
-			const divider = listEl.createDiv({ cls: 'wm-episodechat-scene-divider' });
-			divider.createSpan({ cls: 'wm-episodechat-scene-divider-label', text: seg.sceneName ?? '' });
-			return;
-		}
-
-		const rawFile = seg.characterPath ? this.app.vault.getAbstractFileByPath(seg.characterPath) : null;
-		const characterFile = rawFile instanceof TFile ? rawFile : null;
-
-		if (seg.type === 'narration') {
-			const narrRow = listEl.createDiv({ cls: 'wm-aichat-narration-row' });
-			const textEl = narrRow.createDiv({ cls: 'wm-aichat-narration-text' });
-			textEl.style.fontSize = `${this.plugin.settings.aiChatNarrationFontSize}em`;
-			this.renderEpisodeNarrationText(textEl, seg.text, nameColor);
-			return;
-		}
-
-		const row = listEl.createDiv({ cls: 'wm-episodechat-row' });
-		const avatar = row.createDiv({ cls: 'wm-episodechat-avatar' });
-		if (characterFile) {
-			const imgSrc = getWikiImgSrc(this.app, this.plugin, characterFile);
-			const color = getWikiColor(this.app, this.plugin, characterFile);
-			avatar.setCssStyles({ background: color });
-			if (imgSrc) avatar.createEl('img', { attr: { src: imgSrc } });
-			else avatar.createSpan({ text: (seg.speakerName ?? '?').charAt(0).toUpperCase() });
-		} else {
-			setIcon(avatar, 'circle-user-round');
-		}
-
-		const col = row.createDiv({ cls: 'wm-episodechat-content' });
-		const nameEl = col.createDiv({ cls: 'wm-episodechat-name', text: seg.speakerName ?? '' });
-		if (characterFile) nameEl.setCssStyles({ color: getWikiColor(this.app, this.plugin, characterFile) });
-		const bubble = col.createDiv({ cls: 'wm-episodechat-bubble' });
-		const speakerColor = characterFile ? getWikiColor(this.app, this.plugin, characterFile) : null;
-		this.renderEpisodeNarrationText(bubble, seg.text, nameColor, speakerColor);
-		if (speakerColor) {
-			bubble.setCssStyles({ background: `color-mix(in srgb, ${speakerColor} 12%, var(--background-primary))` });
-		}
-	}
-
-	// ── 캐릭터 챗 ───────────────────────────────────────────────────────────
-
-	private async renderChatPage(body: HTMLElement): Promise<void> {
-		body.addClass('wm-aichat-chat');
-
-		this.renderChatHeader(body);
-
-		const messagesWrap = body.createDiv({ cls: 'wm-aichat-messages-wrap' });
-		const messagesEl = messagesWrap.createDiv({ cls: 'wm-aichat-messages' });
-		this.renderScrollNavButtons(messagesWrap, messagesEl);
-
-		if (this.characterFile) {
-			// 캐릭터를 새로 골랐을 때만(세션이 없거나 다른 인물일 때만) "이어볼 세션"을 다시 찾는다.
-			// 새 대화 생성/히스토리 선택으로 이미 세션이 정해져 있으면 그걸 그대로 유지.
-			if (!this.session || this.session.characterPath !== this.characterFile.path) {
-				const name = getWikiDisplayName(this.app, this.plugin, this.characterFile);
-				this.session = await this.storage.getOrCreateActiveSession(this.characterFile.path, name);
-			}
-			this.renderMessages(messagesEl);
-			if (this.session.messages.length === 0) void this.sendGreeting(messagesEl);
-		} else {
-			messagesEl.createDiv({ cls: 'wm-aichat-empty', text: '위 프로필을 눌러 대화할 캐릭터를 선택하세요.' });
-		}
-		messagesEl.scrollTop = messagesEl.scrollHeight;
-
-		const inputArea = body.createDiv({ cls: 'wm-aichat-input-area' });
-		this.renderInputNavRow(inputArea, messagesEl);
-		this.renderInputWrapper(inputArea, messagesEl);
-	}
-
-	private renderScrollNavButtons(messagesWrap: HTMLElement, messagesEl: HTMLElement): void {
-		const navBtns = messagesWrap.createDiv({ cls: 'wm-aichat-nav-buttons' });
-		const upBtn = navBtns.createDiv({ cls: 'wm-aichat-nav-btn', attr: { 'aria-label': '최상단으로' } });
-		setIcon(upBtn, 'chevrons-up');
-		upBtn.addEventListener('click', () => messagesEl.scrollTo({ top: 0, behavior: 'smooth' }));
-
-		const downBtn = navBtns.createDiv({ cls: 'wm-aichat-nav-btn', attr: { 'aria-label': '최하단으로' } });
-		setIcon(downBtn, 'chevrons-down');
-		downBtn.addEventListener('click', () => messagesEl.scrollTo({ top: messagesEl.scrollHeight, behavior: 'smooth' }));
-	}
-
-	private openCharacterPicker(): void {
-		new AiChatSuggestModal(this.plugin, '대화할 캐릭터를 선택하세요...', getCharacterCandidateFiles(this.plugin, this.activeFile), (file) => {
-			void (async () => {
-				this.characterFile = file;
-				this.plugin.settings.aiChatLastCharacterPath = file.path;
-				await this.plugin.saveSettings();
-				this.rerender();
-			})();
-		}).open();
-	}
-
-	private renderChatHeader(body: HTMLElement): void {
-		const header = body.createDiv({ cls: 'wm-aichat-chat-header' });
-		header.addEventListener('click', () => this.openCharacterPicker());
-
-		const avatar = header.createDiv({ cls: 'wm-aichat-header-avatar' });
-		if (this.characterFile) {
-			const imgSrc = getWikiImgSrc(this.app, this.plugin, this.characterFile);
-			const name = getWikiDisplayName(this.app, this.plugin, this.characterFile);
-			const color = getWikiColor(this.app, this.plugin, this.characterFile);
-			avatar.setCssStyles({ background: color });
-			if (imgSrc) avatar.createEl('img', { attr: { src: imgSrc } });
-			else avatar.createSpan({ text: name.charAt(0).toUpperCase() });
-			const titleEl = header.createDiv({ cls: 'wm-aichat-header-title' });
-			titleEl.createSpan({ text: name, attr: { style: `color: ${color};` } });
-			titleEl.createSpan({ text: '님과의 대화' });
-		} else {
-			setIcon(avatar, 'user-round');
-			header.createDiv({ cls: 'wm-aichat-header-title', text: '캐릭터를 선택하세요' });
-		}
-	}
-
-	private renderMessages(messagesEl: HTMLElement): void {
-		messagesEl.empty();
-		const typewriterIndex = this.pendingTypewriterIndex;
-		this.pendingTypewriterIndex = null;
-
-		if (!this.session || this.session.messages.length === 0) {
-			messagesEl.createDiv({ cls: 'wm-aichat-empty', text: '아직 대화가 없습니다. 대사를 입력해보세요.' });
-			return;
-		}
-		this.session.messages.forEach((msg, idx) => {
-			if (msg.role === 'user' && msg.kind === 'narration') {
-				this.renderNarrationRow(messagesEl, msg.content, this.resolveSpeakerFile(msg));
-				return;
-			}
-
-			if (msg.role === 'assistant') {
-				if (idx === typewriterIndex) {
-					void this.typeOutAssistantMessage(messagesEl, msg);
-					return;
-				}
-				for (const seg of this.getAssistantSegments(msg)) {
-					if (seg.type === 'narration') {
-						this.renderNarrationRow(messagesEl, seg.text, this.characterFile);
-					} else {
-						this.renderBubbleRow(messagesEl, 'assistant', seg.text, this.characterFile);
-					}
-				}
-				return;
-			}
-
-			this.renderBubbleRow(messagesEl, 'user', msg.content, this.resolveSpeakerFile(msg), msg.speakerName);
-		});
-	}
-
-	/** 이미 다 받은 응답을, 빠른 타자기 효과로 한 글자씩 드러내며 그린다 (실제 스트리밍이 아니라 클라이언트 쪽 연출). */
-	private async typeOutAssistantMessage(messagesEl: HTMLElement, msg: AiChatMessage): Promise<void> {
-		const targetSessionId = this.session?.id;
-		const isStillActive = () => this.session?.id === targetSessionId && messagesEl.isConnected;
-
-		for (const seg of this.getAssistantSegments(msg)) {
-			if (!isStillActive()) return;
-
-			if (seg.type === 'narration') {
-				const narrRow = messagesEl.createDiv({ cls: 'wm-aichat-narration-row' });
-				const textEl = narrRow.createDiv({ cls: 'wm-aichat-narration-text' });
-				textEl.style.fontSize = `${this.plugin.settings.aiChatNarrationFontSize}em`;
-				await this.typeText(textEl, seg.text, messagesEl, isStillActive);
-				if (!isStillActive()) return;
-				textEl.empty();
-				this.renderNarrationText(textEl, seg.text, this.characterFile);
-			} else {
-				const row = messagesEl.createDiv({ cls: 'wm-aichat-msg-row is-assistant' });
-				const bubbleWrap = row.createDiv({ cls: 'wm-aichat-msg-bubble-wrap' });
-				const bubble = bubbleWrap.createDiv({ cls: 'wm-aichat-msg-bubble' });
-				bubble.style.fontSize = `${this.plugin.settings.aiChatDialogueFontSize}em`;
-				if (this.characterFile) {
-					const color = getWikiColor(this.app, this.plugin, this.characterFile);
-					bubble.setCssStyles({ background: `color-mix(in srgb, ${color} 12%, var(--background-primary))` });
-				}
-				// 붙여넣기 버튼을 타이핑 시작 전에 미리 만들어둬야, 타이핑 도중과 완료 후의 wrap 레이아웃(너비)이 동일하게 유지된다.
-				this.addPasteButton(bubbleWrap, seg.text, true);
-				await this.typeText(bubble, seg.text, messagesEl, isStillActive);
-				if (!isStillActive()) return;
-			}
-		}
-	}
-
-	/** N글자씩 빠르게 배치로 드러내는 타자기 애니메이션. 세션이 바뀌면 즉시 중단한다. */
-	private typeText(container: HTMLElement, fullText: string, messagesEl: HTMLElement, isStillActive: () => boolean): Promise<void> {
-		const CHARS_PER_TICK = 1;
-		const TICK_MS = 25;
-		return new Promise(resolve => {
-			let i = 0;
-			const tick = () => {
-				if (!isStillActive()) { resolve(); return; }
-				i = Math.min(fullText.length, i + CHARS_PER_TICK);
-				container.setText(fullText.slice(0, i));
-				messagesEl.scrollTop = messagesEl.scrollHeight;
-				if (i >= fullText.length) { resolve(); return; }
-				window.setTimeout(tick, TICK_MS);
-			};
-			tick();
-		});
-	}
-
-	/** segments가 없는(예전 형식) 메시지도 렌더링되도록 폴백 처리 */
-	private getAssistantSegments(msg: AiChatMessage): AiChatSegment[] {
-		if (msg.segments) return msg.segments;
-		const legacyNarration = (msg as unknown as { narration?: string }).narration;
-		return legacyNarration
-			? [{ type: 'narration', text: legacyNarration }, { type: 'dialogue', text: msg.content }]
-			: [{ type: 'dialogue', text: msg.content }];
-	}
-
-	private renderBubbleRow(messagesEl: HTMLElement, role: 'user' | 'assistant', text: string, colorFile: TFile | null, speakerName?: string): void {
-		const row = messagesEl.createDiv({ cls: `wm-aichat-msg-row is-${role}` });
-		if (role === 'user' && speakerName) {
-			row.createDiv({ cls: 'wm-aichat-msg-speaker', text: speakerName });
-		}
-		const bubbleWrap = row.createDiv({ cls: 'wm-aichat-msg-bubble-wrap' });
-		const bubble = bubbleWrap.createDiv({ cls: 'wm-aichat-msg-bubble' });
-		bubble.style.fontSize = `${this.plugin.settings.aiChatDialogueFontSize}em`;
-		const speakerColor = colorFile ? getWikiColor(this.app, this.plugin, colorFile) : null;
-		this.renderTextWithThoughts(bubble, text, speakerColor, (parent, chunk) => parent.createSpan({ text: chunk }));
-		if (speakerColor) {
-			bubble.setCssStyles({ background: `color-mix(in srgb, ${speakerColor} 12%, var(--background-primary))` });
-		}
-		this.addPasteButton(bubbleWrap, text, true);
-	}
-
-	/** 저장된 메시지가 가리키던 상대역 노트를 우선 사용하고, 없으면 현재 선택된 화자로 폴백 */
-	private resolveSpeakerFile(msg: AiChatMessage): TFile | null {
-		if (msg.speakerPath) {
-			const f = this.app.vault.getAbstractFileByPath(msg.speakerPath);
-			if (f instanceof TFile) return f;
-		}
-		return this.speakerFile;
-	}
-
-	/** 지문(narration)을 말풍선과 별개로, wm-aichat-messages 폭 전체를 쓰는 이탤릭체 한 줄로 렌더링.
-	 * subjectFile이 주어지면 그 인물 이름이 등장하는 부분을 wikiColor로 강조한다. */
-	private renderNarrationRow(messagesEl: HTMLElement, text: string, subjectFile: TFile | null): void {
-		const narrRow = messagesEl.createDiv({ cls: 'wm-aichat-narration-row' });
-		const textEl = narrRow.createDiv({ cls: 'wm-aichat-narration-text' });
-		textEl.style.fontSize = `${this.plugin.settings.aiChatNarrationFontSize}em`;
-		this.renderNarrationText(textEl, text, subjectFile);
-	}
-
-	/** "(...)" 로 표현된 속마음 구간을, 위아래 여백을 둔 독립된 줄로 분리해 색을 입힌다. 색이 없으면(narration처럼
-	 * 특정 인물 소유가 불분명할 때) CSS 기본값(text-muted 톤)을 그대로 쓴다. 일반 텍스트 구간은 renderNormal로 위임해
-	 * 호출부마다 다른 추가 처리(이름 강조, ** 강조 등)를 얹을 수 있게 한다. */
-	private renderTextWithThoughts(container: HTMLElement, text: string, color: string | null, renderNormal: (parent: HTMLElement, chunk: string) => void): void {
-		for (const seg of splitThoughtSegments(text)) {
-			if (!seg.text) continue;
-			if (seg.isThought) {
-				const block = container.createDiv({ cls: 'wm-aichat-thought' });
-				renderNormal(block, seg.text);
-				if (color) block.setCssStyles({ borderColor: color, color });
-			} else {
-				renderNormal(container, seg.text);
-			}
-		}
-	}
-
-	/** 회차챗 지문·대사 렌더링: 여러 등장인물의 이름을 각자의 위키 컬러로 강조하고, **~** 인라인 표시는
-	 * wm-episodechat-transition(장소 전환/중요 대목 강조)으로 감싼다. thoughtColor가 주어지면(대사의 화자)
-	 * "(...)" 속마음 구간을 그 인물 색으로, 없으면(지문) 기본 톤으로 구분해 표시한다. */
-	private renderEpisodeNarrationText(container: HTMLElement, text: string, nameColor: Map<string, string>, thoughtColor?: string | null): void {
-		const names = [...nameColor.keys()].filter(n => n).sort((a, b) => b.length - a.length);
-		const nameRe = names.length > 0
-			? new RegExp(`(${names.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'g')
-			: null;
-
-		const appendWithNames = (parent: HTMLElement, chunk: string) => {
-			if (!chunk) return;
-			if (!nameRe) { parent.createSpan({ text: chunk }); return; }
-			let idx = 0;
-			nameRe.lastIndex = 0;
-			let nm: RegExpExecArray | null;
-			while ((nm = nameRe.exec(chunk))) {
-				if (nm.index > idx) parent.createSpan({ text: chunk.slice(idx, nm.index) });
-				parent.createSpan({ text: nm[0], attr: { style: `color: ${nameColor.get(nm[0])};` } });
-				idx = nm.index + nm[0].length;
-			}
-			if (idx < chunk.length) parent.createSpan({ text: chunk.slice(idx) });
-		};
-
-		const appendWithEmphasis = (parent: HTMLElement, chunk: string) => {
-			const emphasisRe = /\*\*(.+?)\*\*/g;
-			let lastIndex = 0;
-			let m: RegExpExecArray | null;
-			while ((m = emphasisRe.exec(chunk))) {
-				if (m.index > lastIndex) appendWithNames(parent, chunk.slice(lastIndex, m.index));
-				const emphSpan = parent.createSpan({ cls: 'wm-episodechat-transition' });
-				appendWithNames(emphSpan, m[1]);
-				lastIndex = m.index + m[0].length;
-			}
-			if (lastIndex < chunk.length) appendWithNames(parent, chunk.slice(lastIndex));
-		};
-
-		this.renderTextWithThoughts(container, text, thoughtColor ?? null, appendWithEmphasis);
-	}
-
-	private renderNarrationText(container: HTMLElement, text: string, subjectFile: TFile | null): void {
-		const name = subjectFile ? getWikiDisplayName(this.app, this.plugin, subjectFile) : '';
-		const color = subjectFile ? getWikiColor(this.app, this.plugin, subjectFile) : null;
-
-		if (!name) {
-			this.renderTextWithThoughts(container, text, color, (parent, chunk) => parent.createSpan({ text: chunk }));
-			return;
-		}
-
-		// 지문에 인물 이름이 없으면(사용자가 직접 짧게 지문만 친 경우 등) 3인칭 주어로 자동 추가
-		const fullText = text.includes(name) ? text : `${name}, ${text}`;
-
-		const appendWithName = (parent: HTMLElement, chunk: string) => {
-			const parts = chunk.split(name);
-			parts.forEach((part, i) => {
-				if (part) parent.createSpan({ text: part });
-				if (i < parts.length - 1) parent.createSpan({ text: name, attr: { style: `color: ${color};` } });
-			});
-		};
-
-		this.renderTextWithThoughts(container, fullText, color, appendWithName);
-	}
-
-	/** 응답 대기 중 표시하는 말풍선 — 점 3개가 통통 튀는 타이핑 인디케이터 */
-	private renderTypingBubble(messagesEl: HTMLElement): HTMLElement {
-		const row = messagesEl.createDiv({ cls: 'wm-aichat-msg-row is-assistant wm-aichat-is-loading' });
-		const bubble = row.createDiv({ cls: 'wm-aichat-msg-bubble wm-aichat-typing-bubble' });
-		const dots = bubble.createDiv({ cls: 'wm-aichat-typing-dots', attr: { 'aria-label': '응답 작성 중' } });
-		dots.createSpan();
-		dots.createSpan();
-		dots.createSpan();
-		return row;
-	}
-
-	private addPasteButton(container: HTMLElement, text: string, wrapInQuotes: boolean): void {
-		const pasteBtn = container.createDiv({ cls: 'wm-aichat-msg-paste-btn', attr: { 'aria-label': '붙여넣기' } });
-		setIcon(pasteBtn, 'clipboard-paste');
-		pasteBtn.addEventListener('click', (e) => {
-			e.stopPropagation();
-			this.pasteToCursor(text, wrapInQuotes);
-		});
-	}
-
-	private pasteToCursor(text: string, wrapInQuotes: boolean): void {
-		const editor = this.lastEditor;
-		if (!editor) { new Notice('붙여넣을 에디터를 먼저 열어주세요.'); return; }
-		const useSmartQuotes = this.plugin.settings.enableSmartQuotes;
-		const wrapped = !wrapInQuotes ? text : (useSmartQuotes ? `“${text}”` : `"${text}"`);
-
-		const cursor = editor.getCursor();
-		const before = editor.getRange({ line: 0, ch: 0 }, cursor);
-		let separator = '';
-		if (before.length > 0 && !before.endsWith('\n\n')) {
-			separator = before.endsWith('\n') ? '\n' : '\n\n';
-		}
-		editor.replaceSelection(separator + wrapped);
-	}
-
-	// ── 입력창 위 네비 행: 현재 노트 / 새 대화 / 히스토리 ─────────────────────
-
-	private renderInputNavRow(inputArea: HTMLElement, messagesEl: HTMLElement): void {
-		const nav = inputArea.createDiv({ cls: 'wm-aichat-input-nav-row' });
-
-		const titleIcon = nav.createDiv({ cls: 'wm-cal-icon-btn' });
-		setIcon(titleIcon, 'file-text');
-		const titleGroup = nav.createDiv({ cls: 'wm-aichat-title-group' });
-		this.toolbarTitleEl = titleGroup.createSpan({ text: this.activeFile ? this.activeFile.basename : 'AI' });
-
-		const navActions = nav.createDiv({ cls: 'wm-aichat-input-nav-actions' });
-
-		const newChatBtn = navActions.createDiv({ cls: 'wm-cal-icon-btn', attr: { 'aria-label': '새 대화' } });
-		setIcon(newChatBtn, 'square-plus');
-		newChatBtn.addEventListener('click', () => {
-			void (async () => {
-				if (!this.characterFile) { new Notice('먼저 캐릭터를 선택하세요.'); return; }
-				// 기존 대화 내역은 히스토리에 그대로 남기고, 같은 인물과의 완전히 새 세션을 시작한다.
-				const name = getWikiDisplayName(this.app, this.plugin, this.characterFile);
-				this.session = await this.storage.createNewSession(this.characterFile.path, name);
-				this.rerender();
-			})();
-		});
-
-		const historyBtn = navActions.createDiv({ cls: 'wm-cal-icon-btn', attr: { 'aria-label': '히스토리' } });
-		setIcon(historyBtn, 'history');
-		historyBtn.addEventListener('click', (e) => {
-			e.stopPropagation();
-			void this.toggleHistoryDropdown(inputArea, messagesEl);
-		});
-	}
-
-	/** claudian의 model-dropdown처럼 wm-aichat-input-area 위쪽에 뜨는 히스토리 드롭다운.
-	 * 항목을 지워도 드롭다운이 닫히지 않아서 여러 개를 연달아 삭제할 수 있다. */
-	private async toggleHistoryDropdown(inputArea: HTMLElement, messagesEl: HTMLElement): Promise<void> {
-		const existing = inputArea.querySelector('.wm-aichat-history-dropdown');
-		if (existing) { existing.remove(); return; }
-
-		const sessions = await this.storage.listSessions();
-		if (sessions.length === 0) { new Notice('저장된 대화가 없습니다.'); return; }
-
-		const dropdown = inputArea.createDiv({ cls: 'wm-aichat-history-dropdown' });
-
-		const renderRow = (session: AiChatSession) => {
-			const file = this.app.vault.getAbstractFileByPath(session.characterPath);
-			const charName = file instanceof TFile ? getWikiDisplayName(this.app, this.plugin, file) : session.characterPath;
-			const imgSrc = file instanceof TFile ? getWikiImgSrc(this.app, this.plugin, file) : '';
-			const lastMsg = session.messages[session.messages.length - 1];
-
-			const row = dropdown.createDiv({ cls: 'wm-aichat-suggest-item' });
-			row.dataset.sessionId = session.id;
-
-			const avatar = row.createDiv({ cls: 'wm-aichat-suggest-avatar' });
-			if (imgSrc) avatar.createEl('img', { attr: { src: imgSrc } });
-			else avatar.createSpan({ text: charName.charAt(0).toUpperCase() });
-
-			const textWrap = row.createDiv({ cls: 'wm-aichat-suggest-text' });
-			const nameEl = textWrap.createDiv({ cls: 'wm-aichat-suggest-name', text: session.title });
-			textWrap.createDiv({ cls: 'wm-aichat-suggest-preview', text: lastMsg ? lastMsg.content.slice(0, 40) : charName });
-
-			row.addEventListener('click', () => {
-				void (async () => {
-					if (!(file instanceof TFile)) { new Notice('해당 캐릭터 노트를 찾을 수 없습니다.'); return; }
-					this.characterFile = file;
-					this.session = session;
-					this.plugin.settings.aiChatLastCharacterPath = file.path;
-					await this.plugin.saveSettings();
-					dropdown.remove();
-					this.rerender();
-				})();
-			});
-
-			const actions = row.createDiv({ cls: 'wm-aichat-suggest-actions' });
-
-			const renameBtn = actions.createDiv({ cls: 'wm-aichat-suggest-action', attr: { 'aria-label': '이름 수정' } });
-			setIcon(renameBtn, 'pencil');
-			renameBtn.addEventListener('click', (e) => {
-				e.stopPropagation();
-				new AiChatRenameModal(this.app, session.title, (newTitle) => {
-					void (async () => {
-						await this.storage.rename(session.id, newTitle);
-						session.title = newTitle;
-						nameEl.setText(newTitle);
-						if (this.session?.id === session.id) this.session.title = newTitle;
-					})();
-				}).open();
-			});
-
-			const deleteBtn = actions.createDiv({ cls: 'wm-aichat-suggest-action is-danger', attr: { 'aria-label': '대화 삭제' } });
-			setIcon(deleteBtn, 'trash-2');
-			deleteBtn.addEventListener('click', (e) => {
-				e.stopPropagation();
-				void (async () => {
-					await this.storage.deleteSession(session.id);
-					row.remove();
-					if (this.session?.id === session.id) {
-						this.session = null;
-						this.renderMessages(messagesEl);
-					}
-					if (dropdown.children.length === 0) dropdown.remove();
-				})();
-			});
-		};
-
-		for (const session of sessions) renderRow(session);
-
-		window.setTimeout(() => {
-			const close = (e: MouseEvent) => {
-				if (!dropdown.contains(e.target as Node)) {
-					dropdown.remove();
-					activeDocument.removeEventListener('click', close);
-				}
-			};
-			activeDocument.addEventListener('click', close);
-		}, 10);
-	}
-
-	// ── 입력창 본체 (claudian 스타일: 화자 버튼 + 텍스트영역 + 전송) ──────────
-
-	private renderInputWrapper(inputArea: HTMLElement, messagesEl: HTMLElement): void {
-		const wrapper = inputArea.createDiv({ cls: 'wm-aichat-input-wrapper' });
-		this.inputWrapperEl = wrapper;
-
-		const textarea = wrapper.createEl('textarea', {
-			cls: 'wm-aichat-textarea',
-			attr: { placeholder: '대사를 입력하세요... (Shift+Tab: 지문 전환)', rows: '1' },
-		});
-
-		const toolbar = wrapper.createDiv({ cls: 'wm-aichat-input-toolbar' });
-
-		const speakerBtn = toolbar.createDiv({ cls: 'wm-aichat-speaker-btn' });
-		const speakerLabel = speakerBtn.createSpan({
-			cls: 'wm-aichat-speaker-label',
-			text: this.speakerFile ? getWikiDisplayName(this.app, this.plugin, this.speakerFile) : '화자 선택',
-		});
-		speakerBtn.addEventListener('click', () => {
-			new AiChatSuggestModal(this.plugin, '지금 대사를 치는 상대역을 선택하세요...', getCharacterCandidateFiles(this.plugin, this.activeFile), (file) => {
-				void (async () => {
-					this.speakerFile = file;
-					this.plugin.settings.aiChatLastSpeakerPath = file.path;
-					await this.plugin.saveSettings();
-					speakerLabel.setText(getWikiDisplayName(this.app, this.plugin, file));
-				})();
-			}).open();
-		});
-
-		const modeLabel = toolbar.createDiv({ cls: 'wm-aichat-mode-label', text: this.inputMode === 'narration' ? '지문' : '대사' });
-		this.modeLabelEl = modeLabel;
-		if (this.inputMode === 'narration') { wrapper.addClass('wm-aichat-input-narration-mode'); modeLabel.addClass('is-active'); }
-
-		const toggleMode = () => {
-			this.inputMode = this.inputMode === 'dialogue' ? 'narration' : 'dialogue';
-			const isNarration = this.inputMode === 'narration';
-			modeLabel.setText(isNarration ? '지문' : '대사');
-			modeLabel.toggleClass('is-active', isNarration);
-			wrapper.toggleClass('wm-aichat-input-narration-mode', isNarration);
-			textarea.placeholder = isNarration ? '지문(행동/상황 묘사)을 입력하세요...' : '대사를 입력하세요... (Shift+Tab: 지문 전환)';
-		};
-
-		const send = () => { void this.handleSend(textarea, messagesEl); };
-		textarea.addEventListener('keydown', (e) => {
-			if (e.key === 'Tab' && e.shiftKey) { e.preventDefault(); toggleMode(); return; }
-			if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
-		});
-	}
-
-	private async handleSend(textarea: HTMLTextAreaElement, messagesEl: HTMLElement): Promise<void> {
-		const content = textarea.value.trim();
-		if (!content) return;
-		if (!this.characterFile) { new Notice('먼저 대화할 캐릭터를 선택하세요.'); return; }
-		if (!hasApiKeyForModel(this.getApiKeys(), this.plugin.settings.aiChatModel)) {
-			new Notice('선택한 챗봇 모델의 API 키를 AI 설정에 먼저 입력하세요.');
-			return;
-		}
-
-		if (!this.session) {
-			const name = getWikiDisplayName(this.app, this.plugin, this.characterFile);
-			this.session = await this.storage.createNewSession(this.characterFile.path, name);
-		}
-		// 이 요청이 대상으로 하는 세션을 고정 — 응답을 기다리는 동안 사용자가 다른 세션/캐릭터로
-		// 넘어가도(새 대화, 히스토리 전환 등) 이 세션 자체나 다른 세션의 전송 가능 여부에 영향 없게 함.
+	private renderContexts(parent: HTMLElement): void {
 		const session = this.session;
-		if (this.sendingSessionIds.has(session.id)) return;
-
-		const sentKind = this.inputMode;
-		textarea.value = '';
-		this.sendingSessionIds.add(session.id);
-
-		// 지문 입력 후에는 대사 모드로 되돌림
-		if (this.inputMode === 'narration') {
-			this.inputMode = 'dialogue';
-			this.modeLabelEl?.setText('대사');
-			this.modeLabelEl?.removeClass('is-active');
-			this.inputWrapperEl?.removeClass('wm-aichat-input-narration-mode');
-			textarea.placeholder = '대사를 입력하세요... (Shift+Tab: 지문 전환)';
+		const skill = session && this.selectedSkills.get(session.id);
+		const input = this.container?.querySelector<DeusComposerInput>('.deus-input');
+		if (input) input.placeholder = skill ? 'Character · Enter로 현재 장면 실행 · 다른 상황을 적어도 됩니다.' : '작품에 관해 물어보세요. @ 참고 자료 · / 스킬';
+		if (skill) {
+			const pill = parent.createDiv({ cls: 'deus-context-chip deus-active-skill' });
+			pill.createSpan({text: DEUS_SKILLS.find(item => item.id === skill)?.label ?? skill});
+			this.icon(pill, 'x', '스킬 해제', () => { this.selectedSkills.delete(session!.id); this.refreshContextPreview(); }).className = 'deus-context-chip-remove';
 		}
-
-		const speakerName = this.speakerFile ? getWikiDisplayName(this.app, this.plugin, this.speakerFile) : undefined;
-		const userMsg: AiChatMessage = {
-			role: 'user',
-			content,
-			speakerPath: this.speakerFile?.path,
-			speakerName,
-			kind: sentKind,
-			timestamp: Date.now(),
-		};
-
-		session.messages.push(userMsg);
-		await this.storage.save(session);
-
-		// messagesEl은 이 요청을 보낸 시점의 DOM 노드라, 응답을 기다리는 동안 사용자가 다른
-		// 세션으로 넘어가면 이미 화면에서 떨어져나갔을 수 있다. 그럴 땐 건드리지 않는다.
-		const isStillActive = () => this.session?.id === session.id;
-		if (isStillActive()) this.renderMessages(messagesEl);
-		const loadingRow = isStillActive() ? this.renderTypingBubble(messagesEl) : null;
-		if (loadingRow) messagesEl.scrollTop = messagesEl.scrollHeight;
-
+		parent.classList.toggle('has-content', Boolean(parent.children.length));
+	}
+	private referenceChoices() {
+		const session = this.session; if (!session) return [];
+		const current = [...(this.referenceCatalog.get(session.id) ?? []), ...(this.contexts.get(session.id) ?? [])];
+		const previous = [...session.messages].reverse().find(message => message.role === 'user' && message.context)?.context?.sources ?? [];
+		const excluded = this.excludedContexts.get(session.id) ?? new Set<string>();
+		const key = (source: ChatContextItem) => source.kind === 'plot' ? source.id : source.path ?? source.id;
+		const catalog = new Map<string, ChatContextItem>();
+		for (const source of [...current, ...previous]) if (!catalog.has(key(source))) catalog.set(key(source), source);
+		return [...catalog.values()].map(source => ({ source, checked: current.some(item => key(item) === key(source)) && deusSourceAllowed(source, excluded) }));
+	}
+	private toggleReference(source: ChatContextItem, checked: boolean): void {
+		const session = this.session; if (!session) return;
+		const excluded = this.excludedContexts.get(session.id) ?? new Set<string>();
+		const key = source.kind === 'plot' ? source.id : source.path ? `${source.kind === 'character' ? 'deus-cast:' : ['selection','document'].includes(source.kind ?? '') ? 'deus-active:' : 'deus-mentioned:'}${source.path}` : source.id;
+		if (checked) {
+			excluded.delete(source.id); excluded.delete(key);
+			if (source.path) for (const prefix of ['deus-active:', 'deus-cast:', 'deus-mentioned:']) excluded.delete(prefix + source.path);
+			if (!(this.referenceCatalog.get(session.id) ?? []).some(item => item.id === source.id)) {
+				const selected = this.contexts.get(session.id) ?? []; if (!selected.some(item => item.id === source.id)) selected.push({ ...source, automatic: false }); this.contexts.set(session.id, selected);
+			}
+		} else { excluded.add(source.id); excluded.add(key); }
+		this.excludedContexts.set(session.id, excluded); this.refreshContextPreview();
+	}
+	private renderMessages(forceBottom = false): void {
+		const parent = this.messagesEl; if (!parent?.isConnected) return;
+		const generation = ++this.messageGeneration, renders: Promise<void>[] = [];
+		if (forceBottom) this.scrollFollow?.follow();
+		const scrollTicket = this.scrollFollow?.beginRender();
+		this.markdownComponent.unload(); this.markdownComponent.load();
+		const bottom = this.scrollFollow?.following ?? forceBottom, top = parent.scrollTop;
+		parent.empty(); const session = this.session;
+		if (!session?.messages.length) parent.createDiv({ cls: 'deus-welcome', text: '작품 자료를 묻거나, 지금 장면의 대화·묘사·문장을 함께 만들어 보세요.' });
+		for (const [index, message] of session?.messages.entries() ?? []) {
+			const row = parent.createDiv({ cls: 'deus-message deus-message-' + message.role });
+			const body = row.createDiv({ cls: 'deus-message-content' });
+			if (message.role === 'assistant') {
+				const question = session!.messages[index - 1];
+				const ordinary = !message.skill && question?.skill !== 'character' && question?.role === 'user' && /행적|요약|정리|분석|관계|설정|자료|조사|목록/.test(question.content) && resolveDeusIntent(question.content, 'auto', []).skill === 'research';
+				renders.push(this.renderDeusAnswer(body, ordinary ? { ...message, skill: 'research' } : message, question?.context?.sources ?? [], bottom, question?.context?.episodeRange));
+				if (message.status === 'interrupted') body.createDiv({ cls: 'u-muted deus-interrupted', text: '응답 중단됨' });
+			} else { body.addClass('deus-user-text'); renderDeusMentions(body, message.content); renderDeusNoteLinks(this.plugin.app, body, `${session?.projectRoot ?? ''}/__deus__.md`, this.hoverParent, report); }
+			const actions = row.createDiv({ cls: message.role === 'assistant' ? 'deus-message-actions' : 'deus-user-msg-actions' });
+			if (message.role === 'assistant') actions.createDiv({ cls: 'wm-chat-variants', attr: { 'data-response-index': String(index) } });
+			this.icon(actions, 'copy', '복사', () => void navigator.clipboard.writeText(message.content).catch(report));
+			this.icon(actions, 'git-branch', '여기서 새 대화로 분기', () => void this.branch(session!, index));
+			if (message.role === 'assistant') this.icon(actions, 'refresh-cw', '새 분기에서 다시 응답', () => void this.regenerate(session!, index));
+			else this.icon(actions, 'pencil', '메시지 수정 후 분기', () => new ChatTextModal(this.plugin, '메시지 수정 후 분기', message.content, async value => {
+				if (!value.trim()) return; const fork = await this.storage.fork(session!, index - 1); this.session = fork;
+				this.contexts.set(fork.id, message.context?.sources.filter(source => !source.automatic || source.kind === 'selection').map(source => ({ ...source })) ?? []);
+				this.rerender(); await this.send(value, { ...message, id: messageId(), content: value, context: undefined });
+			}).open());
+			const context = message.role === 'user' ? message.context : undefined;
+			if (context) this.icon(actions, 'files', '참고 자료', () => new ChatTextModal(this.plugin, '이 질문에 전송한 참고 자료', [
+				...context.sources.map(source => `${source.automatic ? '[자동 참고] ' : '[직접 첨부] '}${contextSourceText(source)}`),
+				context.warnings.length ? `확인 범위\n${context.warnings.join('\n')}` : '',
+				context.searches?.length ? `자료 조회 기록\n${context.searches.map(search => `${search.name === 'episode_range_read' ? '권·회차 범위 읽기' : search.name === 'episode_read' ? '회차 본문 전체 읽기' : search.name === 'character_history' ? '인물 행적 조사' : search.name === 'search_sources' ? '검색' : search.name === 'read_source' ? '원문 읽기' : '관련 자료'}${search.query ? `: ${search.query}` : ''} · ${search.sourceIds.length}구간${search.warning ? `\n${search.warning}` : ''}`).join('\n')}` : '',
+			].filter(Boolean).join('\n\n')).open()).addClass('wm-chat-evidence');
+		}
+		const state = session ? this.states.get(session.id) : null;
+		if (state?.status === 'sending' || state?.status === 'streaming') {
+			const pending = parent.createDiv({ cls: 'deus-pending deus-message-content' });
+			if (this.mode === 'deus' && state.text) renders.push(this.renderDeusAnswer(pending, { role: 'assistant', skill: session?.messages.at(-1)?.skill, participants: session?.messages.at(-1)?.participants, content: state.text, timestamp: 0 }, session?.messages.at(-1)?.context?.sources ?? [], bottom, session?.messages.at(-1)?.context?.episodeRange));
+			else pending.setText(state.text || (state.phase === 'searching' ? '프로젝트 자료 찾는 중…' : state.phase === 'reading' ? '관련 원문 읽는 중…' : '응답 대기 중…'));
+		}
+		if (state?.status === 'error' || state?.status === 'stopped') {
+			const error = parent.createDiv({ cls: 'wm-chat-error', text: state.error ?? '응답을 받지 못했습니다.' });
+			if (state.text) {
+				if (this.mode === 'deus') void this.renderDeusAnswer(parent.createDiv({ cls: 'deus-message-content' }), { role: 'assistant', content: state.text, timestamp: 0 }, session?.messages.at(-1)?.context?.sources ?? [], bottom, session?.messages.at(-1)?.context?.episodeRange);
+				else error.createDiv({ cls: 'wm-chat-unsaved-response', text: state.text });
+			}
+			const last = session!.messages[session!.messages.length - 1];
+			if (last?.role === 'user') { const retry = error.createEl('button', { text: '재시도' }); retry.onclick = () => void this.send(last.content, last, true); }
+		}
+		parent.scrollTop = bottom ? parent.scrollHeight : top; this.updateComposer();
+		void Promise.all(renders).then(() => { if (generation !== this.messageGeneration || !parent.isConnected) return; if (scrollTicket !== undefined) this.scrollFollow?.endRender(scrollTicket, top); });
+		if (session && !this.requests.isSending(session.id)) void this.renderVariants(parent, session);
+	}
+	private async renderDeusAnswer(parent: HTMLElement, message: AiChatMessage, sources: ChatContextItem[], _bottom: boolean, range?: ChatEpisodeRangeCoverage): Promise<void> {
+		const prepared = prepareDeusMarkdown(message, sources);
+		if (range) parent.createDiv({ cls: 'wm-chat-source-coverage', text: `${range.volume !== undefined ? `${range.volume}권 · ` : ''}${range.from}~${range.to}화 · ${range.includedEpisodes}개 회차 ${range.partial ? '발췌 기반' : '본문 전체'}`,
+			attr: { title: `원문 ${range.sourceCharacters.toLocaleString()}자 중 ${range.includedCharacters.toLocaleString()}자 제공` } });
+		const content = parent.createDiv({ cls: 'deus-text-block markdown-rendered' });
+		const component = this.markdownComponent.addChild(new Component());
+		let active = true; component.register(() => { active = false; });
 		try {
-			const systemPrompt = await this.buildSystemPrompt();
-			const raw = await withTimeout(
-				callAiChat(this.getApiKeys(), systemPrompt, session.messages, this.plugin.settings.aiChatTemperature, this.plugin.settings.aiChatModel),
-				RESPONSE_TIMEOUT_MS,
-			);
-
-			const assistantMsg: AiChatMessage = { role: 'assistant', content: raw, segments: parseAssistantSegments(raw), timestamp: Date.now() };
-			session.messages.push(assistantMsg);
-			await this.storage.save(session);
-
-			this.sendingSessionIds.delete(session.id);
-			if (isStillActive()) {
-				loadingRow?.remove();
-				this.pendingTypewriterIndex = session.messages.length - 1;
-				this.renderMessages(messagesEl);
-				messagesEl.scrollTop = messagesEl.scrollHeight;
+			const skill = message.skill;
+			const participants = message.participants?.length ? message.participants : sources.filter(source => source.kind === 'character' && source.path).map(source => ({ path: source.path!, name: source.title }));
+			const fallbackName = participants.length === 1 ? participants[0].name : undefined;
+			const dialogue = skill === 'character' ? parseDeusDialogue(prepared.markdown, fallbackName, participants.map(person => person.name)) : [];
+			if (dialogue.length) {
+				content.addClass('deus-character-chat');
+				let speaker: string | undefined, body: HTMLElement | undefined;
+				for (const segment of dialogue) {
+					if (!active || !parent.isConnected) return;
+					if (!body || segment.name !== speaker) {
+						speaker = segment.name;
+						const turn = content.createDiv({ cls: 'deus-character-turn wm-chat-message is-assistant' });
+						if (speaker) {
+							const matches = participants.filter(person => person.name === speaker);
+							const path = matches.length === 1 ? matches[0].path : sources.find(source => source.kind === 'character' && source.title === speaker)?.path;
+							const file = path ? this.plugin.app.vault.getAbstractFileByPath(path) : null;
+							const heading = turn.createDiv({ cls: 'wm-chat-message-heading' });
+							if (file instanceof TFile) { this.applyCharacterColor(turn, file); this.avatar(heading, file); }
+							heading.createSpan({ cls: 'wm-chat-message-name', text: speaker });
+						}
+						body = turn.createDiv({ cls: 'wm-chat-message-body' });
+					}
+					const text = body.createDiv({ cls: `wm-chat-segment is-${segment.type} deus-character-text` });
+					text.style.fontSize = `${segment.type === 'narration' ? this.plugin.settings.aiChatNarrationFontSize : this.plugin.settings.aiChatDialogueFontSize}em`;
+					await MarkdownRenderer.render(this.plugin.app, segment.type === 'dialogue' ? stripWrapping(segment.text) : segment.text, text, this.session?.projectRoot ?? '', component);
+				}
+			} else await MarkdownRenderer.render(this.plugin.app, prepared.markdown, content, this.session?.projectRoot ?? '', component);
+			if (!active || !parent.isConnected || this.disposed) { component.unload(); return; }
+			const linkOrigin = sources.find(source => ['document','selection'].includes(source.kind ?? '') && source.path)?.path ?? `${this.session?.projectRoot ? this.session.projectRoot + '/' : ''}__deus__.md`;
+			renderDeusNoteLinks(this.plugin.app, content, linkOrigin, this.hoverParent, report);
+			renderDeusCitationChips(this.plugin.app, content, parent, prepared.references, this.hoverParent, (source, quote) => this.openCitation(source, quote), report);
+			this.scrollFollow?.changed();
+		} catch (error) {
+			if (!parent.isConnected) return;
+			content.setText(prepared.markdown); content.addClass('is-render-fallback');
+			console.error('[Writing Menu] Deus Markdown render failed', error);
+		}
+	}
+	private async renderVariants(parent: HTMLElement, session: AiChatSession): Promise<void> {
+		try {
+			const entries = await this.storage.listSessions();
+			if (!parent.isConnected || this.session !== session) return;
+			for (const slot of parent.querySelectorAll<HTMLElement>('.wm-chat-variants')) {
+				const index = Number(slot.dataset.responseIndex), user = session.messages[index - 1];
+				if (user?.role !== 'user') continue;
+				const root = session.parentId && session.forkMessageId === user.id ? session.parentId : session.id;
+				const variants = entries.filter(entry => entry.count > index && (entry.id === root || entry.parentId === root && entry.forkMessageId === user.id));
+				variants.sort((a, b) => Number(b.id === root) - Number(a.id === root) || a.updatedAt - b.updatedAt);
+				const active = variants.findIndex(entry => entry.id === session.id);
+				if (variants.length < 2 || active < 0) continue;
+				slot.empty();
+				this.icon(slot, 'chevron-left', '이전 응답 분기', () => void this.loadSession(variants[active - 1].id)).disabled = active === 0;
+				slot.createSpan({ text: `${active + 1} / ${variants.length}` });
+				this.icon(slot, 'chevron-right', '다음 응답 분기', () => void this.loadSession(variants[active + 1].id)).disabled = active === variants.length - 1;
 			}
-		} catch (e) {
-			this.sendingSessionIds.delete(session.id);
-			if (isStillActive()) {
-				loadingRow?.remove();
-				const errRow = messagesEl.createDiv({ cls: 'wm-aichat-error-row' });
-				errRow.createSpan({ text: '응답을 받지 못했습니다. ' + (e instanceof Error ? e.message : '') });
-				const retryBtn = errRow.createEl('button', { cls: 'wm-aichat-retry-btn', text: '재시도' });
-				retryBtn.addEventListener('click', () => {
-					errRow.remove();
-					textarea.value = content;
-					void this.handleSend(textarea, messagesEl);
-				});
-			}
-		}
+		} catch { /* History errors remain visible in the history manager; never rewrite its index here. */ }
 	}
 
-	private getApiKeys(): AiChatApiKeys {
-		return {
-			nvidia: this.plugin.settings.aiChatApiKey,
-			gemini: this.plugin.settings.aiChatGeminiApiKey,
-		};
+	private async openCitation(source: ChatContextItem, quote: string): Promise<void> {
+		const file = source.path ? this.plugin.app.vault.getAbstractFileByPath(source.path) : null;
+		if (file instanceof TFile && this.plugin.projectContext.getProjectForFile(file)?.rootFolder !== this.session?.projectRoot) {
+			new ChatTextModal(this.plugin, `${source.title} · 현재 프로젝트 밖으로 이동한 근거`, quote).open(); return;
+		}
+		if (!(file instanceof TFile) || source.kind === 'plot') { new ChatTextModal(this.plugin, `${source.title} · 저장된 근거`, quote).open(); return; }
+		const content = getOpenWritingDocuments(this.plugin).find(document => document.path === file.path)?.read() ?? await this.plugin.app.vault.read(file);
+		const range = locateChatQuote(source, quote, content);
+		if (!range) {
+			new Notice('원문이 변경되었거나 위치를 확인할 수 없습니다. 답변 당시의 근거를 표시합니다.');
+			new ChatTextModal(this.plugin, source.title, quote).open(); return;
+		}
+		const workspace = this.plugin.app.workspace;
+		const leaf = workspace.getLeaf(this.plugin.settings.aiChatCitationOpenMode === 'tab' ? 'tab' : false);
+		if (getWritingDocumentForView(leaf.view)?.path !== file.path) await leaf.openFile(file, { eState: { line: content.slice(0, range.from).split('\n').length - 1 } });
+		await workspace.revealLeaf(leaf);
+		const document = getWritingDocumentForView(leaf.view);
+		if (document?.path === file.path && document.isCurrent(content)) document.select(content, range.from, range.to);
+		else new Notice('원문이 열리는 동안 변경되었습니다. 잘못된 구간은 선택하지 않았습니다.');
 	}
-
-	private async buildSystemPrompt(): Promise<string> {
-		if (!this.characterFile) return '';
-		const heading = this.plugin.settings.aiChatPersonaHeading;
-		const aName = getWikiDisplayName(this.app, this.plugin, this.characterFile);
-		const aBody = extractPersonaContent(await this.app.vault.read(this.characterFile), heading);
-
-		let speakerBlock = '';
-		if (this.speakerFile) {
-			const bName = getWikiDisplayName(this.app, this.plugin, this.speakerFile);
-			const bBody = extractPersonaContent(await this.app.vault.read(this.speakerFile), heading);
-			speakerBlock = `\n\n지금 당신에게 말을 거는 사람은 "${bName}"입니다. 참고 설정:\n${bBody}`;
-		}
-
-		let sceneBlock = '';
-		if (this.activeFile) {
-			const sceneText = await this.app.vault.read(this.activeFile);
-			sceneBlock = `\n\n다음은 현재 집필 중인 장면(참고 문맥)입니다:\n${sceneText}`;
-		}
-
-		let episodeBlock = '';
-		const episodePlot = await getEpisodePlotContext(this.plugin, this.activeFile);
-		if (episodePlot) {
-			episodeBlock = `\n\n다음은 이 회차의 플롯 설계입니다. 대화가 이 흐름과 설정에서 벗어나지 않도록 참고하세요:\n${episodePlot}`;
-		}
-
-		const basePrompt = `당신은 숙련된 소설 작가입니다. 지금 독자(사용자)와 함께 인터랙티브 소설을 쓰고 있고, 당신이 맡은 역할은 등장인물 "${aName}"의 대사와 행동을 서술하는 것입니다. 다음은 이 인물의 설정입니다:\n${aBody}${speakerBlock}${sceneBlock}${episodeBlock}\n\n위 설정과 문맥에 맞게, 작가로서 "${aName}"이(가) 이 상황에서 보일 법한 반응과 대사를 서술하세요. 사용자 메시지가 *로 감싸여 있으면 그건 대사가 아니라 지문(행동/상황 묘사)이니, 대사가 아니라 그 상황에 대한 반응으로 받아들이세요.\n\n지문을 쓸 때는 감정을 직접 말하지 말고 행동·표정·신체 반응으로 보여주세요 (예: "부끄러워했다"가 아니라 "시선을 피하며 옷자락을 만지작거렸다"). 캐릭터의 말투와 어휘 습관은 항상 설정에 맞게 일관되게 유지하세요.\n\n반드시 다음 형식으로만 답하세요. 한 장면 안에서 행동과 대사가 여러 번 번갈아 나와도 되니, 필요한 만큼 [지문]과 [대사]를 반복하세요 (예: [지문]...[대사]...[지문]...[대사]... 처럼 여러 쌍이어도 됨. 절대 한 [지문]이나 [대사] 안에 다른 태그나 큰따옴표를 섞지 마세요):\n[지문] (이 순간 인물의 반응이나 행동을, 소설처럼 3인칭 시점으로 서술. 문장에 반드시 "${aName}"을(를) 주어로 명시할 것. 괄호나 따옴표로 감싸지 말 것)\n[대사] (실제로 "${aName}"이(가) 입 밖으로 내는 말만. 큰따옴표나 지문, 설명을 절대 섞지 말 것)`;
-
-		const customStyleNote = await loadCustomStyleNote(this.app, this.plugin);
-		return `${basePrompt}${buildCustomStyleBlock(customStyleNote)}`;
+	private updateComposer(): void {
+		this.container?.querySelector<HTMLElement>('.deus-session-name')?.setText(this.session?.title || '새 대화');
+		const sending = this.session ? this.requests.isSending(this.session.id) : false;
+		const speaker = this.container?.querySelector<HTMLButtonElement>('.wm-chat-speaker');
+		if (speaker) speaker.disabled = sending;
+		if (this.sendButton) { setIcon(this.sendButton, sending ? 'square' : 'arrow-up'); this.sendButton.setAttribute('aria-label', sending ? '응답 수신 중단' : '보내기'); }
+		const model = effectiveChatModel(this.plugin.settings);
+		if (this.statusEl) this.statusEl.setText(sending ? (getModelProvider(model) === 'gemini' && this.plugin.settings.aiChatStreaming ? '응답 중' : '응답 대기') : AI_CHAT_MODELS.find(item => item.id === model)?.label.split(' (')[0] ?? model);
 	}
-
-	// ── 새 대화 시작 시 AI가 먼저 인사말 건네기 ────────────────────────────────
-
-	private async sendGreeting(messagesEl: HTMLElement): Promise<void> {
-		if (!this.characterFile || !this.session) return;
-		if (!hasApiKeyForModel(this.getApiKeys(), this.plugin.settings.aiChatModel)) return;
-
+	private async send(value: string, existing?: AiChatMessage, retry = false): Promise<void> {
 		const session = this.session;
-		if (this.sendingSessionIds.has(session.id)) return;
-		const targetId = session.id;
-		this.sendingSessionIds.add(targetId);
-		messagesEl.empty();
-		const loadingRow = this.renderTypingBubble(messagesEl);
-
-		try {
-			const basePrompt = await this.buildSystemPrompt();
-			const greetingPrompt = `${basePrompt}\n\n지금은 대화가 막 시작되는 시점입니다. 사용자가 말을 걸기 전에, 먼저 자연스러운 인사말이나 대화를 여는 대사를 건네세요.`;
-			// system 메시지만 보내면 채팅 템플릿이 완성되지 않는 API가 있어, 저장/표시되지 않는 더미 user 턴을 하나 끼워 넣는다.
-			const kickoff: AiChatMessage = { role: 'user', content: '(대화 시작)', timestamp: Date.now() };
-			const raw = await withTimeout(
-				callAiChat(this.getApiKeys(), greetingPrompt, [kickoff], this.plugin.settings.aiChatTemperature, this.plugin.settings.aiChatModel),
-				RESPONSE_TIMEOUT_MS,
-			);
-
-			session.messages.push({ role: 'assistant', content: raw, segments: parseAssistantSegments(raw), timestamp: Date.now() });
-			await this.storage.save(session);
-
-			this.sendingSessionIds.delete(targetId);
-			// 응답을 기다리는 동안 패널이 다시 렌더링됐을 수 있어(탭 전환 등), messagesEl이 이미
-			// 화면에서 떨어져나간 상태일 수 있다. 그래서 직접 DOM을 만지지 않고, 지금도 같은
-			// 세션을 보고 있을 때만 전체를 다시 그린다.
-			if (this.session?.id === targetId) {
-				this.pendingTypewriterIndex = session.messages.length - 1;
-				this.rerender();
-			}
-		} catch (e) {
-			this.sendingSessionIds.delete(targetId);
-			if (this.session?.id === targetId) {
-				loadingRow.remove();
-				this.renderMessages(messagesEl);
-				const errRow = messagesEl.createDiv({ cls: 'wm-aichat-error-row' });
-				errRow.createSpan({ text: '선인사를 받지 못했습니다. ' + (e instanceof Error ? e.message : '') });
-			}
+		if (!session) return;
+		if (!value.trim() && this.selectedSkills.get(session.id) === 'character') value = '현재 참고 중인 장면을 바탕으로 인물 간 대화를 작성해 주세요.';
+		if (!value.trim()) return;
+		const command = parseDeusCommand(value);
+		if (command) {
+			this.selectedSkills.set(session.id, command.skill); value = command.question;
+			if (!value) { this.drafts.set(session.id, ''); const input = this.container?.querySelector<DeusComposerInput>('.deus-input'); if (input) { input.value = ''; input.placeholder = 'Character · Enter로 현재 장면 실행 · 다른 상황을 적어도 됩니다.'; } this.refreshContextPreview(); return; }
+		} else if (!existing && /^\//.test(value.trim())) { new Notice('지원하지 않는 스킬입니다. /를 입력해 명령을 선택하세요.'); return; }
+		if (this.requests.isSending(session.id)) return;
+		if (existing && command) { existing.content = value; existing.skill = command.skill; }
+		const selectedSkill = this.selectedSkills.get(session.id);
+		if (selectedSkill && !value.replace(/@\[\[[^\]\n]+\]\]/g, '').trim()) {
+			const tasks = { character: '지정한 인물들의 성격과 관계에 맞는 짧은 대화 장면을 작성해 주세요.', description: '지정한 자료에 어울리는 장면 묘사를 작성해 주세요.', dialogue: '지정한 인물의 말투에 맞는 대사를 제안해 주세요.', rewrite: '지정한 본문의 문장을 다듬어 주세요.', research: '지정한 자료의 핵심 내용을 정리해 주세요.' };
+			value += '\n' + tasks[selectedSkill];
 		}
+		const settings = this.plugin.settings;
+		const cooldown = this.states.get(session.id); if (cooldown?.retryAt && cooldown.retryAt > Date.now()) { new Notice(cooldown.error ?? 'API 재시도 시간까지 기다려 주세요.'); return; }
+		const options: ChatRequestOptions = { keys: { nvidia: settings.aiChatApiKey, gemini: settings.aiChatGeminiApiKey }, model: effectiveChatModel(settings), temperature: settings.aiChatTemperature, maxTokens: settings.aiChatMaxOutputTokens, historyTurns: settings.aiChatHistoryTurns, stream: settings.aiChatStreaming, freeOnly: settings.aiChatFreeOnly };
+		if (!hasApiKeyForModel(options.keys, options.model)) { new Notice('선택한 모델의 API 키를 설정해 주세요.'); return; }
+		let prepared: Awaited<ReturnType<AiChatPanel['prepareDeusSources']>>;
+		try { prepared = await this.prepareDeusSources(value, session); } catch (error) { report(error); return; }
+		const { intent, source, project, open: openDocuments } = prepared;
+		const contexts = existing?.context ? existing.context.sources.filter(item => !item.automatic || item.kind === 'selection' || item.kind === 'document' || item.id.startsWith('deus-cast:')).map(item => ({ ...item })) : prepared.attachments;
+		if (session.mode === 'deus' && !project) { new Notice('검색할 프로젝트를 선택해 주세요.'); return; }
+		try { requestedEpisodeScope(value); } catch (error) { report(error); return; }
+		const episodeTarget = requestedEpisode(value);
+		session.projectRoot ??= project?.rootFolder;
+		if (project && (session.mode === 'deus' || settings.aiChatAutoContext)) options.ragTools = ragIndex(this.plugin).tools(project, session.mode === 'deus');
+		const excluded = new Set(this.excludedContexts.get(session.id) ?? []);
+		if (options.ragTools && excluded.size) {
+			const tools = options.ragTools;
+			options.ragTools = { ...tools, execute: async (call, signal) => { const result = await tools.execute(call, signal); const sources = result.sources.filter(source => deusSourceAllowed(source, excluded)); return { ...result, sources, warnings: sources.length === result.sources.length ? result.warnings : [...result.warnings, '사용자가 제외한 참고 자료는 검색 결과에서도 제외했습니다.'] }; } };
+		}
+		const message: AiChatMessage = existing ?? { id: messageId(), role: 'user', content: value.trim(), kind: 'dialogue', speakerRole: 'author', speakerName: '사용자', skill: intent.skill, participants: intent.participants, timestamp: Date.now() };
+		if (!session.messages.length && ['새 대화', '데우스'].includes(session.title)) session.title = value.trim().replace(/@\[\[([^\]\n]+)\]\]/g, (_match, path: string) => path.split('/').pop()?.replace(/\.md$/i, '') ?? path).slice(0, 60);
+		this.drafts.set(session.id, ''); const input = this.container?.querySelector<DeusComposerInput>('.deus-input'); if (input) input.value = '';
+		this.refreshContextPreview();
+		this.scrollFollow?.follow();
+		await this.requests.send(session, message, async signal => {
+			const prompt = `${deusSkillInstructions({ ...intent, skill: message.skill ?? intent.skill, participants: message.participants ?? intent.participants })}\n${DEUS_REPLY_STYLE}`;
+			// Retry numbered-episode questions from the current manuscript instead of
+			// reusing unrelated frozen snippets collected by older plugin versions.
+			if (!message.context || episodeTarget !== undefined || session.mode === 'deus') message.context = await this.knowledge.collect({ character: null, speaker: null, project: project ?? null, document: source, openDocuments, attachments: contexts, message, history: session.messages.filter(turn => turn.id !== message.id), signal, requireComplete: true, inheritScene: false });
+			if (excluded.size && message.context.sources.some(source => !deusSourceAllowed(source, excluded))) {
+				message.context.sources = message.context.sources.filter(source => deusSourceAllowed(source, excluded));
+				message.context.warnings.push('사용자가 제외한 참고 자료는 검색 결과에서도 제외했습니다.');
+				if (message.context.research) message.context.research.partial = true;
+			}
+			const scope = message.context?.episodeRange
+				? '요청한 권·회차 범위의 모든 본문에서 근거를 준비했습니다. 제공된 범위와 발췌 한도를 지키며 요청한 범위 자체를 요약하세요. 이전 질문의 인물 소개나 범위 밖 회차로 대체하지 마세요.'
+				: message.context?.searches?.some(search => search.name === 'episode_read')
+				? '요청한 회차 본문 전체를 직접 읽고 최신 원문과 대조했습니다. 해당 회차의 줄거리·내용 질문에는 이 원문으로 답하세요. 전체 프로젝트를 검색했다고 말하지 마세요.'
+				: 'Obsidian API로 현재 프로젝트 자료를 확인했습니다. 실제 검색·조사 범위는 제공된 확인 범위를 따르며, 관련 발췌만으로 모든 사건을 읽었다고 말하지 마세요.';
+			const citations = message.skill === 'character' ? DEUS_CITATIONS.slice(DEUS_CITATIONS.indexOf('요약·해설')) : DEUS_CITATIONS;
+			const format = message.skill === 'character' ? '\n최종 답변은 설명이나 목록 대신 캐릭터 장면만 출력하세요. 매 대사 앞에 [인물: 실제 화자 이름], 행동 앞에 [지문]을 사용하세요. 대사를 글머리표로 쓰거나 이름을 생략하지 마세요.' : '';
+			return session.mode === 'deus' ? `${prompt}\n${citations}\n${scope} ${message.context?.retrieval ? '로컬 검색 계획으로 근거를 준비했습니다. 제공한 근거로 충분하면 바로 답하고, 필요한 경우에만 추가 조회하세요. read_source·related_sources의 source_id에는 현재 질문의 C1, C2 같은 citation_id도 사용할 수 있습니다. 행적 조사의 확인 범위·미전송 구간·짧게 발췌된 구간을 답변에 밝히고, 플롯의 계획과 본문에 확정된 사건, 회차 서술 순서와 작중 시간순을 구분하세요.' : '먼저 search_sources로 질문의 핵심 인물명·행위·관계를 다른 표현으로 풀어 추가 검색하세요.'} 원문의 앞뒤가 부족하면 read_source 또는 related_sources로 확인하세요. 검색된 발췌를 읽은 것과 전체 원문을 모두 읽은 것은 구별하세요. 자료에 없는 행적을 채우지 마세요.${format}` : prompt;
+		}, options, state => { this.states.set(session.id, state); if (this.session?.id === session.id && !this.disposed) {
+			if ((state.quota || state.status === 'error') && !this.drafts.get(session.id)) { this.drafts.set(session.id, value); const draft = this.container?.querySelector<DeusComposerInput>('.deus-input'); if (draft) draft.value = value; }
+			this.renderMessages();
+		} }, retry);
+		if (!this.disposed) { this.refreshSessionList(); if (this.session?.id === session.id) this.renderMessages(); }
+	}
+	private async branch(session: AiChatSession, through: number, parentId = session.id): Promise<AiChatSession | null> {
+		try { this.session = await this.storage.fork(session, through, parentId); this.restoreSpeaker(this.session); this.contexts.set(this.session.id, (this.contexts.get(session.id) ?? []).map(item => ({ ...item }))); this.rerender(); return this.session; }
+		catch (error) { report(error); return null; }
+	}
+	private async regenerate(session: AiChatSession, index: number): Promise<void> {
+		if (this.requests.isSending(session.id)) return;
+		try {
+			const user = session.messages[index - 1];
+			const parent = session.parentId && session.forkMessageId === user?.id ? session.parentId : session.id;
+			const fork = await this.branch(session, index - 1, parent);
+			const last = fork?.messages[fork.messages.length - 1]; if (last?.role === 'user') await this.send(last.content, last, true);
+		} catch (error) { report(error); }
+	}
+	private async sessionMenu(id: string, event: MouseEvent): Promise<void> {
+		try {
+			const session = this.session?.id === id ? this.session : await this.storage.loadById(id);
+			if (session && !this.disposed) this.menu(event, session, true);
+		} catch (error) { report(error); }
+	}
+	private async sessionAction(id: string, action: 'rename' | 'pin' | 'export' | 'delete'): Promise<void> {
+		try {
+			const session = this.session?.id === id ? this.session : await this.storage.loadById(id);
+			if (!session || this.disposed || action !== 'export' && this.requests.isSending(id)) return;
+			if (action === 'rename') this.renameSession(session);
+			else if (action === 'pin') { session.pinned = !session.pinned; await this.storage.save(session); this.refreshSessionList(); }
+			else if (action === 'export') this.exportSession(session);
+			else this.confirmDeleteSession(session);
+		} catch (error) { report(error); }
+	}
+	private renameSession(session: AiChatSession): void {
+		new AiChatRenameModal(this.plugin.app, session.title, title => { session.title = title; void this.storage.save(session).then(() => { this.refreshSessionList(); this.updateComposer(); }).catch(report); }).open();
+	}
+	private confirmDeleteSession(session: AiChatSession): void {
+		const modal = new Modal(this.plugin.app); modal.setTitle('이 대화를 삭제할까요?'); modal.contentEl.createEl('p', { text: '저장된 대화는 보관 사본으로 남습니다.' });
+		new Setting(modal.contentEl).addButton(button => button.setButtonText('삭제').setWarning().onClick(async () => { try { await this.storage.deleteSession(session.id); for (const [key, parked] of this.parkedSessions) if (parked.id === session.id) this.parkedSessions.delete(key); modal.close(); if (this.session?.id === session.id) { this.session = null; await this.newSession(); } else this.refreshSessionList(); } catch (error) { report(error); } })); modal.open();
+	}
+	private menu(event: MouseEvent, session = this.session, sidebar = false): void {
+		const menu = new Menu();
+		menu.setUseNativeMenu?.(false);
+		if (!sidebar && !this.container?.querySelector('.deus-container.is-wide')) {
+			menu.addItem(item => {
+				item.setTitle('프로젝트').setIcon('folder');
+				const submenu = (item as typeof item & { setSubmenu?: () => Menu }).setSubmenu?.();
+				if (submenu) { this.populateProjects(submenu); alignDeusSubmenu(menu, item, submenu); }
+				else item.onClick(() => { const projects = new Menu(); this.populateProjects(projects); projects.showAtMouseEvent(event); });
+			});
+			menu.addSeparator();
+		}
+		if (session) {
+			menu.addItem(item => item.setTitle('제목 수정').setIcon('pencil').setDisabled(this.requests.isSending(session.id)).onClick(() => this.renameSession(session)));
+			menu.addItem(item => item.setTitle(session.pinned ? '고정 해제' : '대화 고정').setIcon('pin').setDisabled(this.requests.isSending(session.id)).onClick(async () => { try { session.pinned = !session.pinned; await this.storage.save(session); this.refreshSessionList(); } catch (error) { report(error); } }));
+			menu.addItem(item => item.setTitle('Markdown 내보내기').setIcon('file-output').onClick(() => this.exportSession(session)));
+			menu.addItem(item => item.setTitle('대화 삭제').setIcon('trash-2').setDisabled(this.requests.isSending(session.id)).onClick(() => this.confirmDeleteSession(session)));
+		}
+		if (!sidebar) { menu.addSeparator(); menu.addItem(item => item.setTitle('Deus AI 설정').setIcon('settings').onClick(() => {
+			const setting = (this.plugin.app as unknown as { setting?: { open(): void; openTabById(id: string): void } }).setting;
+			setting?.open(); setting?.openTabById(this.plugin.manifest.id); this.plugin.settingTab?.renderPage('ai');
+		})); } menu.showAtMouseEvent(event);
+	}
+	private exportSession(session: AiChatSession): void {
+		const content = `---\nwriting_menu_export: ai-chat\n---\n\n# ${session.title}\n\n${session.messages.map(message => `## ${message.role === 'assistant' ? '응답' : message.speakerName ?? '작가'}\n\n${message.content}`).join('\n\n')}`;
+		const modal = new Modal(this.plugin.app); modal.setTitle('대화 Markdown 저장');
+		let path = `${session.projectRoot ? session.projectRoot + '/' : ''}대화-${Date.now()}.md`;
+		new Setting(modal.contentEl).setName('저장 파일').addText(text => text.setValue(path).onChange(value => path = value));
+		new Setting(modal.contentEl).addButton(button => button.setButtonText('저장').setCta().onClick(async () => {
+			try { const target = normalizePath(path.trim()); if (!target.endsWith('.md') || /^[\\/]|:/.test(target) || target.split('/').some(part => !part || part === '.' || part === '..')) throw new Error('볼트 내부의 새 Markdown 파일 경로를 지정해 주세요.'); await this.plugin.app.vault.create(target, content); modal.close(); new Notice('대화를 저장했습니다.'); }
+			catch (error) { report(error); }
+		})); modal.open();
 	}
 }

@@ -8,6 +8,8 @@
 		"target": "ES2018",
 		"allowJs": true,
 		"noImplicitAny": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
 		"strictPropertyInitialization": false,
 		"strictFunctionTypes": false,
 		"moduleResolution": "node",

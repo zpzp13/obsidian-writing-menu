@@ -15,6 +15,8 @@ import type { PagedInlineFormatKind, PagedParagraphAlignmentValue, WritingWidget
 import { appendToolbarChevron, createToolbarActionOption, createToolbarIconButton, createToolbarOption, createToolbarSelect } from './toolbarUi';
 import { InstalledFontCache } from './InstalledFontCache';
 import { bindMobileToolbarPopover } from './MobileToolbarPopover';
+import { MOBILE_WEB_FONTS, mobileFontName } from '../fonts/MobileFontManager';
+import { openSnapshotManager } from '../snapshots/SnapshotManager';
 import { CSS_PX_PER_MM as PX_PER_MM, CSS_PX_PER_PT, formatTypographyNumber, pixelsToPoints } from '../utils/typography';
 
 export interface WritingToolbarSurface {
@@ -113,7 +115,8 @@ export class WritingToolbar {
 	refresh(): void {
 		const settings = this.plugin.settings;
 		this.refreshAutoHideState();
-		this.fontLabelEl?.setText(settings.fontFamily === 'inherit' ? '시스템 폰트' : settings.fontFamily);
+		this.fontLabelEl?.setText(Platform.isMobile ? mobileFontName(settings.mobileFontFamily)
+			: settings.fontFamily === 'inherit' ? '시스템 폰트' : settings.fontFamily);
 		const weightLabels: Record<number, string> = {
 			300: '얇게',
 			400: '보통',
@@ -227,6 +230,7 @@ export class WritingToolbar {
 		const tower = this.createIconButton(actions, 'toggle-left', '기능 제어', () => {});
 		tower.addEventListener('click', event => { event.stopPropagation(); this.openControlTowerPopover(tower); });
 
+		this.createIconButton(actions, 'camera', '스냅샷 관리', () => openSnapshotManager(this.plugin, this.surface.leaf));
 		if (!Platform.isMobile) {
 			const switchButton = this.createIconButton(
 				actions,
@@ -249,7 +253,7 @@ export class WritingToolbar {
 			this.plugin.openSettings();
 		});
 
-		if (!Platform.isMobile) this.renderZoomControls();
+		if (!Platform.isMobile && this.surface.kind === 'paged') this.renderZoomControls();
 		this.widgetDockEl = this.mountEl.createDiv({
 			cls: `wm-writing-widget-dock is-${this.surface.kind}`,
 			attr: { 'aria-label': '작성 위젯' },
@@ -392,6 +396,10 @@ export class WritingToolbar {
 	}
 
 	private openFontPopover(anchor: HTMLElement): void {
+		if (Platform.isMobile) {
+			this.openMobileFontPopover(anchor);
+			return;
+		}
 		this.openPopover(anchor, 'wm-paged-font-popover', popover => {
 			const searchRow = popover.createDiv({ cls: 'wm-paged-popover-search' });
 			const icon = searchRow.createSpan({ attr: { 'aria-hidden': 'true' } });
@@ -450,6 +458,41 @@ export class WritingToolbar {
 			});
 			render();
 			void this.loadInstalledFonts().then(() => { if (popover.isConnected) render(); });
+			window.setTimeout(() => search.focus(), 0);
+		});
+	}
+
+	private openMobileFontPopover(anchor: HTMLElement): void {
+		this.openPopover(anchor, 'wm-paged-font-popover', popover => {
+			const row = popover.createDiv({ cls: 'wm-paged-popover-search' });
+			setIcon(row.createSpan({ attr: { 'aria-hidden': 'true' } }), 'search');
+			const search = row.createEl('input', { type: 'text', placeholder: '모바일 웹폰트 검색',
+				attr: { 'aria-label': '글꼴 이름', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', enterkeyhint: 'done' } });
+			const list = popover.createDiv({ cls: 'wm-paged-popover-list' });
+			let choices: Array<{ id: string; name: string }> = [];
+			const select = (id: string) => {
+				this.plugin.settings.mobileFontFamily = id;
+				void this.plugin.mobileFonts?.ensureSelected(this.ownerDocument, true);
+				void this.saveAndRefresh();
+			};
+			const render = () => {
+				list.empty();
+				const query = search.value.replace(/\s/g, '').toLocaleLowerCase('ko-KR');
+				choices = [{ id: 'inherit', name: '시스템 폰트' }, ...MOBILE_WEB_FONTS]
+					.filter(font => `${font.name}${font.id}`.replace(/\s/g, '').toLocaleLowerCase('ko-KR').includes(query));
+				for (const font of choices) {
+					const option = this.createOption(list, font.name, (this.plugin.settings.mobileFontFamily || 'inherit') === font.id, () => select(font.id));
+					option.addEventListener('pointerdown', event => { if (event.button === 0) event.preventDefault(); });
+				}
+				if (!choices.length) list.createDiv({ cls: 'wm-paged-popover-heading', text: '지원하는 웹폰트가 없습니다.' });
+			};
+			search.addEventListener('input', render);
+			search.addEventListener('keydown', event => {
+				if (event.key !== 'Enter' || event.isComposing || !choices.length) return;
+				event.preventDefault();
+				select(choices[0].id);
+			});
+			render();
 			window.setTimeout(() => search.focus(), 0);
 		});
 	}
@@ -1074,6 +1117,7 @@ export class WritingToolbar {
 	}
 
 	private isAutoHideEnabled(): boolean {
+		if (Platform.isMobile) return false; // Mobile follows the native header, not a second height animation.
 		return this.surface.kind === 'markdown'
 			? this.plugin.settings.markdownToolbarAutoHide
 			: this.plugin.settings.pagedToolbarAutoHide;

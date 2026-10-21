@@ -1,4 +1,4 @@
-import { setIcon } from 'obsidian';
+
 import type WritingMenuPlugin from '../../main';
 
 export class StopwatchManager {

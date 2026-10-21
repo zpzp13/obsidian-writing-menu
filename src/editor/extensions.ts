@@ -1,5 +1,5 @@
 import { EditorView, ViewPlugin, Decoration, DecorationSet, ViewUpdate, keymap } from '@codemirror/view';
-import { Extension, EditorState, RangeSetBuilder, Prec, Transaction } from '@codemirror/state';
+import { Extension, RangeSetBuilder, Prec, Transaction } from '@codemirror/state';
 import { MarkdownView } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { HeadingRawWidget } from './HeadingRawWidget';

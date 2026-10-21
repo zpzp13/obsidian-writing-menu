@@ -1,7 +1,8 @@
 import {
 	Notice,
 	Scope,
-	TextFileView,
+	FileView,
+	MarkdownView,
 	WorkspaceLeaf,
 	setIcon,
 } from 'obsidian';
@@ -11,6 +12,7 @@ import type {
 	EditorRange,
 	EditorSelectionOrCaret,
 	EditorTransaction,
+	TFile,
 } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type {
@@ -25,6 +27,9 @@ import { closestParagraph, closestTextRun, getTextRuns, logicalTextLength, rende
 import { DEFAULT_PAGE_GEOMETRY, type PageGeometry, type PageRange } from './types';
 import { CSS_PX_PER_MM as PX_PER_MM } from '../utils/typography';
 import { createPagedEditorContextMenu } from './PagedEditorContextMenu';
+import { PagedFileStore, mergePagedMetadata, splitPagedFrontmatter as splitFrontmatter, type PagedFileConflict } from './PagedFileStore';
+import { PagedFileConflictModal } from './PagedFileConflictModal';
+import { textEdits, validatedEdits, type TextEdit } from '../utils/TextEdits';
 
 export const PAGED_WRITING_VIEW_TYPE = 'writing-menu-paged-writing';
 
@@ -51,6 +56,7 @@ interface TextSelection {
 
 interface HistorySnapshot extends TextSelection {
 	data: string;
+	frontmatterPrefix: string;
 	textColors: PagedTextColorRange[];
 	textBackgrounds: PagedTextColorRange[];
 	inlineFormats: PagedInlineFormatRange[];
@@ -84,32 +90,12 @@ interface AutocompleteOption {
 	close: string;
 }
 
-function splitFrontmatter(source: string): { prefix: string; body: string } {
-	const firstLineEnd = source.indexOf('\n');
-	if (firstLineEnd < 0 || source.slice(0, firstLineEnd).replace(/\r$/, '').trim() !== '---') {
-		return { prefix: '', body: source };
-	}
-	let lineStart = firstLineEnd + 1;
-	while (lineStart <= source.length) {
-		const lineEnd = source.indexOf('\n', lineStart);
-		const contentEnd = lineEnd < 0 ? source.length : lineEnd;
-		const line = source.slice(lineStart, contentEnd).replace(/\r$/, '').trim();
-		if (line === '---' || line === '...') {
-			const prefixEnd = lineEnd < 0 ? source.length : lineEnd + 1;
-			return { prefix: source.slice(0, prefixEnd), body: source.slice(prefixEnd) };
-		}
-		if (lineEnd < 0) break;
-		lineStart = lineEnd + 1;
-	}
-	return { prefix: '', body: source };
-}
-
 type EditKind = 'insert' | 'delete' | 'paste' | 'cut' | 'enter' | 'other';
 /**
  * A paged editor with one editing host and one logical selection.
  * Pages are visual fragments of `data`, never separate editors or focus targets.
  */
-export class PagedWritingView extends TextFileView {
+export class PagedWritingView extends FileView {
 	private readonly plugin: WritingMenuPlugin;
 	private frontmatterPrefix = '';
 	private editableData = '';
@@ -170,11 +156,23 @@ export class PagedWritingView extends TextFileView {
 	private autocompleteIndex = 0;
 	private autocompleteFrom = -1;
 	private autocompleteTo = -1;
+	private liveDocumentCleanup: (() => void) | null = null;
+	private fileStore: PagedFileStore | null = null;
+	private fileSaveTimer = 0;
+	private conflictModal: PagedFileConflictModal | null = null;
+	private conflictBanner: HTMLElement | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 		super(leaf);
 		this.plugin = plugin;
 		this.scope = new Scope(this.app.scope);
+		this.scope.register(['Mod'], 's', event => {
+			if (event.shiftKey || event.altKey) return;
+			void this.save().then(() => {
+				if (this.fileStore?.hasConflict) this.conflictBanner?.querySelector('button')?.click();
+			}).catch(error => this.reportSaveError(error));
+			return false;
+		});
 		this.scope.register(['Mod'], 'f', event => {
 			if (event.shiftKey) return;
 			this.openFindBar();
@@ -218,7 +216,94 @@ export class PagedWritingView extends TextFileView {
 		return extension === 'md';
 	}
 
+	onload(): void {
+		super.onload();
+		this.registerEvent(this.app.vault.on('rename', (file, oldPath) => {
+			if (file !== this.file) return;
+			this.app.saveLocalStorage(`writing-menu:paged-zoom:${file.path}`, this.zoom);
+			this.app.saveLocalStorage(`writing-menu:paged-zoom:${oldPath}`, null);
+		}));
+		this.registerEvent(this.app.vault.on('modify', file => {
+			if (file === this.file) void this.fileStore?.refresh().catch(error => this.reportSaveError(error));
+		}));
+	}
+	async onLoadFile(file: TFile): Promise<void> {
+		const savedZoom: unknown = this.app.loadLocalStorage(`writing-menu:paged-zoom:${file.path}`);
+		this.zoom = typeof savedZoom === 'number' && Number.isFinite(savedZoom)
+			? Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, savedZoom)) : DEFAULT_ZOOM;
+		await super.onLoadFile(file);
+		const project = this.plugin.projectContext.getProjectForFile(file);
+		const folder = `${project?.rootFolder ? `${project.rootFolder}/` : ''}.writing-menu/paged-conflicts`;
+		const store = new PagedFileStore(this.app.vault, file, folder, () => this.getViewData(),
+			(data, clear) => { this.setViewData(data, clear); if (!clear) this.app.workspace.trigger('quick-preview', file, data); },
+			conflict => this.showFileConflict(store, conflict), mergePagedMetadata);
+		this.fileStore = store;
+		await store.load();
+	}
+	async onUnloadFile(file: TFile): Promise<void> {
+		window.clearTimeout(this.fileSaveTimer); this.fileSaveTimer = 0;
+		await this.save(); this.fileStore?.dispose(); this.fileStore = null;
+		this.conflictModal?.close(); this.conflictModal = null;
+		this.conflictBanner?.remove(); this.conflictBanner = null;
+		this.clear(); await super.onUnloadFile(file);
+	}
+	requestSave(): void {
+		window.clearTimeout(this.fileSaveTimer);
+		if (this.fileStore) this.fileSaveTimer = window.setTimeout(() => {
+			this.fileSaveTimer = 0; void this.save().catch(error => this.reportSaveError(error));
+		}, 2000);
+	}
+	async save(): Promise<void> {
+		if ((this.composing || this.compositionDirty) && this.syncSourceFromDom(false)) this.fileStore?.changed();
+		await this.fileStore?.save();
+	}
+	private reportSaveError(error: unknown): void {
+		console.error('[Writing Menu] Paged document save failed', error);
+		new Notice(`문서를 저장하지 못했습니다. 편집창을 닫지 말고 다시 시도해주세요.\n${error instanceof Error ? error.message : String(error)}`, 0);
+	}
+	private showFileConflict(store: PagedFileStore, conflict: PagedFileConflict): void {
+		new Notice(`자동 병합을 멈추고 양쪽 내용을 보존했습니다. 내 편집본: ${conflict.localPath}`, 0);
+		const open = () => {
+			if (this.conflictModal?.containerEl.isConnected) return;
+			this.conflictModal = new PagedFileConflictModal(this.app, () => store.review, async choice => {
+				await store.resolve(choice).then(() => {
+					if (!store.hasConflict) { this.conflictBanner?.remove(); this.conflictBanner = null; }
+					else throw new Error('외부 변경이 추가되었습니다. 최신 내용으로 다시 검토해 주세요.');
+					this.requestSave();
+				});
+			}); this.conflictModal.open();
+		};
+		if (this.rootEl) {
+			this.conflictBanner ??= this.rootEl.createDiv({ cls: 'wm-paged-conflict-banner', attr: { role: 'status' } });
+			this.rootEl.insertBefore(this.conflictBanner, this.findBarEl ?? this.viewportEl);
+			this.conflictBanner.empty();
+			this.conflictBanner.createSpan({ text: '외부 변경과 충돌했습니다. 원본 자동저장은 멈추고 편집본을 별도 보존합니다.' });
+			this.conflictBanner.createEl('button', { text: '변경본 선택' }).addEventListener('click', open);
+		}
+		open();
+	}
+
 	async onOpen(): Promise<void> {
+		this.liveDocumentCleanup?.();
+		const workspace = this.app.workspace;
+		if (workspace?.on) {
+			const ref = workspace.on('quick-preview', (file, data) => {
+				if (file !== this.file || data === this.getViewData() || this.composing) return;
+				const peer = workspace.getMostRecentLeaf?.()?.view;
+				const peerIsEditing = peer instanceof MarkdownView && peer.file === file && peer.editor.hasFocus();
+				// A Sync update echoed by an inactive Markdown tab is an external
+				// write, not a new local keystroke. Let the guarded disk reader handle it.
+				if (this.fileStore && !peerIsEditing) {
+					void this.fileStore.refresh().catch(error => this.reportSaveError(error)); return;
+				}
+				if (this.fileStore?.hasConflict) return;
+				// Native Markdown views exchange their live buffer before the delayed
+				// disk save. Participate in that same channel, not a second editor copy.
+				this.setViewData(data, false);
+				this.fileStore?.changed(); this.requestSave();
+			});
+			this.liveDocumentCleanup = () => workspace.offref(ref);
+		}
 		this.buildLayout();
 		this.installEventHandlers();
 		this.installObservers();
@@ -227,6 +312,12 @@ export class PagedWritingView extends TextFileView {
 	}
 
 	async onClose(): Promise<void> {
+		window.clearTimeout(this.fileSaveTimer); this.fileSaveTimer = 0;
+		await this.save(); this.fileStore?.dispose(); this.fileStore = null;
+		this.conflictModal?.close(); this.conflictModal = null;
+		this.conflictBanner?.remove(); this.conflictBanner = null;
+		this.liveDocumentCleanup?.();
+		this.liveDocumentCleanup = null;
 		this.clearCompositionOverflowPreview();
 		this.plugin.toolbarManager.removeToolbarFromLeaf(this.leaf);
 		if (this.visibleRenderFrame) window.cancelAnimationFrame(this.visibleRenderFrame);
@@ -265,7 +356,8 @@ export class PagedWritingView extends TextFileView {
 	}
 
 	getViewData(): string {
-		return this.data ?? '';
+		// The editable buffer is independent from any pending disk write.
+		return this.frontmatterPrefix + this.editableData;
 	}
 
 	/** Text exposed by the paged canvas. YAML properties stay outside its selection model. */
@@ -275,7 +367,6 @@ export class PagedWritingView extends TextFileView {
 
 	private setEditableData(body: string): void {
 		this.editableData = body;
-		this.data = this.frontmatterPrefix + body;
 	}
 
 	getSelectedText(): string {
@@ -491,7 +582,7 @@ export class PagedWritingView extends TextFileView {
 				if (transaction.replaceSelection !== undefined) adapter.replaceSelection(transaction.replaceSelection);
 				if (transaction.changes?.length) {
 					const changes = transaction.changes.slice().sort((left, right) => posToOffset(right.from) - posToOffset(left.from));
-					for (const change of changes) adapter.replaceRange(change.text, change.from, change.to);
+					view.applyTextEdits(changes.map(change => ({ from: posToOffset(change.from), to: posToOffset(change.to ?? change.from), text: change.text })));
 				}
 				const selection = transaction.selection;
 				if (selection) adapter.setSelection(selection.from, selection.to);
@@ -1348,7 +1439,6 @@ export class PagedWritingView extends TextFileView {
 		viewport?.addEventListener('scroll', this.handleViewportScroll, { passive: true });
 		root?.addEventListener('wheel', this.handleZoomWheel, { passive: false });
 
-		const ownerDocument = this.editRootEl.ownerDocument;
 		const ownerWindow = this.editRootEl.ownerDocument.defaultView ?? window;
 		ownerWindow.addEventListener('pointerup', this.handlePointerEnd, true);
 		ownerWindow.addEventListener('pointercancel', this.handlePointerEnd, true);
@@ -1502,6 +1592,7 @@ export class PagedWritingView extends TextFileView {
 	};
 
 	private readonly handleCompositionStart = (): void => {
+		this.fileStore?.changed();
 		this.clearCompositionOverflowPreview();
 		this.composing = true;
 		this.compositionDirty = false;
@@ -2223,7 +2314,34 @@ export class PagedWritingView extends TextFileView {
 		return true;
 	}
 
-	private applyEdit(from: number, to: number, insert: string, kind: EditKind, recordHistory = true): void {
+	/** Snapshot/extension edits share one undo record and one pagination/save pass. */
+	private applyTextEdits(edits: readonly TextEdit[], recordHistory = true): void {
+		const ordered = validatedEdits(this.getEditableData(), edits);
+		if (!ordered.length) return;
+		if (recordHistory) this.recordHistory('other');
+		for (const edit of ordered) this.applyEdit(edit.from, edit.to, edit.text, 'other', false, false);
+		this.pendingPaginationReuse = null;
+		this.dirtyPageIndex = this.findPageIndex(ordered[ordered.length - 1].from);
+		this.markDocumentChanged();
+		this.paginateNow(false, this.cachedSelection);
+		this.refreshToolbarSelection();
+		this.dismissAutocomplete();
+	}
+
+	/** Full source includes properties; body edits preserve unaffected formatting. */
+	replaceSourceSnapshot(expected: string, next: string): void {
+		if (this.getViewData() !== expected) throw new Error('원고가 변경되었습니다. 다시 비교해 주세요.');
+		if (next === expected) return;
+		const { prefix, body } = splitFrontmatter(next);
+		const edits = textEdits(this.getEditableData(), body);
+		this.recordHistory('other');
+		if (prefix.length !== this.frontmatterPrefix.length) this.shiftStoredStyleOffsets(prefix.length - this.frontmatterPrefix.length);
+		this.frontmatterPrefix = prefix;
+		if (edits.length) this.applyTextEdits(edits, false);
+		else { this.markDocumentChanged(); this.refreshToolbarSelection(); }
+	}
+
+	private applyEdit(from: number, to: number, insert: string, kind: EditKind, recordHistory = true, refresh = true): void {
 		const source = this.getEditableData();
 		const safeFrom = Math.max(0, Math.min(from, source.length));
 		const safeTo = Math.max(safeFrom, Math.min(to, source.length));
@@ -2254,6 +2372,7 @@ export class PagedWritingView extends TextFileView {
 		// calculated page ranges.
 		this.cachedSelectionPageIndex = null;
 		this.dirtyPageIndex = Math.max(0, startPage);
+		if (!refresh) return;
 		this.activatePagedFocusMode();
 		this.markDocumentChanged();
 		this.paginateNow(false, nextSelection);
@@ -2265,9 +2384,11 @@ export class PagedWritingView extends TextFileView {
 	}
 
 	private markDocumentChanged(): void {
+		this.fileStore?.changed();
 		if (this.findBarEl && !this.findBarEl.hidden && this.findInputEl?.value) {
 			this.refreshFindMatches(false);
 		}
+		if (this.file) this.app.workspace?.trigger?.('quick-preview', this.file, this.getViewData());
 		this.plugin.notifyPagedEditorChanged(this);
 		this.requestSave();
 	}
@@ -3267,6 +3388,14 @@ export class PagedWritingView extends TextFileView {
 		if (!textEl || !page) return false;
 		const position = this.globalOffsetFromDom(selection.focusNode, selection.focusOffset);
 		if (position === null) return false;
+		const emptyRun = closestTextRun(selection.focusNode)?.classList.contains('is-empty');
+		if (emptyRun) {
+			// The zero-width caret placeholder has two DOM offsets but no source
+			// width. Consume the real newline instead of stopping inside it.
+			const target = forward ? this.nextCodePoint(position) : this.previousCodePoint(position);
+			if (target !== position) this.placeCaretInPage(this.findPageIndex(target), target, extend);
+			return true;
+		}
 
 		const atPageEdge = forward ? position === page.to : position === page.from;
 		if (!atPageEdge) return false;
@@ -3325,6 +3454,11 @@ export class PagedWritingView extends TextFileView {
 
 	private isCaretOnVerticalPageEdge(selection: Selection, textEl: HTMLElement, forward: boolean): boolean {
 		if (!selection.focusNode) return false;
+		const run = closestTextRun(selection.focusNode);
+		if (run?.classList.contains('is-empty')) {
+			const paragraph = closestParagraph(run);
+			return paragraph === (forward ? textEl.lastElementChild : textEl.firstElementChild);
+		}
 		const document = textEl.ownerDocument;
 		let caretRect: DOMRect | null = null;
 		try {
@@ -3469,6 +3603,7 @@ export class PagedWritingView extends TextFileView {
 	private createHistorySnapshot(data: string, selection: TextSelection): HistorySnapshot {
 		return {
 			data,
+			frontmatterPrefix: this.frontmatterPrefix,
 			...selection,
 			textColors: this.getTextColorRanges(),
 			textBackgrounds: this.getTextBackgroundRanges(),
@@ -3494,7 +3629,10 @@ export class PagedWritingView extends TextFileView {
 	}
 
 	private restoreSnapshot(snapshot: HistorySnapshot): void {
-		const dataChanged = snapshot.data !== this.getEditableData();
+		const prefix = snapshot.frontmatterPrefix ?? this.frontmatterPrefix;
+		const dataChanged = snapshot.data !== this.getEditableData() || prefix !== this.frontmatterPrefix;
+		if (prefix.length !== this.frontmatterPrefix.length) this.shiftStoredStyleOffsets(prefix.length - this.frontmatterPrefix.length);
+		this.frontmatterPrefix = prefix;
 		this.setEditableData(snapshot.data);
 		this.setTextColorRanges(snapshot.textColors);
 		this.setTextBackgroundRanges(snapshot.textBackgrounds);
@@ -3621,6 +3759,7 @@ export class PagedWritingView extends TextFileView {
 			: Math.min(this.pages.length - 1, viewportRow * oldColumns);
 		const rounded = Math.round(value * 100) / 100;
 		this.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, rounded));
+		if (this.file) this.app.saveLocalStorage(`writing-menu:paged-zoom:${this.file.path}`, this.zoom);
 		this.applyGeometryVariables();
 		// Zoom is visual only: page and text scale by the same ratio, so the
 		// logical line/page boundaries must stay unchanged. Reconfiguring the
@@ -3794,6 +3933,7 @@ export class PagedWritingView extends TextFileView {
 		if (!this.file) return;
 		try {
 			await this.save();
+			if (this.fileStore?.hasConflict) { this.conflictBanner?.querySelector('button')?.click(); return; }
 			await this.leaf.setViewState({
 				type: 'markdown',
 				state: { file: this.file.path, mode: 'source' },

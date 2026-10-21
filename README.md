@@ -1,5 +1,7 @@
 # Writing Menu — Obsidian Writing Assistant Plugin
 
+Current release: [3.4.0](RELEASE_v3.4.0.md). See [Deus AI](docs/deus-ai.md), [manuscript saving and Sync conflicts](docs/paged-save-and-sync-conflicts.md), and [mobile fonts and plot snapshots](docs/plot-transfer-and-mobile-fonts.md) for the current behavior. The feature overview below also describes older workflows.
+
 A comprehensive writing environment plugin for Obsidian, tailored for novelists and writers. Integrates typography controls, custom dividers, focus mode, smart input, spell checker, word counter, daily work time tracker, calendar dashboard, version control, wiki view, and more into one plugin.
 
 ---
@@ -144,15 +146,15 @@ The **HWP export** feature requires elevated system access:
 | Filesystem (`fs`, `path`) | Writes a bundled Python script to the plugin directory; reads/writes files during export |
 | Shell execution (`child_process`) | Spawns a Python 3 process to convert Markdown to HWP |
 
-These permissions are used **exclusively** for HWP export on Windows. All other features use only the standard Obsidian Vault API. No data is sent to any external server — all processing is local.
+HWP conversion runs a local Python process on Windows. Deus AI sends the selected conversation and reference material to the configured Gemini API. Spell checking and dictionary lookup use their configured external services. Mobile fonts and optional local analysis assets are downloaded when requested and cached locally. Project data, snapshots, and search indexes are stored in the vault or plugin storage.
 
 ---
 
 ## Installation
 
-1. Obsidian Settings → Community Plugins → Install from file
-2. Copy `manifest.json`, `main.js`, `styles.css` to `.obsidian/plugins/writing-menu/`
-3. Enable the plugin
+1. Extract the release ZIP and copy the complete `writing-menu` folder into `.obsidian/plugins/`.
+2. Keep both worker files and the complete `rag-runtime/` directory alongside `main.js`, `manifest.json`, and `styles.css`.
+3. Enable or reload Writing Menu in Obsidian Community Plugins. Updating the release files preserves `data.json` and existing records.
 
 ---
 
@@ -236,6 +238,8 @@ MIT
 
 
 # Writing Menu — Obsidian 창작 보조 플러그인
+
+현재 릴리즈는 [3.4.0](RELEASE_v3.4.0.md)입니다. 최신 동작은 [Deus AI](docs/deus-ai.md), [원고 저장·Sync 충돌](docs/paged-save-and-sync-conflicts.md), [모바일 글꼴·플롯 스냅샷](docs/plot-transfer-and-mobile-fonts.md)을 참고하세요. 아래 기능 개요에는 이전 작업 방식에 관한 설명도 포함되어 있습니다.
 
 웹소설 집필에 특화된 Obsidian 플러그인입니다. 편집기 서식, 커스텀 구분선, 맞춤법 검사, 글자수 추적, 작업 시간 기록, 캘린더 대시보드, 버전 관리, 위키 기능을 하나의 플러그인으로 통합합니다.
 
@@ -381,15 +385,15 @@ MIT
 | 파일시스템 (`fs`, `path`) | 플러그인 디렉토리에 Python 변환 스크립트 저장, 내보내기 시 파일 읽기/쓰기 |
 | 셸 실행 (`child_process`) | Python 3 프로세스를 실행하여 Markdown을 HWP로 변환 |
 
-해당 권한은 Windows HWP 내보내기 기능에만 사용됩니다. 나머지 모든 기능은 Obsidian 기본 Vault API만 사용하며, 외부 서버로 데이터를 전송하지 않습니다.
+HWP 변환은 Windows에서 로컬 Python 프로세스를 실행합니다. Deus AI는 대화와 선택한 참고 자료를 설정된 Gemini API로 전송합니다. 맞춤법 검사와 사전 조회는 각각의 외부 서비스를 사용합니다. 모바일 글꼴과 선택적 로컬 분석 자산은 요청 시 내려받아 캐시합니다. 프로젝트 데이터·스냅샷·검색 색인은 볼트 또는 플러그인 저장소에 보관합니다.
 
 ---
 
 ## 설치
 
-1. Obsidian 설정 → 커뮤니티 플러그인 → 파일에서 설치
-2. `manifest.json`, `main.js`, `styles.css`를 `.obsidian/plugins/writing-menu/`에 복사
-3. 플러그인 활성화
+1. 릴리즈 ZIP을 풀고 `writing-menu` 폴더 전체를 `.obsidian/plugins/`에 복사합니다.
+2. `main.js`, `manifest.json`, `styles.css`와 함께 두 Worker 파일과 `rag-runtime/` 전체를 유지합니다.
+3. Obsidian 커뮤니티 플러그인에서 활성화하거나 다시 불러옵니다. 릴리즈 파일 교체는 `data.json`과 기존 기록을 덮어쓰지 않습니다.
 
 ---
 

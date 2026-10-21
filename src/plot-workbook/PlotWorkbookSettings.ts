@@ -3,6 +3,7 @@ import type WritingMenuPlugin from '../../main';
 import { LegacyPlotImporter } from './LegacyPlotImporter';
 import { PLOT_WORKBOOK_VIEW_TYPE } from './PlotWorkbookTypes';
 import { renderPlotWorkbookStatusSettings } from './PlotWorkbookStatusSettings';
+import { openPlotSnapshots } from './PlotWorkbookTransferModal';
 
 function groupBox(container: HTMLElement, title?: string): HTMLElement {
 	const group = container.createDiv({ cls: 'setting-group' });
@@ -109,5 +110,24 @@ export function renderPlotWorkbookSettingsPage(containerEl: HTMLElement, plugin:
 		cls: 'wm-settings-item-desc',
 		text: '가져오기가 끝난 뒤에도 원본 파일과 이전 설정값은 보존됩니다. 새 시트를 확인한 후에만 원본을 직접 정리하세요.',
 	});
+}
+
+export function renderPlotSnapshotSettings(box: HTMLElement, plugin: WritingMenuPlugin): void {
+	new Setting(box).setName('저장 폴더').setDesc('볼트 기준 경로입니다. 비워두면 각 프로젝트 폴더 아래의 스냅샷 폴더에 저장합니다.')
+		.addText(text => text.setValue(plugin.settings.plotSnapshotFolder ?? '').setPlaceholder('프로젝트/스냅샷 (기본값)').onChange(async value => {
+			plugin.settings.plotSnapshotFolder = value.trim();
+			await plugin.saveSettings();
+		}));
+	const projects = plugin.projectContext.getProjects();
+	let project = projects[0];
+	const setting = new Setting(box).setName('수동 저장 · 불러오기')
+		.setDesc('Markdown 파일만 동기화하며 자동 반영하지 않습니다. 시트 서식과 복선 연결도 보존합니다.');
+	if (project) setting.addDropdown(dropdown => {
+		for (const item of projects) dropdown.addOption(item.id, item.name);
+		dropdown.setValue(project.id).onChange(id => { project = projects.find(item => item.id === id) ?? projects[0]; });
+	});
+	setting.addButton(button => button.setButtonText('관리').setDisabled(!project).onClick(() => {
+		if (project) void openPlotSnapshots(plugin, project);
+	}));
 }
 

@@ -1,4 +1,4 @@
-﻿import { setIcon } from 'obsidian';
+import { setIcon } from 'obsidian';
 
 declare const moment: (date?: unknown, fmt?: string) => { format(f: string): string };
 import type WritingMenuPlugin from '../../main';
@@ -18,7 +18,7 @@ export function showTaskAddPopup(
 	const popupWindow = popupDocument.defaultView ?? window;
 	popupDocument.querySelector('.wm-task-add-popup')?.remove();
 
-	const popup = popupDocument.body.createDiv({ cls: 'wm-task-add-popup wm-ver-popup' });
+	const popup = popupDocument.body.createDiv({ cls: 'wm-task-add-popup wm-popup' });
 	const rect  = anchor.getBoundingClientRect();
 	const viewportGap = 10;
 	const initialLeft = Math.max(viewportGap, Math.min(rect.left, popupWindow.innerWidth - 310));
@@ -50,7 +50,7 @@ export function showTaskAddPopup(
 		let pm = parseInt(selectedDate.slice(5, 7)) - 1;
 		const today2 = new Date();
 
-		const dpop = popupDocument.body.createDiv({ cls: 'wm-mini-date-picker wm-ver-popup' });
+		const dpop = popupDocument.body.createDiv({ cls: 'wm-mini-date-picker wm-popup' });
 		const dhdr = dpop.createDiv({ cls: 'wm-mini-picker-hdr' });
 		const dprev = dhdr.createDiv({ cls: 'wm-cal-icon-btn' });
 		setIcon(dprev, 'chevron-left');

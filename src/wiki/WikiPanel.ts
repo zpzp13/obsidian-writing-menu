@@ -2,8 +2,8 @@ import { Component, MarkdownRenderer, Menu, Notice, TFile, TFolder, setIcon, san
 import ForceGraph, { type GraphData, type LinkObject, type NodeObject } from 'force-graph';
 import type WritingMenuPlugin from '../../main';
 import { getToneColor } from './WikiTypes';
-import { FolderOrNoteSuggestModal, FolderSuggestModal, NoteSuggestModal, ImageSuggestModal, GenerateImageModal } from './WikiModals';
-import { getWikiImgSrc, getWikiDisplayName, saveGeneratedProfileImage, applyProfileImage } from './wikiProfileUtils';
+import { FolderOrNoteSuggestModal, FolderSuggestModal, NoteSuggestModal, ImageSuggestModal } from './WikiModals';
+import { getWikiImgSrc, getWikiDisplayName, applyProfileImage } from './wikiProfileUtils';
 
 interface AppWithSettings extends App {
 	setting?: { open(): void; openTabById(id: string): void };
@@ -513,7 +513,7 @@ export class WikiPanel {
 				this.toolbarCollapseTimer = window.setTimeout(() => wrap.addClass('is-collapsed'), 60);
 			});
 		}
-		const bar = wrap.createDiv({ cls: 'wiki-toolbar' });
+		const bar = wrap.createDiv({ cls: 'wiki-toolbar wm-dashboard-toolbar' });
 
 		this.historyBackButton = bar.createEl('button', {
 			cls: 'wm-cal-icon-btn wiki-history-btn',
@@ -1749,7 +1749,6 @@ export class WikiPanel {
 			? [{ labels: forward, side: 1, direction: 1 }, { labels: reverse, side: -1, direction: -1 }]
 			: [{ labels: displayLabels, side: 1, direction: 1 }];
 		const getRelationEnd = (direction: number) => {
-			const destination = direction > 0 ? target : source;
 			const destinationX = direction > 0 ? tx : sx;
 			const destinationY = direction > 0 ? ty : sy;
 			const radius = 21;
@@ -2539,9 +2538,7 @@ export class WikiPanel {
 			ph.createSpan({ text: displayName.charAt(0).toUpperCase() });
 			ph.onclick = () => this.openImagePicker(file);
 		}
-		const genBtn = imgCon.createDiv({ cls: 'wiki-profile-genimg-btn', attr: { 'aria-label': 'AI로 이미지 생성' } });
-		setIcon(genBtn, 'sparkles');
-		genBtn.onclick = (e) => { e.stopPropagation(); this.openGenerateImageModal(file); };
+
 
 		// 속성 (div 기반)
 		const props = pCon.createDiv({ cls: 'wiki-props' });
@@ -2598,29 +2595,6 @@ export class WikiPanel {
 				new Notice('이미지 프론트매터 업데이트 실패. 콘솔을 확인하세요.');
 			}
 		})(); }).open();
-	}
-
-	private openGenerateImageModal(file: TFile) {
-		if (!this.plugin.settings.aiChatGeminiApiKey && !this.plugin.settings.aiImageOpenaiApiKey) {
-			new Notice('플러그인 설정 > AI 페이지에서 Google AI Studio 또는 OpenAI 키를 먼저 등록하세요.');
-			return;
-		}
-		new GenerateImageModal(
-			this.app,
-			{ gemini: this.plugin.settings.aiChatGeminiApiKey, openai: this.plugin.settings.aiImageOpenaiApiKey },
-			this.plugin.settings.aiImageModel,
-			this.plugin.settings.aiImageAspectRatio,
-			this.plugin.settings.aiImageStyleReferencePath,
-			async (base64) => {
-				try {
-					const imgFile = await saveGeneratedProfileImage(this.app, file, base64);
-					await applyProfileImage(this.app, this.plugin, file, imgFile, this.container);
-				} catch (e) {
-					console.error('[wiki] 이미지 저장/적용 실패:', e);
-					new Notice('이미지 저장 또는 프론트매터 업데이트 실패. 콘솔을 확인하세요.');
-				}
-			},
-		).open();
 	}
 
 	private findScrollableParent(el: HTMLElement): HTMLElement | null {

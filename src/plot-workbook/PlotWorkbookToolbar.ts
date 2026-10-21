@@ -12,17 +12,11 @@ import {
 	toThemeColorPair,
 } from '../utils/themeColor';
 import type { InfinitePlotSheet } from './InfinitePlotSheet';
-import {
-	DEFAULT_PLOTBOOK_FONT_SIZE,
-	MAX_PLOTBOOK_COLUMN_WIDTH,
-	MAX_PLOTBOOK_ROW_HEIGHT,
-	MIN_PLOTBOOK_COLUMN_WIDTH,
-	MIN_PLOTBOOK_ROW_HEIGHT,
-	type PlotWorkbookCellStyle,
-} from './PlotWorkbookTypes';
+import { DEFAULT_PLOTBOOK_FONT_SIZE, MAX_PLOTBOOK_COLUMN_WIDTH, MAX_PLOTBOOK_ROW_HEIGHT, MIN_PLOTBOOK_COLUMN_WIDTH, MIN_PLOTBOOK_ROW_HEIGHT } from './PlotWorkbookTypes';
 import type { PlotWorkbookSession } from './PlotWorkbookSession';
 import { createToolbarActionOption, createToolbarIconButton, createToolbarOption, createToolbarSelect } from '../toolbar/toolbarUi';
 import { PlotWorkbookMarkdownExportModal } from './PlotWorkbookMarkdownExport';
+import { openPlotSnapshots } from './PlotWorkbookTransferModal';
 import { InstalledFontCache } from '../toolbar/InstalledFontCache';
 import { CSS_PX_PER_PT, formatTypographyNumber, pixelsToPoints } from '../utils/typography';
 
@@ -182,6 +176,7 @@ export class PlotWorkbookToolbar {
 		this.createColorControl(formatting, 'color');
 		this.createColorControl(formatting, 'backgroundColor');
 		const exportButton = this.createIconButton(formatting, 'file-output', '내보내기', () => {
+			this.sheet.commitEditing();
 			this.openPopover(exportButton, 'wm-writing-action-popover', popover => {
 				createToolbarActionOption(popover, 'file-text', 'Markdown으로 내보내기', () => {
 					this.closePopover();
@@ -191,6 +186,13 @@ export class PlotWorkbookToolbar {
 			});
 		});
 		exportButton.setAttribute('aria-haspopup', 'menu');
+		const snapshots = this.createIconButton(formatting, 'camera', '플롯 스냅샷', () => {
+			this.sheet.commitEditing();
+			this.closePopover();
+			const project = this.projects.find(item => item.id === this.projectId);
+			if (project) void openPlotSnapshots(this.plugin, project);
+		});
+		snapshots.disabled = !this.projects.some(item => item.id === this.projectId);
 		this.createIconButton(formatting, 'panel-right', '플롯 매니저 사이드바', () => {
 			void this.plugin.openPlotWorkbookSidebar({ projectId:this.projectId ?? undefined, ...this.sheet.getSelectedLocation() });
 		});

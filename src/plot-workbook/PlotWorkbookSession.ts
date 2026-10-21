@@ -28,6 +28,7 @@ import {
 	type PlotWorkbookCellSnapshotRef,
 	type PlotWorkbookRowDimensionChange,
 	type PlotWorkbookColumnDimensionChange,
+	type PlotWorkbookSnapshotData,
 } from './PlotWorkbookTypes';
 import { plotWorkbookStatuses, plotWorkbookStatusColor } from './PlotWorkbookStatus';
 import { PlotWorkbookRepository } from './PlotWorkbookRepository';
@@ -53,6 +54,7 @@ export class PlotWorkbookSession {
 	private listeners = new Set<() => void>();
 	private undoStack: HistoryEntry[] = [];
 	private redoStack: HistoryEntry[] = [];
+	private snapshotBusy = false;
 	private foreshadowLocationIndex: Map<string, PlotWorkbookForeshadow[]> | null = null;
 	private readonly appearanceCache = new WeakMap<PlotWorkbookSheet, { seq: number; children: Map<string, string[]>; paths: Map<string, string[]> }>();
 
@@ -76,6 +78,7 @@ export class PlotWorkbookSession {
 	}
 
 	async selectSheet(sheetId: string): Promise<void> {
+		this.assertEditable();
 		if (!this.sheets.has(sheetId) || sheetId === this.manifest.activeSheetId) return;
 		this.manifest.activeSheetId = sheetId;
 		await this.repository.setActiveSheet(sheetId);
@@ -83,6 +86,7 @@ export class PlotWorkbookSession {
 	}
 
 	async addSheet(): Promise<PlotWorkbookSheet> {
+		this.assertEditable();
 		const used = new Set(this.manifest.sheets.map(sheet => sheet.name));
 		let index = this.manifest.sheets.length + 1;
 		while (used.has(`시트 ${index}`)) index++;
@@ -764,6 +768,7 @@ export class PlotWorkbookSession {
 	}
 
 	async addLabel(name: string, color: string): Promise<PlotWorkbookLabel | null> {
+		this.assertEditable();
 		const cleanName = name.trim();
 		if (!cleanName) return null;
 		const cleanColor = /^#[0-9a-f]{6}$/i.test(color.trim()) ? color.trim() : '#7c8cf8';
@@ -783,6 +788,7 @@ export class PlotWorkbookSession {
 	}
 
 	refreshStatusSettings(statuses: PlotWorkbookStatus[] | undefined): void {
+		this.assertEditable();
 		this.manifest.statuses = statuses?.map(status => ({ ...status }));
 		this.emit();
 	}
@@ -818,6 +824,7 @@ export class PlotWorkbookSession {
 	}
 
 	private async saveStatusOverride(status: PlotWorkbookStatus): Promise<boolean> {
+		this.assertEditable();
 		const previous = this.manifest.statuses;
 		this.manifest.statuses = [...(previous ?? []).filter(item => item.id !== status.id), status];
 		try { await this.repository.saveManifestState(); }
@@ -874,6 +881,7 @@ export class PlotWorkbookSession {
 		resolvedAt?: PlotWorkbookForeshadowLocation,
 		status: 'open' | 'resolved' = 'open',
 	): Promise<PlotWorkbookForeshadow | null> {
+		this.assertEditable();
 		const cleanTitle = title.trim();
 		if (!cleanTitle) return null;
 		if ((plantedAt && !this.validForeshadowLocation(plantedAt))
@@ -906,6 +914,7 @@ export class PlotWorkbookSession {
 		payoff?: PlotWorkbookForeshadowLocation;
 		status: 'open' | 'resolved';
 	}): Promise<boolean> {
+		this.assertEditable();
 		const item = this.foreshadows.find(candidate => candidate.id === id);
 		if (!item || !detail.title.trim() || !this.validForeshadowLocation(detail.plant)
 			|| (detail.payoff && !this.validForeshadowLocation(detail.payoff))
@@ -946,6 +955,7 @@ export class PlotWorkbookSession {
 	}
 
 	async addForeshadowPlant(id: string, location: PlotWorkbookForeshadowLocation): Promise<void> {
+		this.assertEditable();
 		const foreshadow = this.foreshadows.find(item => item.id === id);
 		if (!foreshadow || !this.validForeshadowLocation(location)
 			|| !this.isForeshadowRouteInOrder(location, foreshadow.resolvedAt[foreshadow.resolvedAt.length - 1])) return;
@@ -961,6 +971,7 @@ export class PlotWorkbookSession {
 	}
 
 	async removeForeshadowPlant(id: string, location: PlotWorkbookForeshadowLocation): Promise<void> {
+		this.assertEditable();
 		const foreshadow = this.foreshadows.find(item => item.id === id);
 		if (!foreshadow) return;
 		if (!foreshadow.plantedAt.some(candidate => sameForeshadowLocation(candidate, location))) return;
@@ -972,6 +983,7 @@ export class PlotWorkbookSession {
 	}
 
 	async resolveForeshadow(id: string, location: PlotWorkbookForeshadowLocation): Promise<void> {
+		this.assertEditable();
 		const foreshadow = this.foreshadows.find(item => item.id === id);
 		if (!foreshadow || !this.validForeshadowLocation(location)
 			|| !this.isForeshadowRouteInOrder(foreshadow.plantedAt[foreshadow.plantedAt.length - 1], location)) return;
@@ -984,6 +996,7 @@ export class PlotWorkbookSession {
 	}
 
 	async removeForeshadowResolution(id: string, location: PlotWorkbookForeshadowLocation): Promise<void> {
+		this.assertEditable();
 		const foreshadow = this.foreshadows.find(item => item.id === id);
 		if (!foreshadow) return;
 		if (!foreshadow.resolvedAt.some(candidate => sameForeshadowLocation(candidate, location))) return;
@@ -996,6 +1009,7 @@ export class PlotWorkbookSession {
 	}
 
 	async updateForeshadow(id: string, title: string, note = ''): Promise<void> {
+		this.assertEditable();
 		const foreshadow = this.foreshadows.find(item => item.id === id);
 		const cleanTitle = title.trim();
 		if (!foreshadow || !cleanTitle) return;
@@ -1008,6 +1022,7 @@ export class PlotWorkbookSession {
 	}
 
 	async deleteForeshadow(id: string): Promise<void> {
+		this.assertEditable();
 		const index = this.foreshadows.findIndex(item => item.id === id);
 		if (index < 0) return;
 		this.foreshadows.splice(index, 1);
@@ -1035,10 +1050,12 @@ export class PlotWorkbookSession {
 		targets: Array<{ rowId: string; columnId: string; label?: string }>,
 		title: string,
 	): Promise<number> {
+		this.assertEditable();
 		const sheet = this.activeSheet;
 		const cleanTitle = title.trim();
 		let count = 0;
 		for (const target of targets) {
+			this.assertEditable();
 			if (!sheet.rows[target.rowId] || !sheet.columns[target.columnId]) continue;
 			const value = this.getCell(sheet, target.rowId, target.columnId);
 			if (!value) continue;
@@ -1070,10 +1087,12 @@ export class PlotWorkbookSession {
 	}
 
 	renameCellSnapshot(snapshotId: string, title: string): Promise<void> {
+		this.assertEditable();
 		return this.repository.renameCellSnapshot(snapshotId, title).then(() => this.emit());
 	}
 
 	deleteCellSnapshot(snapshotId: string): Promise<void> {
+		this.assertEditable();
 		return this.repository.deleteCellSnapshot(snapshotId).then(() => this.emit());
 	}
 
@@ -1385,6 +1404,7 @@ export class PlotWorkbookSession {
 	}
 
 	async renameSheet(sheetId: string, name: string): Promise<void> {
+		this.assertEditable();
 		const ref = this.manifest.sheets.find(sheet => sheet.id === sheetId);
 		const sheet = this.sheets.get(sheetId);
 		const next = name.trim();
@@ -1396,11 +1416,13 @@ export class PlotWorkbookSession {
 	}
 
 	async deleteSheet(sheetId: string): Promise<boolean> {
+		this.assertEditable();
 		if (this.manifest.sheets.length <= 1) return false;
 		const index = this.manifest.sheets.findIndex(sheet => sheet.id === sheetId);
 		if (index < 0) return false;
 		const sheet = this.sheets.get(sheetId);
 		if (sheet) await this.repository.flushSheet(sheet);
+		this.assertEditable();
 		const [ref] = this.manifest.sheets.splice(index, 1);
 		const deleted = this.manifest.deletedSheets ?? (this.manifest.deletedSheets = []);
 		deleted.push({ ...ref, deletedAt: Date.now(), originalIndex: index });
@@ -1413,6 +1435,7 @@ export class PlotWorkbookSession {
 	}
 
 	async restoreSheet(sheetId: string): Promise<boolean> {
+		this.assertEditable();
 		const deleted = this.manifest.deletedSheets ?? [];
 		const index = deleted.findIndex(sheet => sheet.id === sheetId);
 		if (index < 0 || !this.sheets.has(sheetId)) return false;
@@ -1426,6 +1449,7 @@ export class PlotWorkbookSession {
 	}
 
 	async permanentlyDeleteSheet(sheetId: string): Promise<boolean> {
+		this.assertEditable();
 		const deleted = this.manifest.deletedSheets ?? [];
 		const index = deleted.findIndex(sheet => sheet.id === sheetId);
 		if (index < 0) return false;
@@ -1453,6 +1477,7 @@ export class PlotWorkbookSession {
 			this.foreshadowLocationIndex = null;
 			await this.repository.saveForeshadowsState(this.foreshadows);
 		}
+		this.assertEditable();
 		this.sheets.delete(sheetId);
 		await this.repository.deleteSheetStorage(sheetId, snapshotIds);
 		// Refresh the automatic previous copies as well so a later recovery does
@@ -1648,6 +1673,7 @@ export class PlotWorkbookSession {
 	}
 
 	undo(): void {
+		this.assertEditable();
 		const entry = this.undoStack.pop();
 		if (!entry) return;
 		this.commitReplayBatch(Array.isArray(entry.undo) ? entry.undo : [entry.undo]);
@@ -1655,6 +1681,7 @@ export class PlotWorkbookSession {
 	}
 
 	redo(): void {
+		this.assertEditable();
 		const entry = this.redoStack.pop();
 		if (!entry) return;
 		this.commitReplayBatch(Array.isArray(entry.redo) ? entry.redo : [entry.redo]);
@@ -1666,6 +1693,48 @@ export class PlotWorkbookSession {
 
 	async flush(): Promise<void> {
 		await this.repository.flushAll(this.sheets.values());
+	}
+
+	/** A modal owns this short lock; no open view may mutate the transfer image. */
+	async withSnapshot<T>(action: (data: PlotWorkbookSnapshotData) => Promise<T>): Promise<T> {
+		this.assertEditable();
+		this.snapshotBusy = true;
+		try {
+			await this.flush();
+			const data: PlotWorkbookSnapshotData = JSON.parse(JSON.stringify({
+				manifest: this.manifest, sheets: [...this.sheets.values()], foreshadows: this.foreshadows, cellSnapshots: [],
+			}));
+			delete data.manifest.storageGeneration;
+			for (const ref of data.manifest.snapshots ?? []) {
+				const snapshot = await this.repository.readCellSnapshot(ref.id);
+				if (!snapshot) throw new Error(`셀 스냅샷이 누락되어 저장을 중단했습니다: ${ref.title}`);
+				data.cellSnapshots.push(snapshot);
+			}
+			this.repository.validateSnapshotData(data);
+			return await action(data);
+		} finally { this.snapshotBusy = false; }
+	}
+
+	/** Must be called only inside withSnapshot, after the caller's backup succeeds. */
+	async restoreSnapshot(data: PlotWorkbookSnapshotData): Promise<void> {
+		if (!this.snapshotBusy) throw new Error('스냅샷 작업 잠금이 필요합니다.');
+		await this.repository.restoreSnapshot(data);
+		for (const key of Object.keys(this.manifest)) delete (this.manifest as unknown as Record<string, unknown>)[key];
+		Object.assign(this.manifest, data.manifest);
+		// Repository and views must continue sharing the same manifest object.
+		this.repository.adoptManifest(this.manifest);
+		this.sheets.clear();
+		for (const sheet of data.sheets) this.sheets.set(sheet.sheetId, sheet);
+		this.foreshadows.splice(0, this.foreshadows.length, ...data.foreshadows);
+		this.foreshadowLocationIndex = null;
+		this.undoStack = [];
+		this.redoStack = [];
+		this.emit();
+	}
+
+	private assertEditable(): void {
+		if (this.repository.isRecoveryRequired) throw new Error('저장 목록을 확인할 수 없습니다. 플롯을 다시 열어 복구해주세요. 교체 전 백업은 보존되어 있습니다.');
+		if (this.snapshotBusy) throw new Error('스냅샷을 처리하고 있습니다. 완료 후 다시 시도해주세요.');
 	}
 
 	dispose(): void {
@@ -1686,6 +1755,7 @@ export class PlotWorkbookSession {
 	}
 
 	private commit(operation: PlotWorkbookOperation, history?: HistoryEntry): void {
+		this.assertEditable();
 		const sheet = this.sheets.get(operation.sheetId);
 		if (!sheet) return;
 		applyPlotWorkbookOperation(sheet, operation);
@@ -1699,6 +1769,7 @@ export class PlotWorkbookSession {
 	}
 
 	private commitBatch(operations: PlotWorkbookOperation[], history?: HistoryEntry): void {
+		this.assertEditable();
 		for (const operation of operations) {
 			const sheet = this.sheets.get(operation.sheetId);
 			if (!sheet) continue;

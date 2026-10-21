@@ -1,4 +1,4 @@
-﻿import { App, Modal, Editor, setIcon, setTooltip } from 'obsidian';
+﻿import { App, Modal, Editor, setIcon } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import charData from './charData.json';
 import { bindMobileSearchModalViewport } from '../ui/MobileSearchModalViewport';

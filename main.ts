@@ -24,6 +24,10 @@ import { LeafStyleManager } from './src/editor/LeafStyleManager';
 import { ToolbarManager } from './src/toolbar/ToolbarManager';
 import { StopwatchManager } from './src/dashboard/StopwatchManager';
 import { SpellCheckerService } from './src/spellcheck/index';
+import { initializeWritingDocuments } from './src/writing/WritingDocument';
+import { openSnapshotManager, snapshotTarget } from './src/snapshots/SnapshotManager';
+import { initializeManuscriptSnapshots } from './src/snapshots/ManuscriptSnapshotLifecycle';
+import { migrateDashboardSettings } from './src/settings/migrateDashboardSettings';
 
 const LEGACY_PLOT_VIEW_TYPE = 'writing-menu-plot-manager';
 const LEGACY_PLOT_TIMELINE_VIEW_TYPE = 'writing-menu-plot-timeline';
@@ -32,6 +36,8 @@ import { repetitionHighlightExtension } from './src/editor/repetitionHighlight';
 import { spellcheckHighlightExtension } from './src/editor/spellcheckHighlight';
 import { PagedWritingView, PAGED_WRITING_VIEW_TYPE } from './src/paged/PagedWritingView';
 import { ProjectContextService } from './src/projects/ProjectContextService';
+import { MobileFontManager } from './src/fonts/MobileFontManager';
+import { observeThemeMode } from './src/utils/themeColor';
 
 interface WritingMenuRuntimeWindow extends Window {
 	__writingMenuPluginInstance?: WritingMenuPlugin;
@@ -72,8 +78,10 @@ export default class WritingMenuPlugin extends Plugin {
 	toolbarManager: ToolbarManager;
 	stopwatchManager: StopwatchManager;
 	projectContext: ProjectContextService;
+	mobileFonts: MobileFontManager;
 
 	async onload() {
+		initializeWritingDocuments(this);
 		const runtimeWindow = window as WritingMenuRuntimeWindow;
 		const previousInstance = runtimeWindow.__writingMenuPluginInstance;
 		if (previousInstance && previousInstance !== this) previousInstance.unload();
@@ -92,9 +100,15 @@ export default class WritingMenuPlugin extends Plugin {
 
 	private async initialize() {
 		await this.loadSettings();
+		initializeManuscriptSnapshots(this);
 
 		this.projectContext = new ProjectContextService(this);
 		this.leafStyleManager = new LeafStyleManager(this);
+		this.mobileFonts = new MobileFontManager(this, () => {
+			this.regenerateCSSTemplate();
+			this.updateAllLeafStyles();
+		});
+		this.register(() => this.mobileFonts.dispose());
 		this.toolbarManager = new ToolbarManager(this);
 		this.stopwatchManager = new StopwatchManager(this);
 		const staleZenMode = activeDocument.body.classList.contains('wm-focus-mode')
@@ -188,18 +202,10 @@ export default class WritingMenuPlugin extends Plugin {
 		this.updateAllToolbars();
 		this.updateAllLeafStyles();
 
-		const themeObserver = new MutationObserver((mutations) => {
-			mutations.forEach((mutation) => {
-				if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-					if (mutation.target === activeDocument.body) {
-						this.regenerateCSSTemplate();
-						this.updateAllLeafStyles();
-					}
-				}
-			});
-		});
-		themeObserver.observe(activeDocument.body, { attributes: true, attributeFilter: ['class'] });
-		this.register(() => themeObserver.disconnect());
+		this.register(observeThemeMode(activeDocument, () => {
+			this.regenerateCSSTemplate();
+			this.updateAllLeafStyles();
+		}));
 
 		this.registerEditorExtension(createFocusExtension(this));
 		this.registerEditorExtension(createSelectionExtension(this));
@@ -338,6 +344,12 @@ export default class WritingMenuPlugin extends Plugin {
 			(leaf) => new LegacyPlotViewRedirect(leaf, LEGACY_PLOT_TIMELINE_VIEW_TYPE),
 		);
 		this.app.workspace.onLayoutReady(() => { void this.migrateLegacyPlotViews(); });
+
+		this.addCommand({ id: 'snapshot-manager', icon: 'camera', name: '스냅샷 관리', checkCallback: checking => {
+			if (!snapshotTarget(this)) return false;
+			if (!checking) openSnapshotManager(this);
+			return true;
+		} });
 
 		this.registerView(
 			PAGED_WRITING_VIEW_TYPE,
@@ -690,7 +702,8 @@ export default class WritingMenuPlugin extends Plugin {
 
 
 	async loadSettings() {
-		const savedData = await this.loadData() as Partial<WritingMenuSettings> & { showTimeInStatusBar?: boolean };
+		const savedData = (await this.loadData() ?? {}) as Partial<WritingMenuSettings> & { showTimeInStatusBar?: boolean };
+		const dashboardSettingsMigrated = migrateDashboardSettings(savedData as Record<string, unknown>);
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, savedData);
 		const obsoleteSettings = this.settings as unknown as Record<string, unknown>;
 		const currentTheme = activeDocument.body.classList.contains('theme-dark') ? 'dark' : 'light';
@@ -751,14 +764,7 @@ export default class WritingMenuPlugin extends Plugin {
 			this.settings.aiChatModel = 'gemini-3.8-flash';
 			aiSettingsMigrated = true;
 		}
-		if (this.settings.aiEpisodeModel === 'gemma-4-31b') {
-			this.settings.aiEpisodeModel = 'gemma-4-31b-it';
-			aiSettingsMigrated = true;
-		} else if (this.settings.aiEpisodeModel === 'google/diffusiongemma-26b-a4b-it') {
-			this.settings.aiEpisodeModel = 'gemini-3.8-flash';
-			aiSettingsMigrated = true;
-		}
-		if (aiSettingsMigrated) void this.saveSettings();
+		if (aiSettingsMigrated || dashboardSettingsMigrated) void this.saveSettings();
 		// @ts-ignore
 		if (this.settings.symbolPairs && !this.settings.symbolTriggers) {
 			this.settings.symbolTriggers = [];

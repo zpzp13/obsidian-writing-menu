@@ -82,6 +82,8 @@ export interface WritingProject {
 export interface WritingMenuSettings {
 	fontFamily: string;
 	customFonts: string[];
+	/** Mobile uses downloaded fonts without changing the desktop selection. */
+	mobileFontFamily: string;
 	fontWeight: number;
 	fontSize: number;
 	fontColor: string | { light: string; dark: string };
@@ -108,6 +110,7 @@ export interface WritingMenuSettings {
 	plotWorkbookLastBackgroundColor: ThemeAwareColor;
 	plotCharacterLinkOpenMode: 'tab' | 'current' | 'sidebar';
 	plotCharacterLinkFormat: 'markdown' | 'wiki';
+	plotSnapshotFolder: string;
 	applyToFolder: string;
 	disableLinkColor: boolean;
 	hrEnabled: boolean;
@@ -158,10 +161,9 @@ export interface WritingMenuSettings {
 	stdictApiKey: string;
 	hanjaBracketMode: boolean;
 	recentSearches: string[];
-	versionStoragePath: string;
-	versionMaxCount: number;
-	versionStages: { name: string; color: string }[];
-	versionToolbarAutoHide: boolean;
+	snapshotStoragePath: string;
+	snapshotMaxCount: number;
+	snapshotLabels: { name: string; color: string }[];
 	projects: WritingProject[];
 	restrictStatisticsToProjects: boolean;
 	/** @deprecated 다중 프로젝트 마이그레이션을 위해 당분간 유지합니다. */
@@ -229,42 +231,29 @@ export interface WritingMenuSettings {
 	aiChatApiKey: string;
 	aiChatGeminiApiKey: string;
 	aiChatModel: string;
-	/** 인물 노트 프로필 이미지 생성에 사용할 모델 (Nano Banana 계열은 aiChatGeminiApiKey 재사용, GPT Image는 aiImageOpenaiApiKey 사용) */
-	aiImageModel: string;
-	/** GPT Image(OpenAI) 이미지 생성 전용 API 키 */
-	aiImageOpenaiApiKey: string;
-	/** 이미지 생성 요청 시 사용할 종횡비 (Nano Banana가 지원하는 값만: 1:1, 3:4, 4:3, 9:16, 16:9) */
-	aiImageAspectRatio: string;
-	/** 화풍 참고 이미지 기본 경로 (볼트 내 이미지 파일, Nano Banana 계열 모델에서만 사용됨) */
-	aiImageStyleReferencePath: string;
 	aiChatLastCharacterPath: string;
 	aiChatLastSpeakerPath: string;
-	aiChatSystemPromptNotePath: string;
-	/** 작품 루트 폴더 (에피소드/캐릭터 노트 자동 스코프용, Plot Manager 설정과는 별개) */
-	aiEpisodeRootFolder: string;
-	/** 루트 폴더 하위 에피소드(플롯) 노트 폴더명 */
-	aiEpisodeDataFolder: string;
-	/** 루트 폴더 하위 캐릭터 노트 폴더명 */
-	aiEpisodeCharFolder: string;
-	/** 루트 폴더 하위 완성 본문 노트 폴더명 (직전 회차의 실제 문체를 참고용으로 먹이기 위함) */
-	aiEpisodeBodyFolder: string;
-	/** 회차챗 초안 패스의 톤/전개 지침 노트. 지정하면 노트를 선택할 때 기본 지침이 자동으로 채워지고, 그 내용을 직접 수정해서 쓸 수 있다. */
-	aiEpisodeSystemPromptNotePath: string;
-	/** 회차챗 전용 모델 (캐릭터 챗의 aiChatModel과 분리) */
-	aiEpisodeModel: string;
-	aiChatPersonaHeading: string;
 	aiChatTemperature: number;
 	aiChatNarrationFontSize: number;
 	aiChatDialogueFontSize: number;
-	aiChatToolbarAutoHide: boolean;
+	aiChatSidebarWidth: number;
+	aiChatStreaming: boolean;
+	aiChatCitationOpenMode: 'current' | 'tab';
+	aiChatMaxOutputTokens: number;
+	aiChatHistoryTurns: number;
+	/** @deprecated Kept for existing settings; chat no longer applies an input character cap. */
+	aiChatMaxContextChars: number;
+	aiChatAutoContext: boolean;
+	aiChatFreeOnly: boolean;
+	aiChatFreeModel: string;
 	// ── 퇴고 매니저 (Revision Manager) ─────────────────────────────────────────
-	repetitionVocabNotePath: string;
+	paragraphAnalysis: { countSpaces: boolean; boundary: 'line' | 'block'; mobileLineChars: number; singleQuote: 'narration' | 'dialogue' | 'monologue' | 'special'; roundBracket: 'narration' | 'dialogue' | 'monologue' | 'special' };
 	// ── Update ────────────────────────────────────────────────────────────────
 	lastSeenVersion?: string;
 }
 
 export interface DashSectionConfig {
-	id: 'calendar' | 'chars' | 'timer' | 'time' | 'music' | 'tasks' | 'version' | 'repetition';
+	id: 'calendar' | 'chars' | 'timer' | 'time' | 'music' | 'tasks' | 'snapshots' | 'repetition';
 	label: string;
 	visible: boolean;
 }
@@ -272,6 +261,7 @@ export interface DashSectionConfig {
 export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	fontFamily: 'inherit',
 	customFonts: [],
+	mobileFontFamily: 'inherit',
 	fontWeight: 400,
 	fontSize: 16,
 	fontColor: 'inherit',
@@ -298,6 +288,7 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	plotWorkbookLastBackgroundColor: { light: '#fef3c7', dark: '#514719' },
 	plotCharacterLinkOpenMode: 'sidebar',
 	plotCharacterLinkFormat: 'wiki',
+	plotSnapshotFolder: '',
 	applyToFolder: '',
 	disableLinkColor: false,
 	hrEnabled: false,
@@ -369,14 +360,13 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	stdictApiKey: '',
 	hanjaBracketMode: false,
 	recentSearches: [],
-	versionStoragePath: '.writing-menu-versions',
-	versionMaxCount: 50,
-	versionStages: [
+	snapshotStoragePath: '.writing-menu-versions',
+	snapshotMaxCount: 50,
+	snapshotLabels: [
 		{ name: '초고', color: '#a8c8f0' },
 		{ name: '퇴고', color: '#f0c8a8' },
 		{ name: '연출', color: '#c8a8f0' },
 	],
-	versionToolbarAutoHide: false,
 	projects: [],
 	restrictStatisticsToProjects: true,
 	trackingFolder: '',
@@ -444,25 +434,21 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	aiChatApiKey: '',
 	aiChatGeminiApiKey: '',
 	aiChatModel: 'gemini-3.8-flash',
-	aiImageModel: 'gemini-2.5-flash-image',
-	aiImageOpenaiApiKey: '',
-	aiImageAspectRatio: '3:4',
-	aiImageStyleReferencePath: '',
 	aiChatLastCharacterPath: '',
 	aiChatLastSpeakerPath: '',
-	aiChatSystemPromptNotePath: '',
-	aiEpisodeRootFolder: '',
-	aiEpisodeDataFolder: '',
-	aiEpisodeCharFolder: '',
-	aiEpisodeBodyFolder: '',
-	aiEpisodeSystemPromptNotePath: '',
-	aiEpisodeModel: 'gemini-3.8-flash',
-	aiChatPersonaHeading: '',
 	aiChatTemperature: 1.0,
 	aiChatNarrationFontSize: 0.9,
 	aiChatDialogueFontSize: 1.0,
-	aiChatToolbarAutoHide: false,
-	repetitionVocabNotePath: '',
+	aiChatSidebarWidth: 200,
+	aiChatStreaming: true,
+	aiChatCitationOpenMode: 'current',
+	aiChatMaxOutputTokens: 4096,
+	aiChatHistoryTurns: 30,
+	aiChatMaxContextChars: 0,
+	aiChatAutoContext: true,
+	aiChatFreeOnly: true,
+	aiChatFreeModel: 'gemini-3.5-flash-lite',
+	paragraphAnalysis: { countSpaces: true, boundary: 'line', mobileLineChars: 28, singleQuote: 'monologue', roundBracket: 'monologue' },
 };
 import type { Component } from 'obsidian';
 

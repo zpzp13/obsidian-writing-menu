@@ -1,6 +1,6 @@
 import { ButtonComponent, Modal, Notice, SearchComponent, Setting, ToggleComponent, setIcon } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
-import { computeInlineDiff, computeLineDiff, DIFF_DELETE, DIFF_INSERT } from '../version/diff';
+import { renderSnapshotDiff } from '../snapshots/SnapshotDiffView';
 import type { PlotWorkbookSession } from './PlotWorkbookSession';
 import type { PlotWorkbookCellSnapshotRef } from './PlotWorkbookTypes';
 
@@ -32,7 +32,7 @@ export class PlotWorkbookSnapshotModal extends Modal {
 	onOpen(): void {
 		this.setTitle('스냅샷');
 		// Obsidian File Recovery와 같은 모달 레이아웃 및 순정 스타일을 사용한다.
-		this.modalEl.addClass('mod-sync-history', 'mod-sidebar-layout', 'wm-plotbook-snapshot-modal');
+		this.modalEl.addClass('mod-sync-history', 'mod-sidebar-layout', 'wm-plotbook-snapshot-modal', 'wm-snapshot-manager');
 		this.render();
 	}
 
@@ -198,74 +198,7 @@ export class PlotWorkbookSnapshotModal extends Modal {
 		textarea.value = snapshot.value;
 		if (!this.compareMode) return;
 		const current = this.session.getCell(this.session.activeSheet, item.target.rowId, item.target.columnId);
-		this.renderNativeDiff(diff, snapshot.value, current);
-	}
-
-	private renderNativeDiff(container: HTMLElement, before: string, after: string): void {
-		container.empty();
-		const view = container.createDiv({ cls: 'diff-view' });
-		for (const hunk of computeLineDiff(before, after)) {
-			if (hunk.type === 'equal') {
-				this.appendEqualLines(view, hunk.aLines);
-				continue;
-			}
-			if (hunk.type === 'delete') {
-				for (const line of hunk.aLines) this.createDiffLine(view, line, 'left');
-				continue;
-			}
-			if (hunk.type === 'insert') {
-				for (const line of hunk.bLines) this.createDiffLine(view, line, 'right');
-				continue;
-			}
-			const paired = Math.min(hunk.aLines.length, hunk.bLines.length);
-			for (let index = 0; index < paired; index++) {
-				const left = view.ownerDocument.createDocumentFragment();
-				const right = view.ownerDocument.createDocumentFragment();
-				for (const segment of computeInlineDiff(hunk.aLines[index], hunk.bLines[index])) {
-					if (segment.op !== DIFF_INSERT) left.createSpan({
-						cls: segment.op === DIFF_DELETE ? 'diff-changed' : '',
-						text: segment.text,
-					});
-					if (segment.op !== DIFF_DELETE) right.createSpan({
-						cls: segment.op === DIFF_INSERT ? 'diff-changed' : '',
-						text: segment.text,
-					});
-				}
-				this.createDiffLine(view, left, 'left');
-				this.createDiffLine(view, right, 'right');
-			}
-			for (const line of hunk.aLines.slice(paired)) this.createDiffLine(view, line, 'left');
-			for (const line of hunk.bLines.slice(paired)) this.createDiffLine(view, line, 'right');
-		}
-	}
-
-	private appendEqualLines(view: HTMLElement, lines: string[]): void {
-		if (lines.length <= 10) {
-			for (const line of lines) this.createDiffLine(view, line);
-			return;
-		}
-		for (const line of lines.slice(0, 3)) this.createDiffLine(view, line);
-		const folded = lines.slice(3, -3).map(line => this.makeDiffLine(view.ownerDocument, line));
-		const collapsed = view.createDiv({ cls: 'diff-collapsed', text: `${folded.length}줄 접힘` });
-		collapsed.addEventListener('click', () => {
-			for (const line of folded) view.insertBefore(line, collapsed);
-			collapsed.remove();
-		});
-		for (const line of lines.slice(-3)) this.createDiffLine(view, line);
-	}
-
-	private makeDiffLine(ownerDocument: Document, content: string | DocumentFragment, side?: 'left' | 'right'): HTMLElement {
-		const line = ownerDocument.createElement('div');
-		line.addClass('diff-line');
-		if (side) line.addClass(`mod-${side}`);
-		if (typeof content === 'string') line.setText(content);
-		else line.appendChild(content);
-		line.createEl('br');
-		return line;
-	}
-
-	private createDiffLine(view: HTMLElement, content: string | DocumentFragment, side?: 'left' | 'right'): void {
-		view.appendChild(this.makeDiffLine(view.ownerDocument, content, side));
+		renderSnapshotDiff(diff, snapshot.value, current);
 	}
 
 	private async create(): Promise<void> {
@@ -313,7 +246,7 @@ export class PlotWorkbookSnapshotModal extends Modal {
 	}
 }
 
-class PlotWorkbookSnapshotTitleModal extends Modal {
+export class PlotWorkbookSnapshotTitleModal extends Modal {
 	constructor(
 		plugin: WritingMenuPlugin,
 		private readonly initialTitle: string,

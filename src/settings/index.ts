@@ -1,15 +1,15 @@
 import { App, Notice, PluginSettingTab, Setting, setIcon, Platform, ToggleComponent } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { renderWikiSettingsPage } from '../wiki/WikiSettings';
-import { renderPlotWorkbookSettingsPage } from '../plot-workbook/PlotWorkbookSettings';
-import { NoteSuggestModal, FolderSuggestModal } from '../wiki/WikiModals';
+import { renderPlotWorkbookSettingsPage, renderPlotSnapshotSettings } from '../plot-workbook/PlotWorkbookSettings';
+import { FolderSuggestModal } from '../wiki/WikiModals';
 import { downloadGaruAssets, GARU_VERSION, getGaruAssetStatus } from '../repetition/GaruAssets';
 import { isMorphAnalysisSupported } from '../repetition/MorphAnalyzer';
 import { fireAndForget } from '../utils/asyncUtils';
-import { AI_CHAT_MODELS } from '../aichat/AiChatApi';
-import { DEFAULT_EPISODE_PROMPT } from '../aichat/EpisodeChatEngine';
-import { DEFAULT_CHAT_STYLE_NOTE } from '../aichat/AiChatContext';
+import { renderDeusSettings } from '../aichat/DeusSettings';
+
 import { configureApiKeyInput } from './ApiKeyInput';
+import { MOBILE_WEB_FONTS } from '../fonts/MobileFontManager';
 
 
 export class WritingMenuSettingTab extends PluginSettingTab {
@@ -29,6 +29,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 	// ── 페이지 라우터 (항상 this.containerEl 기준) ─────────────────────
 
 	public renderPage(page: string) {
+		if (page === 'mobile-fonts' && !Platform.isMobile) page = 'main';
 		const { containerEl } = this;
 		containerEl.empty();
 		this.pendingGroup = null;
@@ -46,6 +47,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			case 'misc':             this.renderMiscPage(pageContainerEl); break;
 			case 'divider':          this.renderDividerPage(pageContainerEl); break;
 			case 'footnotes':        this.renderFootnotesPage(pageContainerEl); break;
+			case 'mobile-fonts':     this.renderMobileFontsPage(pageContainerEl); break;
 			case 'autocomplete':     this.renderAutocompletePage(pageContainerEl); break;
 			case 'substitutions':    this.renderTextSubstitutionPage(pageContainerEl); break;
 			case 'copy':             this.renderCopyPage(pageContainerEl); break;
@@ -58,7 +60,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			case 'writing-stats':    this.renderCharCountPage(pageContainerEl); break;
 			case 'time':             this.renderWritingTimePage(pageContainerEl); break;
 			case 'calendar-chars':   this.renderCharCountPage(pageContainerEl); break;
-			case 'version-control':  this.renderVersionPage(pageContainerEl); break;
+			case 'snapshots':        this.renderSnapshotPage(pageContainerEl); break;
 			case 'stopwatch':        this.renderStopwatchPage(pageContainerEl); break;
 			case 'music':            this.renderMusicPage(pageContainerEl); break;
 			case 'calendar':         this.renderCalendarPage(pageContainerEl); break;
@@ -150,10 +152,13 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		this.addNavCard(basicBox, '통계 범위', '글자수와 작업시간 통계를 프로젝트별 폴더로 제한합니다.', 'chart-no-axes-combined', 'statistics-scope');
 		this.addNavCard(basicBox, 'API', '플러그인에서 사용하는 API 키를 한곳에서 관리합니다.', 'key-round', 'api');
 		this.addNavCard(basicBox, '제어', '플러그인의 토글 방식 설정을 한곳에서 관리합니다.', 'sliders-horizontal', 'control');
+		this.addNavCard(basicBox, '스냅샷', '편집기와 플롯 매니저의 스냅샷을 관리합니다.', 'camera', 'snapshots');
 		this.addNavCard(basicBox, '기타', '타이머와 맞춤법 검사 등 부가 기능을 관리합니다.', 'ellipsis', 'misc');
 
 		this.addGroupTitle(containerEl, '편집기');
 		const editorBox = this.createGroupBox(containerEl);
+		this.addNavCard(editorBox, '플롯 매니저', '프로젝트별 플롯 시트와 기존 데이터 가져오기를 관리합니다.', 'table-2', 'plot');
+		if (Platform.isMobile) this.addNavCard(editorBox, '모바일 글꼴', 'PC와 별도로 사용할 웹폰트를 선택하고 내려받습니다.', 'type', 'mobile-fonts');
 		this.addNavCard(editorBox, '커스텀 구분선', '마크다운 구분선의 모양과 배치를 설정합니다.', 'minus', 'divider');
 		this.addNavCard(editorBox, '각주', '각주의 글꼴과 크기, 색상을 설정합니다.', 'notebook-tabs', 'footnotes');
 		this.addNavCard(editorBox, '자동 완성', '트리거와 자동 완성 기호를 관리합니다.', 'keyboard', 'autocomplete');
@@ -166,13 +171,37 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		this.addNavCard(calBox, '일정', '일일노트와 연동해 Task를 시각적으로 보여줍니다.', 'calendar', 'calendar');
 		this.addNavCard(calBox, '글자수', '목표 글자수와 일일 노트 기록 방식을 설정합니다.', 'text-cursor-input', 'char-count');
 		this.addNavCard(calBox, '작업 시간', '작업 분류와 누적 시간 기록 방식을 설정합니다.', 'clock-3', 'writing-time');
-		this.addNavCard(calBox, '버전 관리', '스냅샷 저장 위치 및 최대 보관 개수', 'history', 'version-control');
 		this.addNavCard(calBox, '위키', '위키 스타일 캐릭터 카드 설정', 'git-graph', 'wiki');
-		this.addNavCard(calBox, '플롯 매니저', '프로젝트별 플롯 시트와 기존 데이터 가져오기를 관리합니다.', 'table-2', 'plot');
-		this.addNavCard(calBox, '퇴고 매니저', '반복 표현 탐지 모델과 단어장을 관리합니다.', 'book-check', 'repetition');
-		this.addNavCard(calBox, 'AI', '모델, 이미지 생성, 캐릭터 챗 설정', 'bot', 'ai');
+		this.addNavCard(calBox, '교정', '분석 엔진과 문단 분류 규칙을 관리합니다.', 'book-check', 'repetition');
+		this.addNavCard(calBox, 'Deus AI', '작품 자료 조사와 캐릭터·묘사·대사·문장 스킬을 설정합니다.', 'bot', 'ai');
 		this.addNavCard(calBox, '음악 플레이어', '음악 파일이 저장된 폴더를 관리합니다.', 'music', 'music');
 
+	}
+
+	private renderMobileFontsPage(containerEl: HTMLElement): void {
+		this.addBackButton(containerEl, '모바일 글꼴');
+		const box = this.createGroupBox(containerEl);
+		new Setting(box).setName('모바일 전용 글꼴')
+			.setDesc('PC 글꼴 선택은 유지합니다. 모바일의 프로젝트 문서 본문·제목·각주에 적용하며, 웹폰트는 선택할 때만 공식 배포처에 접속합니다.')
+			.addDropdown(dropdown => {
+				dropdown.addOption('inherit', '시스템 폰트');
+				for (const font of MOBILE_WEB_FONTS) dropdown.addOption(font.id, font.name);
+				dropdown.setValue(this.plugin.settings.mobileFontFamily || 'inherit').onChange(async value => {
+					this.plugin.settings.mobileFontFamily = value;
+					await this.plugin.saveSettings();
+				});
+			});
+		new Setting(box).setName('다운로드 · 다시 시도')
+			.setDesc('현재 기기에 글꼴을 보관합니다. 앱을 다시 열어도 저장된 글꼴을 먼저 사용합니다.')
+			.addButton(button => button.setButtonText('내려받기').onClick(async () => {
+				button.setDisabled(true);
+				try {
+					await this.plugin.mobileFonts.ensureSelected(containerEl.ownerDocument, true);
+					new Notice(this.plugin.mobileFonts.cssFamily(containerEl.ownerDocument) !== 'inherit' ? '글꼴을 사용할 준비가 되었습니다.' : '시스템 글꼴을 사용합니다.');
+				} finally { button.setDisabled(false); }
+			}));
+		const sources = this.createGroupBox(containerEl);
+		for (const font of MOBILE_WEB_FONTS) new Setting(sources).setName(font.name).setDesc(font.source);
 	}
 
 	private renderMiscPage(containerEl: HTMLElement) {
@@ -470,7 +499,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			});
 		new Setting(aiBox)
 			.setName('Google AI Studio')
-			.setDesc('Gemini 채팅과 Nano Banana 계열 이미지 생성에 사용합니다.')
+			.setDesc('Gemini 채팅에 사용합니다.')
 			.addText(text => {
 				text.setPlaceholder('AIza...')
 					.setValue(this.plugin.settings.aiChatGeminiApiKey)
@@ -480,18 +509,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					});
 				configureApiKeyInput(text.inputEl);
 			});
-		new Setting(aiBox)
-			.setName('OpenAI')
-			.setDesc('GPT Image 계열 이미지 생성에 사용합니다.')
-			.addText(text => {
-				text.setPlaceholder('sk-...')
-					.setValue(this.plugin.settings.aiImageOpenaiApiKey)
-					.onChange(async value => {
-						this.plugin.settings.aiImageOpenaiApiKey = value.trim();
-						await this.plugin.saveSettings();
-					});
-				configureApiKeyInput(text.inputEl);
-			});
+
 	}
 
 	private renderControlPage(containerEl: HTMLElement) {
@@ -545,14 +563,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			this.plugin.settings.wikiToolbarAutoHide = value;
 			await this.plugin.saveSettings();
 		});
-		addToggle(viewBox, 'AI', 'AI 툴바를 자동으로 숨깁니다.', this.plugin.settings.aiChatToolbarAutoHide, async value => {
-			this.plugin.settings.aiChatToolbarAutoHide = value;
-			await this.plugin.saveSettings();
-		});
-		addToggle(viewBox, '버전 관리', '버전 관리 툴바를 자동으로 숨깁니다.', this.plugin.settings.versionToolbarAutoHide, async value => {
-			this.plugin.settings.versionToolbarAutoHide = value;
-			await this.plugin.saveSettings();
-		});
+
 
 		this.addGroupTitle(containerEl, '위젯');
 		const widgetBox = this.createGroupBox(containerEl);
@@ -793,469 +804,6 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					this.plugin.settings.footnoteColor = value;
 					await this.plugin.saveSettings();
 				}));
-	}
-
-	private renderTypographyPage(containerEl: HTMLElement) {
-		this.addBackButton(containerEl, '서식');
-
-		// ── 인라인 ──────────────────────────────────────────────────
-		this.addGroupTitle(containerEl, '인라인');
-		const inlineBox = this.createGroupBox(containerEl);
-
-		new Setting(inlineBox)
-			.setName('폴더')
-			.addText(text => text
-				.setPlaceholder('예: 소설/집필')
-				.setValue(this.plugin.settings.applyToFolder)
-				.onChange(async value => { this.plugin.settings.applyToFolder = value.trim(); await this.plugin.saveSettings(); }));
-		inlineBox.createDiv({ cls: 'wm-settings-item-desc', text: '폴더를 지정하세요. 해당 폴더의 하위 노트에 서식이 적용됩니다.' });
-
-		new Setting(inlineBox)
-			.setName('글꼴')
-			.addText(text => text
-				.setPlaceholder('inherit')
-				.setValue(this.plugin.settings.fontFamily === 'inherit' ? '' : this.plugin.settings.fontFamily)
-				.onChange(async value => {
-					this.plugin.settings.fontFamily = value.trim() || 'inherit';
-					await this.plugin.saveSettings();
-				}));
-		inlineBox.createDiv({ cls: 'wm-settings-item-desc', text: '시스템 폰트를 입력하세요. 저장된 모든 폰트를 사용할 수 있습니다.' });
-
-		new Setting(inlineBox)
-			.setName('글자 크기 (px)')
-			.addText(text => {
-				text.setPlaceholder('16')
-					.setValue(String(this.plugin.settings.fontSize))
-					.onChange(async value => {
-						const num = parseInt(value);
-						if (!isNaN(num) && num > 0) { this.plugin.settings.fontSize = num; await this.plugin.saveSettings(); }
-					});
-				text.inputEl.type = 'number';
-				text.inputEl.min = '1';
-			});
-		inlineBox.createDiv({ cls: 'wm-settings-item-desc', text: '에디터 본문의 글자 크기입니다. 기본값 16px.' });
-
-		new Setting(inlineBox)
-			.setName('줄간격')
-			.addText(text => {
-				text.setPlaceholder('1.5')
-					.setValue(String(this.plugin.settings.lineHeight))
-					.onChange(async value => {
-						const num = parseFloat(value);
-						if (!isNaN(num) && num > 0) { this.plugin.settings.lineHeight = num; await this.plugin.saveSettings(); }
-					});
-				text.inputEl.type = 'number';
-				text.inputEl.step = '0.1';
-				text.inputEl.min = '0';
-			});
-		inlineBox.createDiv({ cls: 'wm-settings-item-desc', text: '줄과 줄 사이의 간격입니다. 1.5~2.0 권장.' });
-
-		new Setting(inlineBox)
-			.setName('문단간격')
-			.addText(text => {
-				text.setPlaceholder('1')
-					.setValue(String(this.plugin.settings.paragraphSpacing))
-					.onChange(async value => {
-						const num = parseFloat(value);
-						if (!isNaN(num) && num >= 0) { this.plugin.settings.paragraphSpacing = num; await this.plugin.saveSettings(); }
-					});
-				text.inputEl.type = 'number';
-				text.inputEl.step = '0.5';
-				text.inputEl.min = '0';
-			});
-		inlineBox.createDiv({ cls: 'wm-settings-item-desc', text: '문단(단락) 사이의 여백 배수입니다. 0이면 줄간격만 적용.' });
-
-		new Setting(inlineBox)
-			.setName('너비 (px)')
-			.addText(text => {
-				text.setPlaceholder('700')
-					.setValue(String(this.plugin.settings.lineWidth))
-					.onChange(async value => {
-						const num = parseInt(value);
-						if (!isNaN(num) && num > 0) { this.plugin.settings.lineWidth = num; await this.plugin.saveSettings(); }
-					});
-				text.inputEl.type = 'number';
-				text.inputEl.min = '1';
-			});
-		inlineBox.createDiv({ cls: 'wm-settings-item-desc', text: '에디터 본문의 최대 너비입니다. 기본값 700px.' });
-
-		new Setting(inlineBox)
-			.setName('좌우 여백 (px)')
-			.addText(text => {
-				text.setPlaceholder('40')
-					.setValue(String(this.plugin.settings.inlinePadding ?? 40))
-					.onChange(async value => {
-						const num = parseInt(value);
-						if (!isNaN(num) && num >= 0) { this.plugin.settings.inlinePadding = num; await this.plugin.saveSettings(); }
-					});
-				text.inputEl.type = 'number';
-				text.inputEl.min = '0';
-			});
-		inlineBox.createDiv({ cls: 'wm-settings-item-desc', text: '에디터 좌우 패딩입니다. 화면이 좁을 때 줄여 사용.' });
-
-		new Setting(inlineBox)
-			.setName('들여쓰기 (px)')
-			.addText(text => {
-				text.setPlaceholder('0')
-					.setValue(String(this.plugin.settings.indentation))
-					.onChange(async value => {
-						const num = parseInt(value);
-						if (!isNaN(num) && num >= 0) { this.plugin.settings.indentation = num; await this.plugin.saveSettings(); }
-					});
-				text.inputEl.type = 'number';
-				text.inputEl.min = '0';
-			});
-		inlineBox.createDiv({ cls: 'wm-settings-item-desc', text: '두 번째 문단부터 첫 줄 들여쓰기 크기입니다. 0이면 비활성.' });
-
-		new Setting(inlineBox)
-			.setName('여러 쪽 보기 기본 정렬')
-			.setDesc('개별 정렬을 지정하지 않은 문단에 적용됩니다.')
-			.addDropdown(dropdown => dropdown
-				.addOption('left', '왼쪽 정렬')
-				.addOption('center', '가운데 정렬')
-				.addOption('right', '오른쪽 정렬')
-				.addOption('justify', '양쪽 정렬')
-				.setValue(this.plugin.settings.pagedDefaultAlignment ?? 'left')
-				.onChange(async value => {
-					this.plugin.settings.pagedDefaultAlignment = value as typeof this.plugin.settings.pagedDefaultAlignment;
-					await this.plugin.saveSettings();
-				}));
-
-		// 글자색
-		const fontColorVal = this.plugin.settings.fontColor;
-		const fontColorLight = typeof fontColorVal === 'string' ? fontColorVal : fontColorVal.light;
-		const fontColorDark  = typeof fontColorVal === 'string' ? fontColorVal : fontColorVal.dark;
-
-		if (!Platform.isMobile) {
-			new Setting(inlineBox)
-				.setName('글자색 (라이트)')
-				.addExtraButton(btn => btn.setIcon('reset').setTooltip('기본값으로 초기화')
-					.onClick(async () => {
-						const dark = typeof this.plugin.settings.fontColor === 'string' ? this.plugin.settings.fontColor : this.plugin.settings.fontColor.dark;
-						this.plugin.settings.fontColor = { light: 'inherit', dark };
-						await this.plugin.saveSettings();
-						this.renderPage('typography');
-					}))
-				.addColorPicker(cp => cp
-					.setValue(fontColorLight === 'inherit' || !fontColorLight ? '#000000' : fontColorLight)
-					.onChange(async value => {
-						const dark = typeof this.plugin.settings.fontColor === 'string' ? this.plugin.settings.fontColor : this.plugin.settings.fontColor.dark;
-						this.plugin.settings.fontColor = { light: value, dark };
-						await this.plugin.saveSettings();
-					}));
-
-			new Setting(inlineBox)
-				.setName('글자색 (다크)')
-				.addExtraButton(btn => btn.setIcon('reset').setTooltip('기본값으로 초기화')
-					.onClick(async () => {
-						const light = typeof this.plugin.settings.fontColor === 'string' ? this.plugin.settings.fontColor : this.plugin.settings.fontColor.light;
-						this.plugin.settings.fontColor = { light, dark: 'inherit' };
-						await this.plugin.saveSettings();
-						this.renderPage('typography');
-					}))
-				.addColorPicker(cp => cp
-					.setValue(fontColorDark === 'inherit' || !fontColorDark ? '#ffffff' : fontColorDark)
-					.onChange(async value => {
-						const light = typeof this.plugin.settings.fontColor === 'string' ? this.plugin.settings.fontColor : this.plugin.settings.fontColor.light;
-						this.plugin.settings.fontColor = { light, dark: value };
-						await this.plugin.saveSettings();
-					}));
-		} else {
-			new Setting(inlineBox).setName('글자색 (라이트)')
-				.addText(text => text.setPlaceholder('#000000 또는 inherit').setValue(fontColorLight)
-					.onChange(async value => {
-						const dark = typeof this.plugin.settings.fontColor === 'string' ? this.plugin.settings.fontColor : this.plugin.settings.fontColor.dark;
-						this.plugin.settings.fontColor = { light: value || 'inherit', dark };
-						await this.plugin.saveSettings();
-					}));
-			new Setting(inlineBox).setName('글자색 (다크)')
-				.addText(text => text.setPlaceholder('#ffffff 또는 inherit').setValue(fontColorDark)
-					.onChange(async value => {
-						const light = typeof this.plugin.settings.fontColor === 'string' ? this.plugin.settings.fontColor : this.plugin.settings.fontColor.light;
-						this.plugin.settings.fontColor = { light, dark: value || 'inherit' };
-						await this.plugin.saveSettings();
-					}));
-		}
-
-		// 배경색
-		const bgColorVal = this.plugin.settings.backgroundColor;
-		const bgColorLight = typeof bgColorVal === 'string' ? bgColorVal : bgColorVal.light;
-		const bgColorDark  = typeof bgColorVal === 'string' ? bgColorVal : bgColorVal.dark;
-
-		if (!Platform.isMobile) {
-			new Setting(inlineBox)
-				.setName('배경색 (라이트)')
-				.addExtraButton(btn => btn.setIcon('reset').setTooltip('기본값으로 초기화')
-					.onClick(async () => {
-						const dark = typeof this.plugin.settings.backgroundColor === 'string' ? this.plugin.settings.backgroundColor : this.plugin.settings.backgroundColor.dark;
-						this.plugin.settings.backgroundColor = { light: 'transparent', dark };
-						await this.plugin.saveSettings();
-						this.renderPage('typography');
-					}))
-				.addColorPicker(cp => cp
-					.setValue(bgColorLight === 'transparent' || bgColorLight === 'inherit' || !bgColorLight ? '#ffffff' : bgColorLight)
-					.onChange(async value => {
-						const dark = typeof this.plugin.settings.backgroundColor === 'string' ? this.plugin.settings.backgroundColor : this.plugin.settings.backgroundColor.dark;
-						this.plugin.settings.backgroundColor = { light: value, dark };
-						await this.plugin.saveSettings();
-					}));
-
-			new Setting(inlineBox)
-				.setName('배경색 (다크)')
-				.addExtraButton(btn => btn.setIcon('reset').setTooltip('기본값으로 초기화')
-					.onClick(async () => {
-						const light = typeof this.plugin.settings.backgroundColor === 'string' ? this.plugin.settings.backgroundColor : this.plugin.settings.backgroundColor.light;
-						this.plugin.settings.backgroundColor = { light, dark: 'transparent' };
-						await this.plugin.saveSettings();
-						this.renderPage('typography');
-					}))
-				.addColorPicker(cp => cp
-					.setValue(bgColorDark === 'transparent' || bgColorDark === 'inherit' || !bgColorDark ? '#000000' : bgColorDark)
-					.onChange(async value => {
-						const light = typeof this.plugin.settings.backgroundColor === 'string' ? this.plugin.settings.backgroundColor : this.plugin.settings.backgroundColor.light;
-						this.plugin.settings.backgroundColor = { light, dark: value };
-						await this.plugin.saveSettings();
-					}));
-		} else {
-			new Setting(inlineBox).setName('배경색 (라이트)')
-				.addText(text => text.setPlaceholder('#ffffff 또는 transparent').setValue(bgColorLight)
-					.onChange(async value => {
-						const dark = typeof this.plugin.settings.backgroundColor === 'string' ? this.plugin.settings.backgroundColor : this.plugin.settings.backgroundColor.dark;
-						this.plugin.settings.backgroundColor = { light: value || 'transparent', dark };
-						await this.plugin.saveSettings();
-					}));
-			new Setting(inlineBox).setName('배경색 (다크)')
-				.addText(text => text.setPlaceholder('#000000 또는 transparent').setValue(bgColorDark)
-					.onChange(async value => {
-						const light = typeof this.plugin.settings.backgroundColor === 'string' ? this.plugin.settings.backgroundColor : this.plugin.settings.backgroundColor.light;
-						this.plugin.settings.backgroundColor = { light, dark: value || 'transparent' };
-						await this.plugin.saveSettings();
-					}));
-		}
-
-		new Setting(inlineBox)
-			.setName('링크 색상')
-			.addToggle(toggle => toggle
-				.setValue(!this.plugin.settings.disableLinkColor)
-				.onChange(async value => { this.plugin.settings.disableLinkColor = !value; await this.plugin.saveSettings(); }));
-		inlineBox.createDiv({ cls: 'wm-settings-item-desc', text: '비활성화 시 링크 구문의 자동 색상 보정을 무시합니다.' });
-
-		// ── 구분선 ──────────────────────────────────────────────────
-		this.addGroupTitle(containerEl, '구분선');
-		const hrBox = this.createGroupBox(containerEl);
-
-		new Setting(hrBox)
-			.setName('커스텀 구분선')
-			.setDesc('활성화 시 ***, --- 등을 아래 설정대로 렌더링')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.hrEnabled)
-				.onChange(async value => {
-					this.plugin.settings.hrEnabled = value;
-					await this.plugin.saveSettings();
-					this.plugin.leafStyleManager.updateDynamicStyles();
-				}));
-
-		new Setting(hrBox)
-			.setName('종류')
-			.addDropdown(dd => {
-				dd.addOption('text', '텍스트')
-				  .addOption('svg', 'SVG')
-				  .setValue(this.plugin.settings.hrType)
-				  .onChange(async value => {
-					this.plugin.settings.hrType = value as 'text' | 'svg';
-					await this.plugin.saveSettings();
-					this.plugin.leafStyleManager.updateDynamicStyles();
-				  });
-				});
-		hrBox.createDiv({ cls: 'wm-settings-item-desc', text: '구분선을 구성하는 텍스트 혹은 SVG 소스코드를 입력하세요.' });
-
-		new Setting(hrBox)
-			.setName('텍스트 내용')
-			.setDesc('텍스트 모드에서 구분선 대신 표시할 내용')
-			.addText(text => text
-				.setPlaceholder('✦ ✦ ✦')
-				.setValue(this.plugin.settings.hrContent)
-				.onChange(async value => {
-					this.plugin.settings.hrContent = value;
-					await this.plugin.saveSettings();
-					this.plugin.leafStyleManager.updateDynamicStyles();
-				}));
-
-		new Setting(hrBox)
-			.setName('색상')
-			.setDesc('텍스트 모드 색상. 비워두면 기본 텍스트 색상 사용.')
-			.addExtraButton(btn => btn.setIcon('reset').setTooltip('색상 초기화 (기본값)')
-				.onClick(async () => {
-					this.plugin.settings.hrColor = '';
-					await this.plugin.saveSettings();
-					this.plugin.leafStyleManager.updateDynamicStyles();
-					this.renderPage('typography');
-				}))
-			.addColorPicker(cp => cp
-				.setValue(this.plugin.settings.hrColor || '#888888')
-				.onChange(async value => {
-					this.plugin.settings.hrColor = value;
-					await this.plugin.saveSettings();
-					this.plugin.leafStyleManager.updateDynamicStyles();
-				}));
-
-		// 정렬 버튼 (좌/중앙/우)
-		const hrAlignSetting = new Setting(hrBox).setName('정렬');
-		const hrAlignBtnContainer = hrAlignSetting.controlEl.createDiv({ cls: 'wm-align-btn-group' });
-		(['left', 'center', 'right'] as const).forEach(align => {
-			const iconMap = { left: 'align-left', center: 'align-center', right: 'align-right' } as const;
-			const labelMap = { left: '좌', center: '중앙', right: '우' } as const;
-			const btn = hrAlignBtnContainer.createEl('button', { cls: 'wm-align-btn' + (this.plugin.settings.hrAlign === align ? ' is-active' : '') });
-			setIcon(btn, iconMap[align]);
-			btn.title = labelMap[align];
-			btn.onclick = async () => {
-				this.plugin.settings.hrAlign = align;
-				await this.plugin.saveSettings();
-				this.plugin.leafStyleManager.updateDynamicStyles();
-				hrAlignBtnContainer.querySelectorAll('.wm-align-btn').forEach(b => b.removeClass('is-active'));
-				btn.addClass('is-active');
-			};
-		});
-		hrBox.createDiv({ cls: 'wm-settings-item-desc', text: '구분선의 가로 정렬 위치입니다. 텍스트 모드에서 적용됩니다.' });
-
-		new Setting(hrBox)
-			.setName('위아래 여백')
-			.setDesc('구분선 위아래 여백 (em 단위, 기본값 0.5)')
-			.addText(text => text
-				.setPlaceholder('0.5')
-				.setValue(String(this.plugin.settings.hrMargin ?? 0.5))
-				.onChange(async value => {
-					const n = parseFloat(value);
-					this.plugin.settings.hrMargin = isNaN(n) ? 0.5 : Math.max(0, n);
-					await this.plugin.saveSettings();
-					this.plugin.leafStyleManager.updateDynamicStyles();
-				}));
-
-		new Setting(hrBox)
-			.setName('SVG 코드')
-			.setDesc('SVG 모드에서 사용할 SVG 코드를 붙여넣으세요')
-			.addTextArea(ta => ta
-				.setPlaceholder('<svg xmlns="http://www.w3.org/2000/svg" ...>...</svg>')
-				.setValue(this.plugin.settings.hrSvg)
-				.onChange(async value => {
-					this.plugin.settings.hrSvg = value;
-					await this.plugin.saveSettings();
-					this.plugin.leafStyleManager.updateDynamicStyles();
-				}));
-
-		new Setting(hrBox)
-			.setName('SVG 크기')
-			.setDesc('SVG 모드 구분선 높이 (em 단위, 기본값 2)')
-			.addText(text => text
-				.setPlaceholder('2')
-				.setValue(String(this.plugin.settings.hrSvgSize ?? 2))
-				.onChange(async value => {
-					const n = parseFloat(value);
-					this.plugin.settings.hrSvgSize = isNaN(n) ? 2 : Math.max(0.1, n);
-					await this.plugin.saveSettings();
-					this.plugin.leafStyleManager.updateDynamicStyles();
-				}));
-
-		// ── 헤딩 ────────────────────────────────────────────────────
-		this.addGroupTitle(containerEl, '헤딩');
-		this.addGroupTitle(containerEl, 'H1');
-		const h1Box = this.createGroupBox(containerEl);
-
-		new Setting(h1Box)
-			.setName('글꼴')
-			.addText(text => text
-				.setPlaceholder('inherit')
-				.setValue(this.plugin.settings.h1FontFamily)
-				.onChange(async value => {
-					this.plugin.settings.h1FontFamily = value || 'inherit';
-					await this.plugin.saveSettings();
-				}));
-		h1Box.createDiv({ cls: 'wm-settings-item-desc', text: 'H1 헤딩에만 적용되는 별도 글꼴입니다. 비워두면 본문 글꼴 사용.' });
-
-		new Setting(h1Box)
-			.setName('크기 (px)')
-			.addText(text => text
-				.setPlaceholder('24')
-				.setValue(String(this.plugin.settings.h1FontSize))
-				.onChange(async value => {
-					const num = parseInt(value);
-					if (!isNaN(num) && num > 0) { this.plugin.settings.h1FontSize = num; await this.plugin.saveSettings(); }
-				}));
-		h1Box.createDiv({ cls: 'wm-settings-item-desc', text: 'H1 헤딩의 글자 크기입니다.' });
-
-		new Setting(h1Box)
-			.setName('행간')
-			.addText(text => text
-				.setPlaceholder('1.5')
-				.setValue(String(this.plugin.settings.h1LineHeight))
-				.onChange(async value => {
-					const num = parseFloat(value);
-					if (!isNaN(num) && num > 0) { this.plugin.settings.h1LineHeight = num; await this.plugin.saveSettings(); }
-				}));
-		h1Box.createDiv({ cls: 'wm-settings-item-desc', text: 'H1 헤딩의 줄간격입니다.' });
-
-		new Setting(h1Box)
-			.setName('색상')
-			.addExtraButton(btn => btn
-				.setIcon('reset').setTooltip('기본값으로 초기화')
-				.onClick(async () => {
-					this.plugin.settings.h1Color = 'inherit';
-					await this.plugin.saveSettings();
-					this.renderPage('typography');
-				}))
-			.addColorPicker(cp => cp
-				.setValue(this.plugin.settings.h1Color === 'inherit' || !this.plugin.settings.h1Color ? '#000000' : this.plugin.settings.h1Color)
-				.onChange(async value => { this.plugin.settings.h1Color = value; await this.plugin.saveSettings(); }));
-
-		// ── 각주 ────────────────────────────────────────────────────
-		this.addGroupTitle(containerEl, '각주');
-		const fnBox = this.createGroupBox(containerEl);
-
-		new Setting(fnBox)
-			.setName('글꼴')
-			.addText(text => text
-				.setPlaceholder('inherit')
-				.setValue(this.plugin.settings.footnoteFontFamily)
-				.onChange(async value => {
-					this.plugin.settings.footnoteFontFamily = value || 'inherit';
-					await this.plugin.saveSettings();
-				}));
-		fnBox.createDiv({ cls: 'wm-settings-item-desc', text: '각주 텍스트에만 적용되는 별도 글꼴입니다. 비워두면 본문 글꼴 사용.' });
-
-		new Setting(fnBox)
-			.setName('크기 (px)')
-			.addText(text => text
-				.setPlaceholder('13')
-				.setValue(String(this.plugin.settings.footnoteFontSize))
-				.onChange(async value => {
-					const num = parseInt(value);
-					if (!isNaN(num) && num > 0) { this.plugin.settings.footnoteFontSize = num; await this.plugin.saveSettings(); }
-				}));
-		fnBox.createDiv({ cls: 'wm-settings-item-desc', text: '각주 글자 크기입니다. 기본값 13px.' });
-
-		new Setting(fnBox)
-			.setName('행간')
-			.addText(text => text
-				.setPlaceholder('1.5')
-				.setValue(String(this.plugin.settings.footnoteLineHeight))
-				.onChange(async value => {
-					const num = parseFloat(value);
-					if (!isNaN(num) && num > 0) { this.plugin.settings.footnoteLineHeight = num; await this.plugin.saveSettings(); }
-				}));
-		fnBox.createDiv({ cls: 'wm-settings-item-desc', text: '각주 줄간격입니다.' });
-
-		new Setting(fnBox)
-			.setName('색상')
-			.addExtraButton(btn => btn
-				.setIcon('reset').setTooltip('기본값으로 초기화')
-				.onClick(async () => {
-					this.plugin.settings.footnoteColor = 'inherit';
-					await this.plugin.saveSettings();
-					this.renderPage('typography');
-				}))
-			.addColorPicker(cp => cp
-				.setValue(this.plugin.settings.footnoteColor === 'inherit' || !this.plugin.settings.footnoteColor ? '#000000' : this.plugin.settings.footnoteColor)
-				.onChange(async value => { this.plugin.settings.footnoteColor = value; await this.plugin.saveSettings(); }));
 	}
 
 	// ── 자동 완성 · 텍스트 치환 ─────────────────────────────────────────
@@ -1575,355 +1123,31 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		addFolderIcon.addEventListener('click', () => { paths.push(''); renderFolderList(); });
 	}
 
-	// ── 국어사전 ────────────────────────────────────────────────────────
-
-	private renderDictionaryPage(containerEl: HTMLElement) {
-		this.addBackButton(containerEl, '국어사전');
-		const hanjaBox = this.createGroupBox(containerEl);
-		new Setting(hanjaBox)
-			.setName('사전 API')
-			.setDesc('표준국어대사전 API 키는 API 항목에서 관리합니다.')
-			.addButton(button => button.setButtonText('API 열기').onClick(() => this.renderPage('api')));
-		new Setting(hanjaBox)
-			.setName('한자 변환')
-			.setDesc('원문 한글의 괄호 병기 여부는 제어에서 관리합니다.')
-			.addButton(button => button.setButtonText('제어 열기').onClick(() => this.renderPage('control')));
-	}
-
-	// ── AI ──────────────────────────────────────────────────────────────────
-
 	private renderAiPage(containerEl: HTMLElement) {
-		this.addBackButton(containerEl, 'AI');
-		const baseBox = this.createGroupBox(containerEl);
-		let episodeRootText: import('obsidian').TextComponent;
-		new Setting(baseBox)
-			.setName('루트 폴더')
-			.setDesc('작품의 최상위 폴더 경로. 지정하면 활성 노트가 이 폴더 하위에 있을 때만 회차 인식/인물 스코프 기능이 동작합니다.')
-			.addExtraButton(btn => btn.setIcon('folder').setTooltip('폴더 선택')
-				.onClick(() => {
-					new FolderSuggestModal(this.app, (folder) => {
-						fireAndForget(async () => {
-							this.plugin.settings.aiEpisodeRootFolder = folder.path;
-							await this.plugin.saveSettings();
-							episodeRootText.setValue(folder.path);
-						});
-					}).open();
-				}))
-			.addText(text => {
-				episodeRootText = text;
-				text.setPlaceholder('예: 소설')
-					.setValue(this.plugin.settings.aiEpisodeRootFolder)
-					.onChange(async value => { this.plugin.settings.aiEpisodeRootFolder = value.trim(); await this.plugin.saveSettings(); });
-			});
-		const rootDesc = baseBox.createDiv({ cls: 'wm-settings-item-desc' });
-		rootDesc.createSpan({ text: '캐릭터 챗봇', attr: { style: 'color: var(--interactive-accent);' } });
-		rootDesc.appendText('과 ');
-		rootDesc.createSpan({ text: '초고', attr: { style: 'color: var(--interactive-accent);' } });
-		rootDesc.appendText('의 데이터 파싱 범위를 루트 폴더의 하위 노트로 제한합니다. AI 기능은 플롯 매니저처럼 루트 폴더-하위 폴더의 구조에서 작동합니다. 기능을 이용하기 전에 폴더링이 제대로 되어 있는지 확인하세요. 예를 들어, 루트 폴더(작품명)-하위 폴더(1. 플롯/2. 등장인물/3. 본문)로 구조를 짠 뒤 해당 폴더 이름을 아래 항목에서 지정해주면 됩니다.');
-
-		new Setting(baseBox)
-			.setName('에피소드(플롯) 폴더명')
-			.addText(text => text
-				.setPlaceholder('예: 플롯')
-				.setValue(this.plugin.settings.aiEpisodeDataFolder)
-				.onChange(async value => { this.plugin.settings.aiEpisodeDataFolder = value.trim(); await this.plugin.saveSettings(); }));
-		baseBox.createDiv({
-			cls: 'wm-settings-item-desc',
-			text: 'AI 초고/AI 챗봇 기능 이용시, 지정된 폴더에서 플롯 데이터를 가져옵니다. 플롯 매니저로 에피소드 노트를 만들고 해당 노트가 있는 상위 폴더의 이름을 입력해주세요.',
+		this.addBackButton(containerEl, 'Deus AI');
+		renderDeusSettings(this.plugin, {
+			section: title => { this.addGroupTitle(containerEl, title); return this.createGroupBox(containerEl); },
+			openApi: () => this.renderPage('api'),
 		});
-
-		new Setting(baseBox)
-			.setName('캐릭터 노트 폴더명')
-			.addText(text => text
-				.setPlaceholder('예: 등장인물')
-				.setValue(this.plugin.settings.aiEpisodeCharFolder)
-				.onChange(async value => { this.plugin.settings.aiEpisodeCharFolder = value.trim(); await this.plugin.saveSettings(); }));
-		baseBox.createDiv({
-			cls: 'wm-settings-item-desc',
-			text: 'AI 챗봇 기능 이용시, 지정된 폴더에서 인물 데이터를 가져옵니다. 플롯 매니저로 인물 노트를 만들고 해당 노트가 있는 상위 폴더의 이름을 입력해주세요.',
-		});
-
-		new Setting(baseBox)
-			.setName('본문 폴더명')
-			.addText(text => text
-				.setPlaceholder('예: 본문')
-				.setValue(this.plugin.settings.aiEpisodeBodyFolder)
-				.onChange(async value => { this.plugin.settings.aiEpisodeBodyFolder = value.trim(); await this.plugin.saveSettings(); }));
-		baseBox.createDiv({
-			cls: 'wm-settings-item-desc',
-			text: 'AI 초고 기능 이용시, 지정된 폴더에서 지난 회차 데이터를 가져옵니다. 문체 유지를 위해 반드시 지정해주세요.',
-		});
-
-		this.addGroupTitle(containerEl, '캐릭터 챗봇');
-		const chatBox = this.createGroupBox(containerEl);
-
-		new Setting(chatBox)
-			.setName('모델')
-			.setDesc('호출할 모델을 선택하세요. 기본 추천 모델은 Google AI Studio의 Gemini 3.8 Flash입니다.')
-			.addDropdown(dd => {
-				for (const m of AI_CHAT_MODELS) dd.addOption(m.id, m.label);
-				dd.setValue(this.plugin.settings.aiChatModel)
-					.onChange(async value => { this.plugin.settings.aiChatModel = value; await this.plugin.saveSettings(); });
-			});
-
-		let promptText: import('obsidian').TextComponent;
-		new Setting(chatBox)
-			.setName('프롬프트')
-			.setDesc('선택한 노트의 내용을 시스템 프롬프트 뒤에 덧붙이고, 앞부분과 내용이 충돌하면 이 노트를 우선하도록 지시합니다. 노트를 처음 선택하면 기본 지침이 그대로 채워지니, 그 내용을 직접 수정해서 쓰세요 (빈 노트를 새로 만든 뒤 선택해야 자동으로 채워집니다). 단, [지문]/[대사] 태그 자체는 메시지 렌더링에 쓰이니 웬만하면 유지를 권장합니다.')
-			.addExtraButton(btn => btn.setIcon('file-text').setTooltip('노트 선택')
-				.onClick(() => {
-					new NoteSuggestModal(this.app, (file) => {
-						fireAndForget(async () => {
-							this.plugin.settings.aiChatSystemPromptNotePath = file.path;
-							await this.plugin.saveSettings();
-							promptText.setValue(file.path);
-							const raw = await this.app.vault.read(file);
-							const fmMatch = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/.exec(raw);
-							const bodyOnly = (fmMatch ? raw.slice(fmMatch[0].length) : raw).trim();
-							if (!bodyOnly) {
-								const prefix = fmMatch ? fmMatch[0] : '';
-								await this.app.vault.modify(file, prefix + DEFAULT_CHAT_STYLE_NOTE);
-							}
-						});
-					}).open();
-				}))
-			.addText(text => {
-				promptText = text;
-				text.setPlaceholder('예: AI챗 프롬프트.md')
-					.setValue(this.plugin.settings.aiChatSystemPromptNotePath)
-					.onChange(async value => { this.plugin.settings.aiChatSystemPromptNotePath = value.trim(); await this.plugin.saveSettings(); });
-			});
-
-		new Setting(chatBox)
-			.setName('인물 노트 파싱 헤딩')
-			.setDesc('예: "성격/말투". 인물 노트에 이 이름의 헤딩이 있으면 그 섹션만 잘라서 컨텍스트로 사용하고, 없으면 노트 전체를 사용합니다. 비워두면 항상 노트 전체를 사용합니다.')
-			.addText(text => text
-				.setPlaceholder('성격/말투')
-				.setValue(this.plugin.settings.aiChatPersonaHeading)
-				.onChange(async value => { this.plugin.settings.aiChatPersonaHeading = value.trim(); await this.plugin.saveSettings(); }));
-
-		new Setting(chatBox)
-			.setName('온도 (temperature)')
-			.addText(text => {
-				text.setPlaceholder('1.0')
-					.setValue(String(this.plugin.settings.aiChatTemperature))
-					.onChange(async value => {
-						const num = parseFloat(value);
-						if (!isNaN(num) && num >= 0 && num <= 2) { this.plugin.settings.aiChatTemperature = num; await this.plugin.saveSettings(); }
-					});
-				text.inputEl.type = 'number';
-				text.inputEl.min = '0';
-				text.inputEl.max = '2';
-				text.inputEl.step = '0.1';
-			});
-		chatBox.createDiv({
-			cls: 'wm-settings-item-desc',
-			text: '모델이 다음 단어를 얼마나 과감하게 고를지 정하는 값입니다. 0에 가까울수록 안정적이지만 뻔하고 반복적인 문장이, 2에 가까울수록 신선하지만 두서없이 산으로 갈 수 있는 문장이 나옵니다. 창작 용도로는 0.8~1.3 사이를 권장합니다. 기본값 1.0',
-		});
-
-		new Setting(chatBox)
-			.setName('지문 글자 크기')
-			.setDesc('배수(em) 단위입니다. 기본값 0.9')
-			.addText(text => {
-				text.setPlaceholder('0.9')
-					.setValue(String(this.plugin.settings.aiChatNarrationFontSize))
-					.onChange(async value => {
-						const num = parseFloat(value);
-						if (!isNaN(num) && num > 0 && num <= 3) { this.plugin.settings.aiChatNarrationFontSize = num; await this.plugin.saveSettings(); }
-					});
-				text.inputEl.type = 'number';
-				text.inputEl.min = '0.1';
-				text.inputEl.max = '3';
-				text.inputEl.step = '0.1';
-			});
-
-		new Setting(chatBox)
-			.setName('대사 글자 크기')
-			.setDesc('배수(em) 단위입니다. 기본값 1.0')
-			.addText(text => {
-				text.setPlaceholder('1.0')
-					.setValue(String(this.plugin.settings.aiChatDialogueFontSize))
-					.onChange(async value => {
-						const num = parseFloat(value);
-						if (!isNaN(num) && num > 0 && num <= 3) { this.plugin.settings.aiChatDialogueFontSize = num; await this.plugin.saveSettings(); }
-					});
-				text.inputEl.type = 'number';
-				text.inputEl.min = '0.1';
-				text.inputEl.max = '3';
-				text.inputEl.step = '0.1';
-			});
-
-		this.addGroupTitle(containerEl, '초고');
-		const episodeBox = this.createGroupBox(containerEl);
-
-		new Setting(episodeBox)
-			.setName('모델')
-			.setDesc('초고 전용 모델입니다. 캐릭터 챗봇의 모델 설정과 별개로 지정할 수 있습니다.')
-			.addDropdown(dd => {
-				for (const m of AI_CHAT_MODELS) dd.addOption(m.id, m.label);
-				dd.setValue(this.plugin.settings.aiEpisodeModel)
-					.onChange(async value => { this.plugin.settings.aiEpisodeModel = value; await this.plugin.saveSettings(); });
-			});
-
-		let episodePromptText: import('obsidian').TextComponent;
-		new Setting(episodeBox)
-			.setName('프롬프트')
-			.setDesc('회차챗 초안 생성에 쓰이는 톤·문체·전개 원칙입니다. 노트를 처음 선택하면 기본 지침이 그대로 채워지니, 그 내용을 직접 수정해서 쓰세요 (빈 노트를 새로 만든 뒤 선택해야 자동으로 채워집니다). 비워두면 기본 지침을 그대로 사용합니다.')
-			.addExtraButton(btn => btn.setIcon('file-text').setTooltip('노트 선택')
-				.onClick(() => {
-					new NoteSuggestModal(this.app, (file) => {
-						fireAndForget(async () => {
-							this.plugin.settings.aiEpisodeSystemPromptNotePath = file.path;
-							await this.plugin.saveSettings();
-							episodePromptText.setValue(file.path);
-							const raw = await this.app.vault.read(file);
-							const fmMatch = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/.exec(raw);
-							const bodyOnly = (fmMatch ? raw.slice(fmMatch[0].length) : raw).trim();
-							if (!bodyOnly) {
-								const prefix = fmMatch ? fmMatch[0] : '';
-								await this.app.vault.modify(file, prefix + DEFAULT_EPISODE_PROMPT);
-							}
-						});
-					}).open();
-				}))
-			.addText(text => {
-				episodePromptText = text;
-				text.setPlaceholder('예: 회차챗 프롬프트.md')
-					.setValue(this.plugin.settings.aiEpisodeSystemPromptNotePath)
-					.onChange(async value => { this.plugin.settings.aiEpisodeSystemPromptNotePath = value.trim(); await this.plugin.saveSettings(); });
-			});
-
-		new Setting(episodeBox)
-			.setName('온도 (temperature)')
-			.addText(text => {
-				text.setPlaceholder('1.0')
-					.setValue(String(this.plugin.settings.aiChatTemperature))
-					.onChange(async value => {
-						const num = parseFloat(value);
-						if (!isNaN(num) && num >= 0 && num <= 2) { this.plugin.settings.aiChatTemperature = num; await this.plugin.saveSettings(); }
-					});
-				text.inputEl.type = 'number';
-				text.inputEl.min = '0';
-				text.inputEl.max = '2';
-				text.inputEl.step = '0.1';
-			});
-		episodeBox.createDiv({
-			cls: 'wm-settings-item-desc',
-			text: '모델이 다음 단어를 얼마나 과감하게 고를지 정하는 값입니다. 0에 가까울수록 안정적이지만 뻔하고 반복적인 문장이, 2에 가까울수록 신선하지만 두서없이 산으로 갈 수 있는 문장이 나옵니다. 창작 용도로는 0.8~1.3 사이를 권장합니다. 캐릭터 챗봇과 같은 값을 공유합니다. 기본값 1.0',
-		});
-
-		new Setting(episodeBox)
-			.setName('지문 글자 크기')
-			.setDesc('배수(em) 단위입니다. 캐릭터 챗봇과 같은 값을 공유합니다. 기본값 0.9')
-			.addText(text => {
-				text.setPlaceholder('0.9')
-					.setValue(String(this.plugin.settings.aiChatNarrationFontSize))
-					.onChange(async value => {
-						const num = parseFloat(value);
-						if (!isNaN(num) && num > 0 && num <= 3) { this.plugin.settings.aiChatNarrationFontSize = num; await this.plugin.saveSettings(); }
-					});
-				text.inputEl.type = 'number';
-				text.inputEl.min = '0.1';
-				text.inputEl.max = '3';
-				text.inputEl.step = '0.1';
-			});
-
-		new Setting(episodeBox)
-			.setName('대사 글자 크기')
-			.setDesc('배수(em) 단위입니다. 캐릭터 챗봇과 같은 값을 공유합니다. 기본값 1.0')
-			.addText(text => {
-				text.setPlaceholder('1.0')
-					.setValue(String(this.plugin.settings.aiChatDialogueFontSize))
-					.onChange(async value => {
-						const num = parseFloat(value);
-						if (!isNaN(num) && num > 0 && num <= 3) { this.plugin.settings.aiChatDialogueFontSize = num; await this.plugin.saveSettings(); }
-					});
-				text.inputEl.type = 'number';
-				text.inputEl.min = '0.1';
-				text.inputEl.max = '3';
-				text.inputEl.step = '0.1';
-			});
-
 	}
 
-	// ── 버전 관리 ─────────────────────────────────────────────────────────
-
-	private renderVersionPage(containerEl: HTMLElement) {
-		this.addBackButton(containerEl, '버전 관리');
-
-		this.addGroupTitle(containerEl, '저장소');
-		const verBox = this.createGroupBox(containerEl);
-
-		new Setting(verBox)
-			.setName('저장 경로')
-			.setDesc('버전 파일이 저장되는 vault 내 폴더 경로')
-			.addText(text => text
-				.setPlaceholder('.writing-menu-versions')
-				.setValue(this.plugin.settings.versionStoragePath)
-				.onChange(async value => {
-					this.plugin.settings.versionStoragePath = value.trim() || '.writing-menu-versions';
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(verBox)
-			.setName('최대 보관 개수')
-			.setDesc('초과 시 오래된 버전부터 자동 삭제 (10~200)')
-			.addText(text => text
-				.setPlaceholder('50')
-				.setValue(String(this.plugin.settings.versionMaxCount))
-				.onChange(async value => {
-					const n = parseInt(value);
-					if (!isNaN(n) && n >= 10 && n <= 200) {
-						this.plugin.settings.versionMaxCount = n;
-						await this.plugin.saveSettings();
-					}
-				}));
-
-		this.addGroupTitle(containerEl, '상태');
-		const stageBox = this.createGroupBox(containerEl);
-		const renderStageList = () => {
-			stageBox.empty();
-			const stages = this.plugin.settings.versionStages ?? [];
-			for (let i = 0; i < stages.length; i++) {
-				const s = stages[i];
-				new Setting(stageBox)
-					.setName(`상태 ${i + 1}`)
-					.addColorPicker(cp => {
-						cp.setValue(s.color)
-							.onChange(async (val) => {
-								stages[i].color = val;
-								await this.plugin.saveSettings();
-							});
-					})
-					.addText(text => {
-						text.setPlaceholder('상태 이름')
-							.setValue(s.name);
-						text.inputEl.addClass('wm-stage-name-input');
-						text.onChange(async (val) => {
-							stages[i].name = val.trim() || s.name;
-							await this.plugin.saveSettings();
-						});
-					})
-					.addExtraButton(btn => btn.setIcon('x').setTooltip('삭제')
-						.onClick(async () => {
-							stages.splice(i, 1);
-							await this.plugin.saveSettings();
-							renderStageList();
-						}));
-			}
-		};
-		renderStageList();
-		const addStageIconRow = containerEl.createDiv({ cls: 'wm-settings-group-add-row' });
-		const addStageIcon = addStageIconRow.createDiv({ cls: 'clickable-icon wm-muted-icon' });
-		setIcon(addStageIcon, 'plus');
-		addStageIcon.setAttribute('aria-label', '상태 추가');
-		addStageIcon.addEventListener('click', () => {
-			fireAndForget(async () => {
-				(this.plugin.settings.versionStages ?? []).push({ name: '새 상태', color: '#6366f1' });
-				await this.plugin.saveSettings();
-				renderStageList();
-			});
-		});
+	private renderSnapshotPage(containerEl: HTMLElement) {
+		this.addBackButton(containerEl, '스냅샷');
+		this.addGroupTitle(containerEl, '편집기');
+		const box = this.createGroupBox(containerEl);
+		new Setting(box).setName('저장 위치').setDesc('기존 기록은 유지됩니다. 폴더를 바꾸면 이전 기록을 자동 이동하지 않습니다.')
+			.addText(text => text.setValue(this.plugin.settings.snapshotStoragePath).onChange(async value => {
+				const root = value.trim() || '.writing-menu-versions';
+				if (/^[\\\\/]|:/.test(root) || root.split('/').some(part => !part || part === '.' || part === '..')) return;
+				this.plugin.settings.snapshotStoragePath = root; await this.plugin.saveSettings();
+			}));
+		new Setting(box).setName('최근 기록 표시 개수').setDesc('이전 기록은 삭제하지 않습니다. 스냅샷 창의 보관 기록에서 확인할 수 있습니다.')
+			.addText(text => text.setValue(String(this.plugin.settings.snapshotMaxCount)).onChange(async value => {
+				const count = Number(value);
+				if (Number.isInteger(count) && count >= 10 && count <= 200) { this.plugin.settings.snapshotMaxCount = count; await this.plugin.saveSettings(); }
+			}));
+		this.addGroupTitle(containerEl, '플롯 매니저');
+		renderPlotSnapshotSettings(this.createGroupBox(containerEl), this.plugin);
 	}
 
 	// ── 캘린더 설정 ─────────────────────────────────────────────────────
@@ -2159,9 +1383,9 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		}
 	}
 
-	// ── 퇴고 매니저 ────────────────────────────────────────────────────────
+	// ── 교정 ────────────────────────────────────────────────────────
 	private renderRepetitionPage(containerEl: HTMLElement) {
-		this.addBackButton(containerEl, '퇴고 매니저');
+		this.addBackButton(containerEl, '교정');
 		const repetitionBox = this.createGroupBox(containerEl);
 
 		if (isMorphAnalysisSupported()) {
@@ -2209,26 +1433,13 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			});
 		}
 
-		let vocabText: import('obsidian').TextComponent;
-		new Setting(repetitionBox)
-			.setName('단어장 경로')
-			.setDesc('지정한 경로에 반복 단어를 저장합니다.')
-			.addExtraButton(btn => btn.setIcon('file-text').setTooltip('노트 선택')
-				.onClick(() => {
-					new NoteSuggestModal(this.app, (file) => {
-						fireAndForget(async () => {
-							this.plugin.settings.repetitionVocabNotePath = file.path;
-							await this.plugin.saveSettings();
-							vocabText.setValue(file.path);
-						});
-					}).open();
-				}))
-			.addText(text => {
-				vocabText = text;
-				text.setPlaceholder('예: 단어장.md')
-					.setValue(this.plugin.settings.repetitionVocabNotePath)
-					.onChange(async value => { this.plugin.settings.repetitionVocabNotePath = value.trim(); await this.plugin.saveSettings(); });
-			});
+		this.addGroupTitle(containerEl, '문단 분석');
+		const paragraphBox = this.createGroupBox(containerEl);
+		const options = this.plugin.settings.paragraphAnalysis;
+		new Setting(paragraphBox).setName('문단 구분').addDropdown(select => select.addOptions({ line: '줄바꿈마다', block: '빈 줄로 나눈 Markdown 블록' }).setValue(options.boundary).onChange(async value => { options.boundary = value as typeof options.boundary; await this.plugin.saveSettings(); }));
+		new Setting(paragraphBox).setName('공백 포함').addToggle(toggle => toggle.setValue(options.countSpaces).onChange(async value => { options.countSpaces = value; await this.plugin.saveSettings(); }));
+		const kinds = { narration: '서술', dialogue: '대사', monologue: '독백', special: '특수 대사' };
+		for (const [key, title] of [['singleQuote', '작은따옴표'], ['roundBracket', '소괄호']] as const) new Setting(paragraphBox).setName(title).addDropdown(select => select.addOptions(kinds).setValue(options[key]).onChange(async value => { options[key] = value as typeof options[typeof key]; await this.plugin.saveSettings(); }));
 	}
 
 	// ── 자동완성 심볼 ────────────────────────────────────────────────────

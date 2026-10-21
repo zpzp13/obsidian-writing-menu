@@ -22,10 +22,10 @@ export async function verifySidebarRoles({plugin,sidebar,sidebarHost,session,gri
 	hide.click(); assert(!sidebarHost.querySelector('.wm-plotbook-sidebar-pickers').hidden,'Picker visibility toggle could not restore selectors');
 	for(const label of ['프로젝트','시트']) {
 		const trigger = sidebarHost.querySelector(`button[aria-label="${label} 선택"]`);trigger.click();
-		const menu = document.querySelector('.wm-plotbook-scope-popover');
+		const menu = document.querySelector('.wm-toolbar-select-popover');
 		assert(menu?.matches('.wm-paged-toolbar-popover.wm-paged-compact-popover') && menu.querySelector('.wm-paged-popover-item'),'Scope selector did not use the toolbar compact popover');
 		menu.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
-		assert(!document.querySelector('.wm-plotbook-scope-popover') && document.activeElement === trigger,'Scope popover Escape/focus restoration failed');
+		assert(!document.querySelector('.wm-toolbar-select-popover') && document.activeElement === trigger,'Scope popover Escape/focus restoration failed');
 		assert(getComputedStyle(trigger.parentElement).outlineStyle === 'none','Selecting a scope still adds an outer focus border');
 	}
 	const [cast,foreshadow,status,date,character] = sheet.columnOrder.filter(id=>id!==plotColumn && id!==taskColumn);

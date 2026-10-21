@@ -1,9 +1,11 @@
 {
 	"name": "writing-menu",
-	"version": "3.3.2",
+	"version": "3.4.0",
 	"description": "An Obsidian plugin for customizing editor formatting",
 	"main": "main.js",
 	"scripts": {
+		"check": "node scripts/verify-release.mjs",
+		"release:package": "node scripts/package-release.mjs",
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"postbuild": "node scripts/postbuild.mjs",
@@ -12,7 +14,11 @@
 	"keywords": [],
 	"author": "",
 	"license": "MIT",
+	"overrides": {
+		"@codemirror/commands": { "@codemirror/state": "6.5.0" }
+	},
 	"devDependencies": {
+		"@codemirror/commands": "6.8.1",
 		"@codemirror/state": "^6.0.0",
 		"@codemirror/view": "^6.0.0",
 		"@types/diff-match-patch": "^1.0.36",
@@ -25,6 +31,7 @@
 		"typescript": "^6.0.3"
 	},
 	"dependencies": {
+		"@huggingface/transformers": "4.3.1",
 		"@types/node": "^16.11.6",
 		"better-result": "^2.10.0",
 		"diff-match-patch": "^1.0.5",

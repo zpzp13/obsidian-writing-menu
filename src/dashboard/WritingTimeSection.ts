@@ -7,7 +7,7 @@ import { TaskParser } from './data/TaskParser';
 import type { TimeModeConfig } from '../types';
 import { watchDisconnect } from '../utils/domUtils';
 import { getDnConfig } from '../utils/dailyNoteUtils';
-import { toHMS, fmtTimeFull as fmtTime } from '../utils/timeUtils';
+import { toHMS } from '../utils/timeUtils';
 import { WritingTimeChart, type DailyModeTime } from './WritingTimeChart';
 
 const getModeIcon = (mode: TimeModeConfig): string => {

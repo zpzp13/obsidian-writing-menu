@@ -1,11 +1,11 @@
-﻿import { TFile, normalizePath } from 'obsidian';
+import { TFile, normalizePath } from 'obsidian';
 
 declare const moment: (date?: unknown, fmt?: string, strict?: boolean) => {
 	format(f: string): string;
 	isValid(): boolean;
 };
 import type WritingMenuPlugin from '../../../main';
-import { calcVersionCharCount } from '../../version/charCount';
+import { calcSnapshotCharCount } from '../../utils/charCount';
 import { formatDateKey } from '../../utils/dateUtils';
 import { getDnConfig } from '../../utils/dailyNoteUtils';
 
@@ -114,7 +114,7 @@ export class DailyCharStore {
 
 	async onFileModify(file: TFile) {
 		if (!this.ready || !this.storage.today) return;
-		if (file.extension !== 'md' || this.inVersionFolder(file.path)) return;
+		if (file.extension !== 'md' || this.inSnapshotFolder(file.path)) return;
 
 		if (this.inTrackingFolder(file.path)) {
 			// 오토세이브마다 즉시 읽지 않고 3초 데바운스
@@ -128,7 +128,7 @@ export class DailyCharStore {
 				void (async () => {
 					try {
 						const content = await this.plugin.app.vault.cachedRead(file);
-						const count   = calcVersionCharCount(content, this.plugin.settings.charCountMode);
+						const count   = calcSnapshotCharCount(content, this.plugin.settings.charCountMode);
 						if (this.storage.today!.current[file.path] === count) return;
 						this.storage.today!.current[file.path] = count;
 						if (!(file.path in this.storage.today!.start))
@@ -163,7 +163,7 @@ export class DailyCharStore {
 		let total = 0;
 		const seen = new Set([...Object.keys(start), ...Object.keys(current), ...Object.keys(carried)]);
 		for (const path of seen) {
-			if (this.inVersionFolder(path)) continue;
+			if (this.inSnapshotFolder(path)) continue;
 			if (!this.inTrackingFolder(path)) continue;
 			if (!path.startsWith(prefix)) continue;
 			const s = start[path] ?? current[path] ?? 0;
@@ -207,7 +207,7 @@ export class DailyCharStore {
 			void this.init();
 			return;
 		}
-		if (this.inVersionFolder(file.path) || !this.inTrackingFolder(file.path)) return;
+		if (this.inSnapshotFolder(file.path) || !this.inTrackingFolder(file.path)) return;
 		if (this.storage.today.current[file.path] === count) return;
 		if (!(file.path in this.storage.today.start)) {
 			this.storage.today.start[file.path] = this.getInitialBaseline(file, count);
@@ -223,7 +223,7 @@ export class DailyCharStore {
 		const seen = new Set([...Object.keys(start), ...Object.keys(current), ...Object.keys(carried)]);
 		const result: { path: string; name: string; written: number; total: number }[] = [];
 		for (const path of seen) {
-			if (this.inVersionFolder(path)) continue;
+			if (this.inSnapshotFolder(path)) continue;
 			if (!this.inTrackingFolder(path)) continue;
 			const s = start[path] ?? current[path] ?? 0;
 			const c = current[path] ?? s;
@@ -286,7 +286,7 @@ export class DailyCharStore {
 		let total = 0;
 		const seen = new Set([...Object.keys(start), ...Object.keys(current), ...Object.keys(carried)]);
 		for (const path of seen) {
-			if (this.inVersionFolder(path)) continue;
+			if (this.inSnapshotFolder(path)) continue;
 			if (!this.inTrackingFolder(path)) continue;
 			const s = start[path] ?? current[path] ?? 0;
 			const c = current[path] ?? s;
@@ -300,7 +300,7 @@ export class DailyCharStore {
 		const carried = data.carried ?? {};
 		const seen = new Set([...Object.keys(data.start), ...Object.keys(data.current), ...Object.keys(carried)]);
 		for (const path of seen) {
-			if (this.inVersionFolder(path)) continue;
+			if (this.inSnapshotFolder(path)) continue;
 			if (!this.inTrackingFolder(path)) continue;
 			const s = data.start[path] ?? data.current[path] ?? 0;
 			const c = data.current[path] ?? s;
@@ -330,11 +330,11 @@ export class DailyCharStore {
 	private async snapshotAll(): Promise<Record<string, number>> {
 		const snapshot: Record<string, number> = {};
 		for (const file of this.plugin.app.vault.getMarkdownFiles()) {
-			if (this.inVersionFolder(file.path)) continue;
+			if (this.inSnapshotFolder(file.path)) continue;
 			if (!this.inTrackingFolder(file.path)) continue;
 			try {
 				const content = await this.plugin.app.vault.cachedRead(file);
-				snapshot[file.path] = calcVersionCharCount(content, this.plugin.settings.charCountMode);
+				snapshot[file.path] = calcSnapshotCharCount(content, this.plugin.settings.charCountMode);
 			} catch { /* intentional */ }
 		}
 		return snapshot;
@@ -346,7 +346,7 @@ export class DailyCharStore {
 		const carried = { ...(today.carried ?? {}) };
 		const seen = new Set([...Object.keys(today.start), ...Object.keys(today.current)]);
 		for (const path of seen) {
-			if (this.inVersionFolder(path)) continue;
+			if (this.inSnapshotFolder(path)) continue;
 			if (!this.inTrackingFolder(path)) continue;
 			const start = today.start[path] ?? today.current[path] ?? 0;
 			const current = today.current[path] ?? start;
@@ -358,8 +358,8 @@ export class DailyCharStore {
 		today.current = {};
 	}
 
-	private inVersionFolder(path: string): boolean {
-		const vp = normalizePath(this.plugin.settings.versionStoragePath || '.writing-menu-versions');
+	private inSnapshotFolder(path: string): boolean {
+		const vp = normalizePath(this.plugin.settings.snapshotStoragePath || '.writing-menu-versions');
 		return path.startsWith(vp + '/');
 	}
 

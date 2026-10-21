@@ -1,4 +1,4 @@
-﻿import { setIcon, TFile, MarkdownView } from 'obsidian';
+import { setIcon, TFile, MarkdownView } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { ParsedTask } from './data/TaskParser';
 import { TaskParser } from './data/TaskParser';
@@ -153,13 +153,13 @@ export function renderTaskItem(
 		const btnWin = btnDoc.defaultView ?? window;
 		btnDoc.querySelector('.wm-task-priority-popup')?.remove();
 
-		const ppop = btnDoc.body.createDiv({ cls: 'wm-task-priority-popup wm-ver-popup' });
+		const ppop = btnDoc.body.createDiv({ cls: 'wm-task-priority-popup wm-popup' });
 		const r    = flagBtn.getBoundingClientRect();
 		ppop.setCssStyles({ top: `${r.bottom + 4}px` });
 		ppop.setCssStyles({ left: `${r.left}px` });
 
 		for (const p of PRIORITY_MAP) {
-			const pitem = ppop.createDiv({ cls: 'wm-ver-popup-item' + (p.color === currentColor ? ' is-active' : '') });
+			const pitem = ppop.createDiv({ cls: 'wm-popup-item' + (p.color === currentColor ? ' is-active' : '') });
 			const dot   = pitem.createDiv({ cls: 'wm-task-priority-dot' });
 			dot.setCssStyles({ background: p.color });
 			pitem.createSpan({ text: p.label });

@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, setIcon, TFile, Notice } from 'obsidian';
+import { ItemView, WorkspaceLeaf, setIcon, TFile } from 'obsidian';
 
 declare const moment: (date?: unknown, fmt?: string) => { format(f: string): string };
 import type WritingMenuPlugin from '../../../main';
@@ -6,18 +6,17 @@ import { DashboardSection } from '../../dashboard/DashboardSection';
 import { TaskParser } from '../../dashboard/data/TaskParser';
 import { TasksRenderer } from '../../dashboard/TasksRenderer';
 import { showTaskAddPopup } from '../../dashboard/TaskAddPopup';
-import { VersionPanel } from '../../version/VersionPanel';
-import { RepetitionSection } from '../../repetition/RepetitionSection';
+import { RevisionPanel } from '../../repetition/RevisionPanel';
 import type { DashSectionConfig } from '../../types';
 import { WikiPanel } from '../../wiki/WikiPanel';
 import { AiChatPanel } from '../../aichat/AiChatPanel';
 import { formatDateKey } from '../../utils/dateUtils';
-import { getDnConfig, ensureDailyNote } from '../../utils/dailyNoteUtils';
+
 import { showDatePickerPopup } from '../components/DatePickerPopup';
 
 export const VIEW_TYPE_CALENDAR = 'writing-menu-calendar';
 
-type DashTab = 'main' | 'wiki' | 'version' | 'ai';
+type DashTab = 'main' | 'wiki' | 'revision' | 'ai';
 
 interface TaskDayStats {
 	total: number;
@@ -28,8 +27,8 @@ interface TaskDayStats {
 const TABS: Array<{ id: DashTab; icon: string; label: string }> = [
 	{ id: 'main',    icon: 'house',              label: 'MAIN' },
 	{ id: 'wiki',    icon: 'git-graph',          label: 'WIKI' },
-	{ id: 'version', icon: 'shield',             label: 'REVISION' },
-	{ id: 'ai',      icon: 'bot',               label: 'AI' },
+	{ id: 'revision', icon: 'shield',             label: 'REVISION' },
+	{ id: 'ai',      icon: 'bot',               label: 'DEUS' },
 ];
 
 export class CalendarView extends ItemView {
@@ -40,6 +39,7 @@ export class CalendarView extends ItemView {
 	private dashSubView: 'content' | 'sort' = 'content';
 	private wikiPanel: WikiPanel | null = null;
 	private aiChatPanel: AiChatPanel | null = null;
+	private revisionPanel: RevisionPanel | null = null;
 
 	private dateDisplayEl: HTMLElement   | null = null;
 	private calendarTaskSlot: HTMLElement | null = null;
@@ -75,6 +75,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 	}
 
 	async onClose() {
+		if (this.revisionPanel) { this.removeChild(this.revisionPanel); this.revisionPanel = null; }
 	}
 
 	activateWikiPicker() {
@@ -100,6 +101,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 	// ── Root render ─────────────────────────────────────────────────
 
 	render() {
+		if (this.revisionPanel) { this.removeChild(this.revisionPanel); this.revisionPanel = null; }
 		if (this.dashTab !== 'wiki') this.wikiPanel?.suspend();
 		const content = this.containerEl.children[1] as HTMLElement;
 		content.empty();
@@ -285,7 +287,8 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 	private updateDashboardContentClass() {
 		const content = this.containerEl.children[1] as HTMLElement;
 		content.className = this.dashTab === 'wiki' ? 'wm-cal-content wm-wiki-mode'
-			: this.dashTab === 'ai' ? 'wm-cal-content wm-aichat-mode'
+			: this.dashTab === 'ai' ? 'wm-cal-content wm-chat-mode'
+			: this.dashTab === 'revision' ? 'wm-cal-content wm-revision-mode'
 			: 'wm-cal-content';
 	}
 
@@ -299,7 +302,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 				else this.renderMainDashboard(panel);
 				break;
 			case 'wiki':    this.renderWikiPanel(panel);    break;
-			case 'version': this.renderVersionPanel(panel); break;
+			case 'revision': this.renderRevisionPanel(panel); break;
 			case 'ai':      this.renderAiChatPanel(panel);  break;
 		}
 	}
@@ -399,29 +402,18 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 	}
 
 	private renderAiChatPanel(panel: HTMLElement) {
-		panel.addClass('wm-dash-panel-single', 'wm-aichat-panel');
+		panel.addClass('wm-dash-panel-single', 'wm-chat-panel');
 		if (!this.aiChatPanel) {
 			this.aiChatPanel = new AiChatPanel(this.plugin, this);
 		}
 		void this.aiChatPanel.render(panel);
 	}
 
-	private renderVersionPanel(panel: HTMLElement) {
+	private renderRevisionPanel(panel: HTMLElement) {
 		panel.addClass('wm-dash-panel-single', 'wm-revision-panel');
-		const wrap = panel.createDiv({ cls: 'wm-dash wm-dash-revision' });
-		const addSection = (title: string, renderBody: (body: HTMLElement) => void) => {
-			const group = wrap.createDiv({ cls: 'wm-dash-group' });
-			const header = group.createDiv({ cls: 'wm-dash-group-hdr' });
-			header.createSpan({ cls: 'wm-dash-group-marker' });
-			header.createSpan({ cls: 'wm-dash-group-label', text: title });
-			const body = group.createDiv({ cls: 'wm-dash-group-body' });
-			renderBody(body);
-		};
-		addSection('버전 관리', body => {
-			body.addClass('version-control-view');
-			VersionPanel.render(body, this.plugin);
-		});
-		addSection('퇴고 매니저', body => RepetitionSection.render(body, this.plugin));
+		const wrap = panel.createDiv({ cls: 'wm-dash-revision' });
+		this.revisionPanel = new RevisionPanel(wrap, this.plugin);
+		this.addChild(this.revisionPanel);
 	}
 
 	// ── Sort board (main tab drill-down) ─────────────────────────────
@@ -584,27 +576,6 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 				}, 350);
 			}
 		}, 0);
-	}
-
-	// ── Daily note ───────────────────────────────────────────────────
-
-	private async openOrCreateDailyNote(date: Date) {
-		const { folder, format } = getDnConfig(this.plugin);
-		const filename = moment(date).format(format);
-		const filePath = folder ? `${folder}/${filename}.md` : `${filename}.md`;
-
-		const existing = this.app.vault.getAbstractFileByPath(filePath);
-		if (existing instanceof TFile) {
-			await this.app.workspace.getLeaf(false).openFile(existing);
-			return;
-		}
-		try {
-			const file = await ensureDailyNote(this.plugin, date);
-			if (file) await this.app.workspace.getLeaf(false).openFile(file);
-			else new Notice('데일리 노트를 생성할 수 없습니다.');
-		} catch {
-			new Notice('데일리 노트를 생성할 수 없습니다.');
-		}
 	}
 
 }

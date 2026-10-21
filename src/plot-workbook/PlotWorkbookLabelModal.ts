@@ -4,7 +4,7 @@ import type { PlotWorkbookSession } from './PlotWorkbookSession';
 
 export class PlotWorkbookLabelModal extends Modal {
 	constructor(
-		private readonly plugin: WritingMenuPlugin,
+		plugin: WritingMenuPlugin,
 		private readonly session: PlotWorkbookSession,
 		private readonly columnIds: string[],
 	) {

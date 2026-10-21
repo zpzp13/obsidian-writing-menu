@@ -4,7 +4,7 @@ import { DEFAULT_PLOTBOOK_FONT_SIZE, PLOT_WORKBOOK_SIDEBAR_TYPE, type PlotWorkbo
 import { PlotWorkbookChecklistEditor } from './PlotWorkbookChecklistEditor';
 import { plotWorkbookSessions, type PlotWorkbookSessionLease } from './PlotWorkbookSessionStore';
 import { PlotWorkbookRowPicker } from './PlotWorkbookRowPicker';
-import { PlotWorkbookCompactSelect } from './PlotWorkbookCompactSelect';
+import { ToolbarSelect } from '../toolbar/ToolbarSelect';
 import { PLOT_COLUMN_ICONS, plotColumnTitle } from './PlotWorkbookColumnPresentation';
 import { renderSidebarCell, sidebarCharacterColor, sidebarCharacterColumn, sidebarCharacterName } from './PlotWorkbookSidebarCell';
 import { applySidebarTextStyle } from './PlotWorkbookSidebarStyle';
@@ -27,12 +27,13 @@ export class PlotWorkbookSidebarView extends ItemView {
 	private headerSignature = '';
 	private cards = new Map<string, RowCard>();
 	private axisPicker: PlotWorkbookRowPicker | null = null;
-	private scopePickers: PlotWorkbookCompactSelect[] = [];
+	private scopePickers: ToolbarSelect[] = [];
 	private expandedCard: string | null = null;
 	private pickersHidden = false;
 	private query = '';
 	private showEmpty = false;
 	private limit = PAGE_SIZE;
+	private storageGeneration: string | undefined;
 
 	constructor(leaf: WorkspaceLeaf, private readonly plugin: WritingMenuPlugin) {
 		super(leaf);
@@ -48,6 +49,13 @@ export class PlotWorkbookSidebarView extends ItemView {
 	getDisplayText(): string { return '플롯 사이드바'; }
 	getIcon(): string { return 'panel-right'; }
 	getState(): Record<string, unknown> { return { ...this.state }; }
+	getDeusSceneSelection(): { projectRoot: string; sheetId: string; rowIds: string[] } | null {
+		const project = this.plugin.settings.projects.find(project => project.id === this.state.projectId);
+		const sheet = this.lease?.session.activeSheet;
+		const rowId = this.expandedCard ? this.cards.get(this.expandedCard)?.element.dataset.rowId : this.state.rowId;
+		if (!project || !sheet || !rowId || !sheet.rows[rowId] || !this.containerEl.isConnected) return null;
+		return { projectRoot: project.rootFolder, sheetId: sheet.sheetId, rowIds: [rowId] };
+	}
 
 	async setState(value: unknown, _result: ViewStateResult): Promise<void> {
 		const previous = this.state.projectId;
@@ -190,6 +198,12 @@ export class PlotWorkbookSidebarView extends ItemView {
 	private render(): void {
 		const session = this.lease?.session;
 		if (!session || !this.header || !this.list) return;
+		if (this.storageGeneration !== session.manifest.storageGeneration) {
+			this.storageGeneration = session.manifest.storageGeneration;
+			this.clearCards();
+			this.headerSignature = '';
+			this.expandedCard = null;
+		}
 		const sheet = session.activeSheet;
 		this.state.sheetId = sheet.sheetId;
 		const rowMode = this.state.mode === 'row';
@@ -324,7 +338,7 @@ export class PlotWorkbookSidebarView extends ItemView {
 			for (const [value, text] of options) select.createEl('option', {value, text});
 			select.value = value; select.addEventListener('change', () => change(select.value));
 			if (axis) this.axisPicker = new PlotWorkbookRowPicker(select, label === '열' ? 'column' : 'row');
-			else this.scopePickers.push(new PlotWorkbookCompactSelect(select));
+			else this.scopePickers.push(new ToolbarSelect(select, 'is-sidebar-context'));
 		};
 		picker(context, '프로젝트', 'folder', this.plugin.projectContext.getProjects().map(item => [item.id,item.name]), this.state.projectId!, value => {
 			this.state = {projectId:value,mode:this.state.mode}; void this.loadProject();

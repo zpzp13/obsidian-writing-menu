@@ -77,7 +77,7 @@ export class ToolbarManager {
 			...this.plugin.app.workspace.getLeavesOfType(PAGED_WRITING_VIEW_TYPE),
 		];
 		const leafSet = new Set(writingLeaves);
-		this.plugin.toolbarElements.forEach((toolbar, leaf) => {
+		this.plugin.toolbarElements.forEach((_toolbar, leaf) => {
 			if (!leafSet.has(leaf)) {
 				this.forgetToolbar(leaf);
 			}
@@ -324,7 +324,7 @@ export class ToolbarManager {
 		else if (page === 'color') this.renderColorPage(container, leaf);
 		else if (page === 'view') this.renderViewPage(container, leaf);
 		else if (page === 'input') this.renderInputPage(container, leaf);
-		else if (page === 'version') this.renderVersionMenuPage(container, leaf);
+		else if (page === 'snapshots') this.renderSnapshotMenuPage(container, leaf);
 		else if (page === 'time-tracking') this.renderTimeTrackingPage(container, leaf);
 	}
 
@@ -503,46 +503,12 @@ export class ToolbarManager {
 		void this.plugin.addCompactToggle(container, '텍스트 치환', this.plugin.settings.enableTextSubstitution, async (v) => { this.plugin.settings.enableTextSubstitution = v; await this.plugin.saveSettings(); }, 'replace');
 	}
 
-	renderVersionMenuPage(container: HTMLElement, leaf: WorkspaceLeaf) {
-		this.addMenuBackButton(container, '버전 관리', () => this.renderMenuPage(container, 'main', leaf));
-
-		const getHotkey = (commandId: string): string => {
-			type HotkeyManager = { getHotkeys(id: string): Array<{ modifiers: string[]; key: string }> };
-			const hotkeys = (this.plugin.app as unknown as { hotkeyManager?: HotkeyManager }).hotkeyManager?.getHotkeys(`writing-menu:${commandId}`);
-			if (!hotkeys || hotkeys.length === 0) return '';
-			const hk = hotkeys[0];
-			const mods = (hk.modifiers || []).map((m: string) => {
-				if (m === 'Mod') return Platform.isMacOS ? '⌘' : 'Ctrl';
-				if (m === 'Alt') return Platform.isMacOS ? '⌥' : 'Alt';
-				if (m === 'Shift') return '⇧';
-				return m;
-			});
-			return [...mods, hk.key].join('+');
-		};
-
-		const saveRow = container.createDiv('writing-menu-control');
-		const saveLabelGroup = saveRow.createDiv('writing-menu-control-label-group');
-		setIcon(saveLabelGroup.createSpan('writing-menu-icon'), 'save');
-		saveLabelGroup.createEl('label', { text: '버전 저장' });
-		const saveHk = saveRow.createDiv();
-		saveHk.setCssStyles({ display: 'flex', alignItems: 'center', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '12px' });
-		const saveHkStr = getHotkey('save-version');
-		saveHk.setText(saveHkStr || '단축키 없음');
-		saveRow.setCssStyles({ cursor: 'pointer' });
-		saveRow.addEventListener('click', (e) => {
-			e.stopPropagation();
-			void (async () => {
-				const activeView = this.plugin.app.workspace.activeLeaf?.view;
-				if (!this.isWritingView(activeView) || !activeView.file) { new Notice('마크다운 파일을 먼저 열어주세요.'); return; }
-				const file = activeView.file;
-				(activeDocument.querySelector('.writing-menu-dropdown') as HTMLElement)?.remove();
-				const { VersionManager } = await import('../version/manager');
-				const manager = new VersionManager(this.plugin.app, this.plugin);
-				const now = new Date();
-				const name = `${now.getMonth() + 1}/${now.getDate()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-				await manager.saveVersion(file, name, this.getViewText(activeView));
-				new Notice(`버전 "${name}"이 저장되었습니다.`);
-			})();
+	renderSnapshotMenuPage(container: HTMLElement, leaf: WorkspaceLeaf) {
+		this.addMenuBackButton(container, '원고 스냅샷', () => this.renderMenuPage(container, 'main', leaf));
+		const button = container.createEl('button', { text: '원고 스냅샷 열기', cls: 'wm-snapshot-menu-open' });
+		button.addEventListener('click', () => {
+			(activeDocument.querySelector('.writing-menu-dropdown') as HTMLElement)?.remove();
+			void import('../snapshots/ManuscriptSnapshotModal').then(({ openManuscriptSnapshots }) => openManuscriptSnapshots(this.plugin));
 		});
 	}
 

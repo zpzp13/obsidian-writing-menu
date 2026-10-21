@@ -46,6 +46,11 @@ export class PlotWorkbookView extends ItemView {
 	getStatusSettingsSession(projectId: string): PlotWorkbookSession | null {
 		return this.projectId === projectId ? this.session : null;
 	}
+	getDeusSceneSelection(): { projectRoot: string; sheetId: string; rowIds: string[] } | null {
+		const project = this.plugin.settings.projects.find(project => project.id === this.projectId);
+		if (!project || !this.session || !this.sheetView || !this.containerEl.isConnected) return null;
+		return { projectRoot: project.rootFolder, sheetId: this.session.activeSheet.sheetId, rowIds: this.sheetView.getSelectedSceneRows() };
+	}
 
 	async revealCell(sheetId: string, rowId: string, columnId: string): Promise<boolean> {
 		return this.revealForeshadowLocation({ sheetId, rowId, columnId });
@@ -114,7 +119,14 @@ export class PlotWorkbookView extends ItemView {
 			}
 			this.sessionLease = lease;
 			this.session = lease.session;
+			let generation = this.session.manifest.storageGeneration;
 			this.sessionUnsubscribe = this.session.subscribe(() => {
+				if (generation !== this.session?.manifest.storageGeneration) {
+					generation = this.session?.manifest.storageGeneration;
+					this.lastSelection = { rowIndex: 0, columnIndex: 0 };
+					this.render();
+					return;
+				}
 				this.toolbarView?.refresh();
 				const signature = this.currentSheetTabsSignature();
 				if (signature !== this.sheetTabsSignature) this.refreshSheetTabs();

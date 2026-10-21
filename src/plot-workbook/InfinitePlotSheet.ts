@@ -373,6 +373,8 @@ export class InfinitePlotSheet {
 		this.scheduleFrontmatterSync();
 	}
 
+	commitEditing(): void { this.editingCell?.blur(); }
+
 	private renderFindBar(): {
 		bar: HTMLElement;
 		input: HTMLInputElement;
@@ -1138,6 +1140,15 @@ export class InfinitePlotSheet {
 	getSelectedLocation(): PlotWorkbookForeshadowLocation {
 		const sheet = this.session.activeSheet;
 		return {sheetId:sheet.sheetId,rowId:sheet.rowOrder[this.selected.rowIndex],columnId:this.columnOrder(sheet)[this.selected.columnIndex]};
+	}
+
+	/** Read the chosen scene rows without exposing mutable sheet internals. */
+	getSelectedSceneRows(): string[] {
+		const sheet = this.session.activeSheet;
+		if (this.selectionMode === 'row') return sheet.rowOrder.filter(id => this.selectedRowIdsSet.has(id));
+		if (this.selectionMode !== 'cell') return [sheet.rowOrder[this.selected.rowIndex]].filter(Boolean);
+		if (this.selectedCellKeys.size) return [...new Set([...this.selectedCellKeys].map(key => this.cellIdsFromKey(key)[0]))].filter(id => Boolean(sheet.rows[id]));
+		const bounds = this.selectionBounds(); return sheet.rowOrder.slice(bounds.top, bounds.bottom + 1);
 	}
 
 	getSelectionStyle(): PlotWorkbookCellStyle {
@@ -2145,7 +2156,7 @@ export class InfinitePlotSheet {
 		cell: HTMLElement,
 		sheet: PlotWorkbookSheet,
 		rowId: string,
-		columnId: string,
+		_columnId: string,
 		legacyValue: string,
 	): void {
 		cell.empty();
@@ -2289,13 +2300,6 @@ export class InfinitePlotSheet {
 		this.select(rowIndex, columnIndex, false);
 		this.revealSelected(true);
 		return true;
-	}
-
-	private sameForeshadowLocation(
-		left: PlotWorkbookForeshadowLocation,
-		right: PlotWorkbookForeshadowLocation,
-	): boolean {
-		return left.sheetId === right.sheetId && left.rowId === right.rowId && left.columnId === right.columnId;
 	}
 
 	private beginDateEditingCell(cell: HTMLElement, rowIndex: number, columnIndex: number, openPicker = false): void {
@@ -3776,13 +3780,6 @@ export class InfinitePlotSheet {
 		else input.setSelectionRange(input.value.length, input.value.length);
 	}
 
-	private setSelectedValue(value: string): void {
-		const sheet = this.session.activeSheet;
-		const rowId = sheet.rowOrder[this.selected.rowIndex];
-		const columnId = this.columnOrder(sheet)[this.selected.columnIndex];
-		if (rowId && columnId) this.session.setCell(rowId, columnId, value);
-	}
-
 	private clearSelectedRange(): void {
 		if (this.selectionMode === 'headers') return;
 		this.session.setCells(this.selectedCellTargets().map(target => ({ ...target, value: '' })));
@@ -3867,21 +3864,6 @@ export class InfinitePlotSheet {
 		element.style.width = `${Math.max(0, right - left)}px`;
 		element.style.height = `${Math.max(0, bottom - top)}px`;
 		this.setOverlayScrollTransform(element, !inFrozenLayer && whollyFrozenColumns, !inFrozenLayer && whollyFrozenRows);
-	}
-
-	private placeOverlayInPane(element: HTMLElement, bounds: SelectionBounds): void {
-		const sheet = this.session.activeSheet;
-		const whollyFrozenRows = this.frozenRowCount(sheet) > 0 && bounds.bottom < this.frozenRowCount(sheet);
-		const whollyFrozenColumns = this.frozenColumnCount(sheet) > 0 && bounds.right < this.frozenColumnCount(sheet);
-		const parent = whollyFrozenRows && whollyFrozenColumns
-			? this.frozenCornerCellsLayer
-			: whollyFrozenRows
-				? this.frozenRowsCellsLayer
-				: whollyFrozenColumns
-					? this.frozenColumnsCellsLayer
-					: this.canvas;
-		if (element.parentElement !== parent) parent.appendChild(element);
-		element.toggleClass('is-on-frozen-pane', parent !== this.canvas);
 	}
 
 	private setOverlayScrollTransform(element: HTMLElement, x: boolean, y: boolean): void {

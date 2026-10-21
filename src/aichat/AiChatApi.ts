@@ -1,6 +1,8 @@
 import { requestUrl } from 'obsidian';
 import type { AiChatMessage } from './AiChatTypes';
-import { RATE_LIMIT_MSG, SERVER_ERROR_MSG, isTransientServerError, withRetry } from './AiApiCommon';
+import { RATE_LIMIT_MSG, SERVER_ERROR_MSG, isTransientServerError } from './AiApiCommon';
+import { abortableChat, checkChatAbort, readGeminiStream } from './ChatStream';
+import { formatChatMessage } from './AiChatPrompt';
 
 const NVIDIA_CHAT_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
 const GEMINI_CHAT_URL = (model: string) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
@@ -13,12 +15,19 @@ export interface AiChatApiKeys {
 }
 
 export const AI_CHAT_MODELS: Array<{ id: string; label: string; provider: AiChatProvider }> = [
-	{ id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash (추천 · 최고 품질)', provider: 'gemini' },
+	{ id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash', provider: 'gemini' },
+	{ id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite', provider: 'gemini' },
 	{ id: 'gemma-4-31b-it', label: 'Gemma 4 31B IT (창작 · 오픈 모델)', provider: 'gemini' },
-	{ id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash-Lite (빠른 고빈도 작업)', provider: 'gemini' },
+	{ id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash-Lite', provider: 'gemini' },
 	{ id: 'google/diffusiongemma-26b-a4b-it', label: 'DiffusionGemma 26B (NVIDIA · 실험적)', provider: 'nvidia' },
 ];
-export const DEFAULT_AI_CHAT_MODEL = AI_CHAT_MODELS[0].id;
+export const DEFAULT_AI_CHAT_MODEL = 'gemini-3.5-flash-lite';
+export const FREE_CHAT_MODELS = AI_CHAT_MODELS.filter(model => ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.1-flash-lite'].includes(model.id));
+const DEUS_CHAT_MODELS = AI_CHAT_MODELS.filter(model => model.id.startsWith('gemini-'));
+export function deusChatModels(settings: { aiChatFreeOnly: boolean }): typeof AI_CHAT_MODELS {
+	return settings.aiChatFreeOnly ? FREE_CHAT_MODELS : DEUS_CHAT_MODELS;
+}
+export function effectiveChatModel(settings: { aiChatModel: string; aiChatFreeOnly: boolean; aiChatFreeModel?: string }): string { return settings.aiChatFreeOnly ? FREE_CHAT_MODELS.some(model => model.id === settings.aiChatFreeModel) ? settings.aiChatFreeModel! : DEFAULT_AI_CHAT_MODEL : settings.aiChatModel; }
 
 export function getModelProvider(model: string): AiChatProvider {
 	const configured = AI_CHAT_MODELS.find(m => m.id === model)?.provider;
@@ -39,11 +48,6 @@ function buildExtraParams(model: string): Record<string, unknown> {
 	return extra;
 }
 
-function formatUserContent(m: AiChatMessage): string {
-	const body = m.kind === 'narration' ? `*${m.content}*` : m.content;
-	return m.speakerName ? `[${m.speakerName}] ${body}` : body;
-}
-
 interface NvidiaChatResponse {
 	choices?: Array<{ message?: { content?: string } }>;
 }
@@ -53,7 +57,7 @@ async function callNvidiaChat(apiKey: string, systemPrompt: string, history: AiC
 		{ role: 'system', content: systemPrompt },
 		...history.map(m => ({
 			role: m.role,
-			content: m.role === 'user' ? formatUserContent(m) : m.content,
+			content: formatChatMessage(m),
 		})),
 	];
 
@@ -120,7 +124,7 @@ function buildGeminiGenerationConfig(model: string, temperature: number, maxToke
 async function callGeminiChat(apiKey: string, systemPrompt: string, history: AiChatMessage[], temperature: number, model: string, maxTokens: number): Promise<string> {
 	const contents = history.map(m => ({
 		role: m.role === 'user' ? 'user' : 'model',
-		parts: [{ text: m.role === 'user' ? formatUserContent(m) : m.content }],
+		parts: [{ text: formatChatMessage(m) }],
 	}));
 
 	const res = await requestUrl({
@@ -155,11 +159,31 @@ async function callGeminiChat(apiKey: string, systemPrompt: string, history: AiC
 	return content.trim();
 }
 
-export async function callAiChat(apiKeys: AiChatApiKeys, systemPrompt: string, history: AiChatMessage[], temperature = 1.0, model = DEFAULT_AI_CHAT_MODEL, maxTokens = 8192): Promise<string> {
-	const provider = getModelProvider(model);
-	const call = () => {
-		if (provider === 'gemini') return callGeminiChat(apiKeys.gemini, systemPrompt, history, temperature, model, maxTokens);
-		return callNvidiaChat(apiKeys.nvidia, systemPrompt, history, temperature, model, maxTokens);
-	};
-	return withRetry(call, 5);
+export interface AiChatRequestOptions { signal?: AbortSignal; stream?: boolean; onText?: (text: string) => void }
+
+export async function callAiChat(apiKeys: AiChatApiKeys, systemPrompt: string, history: AiChatMessage[], temperature = 1.0, model = DEFAULT_AI_CHAT_MODEL, maxTokens = 8192, options: AiChatRequestOptions = {}): Promise<string> {
+	checkChatAbort(options.signal);
+	if (getModelProvider(model) === 'gemini' && options.stream) {
+		let response: Response;
+		try {
+			response = await fetch(GEMINI_CHAT_URL(model).replace(':generateContent', ':streamGenerateContent?alt=sse'), {
+				method: 'POST', signal: options.signal,
+				headers: { 'x-goog-api-key': apiKeys.gemini, 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					system_instruction: { parts: [{ text: systemPrompt }] },
+					contents: history.map(message => ({ role: message.role === 'user' ? 'user' : 'model', parts: [{ text: formatChatMessage(message) }] })),
+					generationConfig: buildGeminiGenerationConfig(model, temperature, maxTokens),
+				}),
+			});
+		} catch (error) {
+			checkChatAbort(options.signal);
+			throw new Error('스트리밍에 연결하지 못했습니다. AI 챗 설정에서 스트리밍을 끄고 다시 시도해 주세요.');
+		}
+		if (!response.ok || !response.body) throw new Error(`AI 연결 오류 (HTTP ${response.status})`);
+		return readGeminiStream(response.body, options.signal, options.onText);
+	}
+	const task = getModelProvider(model) === 'gemini'
+		? callGeminiChat(apiKeys.gemini, systemPrompt, history, temperature, model, maxTokens)
+		: callNvidiaChat(apiKeys.nvidia, systemPrompt, history, temperature, model, maxTokens);
+	const result = await abortableChat(task, options.signal); checkChatAbort(options.signal); return result;
 }

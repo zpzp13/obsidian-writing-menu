@@ -193,17 +193,6 @@ export class DashboardSection {
 		});
 	}
 
-	private static renderSection(
-		container: HTMLElement,
-		title: string | null,
-		fn: (body: HTMLElement) => void,
-	) {
-		const group = container.createDiv({ cls: 'wm-dash-group' });
-		if (title) this.renderSectionTitle(group, title);
-		const body = group.createDiv({ cls: 'wm-dash-group-body' });
-		fn(body);
-	}
-
 	private static renderSectionTitle(container: HTMLElement, title: string): HTMLElement {
 		const hdr = container.createDiv({ cls: 'wm-dash-group-hdr' });
 		hdr.createSpan({ cls: 'wm-dash-group-marker' });

@@ -3,6 +3,7 @@ import type WritingMenuPlugin from '../../main';
 import { isThemeAwareColor } from '../utils/themeColor';
 import {
 	PLOT_WORKBOOK_FORMAT_VERSION,
+	PLOT_WORKBOOK_MANIFEST_VERSION,
 	applyPlotWorkbookOperation,
 	clonePlotWorkbookSheet,
 	createPlotWorkbookSheet,
@@ -14,15 +15,23 @@ import {
 	type PlotWorkbookForeshadowRegistry,
 	type PlotWorkbookSheet,
 	type PlotWorkbookSheetRef,
+	type PlotWorkbookSnapshotData,
+	newPlotWorkbookId,
 } from './PlotWorkbookTypes';
 
 const COMPACT_DELAY_MS = 15000;
 const MAX_INTERNAL_SNAPSHOTS = 20;
 
+function normalizedProjectRoot(projectRoot: string): string {
+	return normalizePath(projectRoot.trim()).replace(/^\/+|\/+$/g, '');
+}
+
 export class PlotWorkbookRepository {
+	readonly projectRoot: string;
 	private readonly rootPath: string;
-	private readonly sheetsPath: string;
-	private readonly userSnapshotsPath: string;
+	private get dataPath(): string { return this.manifest?.storageGeneration ? `${this.rootPath}/generations/${this.manifest.storageGeneration}` : this.rootPath; }
+	private get sheetsPath(): string { return `${this.dataPath}/sheets`; }
+	private get userSnapshotsPath(): string { return `${this.dataPath}/snapshots`; }
 	private manifest: PlotWorkbookManifest | null = null;
 	private writeChains = new Map<string, Promise<void>>();
 	private compactTimers = new Map<string, number>();
@@ -30,22 +39,29 @@ export class PlotWorkbookRepository {
 	private snapshotSeqs = new Map<string, number>();
 	private manifestChain: Promise<void> = Promise.resolve();
 	private foreshadowChain: Promise<void> = Promise.resolve();
+	private metadataTasks = new Set<Promise<unknown>>();
+	private recoveryRequired = false;
+	get isRecoveryRequired(): boolean { return this.recoveryRequired; }
 
 	constructor(
 		private readonly plugin: WritingMenuPlugin,
 		projectRoot: string,
 	) {
-		const root = normalizePath(projectRoot.trim()).replace(/^\/+|\/+$/g, '');
-		this.rootPath = normalizePath(root ? `${root}/.writing-menu/plot` : '.writing-menu/plot');
-		this.sheetsPath = normalizePath(`${this.rootPath}/sheets`);
-		this.userSnapshotsPath = normalizePath(`${this.rootPath}/snapshots`);
+		this.projectRoot = normalizedProjectRoot(projectRoot);
+		this.rootPath = normalizePath(this.projectRoot ? `${this.projectRoot}/.writing-menu/plot` : '.writing-menu/plot');
+	}
+
+	/** Registration IDs can differ across devices; the bound storage folder cannot. */
+	isForProjectRoot(projectRoot: string): boolean {
+		return this.projectRoot === normalizedProjectRoot(projectRoot);
 	}
 
 	async loadOrCreate(projectId: string, projectName: string): Promise<PlotWorkbookLoadResult> {
-		await this.ensureDirectory(this.sheetsPath);
 		const warnings: string[] = [];
-		const foreshadows = await this.readForeshadows(warnings);
 		let manifest = await this.readManifest(warnings);
+		this.manifest = manifest;
+		await this.ensureDirectory(this.sheetsPath);
+		const foreshadows = await this.readForeshadows(warnings);
 
 		if (!manifest) {
 			const first = createPlotWorkbookSheet('시트 1');
@@ -63,7 +79,7 @@ export class PlotWorkbookRepository {
 			return { manifest, sheets: new Map([[first.sheetId, first]]), foreshadows, warnings };
 		}
 
-		if (manifest.formatVersion > PLOT_WORKBOOK_FORMAT_VERSION) {
+		if (manifest.formatVersion > PLOT_WORKBOOK_MANIFEST_VERSION) {
 			throw new Error(`이 플롯 워크북은 더 새로운 형식(${manifest.formatVersion})으로 저장되어 있습니다.`);
 		}
 
@@ -94,6 +110,10 @@ export class PlotWorkbookRepository {
 	}
 
 	async createSheet(name: string): Promise<PlotWorkbookSheet> {
+		return this.trackMetadata(() => this.createSheetData(name));
+	}
+
+	private async createSheetData(name: string): Promise<PlotWorkbookSheet> {
 		if (!this.manifest) throw new Error('플롯 워크북이 아직 열리지 않았습니다.');
 		const sheet = createPlotWorkbookSheet(name);
 		this.manifest.sheets.push({ id: sheet.sheetId, name: sheet.name });
@@ -146,14 +166,152 @@ export class PlotWorkbookRepository {
 		return this.saveManifest(this.manifest);
 	}
 
+	adoptManifest(manifest: PlotWorkbookManifest): void { this.manifest = manifest; }
+
+	async saveTransferBackup(id: string, markdown: string): Promise<string> {
+		if (!/^[a-zA-Z0-9_-]{1,160}$/.test(id)) throw new Error('백업 ID가 올바르지 않습니다.');
+		const directory = `${this.rootPath}/transfer-backups`;
+		await this.ensureDirectory(directory);
+		const path = `${directory}/${id}.md`;
+		if (await this.plugin.app.vault.adapter.exists(path)) throw new Error('백업 파일이 이미 있습니다.');
+		await this.plugin.app.vault.adapter.write(path, markdown);
+		if (await this.plugin.app.vault.adapter.read(path) !== markdown) throw new Error('교체 전 백업 검증에 실패하여 가져오기를 중단했습니다.');
+		return path;
+	}
+
+	validateSnapshotData(data: PlotWorkbookSnapshotData): void {
+		if (!data || typeof data !== 'object') throw new Error('스냅샷 데이터가 없습니다.');
+		this.validateManifest(data.manifest);
+		if (typeof data.manifest.projectId !== 'string' || !data.manifest.projectId || typeof data.manifest.projectName !== 'string') throw new Error('프로젝트 정보가 올바르지 않습니다.');
+		if (data.manifest.formatVersion > PLOT_WORKBOOK_MANIFEST_VERSION || !data.manifest.sheets.length) throw new Error('지원하지 않거나 비어 있는 워크북입니다.');
+		const refs = [...data.manifest.sheets, ...(data.manifest.deletedSheets ?? [])];
+		if (!Array.isArray(data.sheets) || data.sheets.length !== refs.length) throw new Error('스냅샷의 시트 수가 목록과 다릅니다.');
+		const safeId = (id: string) => typeof id === 'string' && /^[a-zA-Z0-9_-]{1,160}$/.test(id) && !['__proto__', 'constructor', 'prototype'].includes(id);
+		const safeNotePath = (path: string | undefined) => path === undefined || (typeof path === 'string'
+			&& !/^[\\/]|^[a-z]:|[\u0000-\u001f]/i.test(path) && !path.replace(/\\/g, '/').split('/').some(part => part === '..' || part === '.'));
+		const seen = new Set<string>();
+		for (const sheet of data.sheets) {
+			if (!safeId(sheet?.sheetId) || seen.has(sheet.sheetId) || !refs.some(ref => ref.id === sheet.sheetId && ref.name === sheet.name)) throw new Error('시트 ID 또는 이름이 올바르지 않습니다.');
+			seen.add(sheet.sheetId);
+			this.validateSheet(sheet, sheet.sheetId);
+			if (sheet.formatVersion !== PLOT_WORKBOOK_FORMAT_VERSION || !Number.isInteger(sheet.lastSeq) || sheet.lastSeq < 0
+				|| !Number.isInteger(sheet.revision) || sheet.revision < 0 || typeof sheet.name !== 'string') throw new Error('시트 형식 정보가 올바르지 않습니다.');
+			if (sheet.rowOrder.some(id => !safeId(id) || sheet.rows[id].id !== id)
+				|| sheet.columnOrder.some(id => !safeId(id) || sheet.columns[id].id !== id)) throw new Error('행·열 ID가 올바르지 않습니다.');
+			if (Array.isArray(sheet.rows) || Array.isArray(sheet.columns) || Array.isArray(sheet.cells)) throw new Error('행·열·셀 목록 형식이 올바르지 않습니다.');
+			for (const row of Object.values(sheet.rows)) {
+				if (!safeNotePath(row.linkedNotePath) || (row.height !== undefined && (!Number.isFinite(row.height) || row.height <= 0))
+					|| (row.depth !== undefined && (!Number.isInteger(row.depth) || row.depth < 0))
+					|| (row.collapsed !== undefined && typeof row.collapsed !== 'boolean')
+					|| (row.parentRowId !== undefined && (!safeId(row.parentRowId) || !sheet.rows[row.parentRowId]))) throw new Error('행 정보 또는 본문 경로가 올바르지 않습니다.');
+			}
+			const visited = new Set<string>();
+			for (const id of sheet.rowOrder) {
+				const chain = new Set<string>();
+				let current: string | undefined = id;
+				while (current && !visited.has(current)) {
+					if (chain.has(current)) throw new Error('세부행의 부모 관계가 순환합니다.');
+					chain.add(current); current = sheet.rows[current]?.parentRowId;
+				}
+				for (const rowId of chain) visited.add(rowId);
+			}
+			for (const column of Object.values(sheet.columns)) {
+				if (!safeNotePath(column.characterNotePath) || (column.title !== undefined && typeof column.title !== 'string')
+					|| (column.width !== undefined && (!Number.isFinite(column.width) || column.width <= 0))
+					|| (column.collapsed !== undefined && typeof column.collapsed !== 'boolean')) throw new Error('열 정보 또는 인물 경로가 올바르지 않습니다.');
+			}
+		}
+		if (!data.manifest.sheets.some(ref => ref.id === data.manifest.activeSheetId)) throw new Error('활성 시트가 목록에 없습니다.');
+		this.validateForeshadowRegistry({ formatVersion: 1, items: data.foreshadows });
+		if (!Array.isArray(data.cellSnapshots)) throw new Error('셀 스냅샷 목록이 없습니다.');
+		const snapshotIds = new Set<string>();
+		for (const snapshot of data.cellSnapshots) {
+			this.validateCellSnapshot(snapshot);
+			if (!safeId(snapshot.id) || snapshotIds.has(snapshot.id)) throw new Error('셀 스냅샷 ID가 올바르지 않습니다.');
+			snapshotIds.add(snapshot.id);
+			const ref = data.manifest.snapshots?.find(item => item.id === snapshot.id);
+			if (!ref || ref.sheetId !== snapshot.sheetId || ref.rowId !== snapshot.rowId || ref.columnId !== snapshot.columnId
+				|| ref.createdAt !== snapshot.createdAt || ref.title !== snapshot.title) throw new Error('셀 스냅샷의 참조 정보가 다릅니다.');
+		}
+		if (snapshotIds.size !== (data.manifest.snapshots?.length ?? 0)) throw new Error('셀 스냅샷이 누락되었습니다.');
+	}
+
+	/** The caller owns an exclusive session lock. Existing generations are never removed. */
+	async restoreSnapshot(data: PlotWorkbookSnapshotData): Promise<void> {
+		this.validateSnapshotData(data);
+		const manifest = data.manifest;
+		// Old plugins must refuse this manifest instead of reopening stale v1 files.
+		manifest.formatVersion = PLOT_WORKBOOK_MANIFEST_VERSION;
+		manifest.storageGeneration = newPlotWorkbookId('restore');
+		const path = `${this.rootPath}/generations/${manifest.storageGeneration}`;
+		if (await this.plugin.app.vault.adapter.exists(path)) throw new Error('이미 사용 중인 저장 세대입니다. 다시 시도해주세요.');
+		const writeVerified = async (file: string, value: unknown) => {
+			const serialized = `${JSON.stringify(value, null, 2)}\n`;
+			await this.plugin.app.vault.adapter.write(file, serialized);
+			if (await this.plugin.app.vault.adapter.read(file) !== serialized) throw new Error('스냅샷 저장 검증에 실패했습니다. 기존 플롯은 유지합니다.');
+		};
+		await this.ensureDirectory(`${path}/sheets`);
+		await this.ensureDirectory(`${path}/snapshots`);
+		for (const sheet of data.sheets) {
+			await this.ensureDirectory(`${path}/sheets/${sheet.sheetId}`);
+			sheet.revision = Math.max(1, sheet.revision);
+			await writeVerified(`${path}/sheets/${sheet.sheetId}/snapshot-${String(sheet.revision).padStart(8, '0')}.json`, sheet);
+		}
+		for (const snapshot of data.cellSnapshots) await writeVerified(`${path}/snapshots/${snapshot.id}.json`, snapshot);
+		await writeVerified(`${path}/foreshadows.json`, { formatVersion: 1, items: data.foreshadows });
+		// All payload files exist and were read back before the only live pointer changes.
+		const previous = this.manifest ? `${JSON.stringify(this.manifest, null, 2)}\n` : null;
+		try { await this.saveManifest(manifest); }
+		catch (error) {
+			const adapter = this.plugin.app.vault.adapter;
+			try {
+				const current = await adapter.read(this.manifestPath());
+				if (current !== `${JSON.stringify(manifest, null, 2)}\n`) {
+					if (previous !== null && current !== previous) {
+						await adapter.write(this.manifestPath(), previous);
+						if (await adapter.read(this.manifestPath()) !== previous) throw new Error('이전 목록 복구 검증에 실패했습니다.');
+					}
+					throw error;
+				}
+				// A complete verified pointer is committed even if an adapter
+				// reports a late error. Keep memory aligned with the disk.
+			} catch (recoveryError) {
+				const current = await adapter.read(this.manifestPath()).catch(() => '');
+				this.recoveryRequired = previous !== null && current !== previous;
+				if (!this.recoveryRequired) this.manifestChain = Promise.resolve();
+				throw recoveryError;
+			}
+		}
+		this.manifestChain = Promise.resolve();
+		this.manifest = manifest;
+		this.snapshotSeqs.clear();
+		for (const sheet of data.sheets) this.snapshotSeqs.set(sheet.sheetId, sheet.lastSeq);
+	}
+
 	/** Settings read metadata only: no new workbook, sheet loading or compaction. */
 	async loadExistingManifest(): Promise<PlotWorkbookManifest | null> {
 		const warnings: string[] = [];
 		const manifest = await this.readManifest(warnings);
 		if (warnings.length) throw new Error(warnings.join('\n'));
-		if (manifest && manifest.formatVersion > PLOT_WORKBOOK_FORMAT_VERSION) throw new Error('더 새로운 워크북 형식입니다.');
+		if (manifest && manifest.formatVersion > PLOT_WORKBOOK_MANIFEST_VERSION) throw new Error('더 새로운 워크북 형식입니다.');
 		this.manifest = manifest;
 		return manifest;
+	}
+
+	/** Chat/search must never create directories, repair, migrate or compact project data. */
+	async readExistingWorkbook(): Promise<PlotWorkbookLoadResult | null> {
+		const manifest = await this.loadExistingManifest();
+		if (!manifest) return null;
+		const warnings: string[] = [], sheets = new Map<string, PlotWorkbookSheet>();
+		for (const ref of manifest.sheets) {
+			if (!/^[a-zA-Z0-9_-]{1,160}$/.test(ref.id) || ['__proto__', 'constructor', 'prototype'].includes(ref.id)) throw new Error('조회할 플롯 시트 ID가 올바르지 않습니다.');
+			sheets.set(ref.id, await this.loadSheet(ref, warnings, true));
+		}
+		const foreshadows = await this.readForeshadows(warnings);
+		if (warnings.length) throw new Error(warnings.join('\n'));
+		const latest = await this.loadExistingManifest();
+		if (JSON.stringify(latest) !== JSON.stringify(manifest)) throw new Error('조회 중 플롯 목록이 바뀌었습니다. 다시 질문해 주세요.');
+		return { manifest, sheets, foreshadows, warnings };
 	}
 
 	saveForeshadowsState(items: PlotWorkbookForeshadow[]): Promise<void> {
@@ -183,6 +341,10 @@ export class PlotWorkbookRepository {
 	}
 
 	async createCellSnapshot(snapshot: PlotWorkbookCellSnapshot): Promise<void> {
+		return this.trackMetadata(() => this.createCellSnapshotData(snapshot));
+	}
+
+	private async createCellSnapshotData(snapshot: PlotWorkbookCellSnapshot): Promise<void> {
 		if (!this.manifest) throw new Error('플롯 워크북이 아직 열리지 않았습니다.');
 		await this.ensureDirectory(this.userSnapshotsPath);
 		const path = this.userSnapshotPath(snapshot.id);
@@ -210,6 +372,10 @@ export class PlotWorkbookRepository {
 	}
 
 	async renameCellSnapshot(snapshotId: string, title: string): Promise<void> {
+		return this.trackMetadata(() => this.renameCellSnapshotData(snapshotId, title));
+	}
+
+	private async renameCellSnapshotData(snapshotId: string, title: string): Promise<void> {
 		if (!this.manifest) return;
 		const cleanTitle = title.trim();
 		if (!cleanTitle) return;
@@ -224,6 +390,10 @@ export class PlotWorkbookRepository {
 	}
 
 	async deleteCellSnapshot(snapshotId: string): Promise<void> {
+		return this.trackMetadata(() => this.deleteCellSnapshotData(snapshotId));
+	}
+
+	private async deleteCellSnapshotData(snapshotId: string): Promise<void> {
 		if (!this.manifest) return;
 		this.manifest.snapshots = (this.manifest.snapshots ?? []).filter(item => item.id !== snapshotId);
 		await this.saveManifest(this.manifest);
@@ -275,9 +445,16 @@ export class PlotWorkbookRepository {
 	}
 
 	async flushAll(sheets: Iterable<PlotWorkbookSheet>): Promise<void> {
+		while (this.metadataTasks.size) await Promise.all(this.metadataTasks);
 		for (const sheet of sheets) await this.flushSheet(sheet);
-		await this.manifestChain.catch(() => undefined);
-		await this.foreshadowChain.catch(() => undefined);
+		await this.manifestChain;
+		await this.foreshadowChain;
+	}
+
+	private async trackMetadata<T>(action: () => Promise<T>): Promise<T> {
+		const task = action();
+		this.metadataTasks.add(task);
+		try { return await task; } finally { this.metadataTasks.delete(task); }
 	}
 
 	dispose(): void {
@@ -315,8 +492,8 @@ export class PlotWorkbookRepository {
 		return null;
 	}
 
-	private async loadSheet(ref: PlotWorkbookSheetRef, warnings: string[]): Promise<PlotWorkbookSheet> {
-		await this.ensureDirectory(this.sheetPath(ref.id));
+	private async loadSheet(ref: PlotWorkbookSheetRef, warnings: string[], readOnly = false): Promise<PlotWorkbookSheet> {
+		if (!readOnly) await this.ensureDirectory(this.sheetPath(ref.id));
 		const listed = await this.plugin.app.vault.adapter.list(this.sheetPath(ref.id));
 		const snapshots = listed.files
 			.map(path => ({ path, revision: this.snapshotRevision(path) }))
@@ -336,6 +513,7 @@ export class PlotWorkbookRepository {
 		}
 
 		if (!sheet) {
+			if (readOnly) throw new Error(`“${ref.name}”의 유효한 플롯 데이터를 읽지 못했습니다. 원본은 변경하지 않았습니다.`);
 			sheet = createPlotWorkbookSheet(ref.name);
 			sheet.sheetId = ref.id;
 			warnings.push(`“${ref.name}”의 유효한 스냅샷이 없어 빈 시트로 복구했습니다.`);
@@ -493,6 +671,7 @@ export class PlotWorkbookRepository {
 
 	private validateManifest(manifest: PlotWorkbookManifest): void {
 		if (!manifest || typeof manifest !== 'object') throw new Error('워크북 목록이 객체가 아닙니다.');
+		if (manifest.storageGeneration !== undefined && !/^[a-zA-Z0-9_-]{1,160}$/.test(manifest.storageGeneration)) throw new Error('저장 세대 경로가 올바르지 않습니다.');
 		if (!Number.isInteger(manifest.formatVersion) || manifest.formatVersion < 1) throw new Error('워크북 형식 버전이 없습니다.');
 		if (!Array.isArray(manifest.sheets)) throw new Error('시트 목록이 없습니다.');
 		const ids = new Set<string>();
@@ -864,8 +1043,8 @@ export class PlotWorkbookRepository {
 
 	private manifestPath(): string { return normalizePath(`${this.rootPath}/manifest.json`); }
 	private manifestBackupPath(): string { return normalizePath(`${this.rootPath}/manifest.prev.json`); }
-	private foreshadowsPath(): string { return normalizePath(`${this.rootPath}/foreshadows.json`); }
-	private foreshadowsBackupPath(): string { return normalizePath(`${this.rootPath}/foreshadows.prev.json`); }
+	private foreshadowsPath(): string { return normalizePath(`${this.dataPath}/foreshadows.json`); }
+	private foreshadowsBackupPath(): string { return normalizePath(`${this.dataPath}/foreshadows.prev.json`); }
 	private sheetPath(sheetId: string): string { return normalizePath(`${this.sheetsPath}/${sheetId}`); }
 	private journalPath(sheetId: string): string { return normalizePath(`${this.sheetPath(sheetId)}/journal.jsonl`); }
 	private userSnapshotPath(snapshotId: string): string {

@@ -9,7 +9,7 @@ export function createToolbarIconButton(container: HTMLElement, icon: string | n
 
 export function createToolbarSelect(container: HTMLElement, label: string, text: string, extraClass: string,
 	icon?: { name: string; className: string }): HTMLButtonElement {
-	const button = container.createEl('button', { cls: `wm-paged-toolbar-select ${extraClass}`,
+	const button = container.createEl('button', { cls: `wm-toolbar-select wm-paged-toolbar-select ${extraClass}`,
 		attr: { type: 'button', 'aria-label': label, 'aria-haspopup': 'menu' } });
 	if (icon) setIcon(button.createSpan({ cls: icon.className, attr: { 'aria-hidden': 'true' } }), icon.name);
 	button.createSpan({ cls: 'wm-paged-select-label', text });
