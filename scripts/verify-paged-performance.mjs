@@ -45,6 +45,7 @@ export class Notice { constructor(message) { console.warn(message); } }
 export class WorkspaceLeaf {}
 export class App {}
 export class FileSystemAdapter {}
+export const requireApiVersion = () => true;
 export class TFile {}
 export class Component {
 	constructor() { this.cleanups = []; this.children = []; }

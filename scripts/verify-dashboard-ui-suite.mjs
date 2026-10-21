@@ -13,6 +13,7 @@ export async function runDashboardChecks() {
 		},
 		createDiv(options = {}) { return this.createEl('div',typeof options === 'string' ? {cls:options} : options); }, createSpan(options = {}) { return this.createEl('span',options); },
 	});
+	SVGElement.prototype.setCssStyles = HTMLElement.prototype.setCssStyles;
 	globalThis.activeDocument = document; globalThis.activeWindow = window;
 	document.body.classList.add('theme-light');
 	const style = document.createElement('style');

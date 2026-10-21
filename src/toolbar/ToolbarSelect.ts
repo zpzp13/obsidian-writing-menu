@@ -81,7 +81,7 @@ export class ToolbarSelect {
 		const viewportWidth = viewport?.width ?? doc.documentElement.clientWidth;
 		const viewportHeight = viewport?.height ?? doc.documentElement.clientHeight;
 		const width = Math.min(204, Math.max(0, viewportWidth - 16));
-		popover.style.position = 'fixed'; popover.style.width = `${width}px`;
+		popover.setCssStyles({ position: 'fixed', width: `${width}px` });
 		popover.style.minWidth = `${Math.min(188, width)}px`;
 		popover.style.left = `${Math.max(left + 8, Math.min(bounds.left, left + viewportWidth - width - 8))}px`;
 		popover.style.maxHeight = `${Math.max(0, Math.min(280, viewportHeight - 16))}px`;

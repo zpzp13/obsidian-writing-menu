@@ -3251,11 +3251,9 @@ export class InfinitePlotSheet {
 	private showResizeGuide(axis: 'row' | 'column', position: number): void {
 		this.resizeGuide.className = `wm-plotbook-resize-guide is-${axis}`;
 		if (axis === 'row') {
-			this.resizeGuide.style.top = `${Math.round(position)}px`;
-			this.resizeGuide.style.left = '0';
+			this.resizeGuide.setCssStyles({ top: `${Math.round(position)}px`, left: '0' });
 		} else {
-			this.resizeGuide.style.left = `${Math.round(position)}px`;
-			this.resizeGuide.style.top = '0';
+			this.resizeGuide.setCssStyles({ left: `${Math.round(position)}px`, top: '0' });
 		}
 	}
 
@@ -3802,8 +3800,7 @@ export class InfinitePlotSheet {
 		const discontiguous = this.axisSelectionIsDiscontiguous(sheet);
 		this.selectionBox.classList.toggle('is-discontiguous', discontiguous);
 		if (discontiguous) {
-			this.selectionBox.style.width = '0';
-			this.selectionBox.style.height = '0';
+			this.selectionBox.setCssStyles({ width: '0', height: '0' });
 			return;
 		}
 		const whollyFrozenRows = this.frozenRowCount(sheet) > 0 && bounds.bottom < this.frozenRowCount(sheet);
@@ -3840,8 +3837,7 @@ export class InfinitePlotSheet {
 			return;
 		}
 		if (this.selectionMode === 'headers') {
-			this.selectionBox.style.width = '0';
-			this.selectionBox.style.height = '0';
+			this.selectionBox.setCssStyles({ width: '0', height: '0' });
 			this.setOverlayScrollTransform(this.selectionBox, false, false);
 			return;
 		}
@@ -4015,8 +4011,7 @@ export class InfinitePlotSheet {
 		cell.removeClass(className);
 		cell.style.removeProperty(lightVariable);
 		cell.style.removeProperty(darkVariable);
-		if (target === 'text') cell.style.color = '';
-		else cell.style.backgroundColor = '';
+		cell.setCssStyles(target === 'text' ? { color: '' } : { backgroundColor: '' });
 		if (!color) return;
 		if (typeof color === 'string') {
 			if (target === 'text') cell.style.color = color;

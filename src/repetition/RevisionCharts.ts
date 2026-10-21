@@ -68,7 +68,7 @@ export function chartHints(host: HTMLElement): (target: Element, content: ChartH
 	let active: Element | null = null, svgGuide: SVGLineElement | null = null, htmlGuide: HTMLElement | null = null;
 	const hide = () => {
 		tooltip.hidden = true; tooltip.classList.remove('is-visible'); active = null;
-		if (svgGuide) svgGuide.style.display = 'none'; if (htmlGuide) htmlGuide.hidden = true;
+		if (svgGuide) svgGuide.setCssStyles({ display: 'none' }); if (htmlGuide) htmlGuide.hidden = true;
 		if (visibleHints.get(host.ownerDocument) === hide) visibleHints.delete(host.ownerDocument);
 	};
 	return (target, content, guide) => {
@@ -90,7 +90,7 @@ export function chartHints(host: HTMLElement): (target: Element, content: ChartH
 			if (guide) {
 				if (!svgGuide) svgGuide = chartShape(guide.svg, 'line', { class: 'wm-analysis-hover-line' });
 				for (const [key, value] of Object.entries({ x1: guide.x, x2: guide.x, y1: guide.top, y2: guide.bottom })) svgGuide.setAttribute(key, String(value));
-				guide.svg.appendChild(svgGuide); svgGuide.style.display = '';
+				guide.svg.appendChild(svgGuide); svgGuide.setCssStyles({ display: '' });
 			} else if (target.tagName.toLowerCase() === 'button') {
 				if (!htmlGuide) htmlGuide = host.createDiv({ cls: 'wm-analysis-hover-line-html', attr: { 'aria-hidden': 'true' } });
 				htmlGuide.style.left = `${host.scrollLeft + x}px`; htmlGuide.hidden = false;

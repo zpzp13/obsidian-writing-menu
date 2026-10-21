@@ -15,6 +15,14 @@ interface ReleaseNote {
 
 const RELEASE_NOTES: ReleaseNote[] = [
 	{
+		version: '3.4.1',
+		date: '2026-10-22',
+		fixed: [
+			'Obsidian 1.7.2에서도 여러 쪽 보기의 문서별 배율을 기기에 저장합니다.',
+			'편집기·플롯·퇴고 차트·툴바의 스타일 처리를 공식 플러그인 검사 규칙에 맞게 정리했습니다.',
+		],
+	},
+	{
 		version: '3.4.0',
 		date: '2026-10-21',
 		new: [

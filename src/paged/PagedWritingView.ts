@@ -30,6 +30,7 @@ import { createPagedEditorContextMenu } from './PagedEditorContextMenu';
 import { PagedFileStore, mergePagedMetadata, splitPagedFrontmatter as splitFrontmatter, type PagedFileConflict } from './PagedFileStore';
 import { PagedFileConflictModal } from './PagedFileConflictModal';
 import { textEdits, validatedEdits, type TextEdit } from '../utils/TextEdits';
+import { loadPagedZoom, savePagedZoom } from './PagedZoomStorage';
 
 export const PAGED_WRITING_VIEW_TYPE = 'writing-menu-paged-writing';
 
@@ -220,15 +221,15 @@ export class PagedWritingView extends FileView {
 		super.onload();
 		this.registerEvent(this.app.vault.on('rename', (file, oldPath) => {
 			if (file !== this.file) return;
-			this.app.saveLocalStorage(`writing-menu:paged-zoom:${file.path}`, this.zoom);
-			this.app.saveLocalStorage(`writing-menu:paged-zoom:${oldPath}`, null);
+			savePagedZoom(this.app, file.path, this.zoom);
+			savePagedZoom(this.app, oldPath, null);
 		}));
 		this.registerEvent(this.app.vault.on('modify', file => {
 			if (file === this.file) void this.fileStore?.refresh().catch(error => this.reportSaveError(error));
 		}));
 	}
 	async onLoadFile(file: TFile): Promise<void> {
-		const savedZoom: unknown = this.app.loadLocalStorage(`writing-menu:paged-zoom:${file.path}`);
+		const savedZoom = loadPagedZoom(this.app, file.path);
 		this.zoom = typeof savedZoom === 'number' && Number.isFinite(savedZoom)
 			? Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, savedZoom)) : DEFAULT_ZOOM;
 		await super.onLoadFile(file);
@@ -3164,8 +3165,8 @@ export class PagedWritingView extends FileView {
 				formatted.className = 'wm-paged-formatted-text';
 				if (color) formatted.style.color = color;
 				if (backgroundColor) formatted.style.backgroundColor = backgroundColor;
-				if (activeFormats.has('bold')) formatted.style.fontWeight = '700';
-				if (activeFormats.has('italic')) formatted.style.fontStyle = 'italic';
+				if (activeFormats.has('bold')) formatted.setCssStyles({ fontWeight: '700' });
+				if (activeFormats.has('italic')) formatted.setCssStyles({ fontStyle: 'italic' });
 				const decorationLines: string[] = [];
 				if (activeFormats.has('underline')) decorationLines.push('underline');
 				if (activeFormats.has('strikethrough')) decorationLines.push('line-through');
@@ -3759,7 +3760,7 @@ export class PagedWritingView extends FileView {
 			: Math.min(this.pages.length - 1, viewportRow * oldColumns);
 		const rounded = Math.round(value * 100) / 100;
 		this.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, rounded));
-		if (this.file) this.app.saveLocalStorage(`writing-menu:paged-zoom:${this.file.path}`, this.zoom);
+		if (this.file) savePagedZoom(this.app, this.file.path, this.zoom);
 		this.applyGeometryVariables();
 		// Zoom is visual only: page and text scale by the same ratio, so the
 		// logical line/page boundaries must stay unchanged. Reconfiguring the

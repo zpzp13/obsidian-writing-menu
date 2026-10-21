@@ -4,7 +4,7 @@
 
 A writing workspace for fiction and serial stories in Obsidian. Draft manuscripts, plan plots and characters, review your writing, and ask questions about your project.
 
-**Version 3.4.0** · [Download](https://github.com/zpzp13/obsidian-writing-menu/releases/tag/3.4.0)
+**Version 3.4.1** · [Download](https://github.com/zpzp13/obsidian-writing-menu/releases/tag/3.4.1)
 
 ![A manuscript laid out across multiple pages](<docs/여러 쪽 보기.png>)
 
@@ -91,7 +91,7 @@ Look up Korean words, review spelling corrections, and insert symbols with layou
 
 ## Install and get started
 
-1. Download `writing-menu-3.4.0.zip` from the [release page](https://github.com/zpzp13/obsidian-writing-menu/releases/tag/3.4.0).
+1. Download `writing-menu-3.4.1.zip` from the [release page](https://github.com/zpzp13/obsidian-writing-menu/releases/tag/3.4.1).
 2. Extract the ZIP and copy the complete `writing-menu` folder into `.obsidian/plugins/` in your vault.
 3. Enable Writing Menu in Obsidian's Community Plugins settings. Keep your existing `data.json` when updating.
 4. Register your project and manuscript/character folders in the plugin settings. Add API keys for the dictionary and Deus AI services you use.

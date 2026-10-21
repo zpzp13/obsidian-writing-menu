@@ -542,8 +542,8 @@ export class PaginationEngine {
 				continue;
 			}
 			const formatted = run.ownerDocument.createElement('span');
-			if (active.some(range => range.kind === 'bold')) formatted.style.fontWeight = '700';
-			if (active.some(range => range.kind === 'italic')) formatted.style.fontStyle = 'italic';
+			if (active.some(range => range.kind === 'bold')) formatted.setCssStyles({ fontWeight: '700' });
+			if (active.some(range => range.kind === 'italic')) formatted.setCssStyles({ fontStyle: 'italic' });
 			formatted.textContent = segment;
 			fragment.appendChild(formatted);
 		}
