@@ -8,7 +8,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const directory = path.join(root, '.codex-tmp', 'release-checks');
 const core = [
 	['types', 'node_modules/typescript/bin/tsc', '-noEmit', '-skipLibCheck'],
-	...['release-artifacts', 'chat-stream', 'chat-legacy', 'chat-knowledge', 'deus-skills', 'rag-api', 'local-rag', 'rag-install', 'rag-navigation', 'rag-scopes', 'relationship-retrieval', 'episode-retrieval', 'character-research'].map(name => [name, `scripts/verify-${name}.mjs`]),
+	...['release-artifacts', 'morph-worker', 'chat-stream', 'chat-legacy', 'chat-knowledge', 'deus-skills', 'rag-api', 'local-rag', 'rag-install', 'rag-navigation', 'rag-scopes', 'relationship-retrieval', 'episode-retrieval', 'character-research'].map(name => [name, `scripts/verify-${name}.mjs`]),
 ];
 const browser = [
 	['deus-ui', 'scripts/verify-deus-ui.mjs'],

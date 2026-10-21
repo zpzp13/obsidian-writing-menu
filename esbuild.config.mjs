@@ -68,6 +68,9 @@ const workerBuildOptions = {
 	outfile: 'garu-worker.js',
 };
 
+await esbuild.build(workerBuildOptions);
+mainBuildOptions.define.__WM_GARU_WORKER_SOURCE__ = JSON.stringify(await readFile('garu-worker.js', 'utf8'));
+
 await mkdir('rag-runtime', { recursive: true });
 await copyFile('node_modules/@huggingface/transformers/LICENSE', 'rag-runtime/Transformers-LICENSE.txt');
 await copyFile('docs/licenses/onnxruntime-MIT.txt', 'rag-runtime/ONNXRuntime-LICENSE.txt');
@@ -76,9 +79,8 @@ for (const file of ['ort-wasm-simd-threaded.asyncify.mjs', 'ort-wasm-simd-thread
 	await copyFile(`node_modules/onnxruntime-web/dist/${file}`, `rag-runtime/${file}`);
 }
 if (prod) {
-	// rag-worker.js was already built above for the embedded fallback. Build it
-	// only once so the standalone and embedded worker always use the same bytes.
-	await Promise.all([esbuild.build(mainBuildOptions), esbuild.build(workerBuildOptions)]);
+	// Both standalone workers were built above; embed those exact bytes in main.js.
+	await esbuild.build(mainBuildOptions);
 } else {
 	const contexts = [];
 	try {

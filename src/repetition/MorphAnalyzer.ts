@@ -4,6 +4,10 @@ import type { MorphToken } from './types';
 import { getFs } from '../utils/nodeShims';
 import { getAssetPaths, isGaruAssetsDownloaded } from './GaruAssets';
 
+// Obsidian's community installer downloads only main.js, manifest.json and styles.css.
+declare const __WM_GARU_WORKER_SOURCE__: string;
+const bundledGaruWorker = typeof __WM_GARU_WORKER_SOURCE__ === 'string' ? __WM_GARU_WORKER_SOURCE__ : '';
+
 export class ModelNotDownloadedError extends Error {
 	constructor() { super('형태소 분석 모델이 아직 다운로드되지 않았습니다.'); }
 }
@@ -91,11 +95,11 @@ export async function analyzeText(text: string, plugin: WritingMenuPlugin): Prom
 
 	const fs = await getFs();
 	const { workerPath, wasmPath, modelPath } = getAssetPaths(plugin);
-	if (!fs.existsSync(workerPath)) {
+	const workerSource = bundledGaruWorker || (fs.existsSync(workerPath) ? fs.readFileSync(workerPath, 'utf8') : '');
+	if (!workerSource) {
 		throw new Error('분석 워커 파일이 없습니다. 플러그인을 다시 설치하거나 업데이트해 주세요.');
 	}
 
-	const workerSource = fs.readFileSync(workerPath, 'utf8');
 	const wasmBytes = fs.readFileSync(wasmPath);
 	const modelBytes = fs.readFileSync(modelPath);
 	const tokens = await analyzeInWorker(text, workerSource, wasmBytes, modelBytes);

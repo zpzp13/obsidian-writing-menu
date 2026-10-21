@@ -4,7 +4,7 @@
 
 Obsidian에서 웹소설과 이야기를 쓰기 위한 집필 도구입니다. 원고 작성부터 플롯·인물 관리, 퇴고와 작품 자료 기반 AI 대화까지 한곳에서 진행합니다.
 
-**3.4 미리보기** · 아래 화면과 기능은 다음 업데이트를 기준으로 합니다. [공개 릴리즈](https://github.com/zpzp13/obsidian-writing-menu/releases/latest)
+**버전 3.4.0** · [다운로드](https://github.com/zpzp13/obsidian-writing-menu/releases/tag/3.4.0)
 
 ![여러 페이지로 펼쳐 편집하는 원고](<docs/여러 쪽 보기.png>)
 
@@ -91,8 +91,8 @@ Gemini API 키가 필요합니다. 각주는 기본으로 현재 탭에서 열�
 
 ## 설치와 시작
 
-1. [최신 공개 릴리즈](https://github.com/zpzp13/obsidian-writing-menu/releases/latest)에서 배포 파일을 내려받습니다.
-2. 볼트의 `.obsidian/plugins/writing-menu/`에 파일을 복사하고 함께 제공된 하위 폴더도 유지합니다.
+1. [릴리즈 페이지](https://github.com/zpzp13/obsidian-writing-menu/releases/tag/3.4.0)에서 `writing-menu-3.4.0.zip`을 내려받습니다.
+2. ZIP을 풀고 `writing-menu` 폴더 전체를 볼트의 `.obsidian/plugins/`에 복사합니다.
 3. Obsidian 커뮤니티 플러그인 설정에서 Writing Menu를 활성화합니다. 업데이트할 때 기존 `data.json`은 유지합니다.
 4. 플러그인 설정에서 프로젝트와 본문·인물 폴더를 등록합니다. 사전과 Deus AI는 사용할 서비스의 API 키를 추가합니다.
 
