@@ -1,0 +1,33 @@
+name: Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  clean-install:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - name: Install from lockfile
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Check generated settings metadata
+        run: node scripts/generate-settings-search.mjs --check
+      - name: Check source and CSS review policy
+        run: npm run check:warnings
+      - name: Build without deploying
+        run: npm --ignore-scripts run build
+      - name: Verify lockfile stayed unchanged
+        run: git diff --exit-code -- package.json package-lock.json

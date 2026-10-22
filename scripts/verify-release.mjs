@@ -10,10 +10,11 @@ const core = [
 	['lint', 'node_modules/eslint/bin/eslint.js', 'main.ts', 'src'],
 	['css', 'node_modules/stylelint/bin/stylelint.mjs', 'styles.css'],
 	['types', 'node_modules/typescript/bin/tsc', '-noEmit', '-skipLibCheck'],
-	...['warning-policy', 'settings-compatibility', 'export-boundaries', 'release-artifacts', 'input-boundaries', 'morph-worker', 'paged-zoom', 'chat-stream', 'chat-legacy', 'chat-knowledge', 'deus-skills', 'rag-api', 'local-rag', 'rag-install', 'rag-navigation', 'rag-scopes', 'relationship-retrieval', 'episode-retrieval', 'character-research'].map(name => [name, `scripts/verify-${name}.mjs`]),
+	...['warning-policy', 'settings-compatibility', 'export-boundaries', 'release-artifacts', 'input-boundaries', 'morph-worker', 'paged-zoom', 'chat-stream', 'chat-legacy', 'chat-knowledge', 'deus-skills', 'rag-api', 'model-free-search', 'rag-navigation', 'rag-scopes', 'relationship-retrieval', 'episode-retrieval', 'character-research'].map(name => [name, `scripts/verify-${name}.mjs`]),
 ];
 const browser = [
 	['css-cascade', 'scripts/verify-css-cascade.mjs'],
+	['css-compatibility', 'scripts/verify-css-compatibility.mjs'],
 	['deus-ui', 'scripts/verify-deus-ui.mjs'],
 	['paged-editor', 'scripts/verify-paged-performance.mjs'],
 	['plot-mobile', 'scripts/verify-paged-performance.mjs', '--plot'],

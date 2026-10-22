@@ -15,6 +15,15 @@ interface ReleaseNote {
 
 const RELEASE_NOTES: ReleaseNote[] = [
 	{
+		version: '3.4.3',
+		date: '2026-10-22',
+		improved: [
+			'사용하지 않는 색인 모델을 제거해 배포 용량을 줄였습니다.',
+			'기존 디자인을 유지하며 CSS 호환성 코드를 정리했습니다.',
+		],
+		fixed: ['플러그인 소스 검사에서 의존성 설치가 실패하던 문제를 수정했습니다.'],
+	},
+	{
 		version: '3.4.2',
 		date: '2026-10-22',
 		improved: [

@@ -1,9 +1,5 @@
 import type { ChatContextItem } from '../AiChatTypes';
-import type { RagLexicalTerms } from './RagLexical';
 
-export const RAG_MODEL = 'Xenova/multilingual-e5-small';
-export const RAG_REVISION = '761b726dd34fb83930e26aab4e9ac3899aa1fa78';
-export const RAG_MODEL_KEY = `${RAG_MODEL}@${RAG_REVISION}:q8:384:v2`;
 export interface RagChunk extends ChatContextItem {
 	group: string;
 	from: number;
@@ -12,9 +8,7 @@ export interface RagChunk extends ChatContextItem {
 	links: string[];
 	boost?: number;
 }
-export interface RagRecord { key: string; scope: string; documentKey: string; source: RagChunk; vector?: Float32Array; lexical?: RagLexicalTerms; termKeys?: string[] }
-export interface RagDocument { key: string; scope: string; id: string; hash: string; stamp?: string; chunks: number; generation: string }
-export interface RagIndexStatus { state: 'idle' | 'installing' | 'indexing' | 'paused' | 'ready' | 'error'; completed: number; total: number; chunks: number; message?: string }
+export interface RagRecord { key: string; scope: string; documentKey: string; source: RagChunk; termKeys?: string[] }
 export interface RagToolCall { id?: string; name: string; args: Record<string, unknown> }
 export type RagSearchMode = 'hybrid' | 'keyword' | 'semantic';
 export interface RagTrace { name: string; query?: string; sourceIds: string[]; warning?: string }

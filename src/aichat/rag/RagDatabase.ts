@@ -1,4 +1,3 @@
-import type { RagDocument, RagRecord } from './RagTypes';
 
 type Store = 'assets' | 'documents' | 'records' | 'research';
 const opened = new Map<string, Promise<IDBDatabase>>();
@@ -47,45 +46,7 @@ export class RagDatabase {
 			request.onerror = () => reject(request.error ?? new Error('로컬 색인 구간을 읽지 못했습니다.'));
 		});
 	}
-	async *records(scope: string): AsyncGenerator<RagRecord[]> {
-		let after: string | undefined;
-		while (true) { const page = await this.page<RagRecord>('records', 'scope', scope, after); if (!page.length) return; yield page; after = page[page.length - 1].key; }
-	}
-	async *documents(scope: string): AsyncGenerator<RagDocument> {
-		let after: string | undefined;
-		while (true) { const page = await this.page<RagDocument>('documents', 'scope', scope, after); if (!page.length) return; for (const item of page) yield item; after = page[page.length - 1].key; }
-	}
-	async *matchingRecords(scope: string, terms: Iterable<string>): AsyncGenerator<RagRecord[]> {
-		const seen = new Set<string>();
-		for (const term of terms) {
-			let after: string | undefined;
-			while (true) {
-				const page = await this.page<RagRecord>('records', 'terms', `${scope}\0${term}`, after); if (!page.length) break;
-				after = page[page.length - 1].key;
-				const unique = page.filter(record => { if (seen.has(record.key)) return false; seen.add(record.key); return true; });
-				if (unique.length) yield unique;
-			}
-		}
-	}
-	async removeDocument(key: string): Promise<void> {
-		const db = await this.open();
-		return new Promise((resolve, reject) => {
-			const transaction = db.transaction(['documents', 'records', 'research'], 'readwrite'); transaction.objectStore('documents').delete(key);
-			const request = transaction.objectStore('records').index('documentKey').openCursor(IDBKeyRange.only(key));
-			request.onsuccess = () => { const cursor = request.result; if (cursor) { cursor.delete(); cursor.continue(); } };
-			const research = transaction.objectStore('research').index('documentKey').openCursor(IDBKeyRange.only(key));
-			research.onsuccess = () => { const cursor = research.result; if (cursor) { cursor.delete(); cursor.continue(); } };
-			transaction.oncomplete = () => resolve(); transaction.onabort = () => reject(transaction.error ?? new Error('로컬 색인을 삭제하지 못했습니다.')); transaction.onerror = () => {};
-		});
-	}
-	async pruneDocument(key: string, keep: Set<string>): Promise<void> {
-		const db = await this.open();
-		return new Promise((resolve, reject) => {
-			const transaction = db.transaction('records', 'readwrite'), request = transaction.objectStore('records').index('documentKey').openCursor(IDBKeyRange.only(key));
-			request.onsuccess = () => { const cursor = request.result; if (cursor) { if (typeof cursor.primaryKey !== 'string') { reject(new Error('로컬 색인의 문서 키가 문자열이 아닙니다.')); return; } if (!keep.has(cursor.primaryKey)) cursor.delete(); cursor.continue(); } };
-			transaction.oncomplete = () => resolve(); transaction.onabort = () => reject(transaction.error ?? new Error('로컬 색인을 정리하지 못했습니다.')); transaction.onerror = () => {};
-		});
-	}
+
 	async clearScope(scope: string): Promise<void> {
 		const db = await this.open();
 		return new Promise((resolve, reject) => {
@@ -94,12 +55,4 @@ export class RagDatabase {
 			transaction.oncomplete = () => resolve(); transaction.onabort = () => reject(transaction.error ?? new Error('프로젝트 색인을 비우지 못했습니다.')); transaction.onerror = () => {};
 		});
 	}
-}
-
-/** Transformers.js cache stores only public, pinned model assets, never corpus text. */
-export function ragAssetCache(database: RagDatabase) {
-	return {
-		async match(key: string): Promise<Response | undefined> { const item = await database.get<{ blob: Blob; status: number; headers: [string, string][] }>('assets', key); return item ? new Response(item.blob, { status: item.status, headers: item.headers }) : undefined; },
-		async put(key: string, response: Response): Promise<void> { if (!response.ok) return; const headers: [string, string][] = []; response.headers.forEach((value, name) => headers.push([name, value])); await database.put('assets', { key, blob: await response.blob(), status: response.status, headers }); },
-	};
 }

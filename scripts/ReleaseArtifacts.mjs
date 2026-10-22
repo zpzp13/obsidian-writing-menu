@@ -4,9 +4,7 @@ import path from 'node:path';
 
 // One inventory for local deployment and release archives. Never copy vault settings/data.
 export const PLUGIN_ARTIFACTS = [
-	'styles.css', 'manifest.json', 'garu-worker.js', 'rag-worker.js',
-	'rag-runtime/ort-wasm-simd-threaded.asyncify.mjs', 'rag-runtime/ort-wasm-simd-threaded.asyncify.wasm',
-	'rag-runtime/Transformers-LICENSE.txt', 'rag-runtime/ONNXRuntime-LICENSE.txt', 'rag-runtime/NOTICE.md',
+	'styles.css', 'manifest.json', 'garu-worker.js',
 	'main.js', // Trigger Hot Reload only after the other artifacts are ready.
 ];
 export async function inspectArtifacts(root) {

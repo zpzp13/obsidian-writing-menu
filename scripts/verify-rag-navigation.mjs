@@ -25,43 +25,16 @@ const noise = doc('Story/표제', '소중한 벗의 죽음이라는 말만 나�
 const documents = globalThis.navigationDocuments = [origin, mentor, contract, episode, plot, semantic, noise];
 const project = { rootFolder: 'Story' };
 const plugin = { settings: {}, register() {}, app: { vault: { adapter: { getResourcePath: () => 'navigation-fixture' } } } };
-const service = new RagIndexService(plugin), records = new Map(), checkpoints = new Map();
-let embeddings = 0, invertedReads = 0, remoteRequests = 0;
-const vector = axis => { const result = new Float32Array(384); result[axis] = 1; return result; };
-Object.assign(service.worker, {
-	installed: async () => true, prepare: async () => { service.worker.prepared = true; },
-	chunks: async text => { const chunks = []; let from = 0; for (const part of text.split('\n\n')) { chunks.push({ text: part, from, to: from + part.length, location: '합성 구간' }); from += part.length + 2; } return chunks; },
-	embed: async (text, query) => { embeddings++; return vector(query && /소중한|벗의|죽음/.test(text) || !query && /절친을 잃고/.test(text) ? 3 : 1); },
-});
-Object.assign(service.database, {
-	get: async (store, key) => (store === 'records' ? records : checkpoints).get(key),
-	put: async (store, value) => (store === 'records' ? records : checkpoints).set(value.key, value),
-	page: async (store, index, value, after, limit = 64) => [...(store === 'records' ? records : checkpoints).values()].filter(item => item[index] === value && (!after || item.key > after)).sort((a, b) => a.key < b.key ? -1 : 1).slice(0, limit),
-	records: async function* (scope) { yield [...records.values()].filter(item => item.scope === scope); },
-	documents: async function* (scope) { for (const item of checkpoints.values()) if (item.scope === scope) yield item; },
-	matchingRecords: async function* (scope, terms) { invertedReads++; const keys = [...terms].map(term => `${scope}\0${term}`); yield [...records.values()].filter(item => item.scope === scope && item.termKeys?.some(key => keys.includes(key))); },
-	pruneDocument: async (key, keep) => { for (const [id, item] of records) if (item.documentKey === key && !keep.has(id)) records.delete(id); },
-	removeDocument: async key => { checkpoints.delete(key); for (const [id, item] of records) if (item.documentKey === key) records.delete(id); },
-});
+const service = new RagIndexService(plugin); let remoteRequests = 0;
+Object.defineProperty(service, 'worker', { get() { throw new Error('Navigation requested a removed embedding model'); } });
 const savedFetch = globalThis.fetch; globalThis.fetch = async () => { remoteRequests++; throw new Error('Unexpected network request'); };
 try {
-	await service.refresh(project);
 	const tools = service.tools(project, true);
-	const count = embeddings;
 	const exact = await tools.execute({ name: 'search_sources', args: { query: '치료비 대가', mode: 'keyword' } });
-	assert.equal(embeddings, count, 'Keyword query embedded the question despite a complete index');
 	assert(exact.sources.some(source => source.group === contract.id && source.text.includes('치료비')));
-	assert.equal(invertedReads, 0, 'Default keyword search accessed vector-index storage');
-	const invertedBefore = invertedReads;
-	const staleLexical = [...records.values()].find(item => item.source.group === semantic.id); delete staleLexical.lexical;
-	const meaning = await service.search(project, '소중한 벗의 죽음', undefined, 8, '소중한 벗의 죽음', false, 'semantic');
-	assert.equal(meaning.sources[0].group, semantic.id, 'Semantic-only search was dominated by literal noise');
-	assert.equal(invertedReads, invertedBefore, 'Semantic-only search performed a lexical lookup');
-	assert.equal(staleLexical.lexical, undefined, 'Semantic-only search rebuilt the lexical index');
 	assert.deepEqual(tools.searchModes,['keyword']);
-	const beforeLegacyMode=embeddings;
 	const nativeFallback=await tools.execute({name:'search_sources',args:{query:'소중한 벗의 죽음',mode:'semantic'}});
-	assert.equal(embeddings,beforeLegacyMode,'Chat tool loaded a local model');assert(nativeFallback.warnings.some(w=>w.includes('Obsidian')));
+	assert(nativeFallback.warnings.some(w=>w.includes('Obsidian')));
 	await assert.rejects(tools.execute({ name: 'search_sources', args: { query: '계약', mode: ['hybrid'] } }), /검색 방식/);
 	const firstHop = await tools.execute({ name: 'related_sources', args: { source_id: origin.id, query: '치료비 대가', hops: 1 } });
 	assert(!firstHop.sources.some(source => source.group === contract.id), 'One-hop query jumped two explicit links');
@@ -91,9 +64,6 @@ try {
 	const hub = doc('hub/root', 'root');
 	const many = [hub, ...Array.from({ length: 150 }, (_, i) => doc(`hub/${i}`, '연결', [hub.path]))];
 	const bounded = relatedDocumentDistances(many, hub.id, 2); assert(bounded.truncated); assert.equal(bounded.distances.size, 96);
-	const originalEmbed = service.worker.embed; service.worker.embed = async () => { throw new Error('의미 모델 중단'); };
-	await assert.rejects(service.search(project, '벗의 죽음', undefined, 8, '벗의 죽음', false, 'semantic'), /의미 모델 중단/);
-	service.worker.embed = originalEmbed;
 	assert.equal(remoteRequests, 0);
-	console.log(JSON.stringify({ result: 'PASS', checks: ['keyword without query embedding', 'semantic without lexical fallback', '1/2-hop scope', 'cast and manuscript links', 'question-selected chunk', 'exact prior context', 'stale source rejection', 'cycle and hub bounds'], remoteRequests }));
+	console.log(JSON.stringify({ result: 'PASS', checks: ['keyword with no model', 'legacy tool mode reports actual keyword search', '1/2-hop scope', 'cast and manuscript links', 'question-selected chunk', 'exact prior context', 'stale source rejection', 'cycle and hub bounds'], remoteRequests }));
 } finally { globalThis.fetch = savedFetch; }

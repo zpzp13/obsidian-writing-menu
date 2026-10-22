@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import ts from 'typescript';
+import { loadTsFixture } from './ts-fixture-loader.mjs';
 const js = ts.transpileModule(await readFile('src/aichat/ChatStream.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 const module = { exports: {} }; new Function('exports', js)(module.exports);
 const { readChatSse, readGeminiStream, abortableChat } = module.exports;
@@ -35,4 +36,17 @@ let finish;
 const late = new Promise(resolve => { finish = resolve; }), stop = new AbortController();
 const ignored = abortableChat(late, stop.signal); stop.abort(); finish('late value');
 await assert.rejects(ignored, error => error.name === 'AbortError');
+const { requestGeminiStream } = loadTsFixture('src/aichat/GeminiTransport.ts');
+const originalFetch = globalThis.fetch;
+try {
+	const controller = new AbortController();
+	globalThis.fetch = async (url, init) => {
+		assert.equal(url, 'https://example.invalid/synthetic-stream');
+		assert.equal(init.method, 'POST'); assert.equal(init.body, '{"synthetic":true}');
+		assert.equal(init.headers['x-goog-api-key'], 'synthetic-key'); assert.equal(init.signal, controller.signal);
+		return new Response('data: [DONE]\n\n');
+	};
+	const response = await requestGeminiStream('https://example.invalid/synthetic-stream', 'synthetic-key', '{"synthetic":true}', controller.signal);
+	assert(response.body); await readChatSse(response.body, controller.signal, () => {});
+} finally { globalThis.fetch = originalFetch; }
 console.log('PASS shared SSE decoder: split UTF-8/frames, private thought filtering, pending-read abort and failure cleanup. No API calls.');

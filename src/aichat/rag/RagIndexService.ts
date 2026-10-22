@@ -3,19 +3,16 @@ import { prepareSimpleSearch, TFile } from 'obsidian';
 import type { WritingProject } from '../../types';
 import { ChatCorpusProvider, type CorpusDocument } from './ChatCorpusProvider';
 import { RagDatabase } from './RagDatabase';
-import { RagWorkerClient } from './RagWorkerClient';
-import { RAG_MODEL_KEY, ragHash, ragYield, type RagChunk, type RagDocument, type RagIndexStatus, type RagRecord, type RagToolCall, type RagTools, type RagSearchMode } from './RagTypes';
-import { checkChatAbort, abortableChat } from '../ChatStream';
+import { ragHash, ragYield, type RagChunk, type RagRecord, type RagToolCall, type RagTools } from './RagTypes';
+import { checkChatAbort } from '../ChatStream';
 import { chatPassages, chatTerms } from '../AiChatRetrieval';
 import type { ChatContextItem, ChatResearchCoverage, ChatEpisodeRangeCoverage } from '../AiChatTypes';
 import { contextSourceText, researchEvidenceText } from '../AiChatPrompt';
-import { ragBm25, ragLexicalTerms } from './RagLexical';
 import { namePattern, researchEntities, researchRanges, researchScopeText, resolveResearchEntities, explicitResearchNames, type ResearchCache, type ResearchRange } from './RagResearch';
 import { relatedDocumentDistances } from './RagSourceGraph';
 import { episodeManuscripts, episodeFileNumber, episodeInVolume, type EpisodeScope } from './RagEpisodes';
 import { collectRelationshipEvidence, relationshipTargets } from './RagRelationships';
 
-interface ProjectState { status: RagIndexStatus; controller?: AbortController; task?: Promise<void>; warnings: string[]; documents: Map<string, CorpusDocument> }
 const vaultIds = new WeakMap<object, string>();
 const lexical = (query: Map<string, number>, text: string) => { const words = chatTerms(text); let score = 0; for (const [word, weight] of query) if (words.has(word)) score += weight; return score; };
 const queryFocus = (query: string) => query.replace(/[?？!.,]/g, ' ').split(/\s+/)
@@ -33,164 +30,37 @@ function top<T extends { group: string; text: string }>(values: Array<{ score: n
 	if (values.length > limit) values.length = limit;
 }
 
-/** One worker per plugin, independently scoped persistent indices per vault/project. */
+/** Model-free project search with per-vault evidence and research caches. */
 export class RagIndexService {
 	readonly database = new RagDatabase();
-	private legacyWorker?: RagWorkerClient;
-	/** Retained for explicit legacy index maintenance; normal chat never creates it. */
-	get worker(): RagWorkerClient { return this.legacyWorker ??= new RagWorkerClient(this.plugin, this.database); }
-	private states = new Map<string, ProjectState>();
-	private listeners = new Set<() => void>();
 	private scopeKeys = new Map<string, Promise<string>>();
-	private timers = new Map<string, number>();
 	private temporary = new Map<string, RagRecord>();
 	private revisions = new Map<string, number>();
 	private researchMemory = new Map<string, ResearchCache>();
-	private installation?: Promise<void>;
 	constructor(private plugin: WritingMenuPlugin) {
-		plugin.register?.(() => { for (const state of this.states.values()) state.controller?.abort(); for (const timer of this.timers.values()) window.clearTimeout(timer); this.legacyWorker?.dispose(); this.listeners.clear(); });
+		plugin.register?.(() => { this.temporary.clear(); this.researchMemory.clear(); this.scopeKeys.clear(); this.revisions.clear(); });
 		if (plugin.app.vault.on) for (const event of ['modify', 'delete', 'rename', 'create'] as const) plugin.registerEvent(plugin.app.vault.on(event as 'modify', file => {
 			if (!(file instanceof TFile)) return;
 			const project = plugin.projectContext.getProjectForFile(file); if (!project) return;
 			this.revisions.set(project.rootFolder, (this.revisions.get(project.rootFolder) ?? 0) + 1);
 		}));
 	}
-	private state(project: WritingProject): ProjectState {
-		let state = this.states.get(project.rootFolder);
-		if (!state) { state = { status: { state: 'idle', completed: 0, total: 0, chunks: 0 }, warnings: [], documents: new Map() }; this.states.set(project.rootFolder, state); }
-		return state;
-	}
-	status(project: WritingProject): RagIndexStatus { return { ...this.state(project).status }; }
-	get installing(): boolean { return Boolean(this.installation); }
-	onChange(callback: () => void): () => void { this.listeners.add(callback); return () => this.listeners.delete(callback); }
-	private emit(): void { for (const callback of this.listeners) callback(); }
 	async scope(project: WritingProject): Promise<string> {
 		let ready = this.scopeKeys.get(project.rootFolder);
 		if (!ready) {
 			const adapter = this.plugin.app.vault.adapter;
 			let identity: string | undefined = adapter.getResourcePath?.(this.plugin.app.vault.configDir)?.replace(/[?#].*$/, '');
 			if (!identity) { identity = vaultIds.get(adapter); if (!identity) { identity = crypto.randomUUID(); vaultIds.set(adapter, identity); } }
-			ready = ragHash(`${identity}\n${project.rootFolder}\n${RAG_MODEL_KEY}`); this.scopeKeys.set(project.rootFolder, ready);
+			ready = ragHash(`${identity}\n${project.rootFolder}\nobsidian-search:v1`); this.scopeKeys.set(project.rootFolder, ready);
 		}
 		return ready;
 	}
-	async install(project: WritingProject): Promise<void> {
-		if (this.installation) return this.installation;
-		const state = this.state(project); state.status.state = 'installing'; state.status.message = '저장된 파일과 실행 환경 확인 중…';
-		this.installation = (async () => {
-			try { await this.worker.prepare(true, message => { state.status.message = message; this.emit(); }); state.status.state = 'idle'; state.status.message = '의미 검색 모델 준비 완료. 기본 검색은 모델 없이도 사용할 수 있습니다.'; this.emit(); }
-			catch (error) { if (this.status(project).state !== 'paused') { state.status.state = 'error'; state.status.message = error instanceof Error ? error.message : String(error); } this.emit(); throw error; }
-		})().finally(() => { this.installation = undefined; this.emit(); });
-		this.emit(); return this.installation;
-	}
-	cancelInstall(): void {
-		for (const state of this.states.values()) if (state.status.state === 'installing') { state.status.state = 'paused'; state.status.message = '모델 설치를 중단했습니다. 완료된 다운로드 파일은 재사용하며 기본 검색은 계속 사용할 수 있습니다.'; }
-		this.worker.dispose(new DOMException('모델 설치를 중단했습니다.', 'AbortError')); this.emit();
-	}
-	pause(project: WritingProject): void { const state = this.state(project); state.controller?.abort(); if (state.status.state === 'installing') this.worker.dispose(new DOMException('모델 다운로드를 중단했습니다.', 'AbortError')); state.status.state = 'paused'; state.status.message = '완료한 구간은 저장되어 있습니다.'; this.emit(); }
-	async clear(project: WritingProject): Promise<void> { const state = this.state(project); this.pause(project); await state.task?.catch(() => {}); await this.database.clearScope(await this.scope(project)); state.status = { state: 'idle', completed: 0, total: 0, chunks: 0 }; state.documents.clear(); this.emit(); }
-	async refresh(project: WritingProject): Promise<void> {
-		const state = this.state(project); if (state.task) return state.task;
-		state.controller = new AbortController(); const signal = state.controller.signal;
-		state.task = this.index(project, signal).catch(error => {
-			state.status.state = signal.aborted ? 'paused' : 'error'; state.status.message = error instanceof Error ? error.message : String(error); this.emit();
-			if (!signal.aborted) throw error;
-		}).finally(() => { state.task = undefined; });
-		return state.task;
-	}
-	/** Complete the real device-local index, then audit every current document and
-	 * every stored range/vector. No lexical downgrade is allowed on this path. */
-	async ensureComplete(project: WritingProject, signal?: AbortSignal): Promise<void> {
-		checkChatAbort(signal);
-		if (this.status(project).state === 'paused') throw new Error('프로젝트 색인이 일시정지되어 있습니다. AI 챗 설정에서 갱신 / 이어서를 실행해 주세요. 부분 자료로 답변하지 않았습니다.');
-		if (!await this.worker.installed()) throw new Error('전체 검색에 필요한 로컬 모델을 먼저 설치해 주세요. AI 챗 설정 → 로컬 검색 모델 → 모델 설치 후 색인을 자동으로 준비합니다. 부분 검색으로 답변하지 않았습니다.');
-		const scope = await this.scope(project);
-		for (let attempt = 0; attempt < 2; attempt++) {
-			await abortableChat(this.refresh(project), signal); checkChatAbort(signal);
-			const state = this.state(project);
-			if (state.status.state === 'paused') throw new Error('색인 준비가 중단되어 답변을 시작하지 않았습니다. 완료한 색인은 보존됩니다.');
-			if (state.status.state !== 'ready') {
-				if (!attempt) continue;
-				throw new Error(`프로젝트 전체 색인을 완료하지 못해 답변을 시작하지 않았습니다. ${state.status.message ?? ''}`);
-			}
-			const corpus = await new ChatCorpusProvider(this.plugin, project).documents(signal);
-			const revision = this.revisions.get(project.rootFolder) ?? 0;
-			if (corpus.warnings.length) throw new Error(`프로젝트 자료를 모두 읽지 못해 답변을 시작하지 않았습니다. ${corpus.warnings.join('\n')}`);
-			const repair = new Set<string>();
-			for (const document of corpus.documents) {
-				checkChatAbort(signal);
-				const key = `${scope}\0${document.id}`, checkpoint = await this.database.get<RagDocument>('documents', key);
-				const text = await document.read();
-				if (!checkpoint || checkpoint.hash !== await ragHash(`${document.title}\n${text}`)) { repair.add(key); continue; }
-				let after: string | undefined, count = 0;
-				const ranges: Array<[number, number]> = [];
-				while (true) {
-					const page = await this.database.page<RagRecord>('records', 'documentKey', key, after);
-					if (!page.length) break;
-					for (const record of page) {
-						const source = record.source; count++; ranges.push([source.from, source.to]);
-						if (record.scope !== scope || source.group !== document.id || source.path !== document.path
-							|| !record.vector || record.vector.length !== 384 || !record.vector.every(Number.isFinite)
-							|| !Number.isSafeInteger(source.from) || !Number.isSafeInteger(source.to) || source.from < 0 || source.to < source.from
-							|| text.slice(source.from, source.to) !== source.text) repair.add(key);
-					}
-					after = page[page.length - 1].key; await ragYield(); checkChatAbort(signal);
-				}
-				let covered = 0;
-				for (const [from, to] of ranges.sort((a, b) => a[0] - b[0])) { if (from > covered && text.slice(covered, from).trim()) repair.add(key); covered = Math.max(covered, to); }
-				if (text.slice(covered).trim() || count !== checkpoint.chunks) repair.add(key);
-				await ragYield();
-			}
-			if (!repair.size && revision === (this.revisions.get(project.rootFolder) ?? 0)) return;
-			if (attempt) throw new Error('변경되었거나 누락된 색인 구간이 남아 있어 답변을 시작하지 않았습니다. 원고 저장 후 다시 시도해 주세요.');
-			// These are reproducible device-local index records, never user notes.
-			for (const key of repair) await this.database.removeDocument(key);
-		}
-	}
-	private async index(project: WritingProject, signal: AbortSignal): Promise<void> {
-		const state = this.state(project), scope = await this.scope(project);
-		await this.worker.prepare(); checkChatAbort(signal);
-		const corpus = await new ChatCorpusProvider(this.plugin, project).documents(signal);
-		state.documents = new Map(corpus.documents.map(document => [document.id, document])); state.warnings = corpus.warnings;
-		state.status = { state: 'indexing', completed: 0, total: corpus.documents.length, chunks: 0 }; this.emit();
-		const generation = crypto.randomUUID();
-		let failed = 0;
-		for (const document of corpus.documents) {
-			checkChatAbort(signal);
-			const key = `${scope}\0${document.id}`, previous = await this.database.get<RagDocument>('documents', key);
-			try {
-				if (document.stamp && previous?.stamp === document.stamp) {
-					await this.database.put('documents', { ...previous, generation }); state.status.chunks += previous.chunks;
-				} else {
-					const text = await document.read(), hash = await ragHash(`${document.title}\n${text}`);
-					if (previous?.hash === hash) { await this.database.put('documents', { ...previous, generation, stamp: document.stamp }); state.status.chunks += previous.chunks; }
-					else {
-						const chunks = await this.worker.chunks(text, document.title, signal), keep = new Set<string>(), duplicates = new Map<string, number>();
-						for (const chunk of chunks) {
-							checkChatAbort(signal);
-							const contentHash = await ragHash(`${document.title}\n${chunk.text}`), occurrence = duplicates.get(contentHash) ?? 0; duplicates.set(contentHash, occurrence + 1);
-							const id = `${document.id}#${contentHash}:${occurrence}`, recordKey = `${scope}\0${id}`; keep.add(recordKey);
-							const old = await this.database.get<RagRecord>('records', recordKey);
-							const vector = old?.vector ?? await this.worker.embed(`${document.title.slice(0, 160)}\n${chunk.text}`, false, signal);
-							checkChatAbort(signal);
-							const source: RagChunk = { id, title: document.title, text: chunk.text, path: document.path, kind: document.kind, location: chunk.location, automatic: true, group: document.id, from: chunk.from, to: chunk.to, contentHash, links: document.links };
-							const terms = ragLexicalTerms(`${source.title}\n${source.location ?? ''}\n${source.text}`);
-							await this.database.put('records', { key: recordKey, scope, documentKey: key, source, vector, lexical: terms, termKeys: terms.counts.map(([term]) => `${scope}\0${term}`) } satisfies RagRecord); state.status.chunks++; this.emit(); await ragYield();
-							checkChatAbort(signal);
-						}
-						await this.database.pruneDocument(key, keep);
-						await this.database.put('documents', { key, scope, id: document.id, hash, chunks: chunks.length, generation, stamp: document.stamp });
-					}
-				}
-			} catch (error) { checkChatAbort(signal); failed++; state.warnings.push(`${document.title}: ${error instanceof Error ? error.message : String(error)}`); }
-			state.status.completed++; this.emit(); await ragYield();
-		}
-		// A failed plot read must not delete its existing checkpoint, but stale content is never silently authoritative.
-		checkChatAbort(signal);
-		for await (const document of this.database.documents(scope)) if (!state.documents.has(document.id) && !(corpus.warnings.length && document.id.startsWith('plot:'))) await this.database.removeDocument(document.key);
-		// Partial note checkpoints may exist after interruption. Remove them only when the source is gone.
-		for await (const page of this.database.records(scope)) for (const record of page) if (!state.documents.has(record.source.group) && !(corpus.warnings.length && record.source.group.startsWith('plot:'))) await this.database.removeDocument(record.documentKey);
-		state.status.state = failed || corpus.warnings.length ? 'error' : 'ready'; state.status.message = state.warnings.length ? `${failed ? `미완료 자료 ${failed}개\n` : ''}${state.warnings.slice(0, 3).join('\n')}` : '프로젝트 전체 자료 색인 완료'; this.emit();
+	/** Clear derived project caches; conversation evidence and source notes are separate. */
+	async clear(project: WritingProject): Promise<void> {
+		const prefix = `${await this.scope(project)}\0`;
+		await this.database.clearScope(prefix.slice(0, -1));
+		for (const key of this.temporary.keys()) if (key.startsWith(prefix)) this.temporary.delete(key);
+		for (const key of this.researchMemory.keys()) if (key.startsWith(prefix)) this.researchMemory.delete(key);
 	}
 	/** Default retrieval uses the public Obsidian string-search API over current vault documents. */
 	async searchObsidian(project: WritingProject, query: string, signal?: AbortSignal, limit = 10, explicitQuery = query, strict = false): Promise<{ sources: RagChunk[]; warnings: string[] }> {
@@ -237,120 +107,8 @@ export class RagIndexService {
 		warnings.push(`Obsidian API로 프로젝트 ${inspected}/${corpus.documents.length}개 자료를 키워드 검색했습니다.${failures ? ' 읽지 못한 자료가 있습니다.' : ''} 전송한 내용은 관련 발췌이며 모든 사건을 의미적으로 조사한 것은 아닙니다.`);
 		return { sources, warnings };
 	}
-	async search(project: WritingProject, query: string, signal?: AbortSignal, limit = 10, explicitQuery = query, requireComplete = false, mode: RagSearchMode = 'keyword'): Promise<{ sources: RagChunk[]; warnings: string[] }> {
-		if (mode === 'keyword') return this.searchObsidian(project, query, signal, limit, explicitQuery, requireComplete);
-		if (requireComplete) await this.ensureComplete(project, signal);
-		checkChatAbort(signal); const state = this.state(project), scope = await this.scope(project), warnings: string[] = [];
-		const revision = this.revisions.get(project.rootFolder) ?? 0;
-		const corpus = await new ChatCorpusProvider(this.plugin, project).documents(signal), allowed = new Map(corpus.documents.map(document => [document.id, document])); warnings.push(...corpus.warnings);
-		if (requireComplete && corpus.warnings.length) throw new Error(`검색할 자료 일부를 읽지 못했습니다. ${corpus.warnings.join('\n')}`);
-		// Resolve literal names before tokenization (which deliberately drops
-		// single-letter tokens). Never restrict retrieval to a character subfolder.
-		const named = new Set(corpus.documents.filter(document => (document.names ?? [document.title]).some(name => {
-			const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-			return new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}(?=$|[^\\p{L}\\p{N}]|은|는|이|가|을|를|의|와|과|에게|한테|에 대해)`, 'iu').test(explicitQuery);
-		})).map(document => document.id));
-		let vector: Float32Array | undefined;
-		const queryVectors: Float32Array[] = [];
-			try { vector = await this.worker.embed(query.slice(0, 1200), true, signal); }
-			catch (error) { checkChatAbort(signal); if (requireComplete || mode === 'semantic') throw error; warnings.push(`의미 검색 미준비: ${error instanceof Error ? error.message : String(error)}`); }
-		if (vector) {
-			queryVectors.push(vector);
-			// Retain the full question for polarity/context, and independently
-			// search its topic words so polite endings/old scenes cannot dominate.
-			const focused = queryFocus(explicitQuery).slice(0, 1200);
-			if (focused.length >= 2 && focused !== query.trim()) {
-				try { queryVectors.push(await this.worker.embed(focused, true, signal)); }
-				catch (error) { checkChatAbort(signal); if (requireComplete) throw error; }
-			}
-		}
-		const words = new Map([...chatTerms(query)].slice(0, 64)), sparse: Array<{ score: number; value: RagChunk }> = [], dense: typeof sparse = [];
-		const frequencies = new Map<string, number>(); let indexedDocuments = 0, totalLength = 0;
-		try { for await (const page of this.database.records(scope)) {
-			checkChatAbort(signal);
-			for (const record of page) {
-				if (!allowed.has(record.source.group)) continue;
-				if (mode !== 'semantic') {
-					let terms = record.lexical;
-					if (terms?.version !== 1 || !Array.isArray(terms.counts)) {
-						terms = ragLexicalTerms(`${record.source.title}\n${record.source.location ?? ''}\n${record.source.text}`);
-						await this.database.put('records', { ...record, lexical: terms, termKeys: terms.counts.map(([term]) => `${scope}\0${term}`) });
-					}
-					indexedDocuments++; totalLength += terms.length;
-					for (const [term] of terms.counts) if (words.has(term)) frequencies.set(term, (frequencies.get(term) ?? 0) + 1);
-				}
-				if (vector && record.vector?.length === vector.length) {
-					let similarity = -Infinity;
-					for (const queryVector of queryVectors) { let score = 0; for (let index = 0; index < queryVector.length; index++) score += queryVector[index] * record.vector[index]; similarity = Math.max(similarity, score); }
-					top(dense, record.source, similarity);
-				}
-			}
-			await ragYield();
-		}
-		if (mode !== 'semantic') {
-			const matches = typeof this.database.matchingRecords === 'function' ? this.database.matchingRecords(scope, words.keys()) : this.database.records(scope);
-			for await (const page of matches) {
-				checkChatAbort(signal);
-				for (const record of page) if (allowed.has(record.source.group)) {
-					const score = ragBm25(record.lexical ?? ragLexicalTerms(`${record.source.title}\n${record.source.text}`), words, frequencies, indexedDocuments, totalLength / Math.max(1, indexedDocuments)) + (named.has(record.source.group) ? 100 : 0);
-					if (score > 0) top(sparse, record.source, score);
-				}
-				await ragYield();
-			}
-		}
-		} catch (error) { checkChatAbort(signal); if (requireComplete) throw error; warnings.push(`저장된 색인을 읽지 못했습니다: ${error instanceof Error ? error.message : String(error)}`); }
-		// Semantic readiness and corpus coverage are different. An unfinished
-		// embedding index does not mean the lexical scan skipped project files.
-		let scanned = 0, scanFailures = 0;
-		for (const document of mode === 'semantic' ? [] : corpus.documents) {
-			checkChatAbort(signal);
-			if (state.status.state === 'ready' && vector && document.stamp) {
-				try {
-					const checkpoint = await this.database.get<RagDocument>('documents', `${scope}\0${document.id}`);
-					if (checkpoint?.stamp === document.stamp && !named.has(document.id)) { scanned++; continue; }
-				} catch (error) { if (requireComplete) throw error; /* Non-strict lexical read can still work without IDB. */ }
-			}
-			try {
-				const text = await document.read(); let offset = 0, processed = 0;
-				for (const part of chatPassages(text, { id: document.id, title: document.title, path: document.path, kind: document.kind, automatic: true, group: document.id })) {
-					if (++processed % 16 === 0) { await ragYield(); checkChatAbort(signal); }
-					const from = Math.max(0, text.indexOf(part.text, offset)); offset = from + part.text.length;
-					const score = lexical(words, `${part.title}\n${part.text}`) + (named.has(document.id) ? 100 : 0);
-					if (score > 0) top(sparse, { ...part, from, to: offset, contentHash: '', links: document.links }, score);
-				}
-				scanned++;
-			} catch (error) { checkChatAbort(signal); if (requireComplete) throw error; scanFailures++; warnings.push(`${document.title} 조회 실패`); }
-			await ragYield();
-		}
-		const fused = new Map<string, { source: RagChunk; score: number }>();
-		// Dense retrieval must still surface synonyms with no literal overlap. Equal RRF weights
-		// otherwise let weak keyword matches crowd out the very semantic-only passages we need.
-		for (const [list, weight] of [[sparse, vector ? 0.45 : 1], [dense, 1]] as const) list.forEach((item, rank) => { const before = fused.get(item.value.id); fused.set(item.value.id, { source: item.value, score: (before?.score ?? 0) + weight / (60 + rank) }); });
-		const counts = new Map<string, number>(), sources: RagChunk[] = [], texts = new Set<string>();
-		for (const { source: candidate } of [...fused.values()].sort((a, b) => Number(named.has(b.source.group)) - Number(named.has(a.source.group)) || b.score - a.score)) {
-			if ((counts.get(candidate.group) ?? 0) >= 3) continue;
-			const uniqueText = candidate.text.replace(/^#{1,6}[^\n]*$/gm, '').trim();
-			if (texts.has(uniqueText)) continue;
-			const document = allowed.get(candidate.group); if (!document) continue;
-			try {
-				const current = await document.read();
-				if (current.slice(candidate.from, candidate.to) !== candidate.text) {
-					if (requireComplete) throw new Error(`${document.title}의 검색 구간이 변경되었습니다. 최신 색인으로 다시 검색해야 합니다.`);
-					warnings.push(`${document.title}의 검색 구간이 변경되어 제외했습니다. 색인을 갱신하세요.`); continue;
-				}
-			} catch (error) { if (requireComplete) throw error; continue; }
-			const source = { ...candidate, contentHash: candidate.contentHash || await ragHash(`${candidate.title}\n${candidate.text}`) };
-			if (!candidate.contentHash) { source.id += `#${source.contentHash}`; this.temporary.set(`${scope}\0${source.id}`, { key: `${scope}\0${source.id}`, scope, documentKey: `${scope}\0${source.group}`, source }); }
-			sources.push(source); texts.add(uniqueText); counts.set(source.group, (counts.get(source.group) ?? 0) + 1); if (sources.length >= limit) break;
-		}
-		while (this.temporary.size > 200) this.temporary.delete(this.temporary.keys().next().value!);
-		checkChatAbort(signal);
-		if (requireComplete && revision !== (this.revisions.get(project.rootFolder) ?? 0)) throw new Error('검색 도중 프로젝트 자료가 변경되어 일부 자료로 답변하지 않았습니다. 변경된 자료를 포함해 다시 검색해 주세요.');
-		if (scanFailures || corpus.warnings.length) warnings.push(`프로젝트 자료 ${scanned}/${corpus.documents.length}개를 검색했습니다. 읽기 실패 자료가 있어 전체 자료를 확인했다고 답하지 마세요.`);
-		else if (!requireComplete && state.status.state !== 'ready') warnings.push(mode === 'semantic'
-			? '현재 저장된 의미 색인에서만 검색했습니다. 전체 자료의 색인 완료를 확인하지 않았습니다.'
-			: `프로젝트 전체 ${scanned}개 자료를 키워드로 검색했습니다. 의미 색인은 ${state.status.state === 'paused' ? '일시정지' : '준비 중 또는 미설치'}이지만 자료를 일부만 검색한 것은 아닙니다. 전송된 내용은 관련 발췌이므로 모든 원문을 읽은 것처럼 답하지 마세요.`);
-		return { sources, warnings };
+	async search(project: WritingProject, query: string, signal?: AbortSignal, limit = 10, explicitQuery = query, requireComplete = false): Promise<{ sources: RagChunk[]; warnings: string[] }> {
+		return this.searchObsidian(project, query, signal, limit, explicitQuery, requireComplete);
 	}
 	/** Resolve a numbered manuscript and provide the entire current text before the first model call. */
 	async episode(project: WritingProject, number: number, budget: number, signal?: AbortSignal): Promise<{ sources: RagChunk[]; warnings: string[] }> {

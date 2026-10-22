@@ -1,7 +1,7 @@
 import esbuild from "esbuild";
 import process from "process";
 import { builtinModules } from "module";
-import { mkdir, copyFile, readFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 
 const banner =
 `/*
@@ -11,23 +11,12 @@ if you want to view the source, please visit the github repository of this plugi
 `;
 
 const prod = (process.argv[2] === 'production');
-const ragBuildOptions = {
-	entryPoints: ['src/aichat/rag/ragWorker.ts'], bundle: true, platform: 'browser', conditions: ['browser'],
-	// Electron exposes Node globals in Obsidian Workers. This bundle must always
-	// select the web backend rather than the unavailable onnxruntime-node stub.
-	define: { process: 'undefined' },
-	format: 'esm', target: 'chrome100', logLevel: 'info', sourcemap: false,
-	treeShaking: true, outfile: 'rag-worker.js',
-};
-await esbuild.build(ragBuildOptions);
-const bundledRagWorker = await readFile('rag-worker.js', 'utf8');
-
 const mainBuildOptions = {
 	banner: {
 		js: banner,
 	},
 	entryPoints: ['main.ts'],
-	define: { __WM_RAG_WORKER_SOURCE__: JSON.stringify(bundledRagWorker) },
+	define: {},
 	bundle: true,
 	external: [
 		'obsidian',
@@ -71,20 +60,13 @@ const workerBuildOptions = {
 await esbuild.build(workerBuildOptions);
 mainBuildOptions.define.__WM_GARU_WORKER_SOURCE__ = JSON.stringify(await readFile('garu-worker.js', 'utf8'));
 
-await mkdir('rag-runtime', { recursive: true });
-await copyFile('node_modules/@huggingface/transformers/LICENSE', 'rag-runtime/Transformers-LICENSE.txt');
-await copyFile('docs/licenses/onnxruntime-MIT.txt', 'rag-runtime/ONNXRuntime-LICENSE.txt');
-await copyFile('docs/licenses/local-rag.md', 'rag-runtime/NOTICE.md');
-for (const file of ['ort-wasm-simd-threaded.asyncify.mjs', 'ort-wasm-simd-threaded.asyncify.wasm']) {
-	await copyFile(`node_modules/onnxruntime-web/dist/${file}`, `rag-runtime/${file}`);
-}
 if (prod) {
-	// Both standalone workers were built above; embed those exact bytes in main.js.
+	// The morphology worker is embedded for the three-file community installer.
 	await esbuild.build(mainBuildOptions);
 } else {
 	const contexts = [];
 	try {
-		for (const options of [mainBuildOptions, workerBuildOptions, ragBuildOptions]) contexts.push(await esbuild.context(options));
+		for (const options of [mainBuildOptions, workerBuildOptions]) contexts.push(await esbuild.context(options));
 		await Promise.all(contexts.map(context => context.watch()));
 	} catch (error) {
 		await Promise.all(contexts.map(context => context.dispose()));

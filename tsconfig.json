@@ -23,7 +23,7 @@
 		"skipLibCheck": true,
 		"lib": [
 			"DOM",
-			"ES2020"
+			"ES2022"
 		]
 	},
 	"include": [

@@ -1,6 +1,6 @@
 {
 	"name": "writing-menu",
-	"version": "3.4.2",
+	"version": "3.4.3",
 	"description": "An Obsidian plugin for customizing editor formatting",
 	"main": "main.js",
 	"scripts": {
@@ -40,7 +40,6 @@
 		"typescript-eslint": "8.72.0"
 	},
 	"dependencies": {
-		"@huggingface/transformers": "4.3.1",
 		"@types/node": "^16.11.6",
 		"better-result": "^2.10.0",
 		"diff-match-patch": "^1.0.5",

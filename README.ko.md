@@ -104,4 +104,4 @@ Deus AI는 대화와 참고 자료를 Gemini API로 전송합니다. 사전과 �
 
 파일 시스템·Python·클립보드·로컬 저장소의 사용 범위는 [플러그인 권한 안내](docs/plugin-permissions.md)에서 확인할 수 있습니다.
 
-[MIT 라이선스](LICENSE). Claudian·Transformers·ONNX Runtime 등 외부 구성 요소의 라이선스 고지는 해당 코드와 배포 파일에 포함합니다.
+[MIT 라이선스](LICENSE). Claudian 등 외부 구성 요소의 라이선스 고지는 해당 코드와 배포 파일에 포함합니다.

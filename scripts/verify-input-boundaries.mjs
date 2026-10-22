@@ -26,17 +26,6 @@ const folderVault = { getAbstractFileByPath: path => path === folder.path ? fold
 assert.deepEqual(markdownFilesInFolder(folderVault, 'Project/Cast/'), [folderFile, nestedFile]);
 assert.deepEqual(markdownFilesInFolder(folderVault, 'Missing'), []);
 
-const protocol = loadTsFixture('src/aichat/rag/RagWorkerProtocol.ts');
-for (const payload of [null, [], { id: '1', op: 'embed', data: {} }, { id: 1, op: 'init', data: { install: true, wasm: [], module: '' } },
-	{ id: 1, op: 'chunks', data: { text: {}, title: 'title' } }, { id: 1, op: 'embed', data: { text: 'query', query: 'true' } }])
-	assert.throws(() => protocol.readWorkerRequest(payload), /요청 형식/);
-assert.equal(protocol.readWorkerRequest({ id: 1, op: 'init', data: { install: true, wasm: new ArrayBuffer(2), module: 'worker module' } }).op, 'init');
-for (const payload of [{ data: new Float32Array(383) }, { data: Array(384).fill(NaN) }, { data: new BigInt64Array(384) }])
-	assert.throws(() => protocol.readEmbedding(payload), /출력 형식/);
-assert(protocol.readEmbedding({ data: new Float32Array(384).fill(0.5) }) instanceof Float32Array);
-assert.throws(() => protocol.readWorkerWindows([{ from: 0, to: -1, text: 'a', location: '' }]), /구간 형식/);
-assert.throws(() => protocol.readWorkerWindows([{ from: 0, to: 1, text: 'a' }]), /구간 형식/);
-
 const files = new Map(), directories = new Set(['custom-config/plugins/writing-menu']);
 let downloads = 0, failNetwork = false, failWrite = false;
 const adapter = {
@@ -60,4 +49,4 @@ assert.equal(await assets.getGaruAssetStatus(plugin), 'current', 'A failed downl
 failNetwork = false; failWrite = true;
 await assert.rejects(assets.downloadGaruAssets(plugin), /disk unavailable/);
 assert.equal(await assets.getGaruAssetStatus(plugin), 'outdated', 'An interrupted write was marked ready');
-console.log('PASS malformed Worker requests/results, numeric embeddings, custom vault config, vault-only assets, offline preservation and interrupted installation');
+console.log('PASS IME/caret compatibility, custom vault config, vault-only assets, offline preservation and interrupted installation');

@@ -1,7 +1,6 @@
 import { loadTsFixture } from './ts-fixture-loader.mjs';
 // Synthetic responses only; never contacts Gemini or reads saved API keys.
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 const load = loadTsFixture;
 const prompt = await load('src/aichat/AiChatPrompt.ts'), stream = await load('src/aichat/ChatStream.ts'), quota = await load('src/aichat/ChatQuotaError.ts');
 const apiErrors = await load('src/aichat/GeminiApiError.ts', { './ChatQuotaError': quota });
@@ -146,12 +145,3 @@ try {
 	const controller = new AbortController(); controller.abort(); await assert.rejects(callGeminiRag({ ...options(message()), signal: controller.signal, stream: true }), error => error.name === 'AbortError');
 } finally { globalThis.fetch = nativeFetch; }
 console.log('PASS Gemini tool loop, full large evidence without app context caps, user output tokens, distinct 429/503 errors, provider retry delays, checkpoint, streaming privacy and abort (no real API calls)');
-const { runtimeAsset } = await load('src/aichat/rag/RagRuntimeAssets.ts');
-const cache = new Map(), database = { get: async (store, key) => cache.get(key), put: async (store, item) => { cache.set(item.key, item); } };
-try {
-	await assert.rejects(runtimeAsset(database, 'module', false), /설정에서 모델 설치/);
-	let downloads = 0; globalThis.fetch = async url => { downloads++; assert(url.startsWith('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.31.0-dev.20260914-8d85527a0/dist/')); return new Response(await readFile(new URL('../rag-runtime/ort-wasm-simd-threaded.asyncify.mjs', import.meta.url))); };
-	assert((await runtimeAsset(database, 'module', true)).byteLength > 10000); assert((await runtimeAsset(database, 'module', false)).byteLength > 10000); assert.equal(downloads, 1);
-	globalThis.fetch = async () => new Response('tampered'); await assert.rejects(runtimeAsset(database, 'wasm', true), /무결성/);
-} finally { globalThis.fetch = nativeFetch; }
-console.log('PASS missing runtime consent, pinned GET download, SHA-256 integrity rejection and offline cache (synthetic fetch only)');

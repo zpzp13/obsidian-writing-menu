@@ -4,6 +4,7 @@ import type { RagToolCall, RagTools } from './rag/RagTypes';
 import { formatChatMessage, prepareChatHistory, sourceEvidenceDelta, historicalChatCitations } from './AiChatPrompt';
 import { checkChatAbort, abortableChat, readChatSse } from './ChatStream';
 import { geminiApiError } from './GeminiApiError';
+import { requestGeminiStream } from './GeminiTransport';
 
 export interface GeminiUsage { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number; totalTokenCount?: number }
 interface GeminiPart { text?: string; thought?: boolean; functionCall?: { id?: string; name: string; args?: Record<string, unknown> }; [key: string]: unknown }
@@ -73,7 +74,7 @@ async function step(options: GeminiRagOptions, contents: GeminiContent[], allowT
 	};
 	if (options.stream) {
 		// Streaming must remain abortable and readable incrementally; requestUrl buffers the body.
-		const response = await fetch(`${base}:streamGenerateContent?alt=sse`, { method: 'POST', headers: { 'x-goog-api-key': options.key, 'Content-Type': 'application/json' }, body, signal: options.signal });
+		const response = await requestGeminiStream(`${base}:streamGenerateContent?alt=sse`, options.key, body, options.signal);
 		if (!response.ok) throw geminiApiError(response.status, await response.json().catch(() => ({})), response.headers.get('retry-after'));
 		if (!response.body) throw new Error('Gemini 응답 본문을 받지 못했습니다. 잠시 후 재시도해 주세요.');
 		await readChatSse(response.body, options.signal, consume);

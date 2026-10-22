@@ -104,4 +104,4 @@ Deus AI sends your conversation and reference material to the Gemini API. Dictio
 
 See [plugin permissions](docs/plugin-permissions.md) for filesystem, Python, clipboard, and local-storage usage.
 
-[MIT License](LICENSE). Notices for external components, including Claudian, Transformers, and ONNX Runtime, are included with the relevant code and distribution files.
+[MIT License](LICENSE). Notices for external components, including Claudian, are included with the relevant code and distribution files.

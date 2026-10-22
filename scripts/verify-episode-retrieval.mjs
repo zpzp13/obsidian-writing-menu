@@ -40,7 +40,7 @@ const plugin = { settings: { aiChatAutoContext: true }, register() {}, projectCo
 } };
 const service = ragIndex(plugin);
 service.ensureComplete = async () => { throw new Error('Episode read incorrectly required a global embedding index'); };
-Object.assign(service.worker, { installed: async () => false, embed: async () => { throw new Error('Episode read tried to embed'); }, prepare: async () => { throw new Error('Episode read tried to install'); } });
+Object.defineProperty(service, 'worker', { get() { throw new Error('Episode lookup requested a removed model'); } });
 const oldFetch = globalThis.fetch; let apiCalls = 0, localToolCalls = 0, providerBody;
 globalThis.fetch = async () => { throw new Error('No network permitted in episode fixture'); };
 try {
