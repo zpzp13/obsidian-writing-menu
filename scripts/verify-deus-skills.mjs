@@ -1,11 +1,7 @@
+import { loadTsFixture } from './ts-fixture-loader.mjs';
 // Synthetic project and responses only. No keys, network, or real vault writes.
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import ts from 'typescript';
-const load = async (path, imports = {}) => {
-	const js = ts.transpileModule(await readFile(new URL('../' + path, import.meta.url), 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
-	const module = { exports: {} }; new Function('require', 'module', 'exports', js)(key => { assert(key in imports, key); return imports[key]; }, module, module.exports); return module.exports;
-};
+const load = loadTsFixture;
 const skills = await load('src/aichat/DeusSkills.ts'), prompt = await load('src/aichat/AiChatPrompt.ts'), stream = await load('src/aichat/ChatStream.ts');
 const cast = [{ path: 'Story/인물/아린.md', name: '아린' }, { path: 'Story/인물/도윤.md', name: '도윤' }];
 assert.deepEqual(skills.parseDeusCommand('/character'), {skill:'character',question:''});

@@ -1,3 +1,5 @@
+import { caretRangeAtPoint, isComposingKey } from '../utils/inputCompatibility';
+import { detachedEl, detachedFragment } from '../utils/dom';
 import {
 	Notice,
 	Scope,
@@ -455,10 +457,9 @@ export class PagedWritingView extends FileView {
 	 */
 	getEditorAdapter(): Editor {
 		if (this.editorAdapter) return this.editorAdapter;
-		const view = this;
-		const clampOffset = (offset: number) => Math.max(0, Math.min(view.getEditableData().length, offset));
+		const clampOffset = (offset: number) => Math.max(0, Math.min(this.getEditableData().length, offset));
 		const posToOffset = (position: EditorPosition): number => {
-			const source = view.getEditableData();
+			const source = this.getEditableData();
 			const lines = source.split('\n');
 			const line = Math.max(0, Math.min(lines.length - 1, Math.floor(position.line)));
 			let offset = 0;
@@ -466,24 +467,24 @@ export class PagedWritingView extends FileView {
 			return clampOffset(offset + Math.max(0, Math.min(lines[line].length, Math.floor(position.ch))));
 		};
 		const offsetToPos = (rawOffset: number): EditorPosition => {
-			const source = view.getEditableData();
+			const source = this.getEditableData();
 			const offset = clampOffset(rawOffset);
 			const before = source.slice(0, offset);
 			const line = before.split('\n').length - 1;
 			const lineStart = before.lastIndexOf('\n') + 1;
 			return { line, ch: offset - lineStart };
 		};
-		const currentSelection = (): TextSelection => view.readSelection() ?? view.cachedSelection;
+		const currentSelection = (): TextSelection => this.readSelection() ?? this.cachedSelection;
 		const setSelection = (anchor: number, head = anchor) => {
 			const selection = { anchor: clampOffset(anchor), head: clampOffset(head) };
-			view.cachedSelection = selection;
-			view.restoreSelection(selection, true);
-			view.refreshToolbarSelection();
+			this.cachedSelection = selection;
+			this.restoreSelection(selection, true);
+			this.refreshToolbarSelection();
 		};
 		const scrollOffsetIntoView = (offset: number, center = false) => {
-			const pageIndex = view.findPageIndex(clampOffset(offset));
-			view.renderPageIfNeeded(pageIndex);
-			view.pageEls[pageIndex]?.scrollIntoView({
+			const pageIndex = this.findPageIndex(clampOffset(offset));
+			this.renderPageIfNeeded(pageIndex);
+			this.pageEls[pageIndex]?.scrollIntoView({
 				block: center ? 'center' : 'nearest',
 				inline: 'nearest',
 				behavior: 'auto',
@@ -493,23 +494,23 @@ export class PagedWritingView extends FileView {
 		let adapter: Editor;
 		adapter = {
 			getDoc: () => adapter,
-			refresh: () => view.refreshPageTexts(view.cachedSelection),
-			getValue: () => view.getEditableData(),
-			setValue: (content: string) => view.applyEdit(0, view.getEditableData().length, content, 'other'),
-			getLine: (line: number) => view.getEditableData().split('\n')[Math.max(0, line)] ?? '',
+			refresh: () => this.refreshPageTexts(this.cachedSelection),
+			getValue: () => this.getEditableData(),
+			setValue: (content: string) => this.applyEdit(0, this.getEditableData().length, content, 'other'),
+			getLine: (line: number) => this.getEditableData().split('\n')[Math.max(0, line)] ?? '',
 			setLine: (line: number, text: string) => {
-				const source = view.getEditableData();
+				const source = this.getEditableData();
 				const lines = source.split('\n');
 				const safeLine = Math.max(0, Math.min(lines.length - 1, line));
 				const from = posToOffset({ line: safeLine, ch: 0 });
 				const to = posToOffset({ line: safeLine, ch: lines[safeLine].length });
-				view.applyEdit(from, to, text, 'other');
+				this.applyEdit(from, to, text, 'other');
 			},
-			lineCount: () => view.getEditableData().split('\n').length,
-			lastLine: () => Math.max(0, view.getEditableData().split('\n').length - 1),
+			lineCount: () => this.getEditableData().split('\n').length,
+			lastLine: () => Math.max(0, this.getEditableData().split('\n').length - 1),
 			getSelection: () => {
 				const selection = currentSelection();
-				return view.getEditableData().slice(
+				return this.getEditableData().slice(
 					Math.min(selection.anchor, selection.head),
 					Math.max(selection.anchor, selection.head),
 				);
@@ -518,21 +519,21 @@ export class PagedWritingView extends FileView {
 				const selection = currentSelection();
 				return selection.anchor !== selection.head;
 			},
-			getRange: (from: EditorPosition, to: EditorPosition) => view.getEditableData().slice(posToOffset(from), posToOffset(to)),
+			getRange: (from: EditorPosition, to: EditorPosition) => this.getEditableData().slice(posToOffset(from), posToOffset(to)),
 			replaceSelection: (replacement: string) => {
 				const selection = currentSelection();
-				view.applyEdit(
+				this.applyEdit(
 					Math.min(selection.anchor, selection.head),
 					Math.max(selection.anchor, selection.head),
 					replacement,
 					'other',
 				);
-				view.scheduleExternalSelectionRestore();
+				this.scheduleExternalSelectionRestore();
 			},
 			replaceRange: (replacement: string, from: EditorPosition, to?: EditorPosition) => {
 				const start = posToOffset(from);
-				view.applyEdit(start, to ? posToOffset(to) : start, replacement, 'other');
-				view.scheduleExternalSelectionRestore();
+				this.applyEdit(start, to ? posToOffset(to) : start, replacement, 'other');
+				this.scheduleExternalSelectionRestore();
 			},
 			getCursor: (side?: 'from' | 'to' | 'head' | 'anchor') => {
 				const selection = currentSelection();
@@ -561,29 +562,29 @@ export class PagedWritingView extends FileView {
 				const range = ranges[Math.max(0, Math.min(ranges.length - 1, main))];
 				if (range) setSelection(posToOffset(range.anchor), posToOffset(range.head ?? range.anchor));
 			},
-			focus: () => view.editRootEl?.focus({ preventScroll: true }),
-			blur: () => view.editRootEl?.blur(),
-			hasFocus: () => !!view.editRootEl?.contains(view.editRootEl.ownerDocument.activeElement),
+			focus: () => this.editRootEl?.focus({ preventScroll: true }),
+			blur: () => this.editRootEl?.blur(),
+			hasFocus: () => !!this.editRootEl?.contains(this.editRootEl.ownerDocument.activeElement),
 			getScrollInfo: () => ({
-				top: view.viewportEl?.scrollTop ?? 0,
-				left: view.viewportEl?.scrollLeft ?? 0,
+				top: this.viewportEl?.scrollTop ?? 0,
+				left: this.viewportEl?.scrollLeft ?? 0,
 			}),
-			scrollTo: (x?: number | null, y?: number | null) => view.viewportEl?.scrollTo({
-				left: x ?? view.viewportEl.scrollLeft,
-				top: y ?? view.viewportEl.scrollTop,
+			scrollTo: (x?: number | null, y?: number | null) => this.viewportEl?.scrollTo({
+				left: x ?? this.viewportEl.scrollLeft,
+				top: y ?? this.viewportEl.scrollTop,
 			}),
 			scrollIntoView: (range: EditorRange, center?: boolean) => scrollOffsetIntoView(posToOffset(range.from), center),
-			undo: () => view.undo(),
-			redo: () => view.redo(),
+			undo: () => this.undo(),
+			redo: () => this.redo(),
 			exec: (command: string) => {
-				if (command === 'undo') view.undo();
-				else if (command === 'redo') view.redo();
+				if (command === 'undo') this.undo();
+				else if (command === 'redo') this.redo();
 			},
 			transaction: (transaction: EditorTransaction) => {
 				if (transaction.replaceSelection !== undefined) adapter.replaceSelection(transaction.replaceSelection);
 				if (transaction.changes?.length) {
 					const changes = transaction.changes.slice().sort((left, right) => posToOffset(right.from) - posToOffset(left.from));
-					view.applyTextEdits(changes.map(change => ({ from: posToOffset(change.from), to: posToOffset(change.to ?? change.from), text: change.text })));
+					this.applyTextEdits(changes.map(change => ({ from: posToOffset(change.from), to: posToOffset(change.to ?? change.from), text: change.text })));
 				}
 				const selection = transaction.selection;
 				if (selection) adapter.setSelection(selection.from, selection.to);
@@ -592,7 +593,7 @@ export class PagedWritingView extends FileView {
 				}
 			},
 			wordAt: (position: EditorPosition) => {
-				const source = view.getEditableData();
+				const source = this.getEditableData();
 				let from = posToOffset(position);
 				let to = from;
 				while (from > 0 && !/\s/.test(source[from - 1])) from--;
@@ -1181,7 +1182,7 @@ export class PagedWritingView extends FileView {
 		shiftRanges(this.plugin.settings.pagedInlineFormats);
 		const alignments = this.plugin.settings.pagedParagraphAlignments?.[key];
 		if (Array.isArray(alignments)) {
-			this.plugin.settings.pagedParagraphAlignments![key] = alignments.map(item => ({
+			this.plugin.settings.pagedParagraphAlignments[key] = alignments.map(item => ({
 				...item,
 				from: Math.max(0, item.from + delta),
 			}));
@@ -1880,8 +1881,7 @@ export class PagedWritingView extends FileView {
 			&& !mod
 			&& !event.altKey
 			&& !this.composing
-			&& !event.isComposing
-			&& event.keyCode !== 229
+			&& !isComposingKey(event)
 		) {
 			const selection = this.readSelection() ?? this.cachedSelection;
 			event.preventDefault();
@@ -3139,7 +3139,7 @@ export class PagedWritingView extends FileView {
 				&& matchingSearches.length === 0
 			) continue;
 			const value = run.textContent ?? '';
-			const fragment = run.ownerDocument.createDocumentFragment();
+			const fragment = detachedFragment(run.ownerDocument);
 			const boundaries = new Set<number>([runFrom, runTo]);
 			for (const range of [...matchingColors, ...matchingBackgrounds, ...matchingFormats, ...matchingSearches]) {
 				boundaries.add(Math.max(runFrom, range.from));
@@ -3161,7 +3161,7 @@ export class PagedWritingView extends FileView {
 					fragment.appendChild(run.ownerDocument.createTextNode(segment));
 					continue;
 				}
-				const formatted = run.ownerDocument.createElement('span');
+				const formatted = detachedEl(run.ownerDocument, 'span');
 				formatted.className = 'wm-paged-formatted-text';
 				if (color) formatted.style.color = color;
 				if (backgroundColor) formatted.style.backgroundColor = backgroundColor;
@@ -3521,10 +3521,8 @@ export class PagedWritingView extends FileView {
 		const textEl = this.pageTextEls[pageIndex];
 		const page = this.pages[pageIndex];
 		if (!textEl || !page) return;
-		const document = textEl.ownerDocument as Document & {
-			caretRangeFromPoint?: (x: number, y: number) => Range | null;
-		};
-		if (preferredClientX !== null && document.caretRangeFromPoint) {
+		const document = textEl.ownerDocument;
+		if (preferredClientX !== null) {
 			try {
 				const contents = document.createRange();
 				contents.selectNodeContents(textEl);
@@ -3537,7 +3535,7 @@ export class PagedWritingView extends FileView {
 					const lineHeight = Math.max(...edgeRects.map(rect => rect.height));
 					const bounds = textEl.getBoundingClientRect();
 					const x = Math.max(bounds.left + 1, Math.min(bounds.right - 1, preferredClientX));
-					const hit = document.caretRangeFromPoint(x, edgeTop + lineHeight / 2);
+					const hit = caretRangeAtPoint(document, x, edgeTop + lineHeight / 2);
 					if (hit && textEl.contains(hit.startContainer)) {
 						const logicalOffset = this.globalOffsetFromDom(hit.startContainer, hit.startOffset);
 						const point = logicalOffset === null

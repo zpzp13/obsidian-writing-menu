@@ -46,7 +46,7 @@ export async function runPlotChecks() {
 	const app = {
 		vault: { on() { return {}; }, offref() {}, getAbstractFileByPath() { return null; } },
 		metadataCache: { on() { return {}; }, offref() {}, getFileCache() { return {}; } },
-		workspace: { getLeavesOfType(type) { return leaves.filter(leaf => type === 'markdown' ? leaf.view instanceof MarkdownView : leaf.view instanceof PagedWritingView); }, getMostRecentLeaf() { return null; } },
+		workspace: { getLeavesOfType(type) { return leaves.filter(leaf => type === 'markdown' ? leaf.view instanceof MarkdownView : leaf.view instanceof PagedWritingView); }, getMostRecentLeaf() { return null; }, getActiveViewOfType() { return null; } },
 	};
 	const plugin = {
 		app, settings: { ...DEFAULT_SETTINGS, applyToFolder: '', fontFamily: 'Arial', fontSize: 24, fontColor: '#812323', backgroundColor: '#ddffff' },

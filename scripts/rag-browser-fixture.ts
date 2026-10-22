@@ -60,7 +60,7 @@ const plugin = {
 	},
 } as any;
 const NativeWorker = Worker;
-(globalThis as any).Worker = class extends NativeWorker { constructor(...args: any[]) { super(args[0], args[1]); this.addEventListener('message', event => { if (event.data.audit) audit.push(event.data.audit); }); } };
+(globalThis as any).Worker = class extends NativeWorker { constructor(...args: any[]) { super(args[0], args[1]); this.addEventListener('message', event => { if (event.data.audit) { audit.push(event.data.audit); event.stopImmediatePropagation(); } }); } };
 const service = new RagIndexService(plugin);
 let embedded = 0, queryEmbedded = 0; const originalEmbed = service.worker.embed.bind(service.worker);
 service.worker.embed = async (...args) => { if (!args[1]) embedded++; else queryEmbedded++; return originalEmbed(...args); };

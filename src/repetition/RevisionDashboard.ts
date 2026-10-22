@@ -33,7 +33,7 @@ export class RevisionDashboard {
 			this.observer = new ResizeObserver(entries => {
 				const width = Math.round(entries[0]?.contentRect.width ?? 0);
 				if (!width || width === this.width || this.disposed) return;
-				this.width = width; cancelAnimationFrame(this.frame); this.frame = requestAnimationFrame(() => { if (!this.disposed) this.render(); });
+				this.width = width; cancelAnimationFrame(this.frame); this.frame = window.requestAnimationFrame(() => { if (!this.disposed) this.render(); });
 			}); this.observer.observe(root);
 		}
 	}
@@ -100,8 +100,8 @@ export class RevisionDashboard {
 		toolbar.createSpan({ cls: 'wm-revision-title', text: this.state.title, attr: { title: this.state.title } });
 		this.progressEl = toolbar.createSpan({ cls: 'wm-analysis-progress', text: this.state.busy ? '분석 중…' : '', attr: { role: 'status' } });
 		const controls = toolbar.createDiv({ cls: 'wm-revision-toolbar-actions' });
-		const refresh = this.icon(controls, 'refresh-cw', '재분석', this.actions.refresh); refresh.disabled = this.state.busy;
-		this.icon(controls, 'settings', '분석 설정', this.actions.settings);
+		const refresh = this.icon(controls, 'refresh-cw', '재분석', () => this.actions.refresh()); refresh.disabled = this.state.busy;
+		this.icon(controls, 'settings', '분석 설정', () => this.actions.settings());
 	}
 	private card(parent: HTMLElement, title: string, modifier: string): { card: HTMLElement; header: HTMLElement } {
 		const card = parent.createDiv({ cls: `wm-analysis-card wm-dash-char-main is-${modifier}` });

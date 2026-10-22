@@ -1,3 +1,4 @@
+import { detachedEl } from '../utils/dom';
 import { Menu, Notice, TFile, normalizePath, setIcon, type EventRef } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { getWikiColor, getWikiDisplayName, getWikiImgSrc } from '../wiki/wikiProfileUtils';
@@ -704,7 +705,7 @@ export class InfinitePlotSheet {
 				const cached = this.plugin.app.metadataCache.getFileCache(oldFile)?.frontmatter;
 				if (!cached || (!Object.prototype.hasOwnProperty.call(cached, 'writing_menu_plot')
 					&& ![...propertyKeys].some(key => Object.prototype.hasOwnProperty.call(cached, key)))) continue;
-				await this.plugin.app.fileManager.processFrontMatter(oldFile, frontmatter => {
+				await this.plugin.app.fileManager.processFrontMatter(oldFile, (frontmatter: Record<string, unknown>) => {
 					delete frontmatter.writing_menu_plot;
 					for (const key of propertyKeys) delete frontmatter[key];
 				});
@@ -735,7 +736,7 @@ export class InfinitePlotSheet {
 						&& JSON.stringify(cachedProperties) === JSON.stringify(properties);
 					this.syncedFrontmatterKeys.set(file.path, new Set(Object.keys(properties)));
 					if (unchanged) continue;
-					await this.plugin.app.fileManager.processFrontMatter(file, frontmatter => {
+					await this.plugin.app.fileManager.processFrontMatter(file, (frontmatter: Record<string, unknown>) => {
 						delete frontmatter.writing_menu_plot;
 						for (const key of propertyKeys) delete frontmatter[key];
 						Object.assign(frontmatter, properties);
@@ -2451,7 +2452,7 @@ export class InfinitePlotSheet {
 				fallback();
 				return;
 			}
-			const raster = avatar.ownerDocument.createElement('canvas');
+			const raster = detachedEl(avatar.ownerDocument, 'canvas');
 			raster.width = pixels;
 			raster.height = pixels;
 			const context = raster.getContext('2d');
@@ -3251,9 +3252,9 @@ export class InfinitePlotSheet {
 	private showResizeGuide(axis: 'row' | 'column', position: number): void {
 		this.resizeGuide.className = `wm-plotbook-resize-guide is-${axis}`;
 		if (axis === 'row') {
-			this.resizeGuide.setCssStyles({ top: `${Math.round(position)}px`, left: '0' });
+			this.resizeGuide.setCssStyles({ top: `${Math.round(position)}px`, left: '' });
 		} else {
-			this.resizeGuide.setCssStyles({ left: `${Math.round(position)}px`, top: '0' });
+			this.resizeGuide.setCssStyles({ left: `${Math.round(position)}px`, top: '' });
 		}
 	}
 
@@ -3985,7 +3986,8 @@ export class InfinitePlotSheet {
 
 	private applyCellStyle(cell: HTMLElement, style: PlotWorkbookCellStyle): void {
 		cell.style.fontFamily = style.fontFamily ?? '';
-		cell.style.fontSize = style.fontSize ? `${style.fontSize}px` : '';
+		cell.toggleClass('wm-plotbook-custom-font-size', !!style.fontSize);
+		cell.style.setProperty('--wm-cell-font-size', style.fontSize ? `${style.fontSize}px` : '');
 		this.applyCellThemeColor(cell, style.color, 'text');
 		this.applyCellThemeColor(cell, style.backgroundColor, 'background');
 		cell.style.fontWeight = style.bold ? '700' : '';
@@ -3994,7 +3996,7 @@ export class InfinitePlotSheet {
 			style.underline ? 'underline' : '',
 			style.strikethrough ? 'line-through' : '',
 		].filter(Boolean).join(' ');
-		cell.style.justifyContent = style.alignment === 'center'
+		cell.style.justifyContent = cell.matches('.is-cast, .is-status, .is-date') ? '' : style.alignment === 'center'
 			? 'center'
 			: style.alignment === 'right' ? 'flex-end' : 'flex-start';
 		cell.style.textAlign = style.alignment ?? 'left';
@@ -4013,14 +4015,10 @@ export class InfinitePlotSheet {
 		cell.style.removeProperty(darkVariable);
 		cell.setCssStyles(target === 'text' ? { color: '' } : { backgroundColor: '' });
 		if (!color) return;
-		if (typeof color === 'string') {
-			if (target === 'text') cell.style.color = color;
-			else cell.style.backgroundColor = color;
-			return;
-		}
+		const themed = typeof color === 'string' ? { light: color, dark: color } : color;
 		cell.addClass(className);
-		cell.style.setProperty(lightVariable, color.light);
-		cell.style.setProperty(darkVariable, color.dark);
+		cell.style.setProperty(lightVariable, themed.light);
+		cell.style.setProperty(darkVariable, themed.dark);
 	}
 
 	private refreshSelectionBox(): void {

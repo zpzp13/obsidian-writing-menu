@@ -104,12 +104,12 @@ export function chartHints(host: HTMLElement): (target: Element, content: ChartH
 }
 
 export function chartSvg(parent: HTMLElement, viewBox: string, label: string): SVGSVGElement {
-	const svg = parent.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'svg');
+	const svg = parent.createSvg('svg');
 	svg.setAttribute('viewBox', viewBox); svg.setAttribute('role', 'group'); svg.setAttribute('aria-label', label); parent.appendChild(svg); return svg;
 }
 
 export function chartShape<K extends keyof SVGElementTagNameMap>(svg: SVGElement, tag: K, attributes: Record<string, string>): SVGElementTagNameMap[K] {
-	const shape = svg.ownerDocument.createElementNS('http://www.w3.org/2000/svg', tag);
+	const shape = svg.createSvg(tag);
 	for (const [key, value] of Object.entries(attributes)) shape.setAttribute(key, value);
 	svg.appendChild(shape); return shape;
 }

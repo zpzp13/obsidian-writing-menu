@@ -3,7 +3,7 @@ export interface TextWindow { from: number; to: number; text: string; location: 
 export function ragTextWindows(text: string, title: string, count: (text: string) => number): TextWindow[] {
 	const result: TextWindow[] = [];
 	const lineStarts = [0]; for (let index = 0; index < text.length; index++) if (text[index] === '\n') lineStarts.push(index + 1);
-	const headings = [...text.matchAll(/^#{1,6}\s/gm)].map(match => match.index!);
+	const headings = [...text.matchAll(/^#{1,6}\s/gm)].map(match => match.index);
 	const lineAt = (offset: number) => { let low = 0, high = lineStarts.length; while (low < high) { const middle = (low + high) >>> 1; if (lineStarts[middle] <= offset) low = middle + 1; else high = middle; } return low; };
 	let from = 0, headingIndex = 0;
 	while (from < text.length) {

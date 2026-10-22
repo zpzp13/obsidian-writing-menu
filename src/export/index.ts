@@ -42,7 +42,7 @@ export class HwpExportModal extends Modal {
 
 		fileSetting.settingEl.addClass('hwp-filename-setting');
 
-		const extEl = fileSetting.controlEl.createEl('span', {
+		const extEl = fileSetting.controlEl.createSpan({
 			text: '.hwp',
 			cls: 'hwp-filename-extension'
 		});
@@ -160,7 +160,7 @@ export class TxtExportModal extends Modal {
 				})
 		);
 
-		const extEl = fileSetting.controlEl.createEl('span', {
+		const extEl = fileSetting.controlEl.createSpan({
 			text: '.txt',
 			cls: 'txt-filename-extension'
 		});
@@ -362,7 +362,7 @@ export class BatchExportModal extends Modal {
 				});
 		});
 
-		const extEl = this.fileNameSetting.controlEl.createEl('span', {
+		const extEl = this.fileNameSetting.controlEl.createSpan({
 			text: fileExt,
 			cls: 'export-filename-extension'
 		});
@@ -482,8 +482,8 @@ export class BatchExportModal extends Modal {
 		// Header for included files
 		const header = this.fileListContainer.createDiv({ cls: 'file-list-header' });
 		
-		header.createEl('span', { text: '포함할 파일 (드래그하여 정렬)', cls: 'wm-file-list-title' });
-		const countEl = header.createEl('span', { text: `${this.sortedFiles.length}개 파일`, cls: 'wm-file-list-count' });
+		header.createSpan({ text: '포함할 파일 (드래그하여 정렬)', cls: 'wm-file-list-title' });
+		const countEl = header.createSpan({ text: `${this.sortedFiles.length}개 파일`, cls: 'wm-file-list-count' });
 
 		// File list
 		const listEl = this.fileListContainer.createDiv({ cls: 'file-list' });
@@ -520,10 +520,10 @@ export class BatchExportModal extends Modal {
 			}
 
 			// File number
-			itemEl.createEl('span', { text: `${index + 1}.`, cls: 'file-num' });
+			itemEl.createSpan({ text: `${index + 1}.`, cls: 'file-num' });
 
 			// File name
-			itemEl.createEl('span', { text: file.basename, cls: 'wm-file-name-el' });
+			itemEl.createSpan({ text: file.basename, cls: 'wm-file-name-el' });
 
 			// Remove button
 			const removeBtn = itemEl.createDiv({ cls: 'file-remove-btn' });
@@ -637,8 +637,8 @@ export class BatchExportModal extends Modal {
 		const removedSection = this.fileListContainer.createDiv({ cls: 'removed-section' });
 
 		const removedHeader = removedSection.createDiv({ cls: 'removed-files-header' });
-		removedHeader.createEl('span', { text: '제외된 파일', cls: 'wm-removed-files-title' });
-		removedHeader.createEl('span', { text: `${this.removedFiles.length}개`, cls: 'wm-file-list-count' });
+		removedHeader.createSpan({ text: '제외된 파일', cls: 'wm-removed-files-title' });
+		removedHeader.createSpan({ text: `${this.removedFiles.length}개`, cls: 'wm-file-list-count' });
 
 		const removedListEl = removedSection.createDiv({ cls: 'removed-file-list' });
 
@@ -646,7 +646,7 @@ export class BatchExportModal extends Modal {
 			const itemEl = removedListEl.createDiv({ cls: 'removed-file-item' });
 			itemEl.setAttribute('data-index', String(index));
 
-			itemEl.createEl('span', { text: file.basename, cls: 'wm-removed-file-name' });
+			itemEl.createSpan({ text: file.basename, cls: 'wm-removed-file-name' });
 
 			const addBtn = itemEl.createDiv({ cls: 'file-add-btn' });
 			setIcon(addBtn, 'plus');

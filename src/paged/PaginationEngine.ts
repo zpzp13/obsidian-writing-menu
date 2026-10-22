@@ -1,3 +1,4 @@
+import { detachedEl, detachedFragment } from '../utils/dom';
 import { getTextRuns, renderPagedText } from './textLayout';
 import type { PagedInlineFormatRange } from '../types';
 import type { PageGeometry, PageRange } from './types';
@@ -530,7 +531,7 @@ export class PaginationEngine {
 			boundaries.add(Math.min(absoluteTo, range.to));
 		}
 		const points = Array.from(boundaries).sort((left, right) => left - right);
-		const fragment = run.ownerDocument.createDocumentFragment();
+		const fragment = detachedFragment(run.ownerDocument);
 		for (let index = 0; index < points.length - 1; index++) {
 			const from = points[index];
 			const to = points[index + 1];
@@ -541,7 +542,7 @@ export class PaginationEngine {
 				fragment.appendChild(run.ownerDocument.createTextNode(segment));
 				continue;
 			}
-			const formatted = run.ownerDocument.createElement('span');
+			const formatted = detachedEl(run.ownerDocument, 'span');
 			if (active.some(range => range.kind === 'bold')) formatted.setCssStyles({ fontWeight: '700' });
 			if (active.some(range => range.kind === 'italic')) formatted.setCssStyles({ fontStyle: 'italic' });
 			formatted.textContent = segment;
@@ -668,7 +669,7 @@ export class PaginationEngine {
 
 	private trimOldest<T>(cache: Map<string, T>, maxEntries: number): void {
 		while (cache.size > maxEntries) {
-			const oldest = cache.keys().next().value as string | undefined;
+			const oldest = cache.keys().next().value;
 			if (oldest === undefined) break;
 			cache.delete(oldest);
 		}

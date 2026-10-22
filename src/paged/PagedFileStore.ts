@@ -1,3 +1,4 @@
+import { replaceControlCharacters } from '../utils/typeGuards';
 import { normalizePath, type TFile, type Vault } from 'obsidian';
 import { mergePagedLines } from './PagedThreeWayMerge';
 
@@ -191,7 +192,7 @@ export class PagedFileStore {
 				catch (error) { if (!await this.vault.adapter.exists(path)) throw error; }
 			}
 		}
-		const name = this.file.basename.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').slice(0, 80) || 'note';
+		const name = replaceControlCharacters(this.file.basename, '_').replace(/[<>:"/\\|?*]/g, '_').slice(0, 80) || 'note';
 		const path = `${directory}/${name}-${kind}-${Date.now()}-${crypto.randomUUID()}.md`;
 		await this.vault.adapter.write(path, data);
 		if (await this.vault.adapter.read(path) !== data) throw new Error('충돌 복구 파일 검증에 실패했습니다.');

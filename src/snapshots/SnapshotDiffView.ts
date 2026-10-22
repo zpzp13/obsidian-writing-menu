@@ -1,3 +1,4 @@
+import { detachedEl } from '../utils/dom';
 import { computeInlineDiff, computeLineDiff, DIFF_DELETE, DIFF_INSERT, type InlineSeg } from './diff';
 
 const CONTEXT_LINES = 3;
@@ -11,7 +12,7 @@ const Segmenter = (Intl as unknown as { Segmenter?: new (locale?: string, option
 const graphemes = Segmenter ? new Segmenter(undefined, { granularity: 'grapheme' }) : null;
 
 function line(view: HTMLElement, text: string, side?: 'left' | 'right'): HTMLElement {
-	const element = view.ownerDocument.createElement('div');
+	const element = detachedEl(view.ownerDocument, 'div');
 	element.className = `diff-line${side ? ` mod-${side}` : ''}`;
 	element.textContent = text || '\u00a0';
 	view.appendChild(element);
@@ -20,7 +21,7 @@ function line(view: HTMLElement, text: string, side?: 'left' | 'right'): HTMLEle
 
 function viewIn(container: HTMLElement): HTMLElement {
 	container.replaceChildren();
-	const view = container.ownerDocument.createElement('div');
+	const view = detachedEl(container.ownerDocument, 'div');
 	view.className = 'diff-view wm-snapshot-diff-view';
 	container.appendChild(view);
 	return view;
@@ -39,12 +40,12 @@ function equalLines(view: HTMLElement, lines: string[]): void {
 	}
 	for (const value of lines.slice(0, CONTEXT_LINES)) line(view, value);
 	const folded = lines.slice(CONTEXT_LINES, -CONTEXT_LINES);
-	const group = view.ownerDocument.createElement('div');
+	const group = detachedEl(view.ownerDocument, 'div');
 	group.className = 'wm-snapshot-diff-fold';
-	const control = group.appendChild(view.ownerDocument.createElement('div'));
+	const control = group.appendChild(detachedEl(view.ownerDocument, 'div'));
 	control.className = 'diff-collapsed';
 	control.setAttribute('role', 'button'); control.tabIndex = 0;
-	const region = group.appendChild(view.ownerDocument.createElement('div'));
+	const region = group.appendChild(detachedEl(view.ownerDocument, 'div'));
 	region.className = 'wm-snapshot-diff-equal'; region.id = `wm-snapshot-diff-fold-${++foldId}`; region.hidden = true;
 	control.setAttribute('aria-controls', region.id);
 	let expanded = false, populated = false;
@@ -86,7 +87,7 @@ function appendParts(element: HTMLElement, parts: Part[]): void {
 	if (!text) return;
 	if (!parts.some(part => part.changed)) { element.textContent = text; return; }
 	if (parts.every(part => part.changed)) {
-		const span = element.ownerDocument.createElement('span'); span.className = 'diff-changed'; span.textContent = text; element.replaceChildren(span); return;
+		const span = detachedEl(element.ownerDocument, 'span'); span.className = 'diff-changed'; span.textContent = text; element.replaceChildren(span); return;
 	}
 	const changed: Array<{ from: number; to: number }> = [];
 	let offset = 0;
@@ -99,7 +100,7 @@ function appendParts(element: HTMLElement, parts: Part[]): void {
 	const flush = () => {
 		if (!pending) return;
 		if (pendingChanged) {
-			const span = element.ownerDocument.createElement('span'); span.className = 'diff-changed'; span.textContent = pending; element.appendChild(span);
+			const span = detachedEl(element.ownerDocument, 'span'); span.className = 'diff-changed'; span.textContent = pending; element.appendChild(span);
 		} else element.appendChild(element.ownerDocument.createTextNode(pending));
 		pending = '';
 	};
@@ -119,7 +120,7 @@ export function renderSnapshotDiff(container: HTMLElement, before: string, after
 	const view = viewIn(container);
 	for (const [index, hunk] of computeLineDiff(before, after).entries()) {
 		if (hunk.type === 'equal') { equalLines(view, hunk.aLines); continue; }
-		const target = options ? view.appendChild(view.ownerDocument.createElement('div')) : view;
+		const target = options ? view.appendChild(detachedEl(view.ownerDocument, 'div')) : view;
 		if (options) { target.className = 'wm-snapshot-change'; options.hunkActions(target, index); }
 		if (hunk.type === 'delete') { for (const value of hunk.aLines) line(target, value, 'left'); continue; }
 		if (hunk.type === 'insert') { for (const value of hunk.bLines) line(target, value, 'right'); continue; }

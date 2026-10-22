@@ -31,7 +31,7 @@ export function explicitResearchNames(question: string): string[] {
 export function resolveResearchEntities(entities: ResearchEntity[], question: string): ResearchEntity[] {
 	const matches = entities.flatMap(entity => entity.aliases.flatMap(alias => {
 		const found: Array<{ entity: ResearchEntity; alias: string; from: number; to: number }> = [];
-		for (const match of question.matchAll(namePattern(alias))) { const from = match.index! + match[1].length; found.push({ entity, alias, from, to: from + alias.length }); }
+		for (const match of question.matchAll(namePattern(alias))) { const from = match.index + match[1].length; found.push({ entity, alias, from, to: from + alias.length }); }
 		return found;
 	}));
 	// A shorter name embedded in a longer explicitly named character must not pick another character.

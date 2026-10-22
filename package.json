@@ -1,9 +1,12 @@
 {
 	"name": "writing-menu",
-	"version": "3.4.1",
+	"version": "3.4.2",
 	"description": "An Obsidian plugin for customizing editor formatting",
 	"main": "main.js",
 	"scripts": {
+		"lint": "eslint main.ts src",
+		"lint:css": "stylelint styles.css",
+		"check:warnings": "node scripts/verify-warning-policy.mjs",
 		"check": "node scripts/verify-release.mjs",
 		"release:package": "node scripts/package-release.mjs",
 		"dev": "node esbuild.config.mjs",
@@ -15,20 +18,26 @@
 	"author": "",
 	"license": "MIT",
 	"overrides": {
-		"@codemirror/commands": { "@codemirror/state": "6.5.0" }
+		"@codemirror/commands": {
+			"@codemirror/state": "6.5.0"
+		}
 	},
 	"devDependencies": {
 		"@codemirror/commands": "6.8.1",
 		"@codemirror/state": "^6.0.0",
 		"@codemirror/view": "^6.0.0",
 		"@types/diff-match-patch": "^1.0.36",
-		"@typescript-eslint/eslint-plugin": "5.29.0",
-		"@typescript-eslint/parser": "5.29.0",
 		"esbuild": "0.17.3",
+		"eslint": "9.39.5",
+		"eslint-plugin-obsidianmd": "0.4.2",
 		"garu-ko": "^0.9.18",
-		"obsidian": "latest",
+		"obsidian": "1.13.0",
+		"stylelint": "17.16.0",
+		"stylelint-config-obsidianmd": "0.1.0",
+		"stylelint-no-unsupported-browser-features": "8.1.2",
 		"tslib": "2.4.0",
-		"typescript": "^6.0.3"
+		"typescript": "^6.0.3",
+		"typescript-eslint": "8.72.0"
 	},
 	"dependencies": {
 		"@huggingface/transformers": "4.3.1",

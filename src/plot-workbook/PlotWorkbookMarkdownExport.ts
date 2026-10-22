@@ -1,3 +1,4 @@
+import { hasControlCharacters, replaceControlCharacters } from '../utils/typeGuards';
 import { Modal, Notice, normalizePath, type App, type Vault } from 'obsidian';
 import { plotColumnTitle } from './PlotWorkbookColumnPresentation';
 import type { PlotWorkbookSession } from './PlotWorkbookSession';
@@ -47,14 +48,14 @@ export function plotWorkbookMarkdown(session: PlotWorkbookSession, sheet = sessi
 		}
 		if (!fields.length && !sheet.rows[rowId]?.linkedNotePath) continue;
 		sections.push(`## ${labels.get(rowId) ?? '—'}`);
-		if (sheet.rows[rowId]?.linkedNotePath) sections.push(`본문: ${noteLink(sheet.rows[rowId].linkedNotePath!)}`);
+		if (sheet.rows[rowId]?.linkedNotePath) sections.push(`본문: ${noteLink(sheet.rows[rowId].linkedNotePath)}`);
 		sections.push(...fields);
 	}
 	return `${sections.join('\n\n')}\n`;
 }
 
 export function plotExportFileName(name: string): string {
-	const clean = name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').replace(/[.\s]+$/g, '').trim() || '플롯';
+	const clean = replaceControlCharacters(name, '_').replace(/[<>:"/\\|?*]/g, '_').replace(/[.\s]+$/g, '').trim() || '플롯';
 	return /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(clean) ? `_${clean}` : clean;
 }
 
@@ -63,7 +64,7 @@ export async function savePlotMarkdown(vault: Vault, requestedPath: string, mark
 	const raw = requestedPath.trim().replace(/\\/g, '/');
 	const parts = raw.split('/');
 	if (!raw || raw.startsWith('/') || parts.some(part => !part || part === '.' || part === '..'
-		|| /[<>:"|?*\u0000-\u001f]/.test(part) || /[.\s]$/.test(part)
+		|| /[<>:"|?*]/.test(part) || hasControlCharacters(part) || /[.\s]$/.test(part)
 		|| /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(part))) {
 		throw new Error('볼트 내부의 올바른 파일 경로를 입력하세요.');
 	}

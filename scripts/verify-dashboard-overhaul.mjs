@@ -311,7 +311,7 @@ export async function runDashboardCoreChecks() {
 	revisionHost.appendChild(revisionRoot);fixedShell.remove();await settle();await settle();
 	revisionRoot.querySelector('.is-flow button[data-value="cumulative"]').click();
 	const projectHost=document.body.createDiv(), projectFiles=['2','1','10'].map(name=>Object.assign(new TFile(),{path:'Project/Manuscripts/'+name+'.md',basename:name,extension:'md'}));
-	const projectPlugin={...demoPlugin,app:{...app,vault:{...vault,getMarkdownFiles:()=>[...projectFiles,Object.assign(new TFile(),{path:'Project/Characters/제외.md'})],cachedRead:async file=>'본문 '+file.basename+'.'},metadataCache:{getFileCache:file=>({frontmatter:{sort_index:file.basename==='10'?1:2}})}},projectContext:{getProjectForFile:()=>({name:'프로젝트 제목',rootFolder:'Project',manuscriptFolder:'Project/Manuscripts'})}};
+	const projectPlugin={...demoPlugin,app:{...app,vault:{...vault,getAbstractFileByPath:path=>path==='Project/Manuscripts'?{path,children:projectFiles}:null,getMarkdownFiles:()=>{throw Error('Project analysis must not enumerate unrelated vault paths');},cachedRead:async file=>'본문 '+file.basename+'.'},metadataCache:{getFileCache:file=>({frontmatter:{sort_index:file.basename==='10'?1:2}})}},projectContext:{getProjectForFile:()=>({name:'프로젝트 제목',rootFolder:'Project',manuscriptFolder:'Project/Manuscripts'})}};
 	const projectRevision=new RevisionPanel(projectHost,projectPlugin);projectRevision.load();await settle();
 	projectHost.querySelector('.wm-revision-scope').click();
 	assert(lastTestMenu.items.map(item=>item.title).join('/')==='현재 문서/프로젝트 전체','Scope icon did not open the document/project menu');

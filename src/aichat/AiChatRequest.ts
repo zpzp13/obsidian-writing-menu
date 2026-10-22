@@ -53,14 +53,14 @@ export class AiChatRequest {
 			});
 			checkChatAbort(controller.signal);
 			const answer = session.mode === 'deus' ? normalizeDeusAnswer(text, message.context?.sources ?? [], historicalChatCitations(history, message), message.skill) : { content: text, citations: undefined };
-			reply = { id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-assistant`, role: 'assistant', skill: message.skill, participants: message.participants, content: answer.content, citations: answer.citations, timestamp: Date.now(), status: 'complete' };
+			reply = { id: window.crypto?.randomUUID?.() ?? `${Date.now()}-assistant`, role: 'assistant', skill: message.skill, participants: message.participants, content: answer.content, citations: answer.citations, timestamp: Date.now(), status: 'complete' };
 			session.messages.push(reply);
 			await this.storage.save(session);
 			update({ status: 'complete', text: '' });
 		} catch (error) {
 			if (session.mode === 'deus') text = visibleDeusAnswer(plainDeusReply(text, message.skill));
 			if (text && !reply) {
-				reply = { id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-partial`, role: 'assistant', skill: message.skill, participants: message.participants, content: text, timestamp: Date.now(), status: 'interrupted' };
+				reply = { id: window.crypto?.randomUUID?.() ?? `${Date.now()}-partial`, role: 'assistant', skill: message.skill, participants: message.participants, content: text, timestamp: Date.now(), status: 'interrupted' };
 				session.messages.push(reply);
 				try { await this.storage.save(session); } catch (saveError) { update({ status: 'error', text: '', error: `받은 응답을 저장하지 못했습니다: ${saveError instanceof Error ? saveError.message : String(saveError)}` }); return; }
 			}

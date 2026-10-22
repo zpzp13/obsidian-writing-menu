@@ -1,3 +1,4 @@
+import { legacyText } from '../utils/typeGuards';
 import { normalizePath, parseYaml } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { WritingProject } from '../types';
@@ -153,7 +154,7 @@ export class LegacyPlotImporter {
 				if (!item || typeof item !== 'object' || Array.isArray(item)) {
 					throw new Error(`기존 에피소드 목록 ${index + 1}번 항목이 올바르지 않습니다.`);
 				}
-				const rawPath = String((item as Record<string, unknown>).filePath ?? '').trim();
+				const rawPath = legacyText((item as Record<string, unknown>).filePath ?? '').trim();
 				const path = normalizePath(rawPath);
 				if (!path || !this.isInside(sourcePath, path)) {
 					throw new Error(`기존 플롯 폴더 밖의 에피소드 경로는 가져오지 않습니다: ${path || '(빈 경로)'}`);
@@ -305,12 +306,12 @@ export class LegacyPlotImporter {
 		const style: PlotWorkbookCellStyle = {};
 		if (Number.isFinite(fontSize) && Number(fontSize) > 0) style.fontSize = Number(fontSize);
 		if (this.isHex(lightText)) style.color = {
-			light: lightText!,
-			dark: this.isHex(darkText) ? darkText! : lightText!,
+			light: lightText,
+			dark: this.isHex(darkText) ? darkText : lightText,
 		};
 		if (this.isHex(lightBackground)) style.backgroundColor = {
-			light: lightBackground!,
-			dark: this.isHex(darkBackground) ? darkBackground! : lightBackground!,
+			light: lightBackground,
+			dark: this.isHex(darkBackground) ? darkBackground : lightBackground,
 		};
 		return style;
 	}
@@ -332,8 +333,8 @@ export class LegacyPlotImporter {
 		return raw.map((item, index) => {
 			const entry = this.record(item, `플롯 열 ${index + 1}`);
 			return {
-				id: String(entry.id ?? `plot-${index + 1}`),
-				name: String(entry.name ?? `플롯 ${index + 1}`),
+				id: legacyText(entry.id ?? `plot-${index + 1}`),
+				name: legacyText(entry.name ?? `플롯 ${index + 1}`),
 				color: this.optionalString(entry.color),
 				colorDark: this.optionalString(entry.colorDark),
 				fontSize: this.optionalNumber(entry.fontSize),
@@ -348,8 +349,8 @@ export class LegacyPlotImporter {
 		return raw.map((item, index) => {
 			const entry = this.record(item, `인물 ${index + 1}`);
 			return {
-				id: String(entry.id ?? `character-${index + 1}`),
-				name: String(entry.name ?? `인물 ${index + 1}`),
+				id: legacyText(entry.id ?? `character-${index + 1}`),
+				name: legacyText(entry.name ?? `인물 ${index + 1}`),
 				filePath: this.optionalString(entry.filePath),
 				color: this.optionalString(entry.color),
 				fontSize: this.optionalNumber(entry.fontSize),
@@ -372,21 +373,21 @@ export class LegacyPlotImporter {
 	private readEpisodeObject(raw: unknown, label: string): LegacyEpisode {
 		const entry = this.record(raw, label);
 		return {
-			id: String(entry.episodeId ?? entry.id ?? label),
-			name: String(entry.name ?? label),
+			id: legacyText(entry.episodeId ?? entry.id ?? label),
+			name: legacyText(entry.name ?? label),
 			subtitle: this.optionalString(entry.subtitle),
 			filePath: this.optionalString(entry.filePath),
 			chapters: Array.isArray(entry.chapters) ? entry.chapters.map((chapter, chapterIndex) => {
 				const chapterEntry = this.record(chapter, `${label} 회차 ${chapterIndex + 1}`);
 				return {
-					id: String(chapterEntry.id ?? `${label}-chapter-${chapterIndex + 1}`),
-					name: String(chapterEntry.name ?? `${chapterIndex + 1}`),
+					id: legacyText(chapterEntry.id ?? `${label}-chapter-${chapterIndex + 1}`),
+					name: legacyText(chapterEntry.name ?? `${chapterIndex + 1}`),
 					scenes: Array.isArray(chapterEntry.scenes) ? chapterEntry.scenes.map((scene, sceneIndex) => {
 						const sceneEntry = this.record(scene, `${label} 장면 ${sceneIndex + 1}`);
 						return {
-							id: String(sceneEntry.id ?? `${label}-scene-${chapterIndex + 1}-${sceneIndex + 1}`),
-							name: String(sceneEntry.name ?? `${chapterIndex + 1}-${sceneIndex + 1}`),
-							characters: Array.isArray(sceneEntry.characters) ? sceneEntry.characters.map(String) : [],
+							id: legacyText(sceneEntry.id ?? `${label}-scene-${chapterIndex + 1}-${sceneIndex + 1}`),
+							name: legacyText(sceneEntry.name ?? `${chapterIndex + 1}-${sceneIndex + 1}`),
+							characters: Array.isArray(sceneEntry.characters) ? sceneEntry.characters.map(value => legacyText(value)) : [],
 						};
 					}) : [],
 				};
@@ -469,8 +470,8 @@ export class LegacyPlotImporter {
 		const result: LegacyPlotProject['charCells'] = {};
 		for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
 			result[key] = typeof value === 'object' && value !== null && !Array.isArray(value)
-				? { content: String((value as Record<string, unknown>).content ?? '') }
-				: { content: String(value ?? '') };
+				? { content: legacyText((value as Record<string, unknown>).content ?? '') }
+				: { content: legacyText(value ?? '') };
 		}
 		return result;
 	}
@@ -480,8 +481,8 @@ export class LegacyPlotImporter {
 		const result: LegacyPlotProject['plotCells'] = {};
 		for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
 			if (value && typeof value === 'object' && !Array.isArray(value)) {
-				result[key] = { content: String((value as Record<string, unknown>).content ?? '') };
-			} else result[key] = { content: String(value ?? '') };
+				result[key] = { content: legacyText((value as Record<string, unknown>).content ?? '') };
+			} else result[key] = { content: legacyText(value ?? '') };
 		}
 		return result;
 	}
@@ -489,7 +490,7 @@ export class LegacyPlotImporter {
 	private parseFrontmatter(raw: string): { data: Record<string, unknown>; body: string } {
 		const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
 		if (!match) return { data: {}, body: raw };
-		const parsed = parseYaml(match[1]);
+		const parsed: unknown = parseYaml(match[1]);
 		return {
 			data: parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {},
 			body: match[2],

@@ -9,7 +9,7 @@ import { ManuscriptSnapshotModal } from './ManuscriptSnapshotModal';
 type SnapshotTarget = { kind: 'plot'; project: WritingProject } | { kind: 'manuscript'; document: WritingDocument };
 
 export function snapshotTarget(plugin: WritingMenuPlugin, leaf?: WorkspaceLeaf | null): SnapshotTarget | null {
-	const view = (leaf ?? plugin.app.workspace.activeLeaf ?? plugin.app.workspace.getMostRecentLeaf())?.view;
+	const view = (leaf ?? plugin.app.workspace.getLeaf(false)).view;
 	if (view instanceof PlotWorkbookView) {
 		const project = plugin.projectContext.getProjects().find(item => item.id === view.getState().projectId);
 		return project ? { kind: 'plot', project } : null;

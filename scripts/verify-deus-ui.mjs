@@ -4,6 +4,8 @@ import { createRequire } from 'node:module';
 import { existsSync } from 'node:fs';
 import { readFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
+import { installObsidianDomHelpers } from './obsidian-dom-stub.mjs';
+import { assertCssVisualParity } from './css-visual-parity.mjs';
 const require = createRequire(import.meta.url);
 const { chromium } = require('C:/Users/82109/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 const obsidian = `
@@ -43,6 +45,7 @@ try {
 	page.on('pageerror', error => console.error(error.message));
 	await page.route('**/*', route => route.abort());
 	await page.setContent('<meta charset="utf-8"><body class="theme-dark"></body>');
+	await page.evaluate(installObsidianDomHelpers);
 	await page.addStyleTag({ content: `:root{--background-primary:#1e1e1e;--background-secondary:#292929;--background-modifier-border:#383838;--background-modifier-hover:#333;--text-normal:#ddd;--text-muted:#999;--text-faint:#888;--interactive-accent:#ab9df2;--font-interface:Arial;--font-text:Georgia}.theme-light{--background-primary:#fff;--background-secondary:#f4f4f4;--background-modifier-border:#ddd;--background-modifier-hover:#eee;--text-normal:#222;--text-muted:#666;--text-faint:#888;--interactive-accent:#705dc7}body{margin:0;background:var(--background-primary);color:var(--text-normal)}button{font:inherit;color:inherit;cursor:pointer}.wm-chat-panel{width:480px;height:900px}textarea{color:var(--text-normal);font-family:inherit}.u-muted{color:var(--text-muted)}` });
 	await page.addStyleTag({ content: await readFile('styles.css', 'utf8') });
 	await page.addStyleTag({ content: await readFile('C:/Users/82109/Desktop/Obsidian/Test/.obsidian/plugins/realclaudian/styles.css', 'utf8') });
@@ -75,8 +78,10 @@ try {
 	});
 	await mkdir('.codex-tmp/deus-ui', { recursive: true });
 	await page.screenshot({ path: path.resolve('.codex-tmp/deus-ui/panel.png') });
+	await assertCssVisualParity({ evaluate: (fn, data) => page.evaluate(fn, data), capture: () => page.screenshot() }, 'deus-panel');
 	await page.locator('.deus-composer-plus').click();
 	await page.screenshot({ path: path.resolve('.codex-tmp/deus-ui/references.png') });
+	await assertCssVisualParity({ evaluate: (fn, data) => page.evaluate(fn, data), capture: () => page.screenshot() }, 'deus-references');
 	await page.locator('.deus-composer-plus').click();
 	await page.setViewportSize({ width: 1100, height: 900 });
 	const wide = await page.evaluate(() => globalThis.deusUiResize(1100));
@@ -88,8 +93,10 @@ try {
 	const dragged = await page.evaluate(() => document.querySelector('.deus-navigator').getBoundingClientRect().width);
 	if(dragged < 230)throw Error('Sidebar pointer resize did not change its width');
 	await page.screenshot({ path: path.resolve('.codex-tmp/deus-ui/panel-wide.png') });
+	await assertCssVisualParity({ evaluate: (fn, data) => page.evaluate(fn, data), capture: () => page.screenshot() }, 'deus-wide');
 	await page.evaluate(() => { document.body.className = 'theme-light'; });
 	await page.screenshot({ path: path.resolve('.codex-tmp/deus-ui/panel-light.png') });
+	await assertCssVisualParity({ evaluate: (fn, data) => page.evaluate(fn, data), capture: () => page.screenshot() }, 'deus-light');
 	await page.evaluate(() => { document.body.className = 'theme-dark'; });
 	await page.setViewportSize({ width: 620, height: 900 });
 	const medium = await page.evaluate(() => globalThis.deusUiResize(620));

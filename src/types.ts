@@ -166,8 +166,6 @@ export interface WritingMenuSettings {
 	snapshotLabels: { name: string; color: string }[];
 	projects: WritingProject[];
 	restrictStatisticsToProjects: boolean;
-	/** @deprecated 다중 프로젝트 마이그레이션을 위해 당분간 유지합니다. */
-	trackingFolder: string;
 	dailyNotesFolder: string;
 	dailyNotesFormat: string;
 	taskAddHeader: string;
@@ -241,8 +239,6 @@ export interface WritingMenuSettings {
 	aiChatCitationOpenMode: 'current' | 'tab';
 	aiChatMaxOutputTokens: number;
 	aiChatHistoryTurns: number;
-	/** @deprecated Kept for existing settings; chat no longer applies an input character cap. */
-	aiChatMaxContextChars: number;
 	aiChatAutoContext: boolean;
 	aiChatFreeOnly: boolean;
 	aiChatFreeModel: string;
@@ -369,7 +365,6 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	],
 	projects: [],
 	restrictStatisticsToProjects: true,
-	trackingFolder: '',
 	dailyNotesFolder: '',
 	dailyNotesFormat: 'YYYY-MM-DD',
 	taskAddHeader: '할 일',
@@ -444,7 +439,6 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	aiChatCitationOpenMode: 'current',
 	aiChatMaxOutputTokens: 4096,
 	aiChatHistoryTurns: 30,
-	aiChatMaxContextChars: 0,
 	aiChatAutoContext: true,
 	aiChatFreeOnly: true,
 	aiChatFreeModel: 'gemini-3.5-flash-lite',

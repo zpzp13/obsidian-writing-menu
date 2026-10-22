@@ -332,7 +332,7 @@ export class ToolbarManager {
 		const card = container.createDiv({ cls: 'wm-menu-nav-card' });
 		const iconEl = card.createDiv({ cls: 'wm-menu-nav-icon' });
 		setIcon(iconEl, icon);
-		card.createDiv({ cls: 'wm-menu-nav-body' }).createEl('div', { cls: 'wm-menu-nav-title', text: title });
+		card.createDiv({ cls: 'wm-menu-nav-body' }).createDiv({ cls: 'wm-menu-nav-title', text: title });
 		const chevron = card.createDiv({ cls: 'wm-menu-nav-chevron' });
 		setIcon(chevron, 'chevron-right');
 		card.addEventListener('click', (e: MouseEvent) => { e.stopPropagation(); onClick(); });
@@ -342,7 +342,7 @@ export class ToolbarManager {
 		const btn = container.createDiv({ cls: 'wm-menu-back-btn' });
 		const iconEl = btn.createSpan();
 		setIcon(iconEl, 'chevron-left');
-		btn.createEl('span', { text: title });
+		btn.createSpan({ text: title });
 		btn.addEventListener('click', (e: MouseEvent) => { e.stopPropagation(); onBack(); });
 		this.addSeparator(container);
 	}

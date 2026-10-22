@@ -39,7 +39,7 @@ export async function openPlotWorkbookCharacter(plugin: WritingMenuPlugin, noteP
 	if (plugin.settings.plotCharacterLinkFormat === 'wiki') { await plugin.openFileInWiki(file,mode); return; }
 	const leaf = mode === 'sidebar' ? plugin.app.workspace.getRightLeaf(false)
 		: mode === 'tab' ? plugin.app.workspace.getLeaf('tab')
-			: (plugin.app.workspace.activeLeaf ?? plugin.app.workspace.getLeaf(false));
+			: (plugin.app.workspace.getLeaf(false));
 	if (!leaf) return;
 	await leaf.openFile(file); await plugin.app.workspace.revealLeaf(leaf);
 }

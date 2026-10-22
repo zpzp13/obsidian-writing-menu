@@ -51,7 +51,7 @@ class SnapshotConfirm extends Modal {
 	onOpen(): void {
 		this.setTitle(this.text);
 		new Setting(this.contentEl).addButton(button => button.setButtonText('취소').onClick(() => this.close()))
-			.addButton(button => button.setButtonText('확인').setWarning().onClick(async () => {
+			.addButton(button => button.setButtonText('확인').setClass('mod-warning').onClick(async () => {
 				button.setDisabled(true);
 				try { await this.action(); this.close(); } catch (error) { new Notice(errorMessage(error)); button.setDisabled(false); }
 			}));

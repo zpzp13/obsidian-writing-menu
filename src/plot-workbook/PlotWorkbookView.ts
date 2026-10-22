@@ -243,7 +243,7 @@ export class PlotWorkbookView extends ItemView {
 			});
 			tabs.set(ref.id, tab);
 			if (active) activeTab = tab;
-			tab.addEventListener('click', async () => {
+			tab.addEventListener('click', () => void (async () => {
 				const session = this.session;
 				if (!session || session.manifest.activeSheetId === ref.id) return;
 				await session.selectSheet(ref.id);
@@ -257,7 +257,7 @@ export class PlotWorkbookView extends ItemView {
 				}
 				activeTab = tab;
 				placeThumb(tab);
-			});
+			})().catch(error => new Notice(`시트를 열지 못했습니다: ${error instanceof Error ? error.message : String(error)}`)));
 			tab.addEventListener('dblclick', () => this.beginSheetRename(tab, ref.id, ref.name));
 			tab.addEventListener('contextmenu', event => {
 				event.preventDefault();
@@ -278,11 +278,11 @@ export class PlotWorkbookView extends ItemView {
 		const actions = dock.createDiv({ cls: 'wm-plotbook-sheet-actions' });
 		const add = actions.createEl('button', { cls: 'clickable-icon wm-plotbook-add-sheet', attr: { type: 'button' } });
 		setIcon(add, 'plus');
-		add.addEventListener('click', async () => {
+		add.addEventListener('click', () => void (async () => {
 			await this.session?.addSheet();
 			this.lastSelection = { rowIndex: 0, columnIndex: 0 };
 			this.render();
-		});
+		})().catch(error => new Notice(`시트를 추가하지 못했습니다: ${error instanceof Error ? error.message : String(error)}`)));
 		const deleted = this.session.manifest.deletedSheets ?? [];
 		const trash = actions.createEl('button', {
 			cls: 'clickable-icon wm-plotbook-sheet-trash',

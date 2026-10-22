@@ -1,3 +1,4 @@
+import { markdownFilesInFolder } from '../utils/vaultFiles';
 import { Component, Notice } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { getWritingDocument, getOpenWritingDocuments, type WritingDocument } from '../writing/WritingDocument';
@@ -58,11 +59,9 @@ export class RevisionPanel extends Component {
 		if (this.scope === 'document') return [{ path: document.path, source: document.read() }];
 		const project = this.plugin.projectContext.getProjectForFile(document.file);
 		if (!project?.manuscriptFolder) throw new Error('프로젝트 설정에서 본문 폴더를 지정해 주세요.');
-		const prefix = `${project.manuscriptFolder.replace(/\/$/, '')}/`;
-		const files = this.plugin.app.vault.getMarkdownFiles().filter(file => file.path.startsWith(prefix)
-			&& this.plugin.projectContext.getProjectForFile(file)?.rootFolder === project.rootFolder
+		const files = markdownFilesInFolder(this.plugin.app.vault, project.manuscriptFolder).filter(file => this.plugin.projectContext.getProjectForFile(file)?.rootFolder === project.rootFolder
 			&& !file.path.startsWith(`${this.plugin.settings.snapshotStoragePath}/`));
-		const order = (file: typeof files[number]) => { const value = this.plugin.app.metadataCache.getFileCache(file)?.frontmatter?.sort_index; return typeof value === 'number' && Number.isFinite(value) ? value : Infinity; };
+		const order = (file: typeof files[number]) => { const value: unknown = this.plugin.app.metadataCache.getFileCache(file)?.frontmatter?.sort_index; return typeof value === 'number' && Number.isFinite(value) ? value : Infinity; };
 		files.sort((a, b) => order(a) - order(b) || a.path.localeCompare(b.path, 'ko', { numeric: true }));
 		const out: Array<{ path: string; source: string }> = [], open = new Map(getOpenWritingDocuments(this.plugin).map(document => [document.path, document]));
 		for (const file of files) {

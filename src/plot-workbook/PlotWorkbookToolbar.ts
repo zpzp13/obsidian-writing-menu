@@ -517,9 +517,9 @@ export class PlotWorkbookToolbar {
 			attr: { type: 'button', 'aria-label': `최근 ${label} 적용` },
 		});
 		if (textTarget) {
-			const svg = this.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'svg');
+			const svg = button.createSvg('svg');
 			svg.setAttribute('viewBox', FONT_COLOR_ICON_VIEWBOX);
-			const path = this.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'path');
+			const path = svg.createSvg('path');
 			path.setAttribute('d', FONT_COLOR_ICON_PATH);
 			path.setAttribute('fill', 'currentColor');
 			svg.appendChild(path);

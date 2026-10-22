@@ -15,6 +15,15 @@ interface ReleaseNote {
 
 const RELEASE_NOTES: ReleaseNote[] = [
 	{
+		version: '3.4.2',
+		date: '2026-10-22',
+		improved: [
+			'Obsidian 1.13 이상에서 설정 검색을 지원합니다.',
+			'파일 처리와 한글 입력·분석 기능의 안정성을 개선했습니다.',
+			'기존 디자인을 유지하며 플러그인 검사 기준에 맞게 코드를 정리했습니다.',
+		],
+	},
+	{
 		version: '3.4.1',
 		date: '2026-10-22',
 		fixed: [
@@ -96,7 +105,7 @@ export class WhatsNewModal extends Modal {
 
 		const header = body.createDiv({ cls: 'wm-wn-header' });
 		header.createEl('h2', { cls: 'wm-wn-title', text: `v${this.note.version} 업데이트` });
-		header.createEl('span', { cls: 'wm-wn-date', text: this.note.date });
+		header.createSpan({ cls: 'wm-wn-date', text: this.note.date });
 
 		const sections: { key: keyof ReleaseNote; label: string; icon: string }[] = [
 			{ key: 'notice',   label: '공지',      icon: 'megaphone' },
@@ -113,7 +122,7 @@ export class WhatsNewModal extends Modal {
 			const sectionHeader = section.createDiv({ cls: 'wm-wn-section-header' });
 			const iconEl = sectionHeader.createSpan({ cls: 'wm-wn-section-icon' });
 			setIcon(iconEl, icon);
-			sectionHeader.createEl('span', { cls: 'wm-wn-section-label', text: label });
+			sectionHeader.createSpan({ cls: 'wm-wn-section-label', text: label });
 
 			const itemsEl = section.createDiv({ cls: 'wm-wn-items' });
 			for (const item of items) {
@@ -123,7 +132,7 @@ export class WhatsNewModal extends Modal {
 					itemsEl.createDiv({ cls: 'wm-wn-item-banner' })
 						.createEl('img', { attr: { src: bannerUrl, alt: text } });
 				}
-				itemsEl.createDiv({ cls: 'wm-wn-item' }).createEl('span', { text });
+				itemsEl.createDiv({ cls: 'wm-wn-item' }).createSpan({ text });
 			}
 		}
 

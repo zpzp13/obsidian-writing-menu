@@ -1,8 +1,8 @@
+import { loadTsFixture } from './ts-fixture-loader.mjs';
 // Synthetic responses only; never contacts Gemini or reads saved API keys.
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import ts from 'typescript';
-const load = async (path, imports = {}) => { const js = ts.transpileModule(await readFile(new URL('../' + path, import.meta.url), 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText; const module = { exports: {} }; new Function('require', 'module', 'exports', js)(key => { assert(key in imports, key); return imports[key]; }, module, module.exports); return module.exports; };
+const load = loadTsFixture;
 const prompt = await load('src/aichat/AiChatPrompt.ts'), stream = await load('src/aichat/ChatStream.ts'), quota = await load('src/aichat/ChatQuotaError.ts');
 const apiErrors = await load('src/aichat/GeminiApiError.ts', { './ChatQuotaError': quota });
 let calls = [], queue = [], executions = 0;

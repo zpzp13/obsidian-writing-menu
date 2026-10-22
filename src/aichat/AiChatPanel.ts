@@ -1,3 +1,4 @@
+import { isComposingKey } from '../utils/inputCompatibility';
 import { Component, MarkdownRenderer, Menu, Modal, Notice, Setting, TFile, normalizePath, setIcon, type HoverParent } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { getOpenWritingDocuments, getWritingDocument, getWritingDocumentForView } from '../writing/WritingDocument';
@@ -27,7 +28,7 @@ import { DEUS_SKILLS, DEUS_REPLY_STYLE, resolveDeusIntent, deusSkillInstructions
 import { collectDeusScene, deusSourceAllowed } from './DeusSceneContext';
 import type { DeusSkill } from './AiChatTypes';
 
-const messageId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+const messageId = () => crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const report = (error: unknown) => new Notice(error instanceof Error ? error.message : String(error));
 
 export class AiChatPanel {
@@ -132,7 +133,7 @@ export class AiChatPanel {
 		const suggestions = layout.inputWrapper.createDiv({ cls: 'deus-composer-dropdown', attr: { role: 'listbox', 'aria-label': '스킬·노트 제안' } }); suggestions.hidden = true;
 		let options: Array<{ label: string; detail: string; choose: () => void }> = [], selected = 0;
 		const updateSuggestions = () => {
-			const prefix = input.value.slice(0, input.selectionStart), match = /(?:^|\s)([@/])([^\s@/\[\]]*)$/.exec(prefix);
+			const prefix = input.value.slice(0, input.selectionStart), match = /(?:^|\s)([@/])([^\s@/[\]]*)$/.exec(prefix);
 			options = []; selected = 0; suggestions.empty();
 			if (match) {
 				const start = input.selectionStart - match[2].length - 1, end = input.selectionStart;
@@ -154,7 +155,7 @@ export class AiChatPanel {
 		input.oninput = () => { this.drafts.set(draftKey, input.value); updateSuggestions(); this.refreshContextPreview(); };
 		input.onblur = () => { suggestions.hidden = true; input.setAttribute('aria-expanded', 'false'); input.removeAttribute('aria-activedescendant'); };
 		input.onkeydown = event => {
-			if (event.isComposing || event.keyCode === 229) return;
+			if (isComposingKey(event)) return;
 			if (!suggestions.hidden && options.length) {
 				if (event.key === 'Escape') { event.preventDefault(); suggestions.hidden = true; return; }
 				if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); selected = (selected + (event.key === 'ArrowDown' ? 1 : options.length - 1)) % options.length; suggestions.querySelectorAll<HTMLElement>('[role="option"]').forEach((item, index) => { item.setAttribute('aria-selected', String(index === selected)); if (index === selected) { item.scrollIntoView({ block: 'nearest' }); input.setAttribute('aria-activedescendant', item.id); } }); return; }
@@ -352,7 +353,7 @@ export class AiChatPanel {
 		if (skill) {
 			const pill = parent.createDiv({ cls: 'deus-context-chip deus-active-skill' });
 			pill.createSpan({text: DEUS_SKILLS.find(item => item.id === skill)?.label ?? skill});
-			this.icon(pill, 'x', '스킬 해제', () => { this.selectedSkills.delete(session!.id); this.refreshContextPreview(); }).className = 'deus-context-chip-remove';
+			this.icon(pill, 'x', '스킬 해제', () => { this.selectedSkills.delete(session.id); this.refreshContextPreview(); }).className = 'deus-context-chip-remove';
 		}
 		parent.classList.toggle('has-content', Boolean(parent.children.length));
 	}
@@ -626,7 +627,7 @@ export class AiChatPanel {
 	}
 	private confirmDeleteSession(session: AiChatSession): void {
 		const modal = new Modal(this.plugin.app); modal.setTitle('이 대화를 삭제할까요?'); modal.contentEl.createEl('p', { text: '저장된 대화는 보관 사본으로 남습니다.' });
-		new Setting(modal.contentEl).addButton(button => button.setButtonText('삭제').setWarning().onClick(async () => { try { await this.storage.deleteSession(session.id); for (const [key, parked] of this.parkedSessions) if (parked.id === session.id) this.parkedSessions.delete(key); modal.close(); if (this.session?.id === session.id) { this.session = null; await this.newSession(); } else this.refreshSessionList(); } catch (error) { report(error); } })); modal.open();
+		new Setting(modal.contentEl).addButton(button => button.setButtonText('삭제').setClass('mod-warning').onClick(async () => { try { await this.storage.deleteSession(session.id); for (const [key, parked] of this.parkedSessions) if (parked.id === session.id) this.parkedSessions.delete(key); modal.close(); if (this.session?.id === session.id) { this.session = null; await this.newSession(); } else this.refreshSessionList(); } catch (error) { report(error); } })); modal.open();
 	}
 	private menu(event: MouseEvent, session = this.session, sidebar = false): void {
 		const menu = new Menu();

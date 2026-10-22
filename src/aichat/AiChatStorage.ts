@@ -1,15 +1,16 @@
 import { App, Notice } from 'obsidian';
 import type { AiChatMessage, AiChatSession } from './AiChatTypes';
 import { readChatJson, withChatWrite, writeChatJson } from './ChatJsonStore';
+import { hasControlCharacters, isRecord, isUnknownArray } from '../utils/typeGuards';
 
 const ROOT = '.writing-menu-aichat';
-const id = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+const id = () => crypto?.randomUUID?.() ?? `${Date.now()}_${Math.random().toString(36).slice(2)}`;
 type SessionIndex = Pick<AiChatSession, 'id' | 'title' | 'characterPath' | 'updatedAt' | 'pinned' | 'parentId' | 'forkMessageId' | 'mode' | 'projectRoot'> & { count: number };
 
 /** Old releases used encodeURIComponent(characterPath) as a literal basename. Never decode it into a path. */
 export function isChatSessionId(key: unknown): key is string {
 	return typeof key === 'string' && key.length > 0 && key.length <= 2048 && key.trim() === key && key !== '.' && key !== '..'
-		&& !/[\\/:<>"|?*\u0000-\u001f]/.test(key) && !/[. ]$/.test(key);
+		&& !/[\\/:<>"|?*]/.test(key) && !hasControlCharacters(key) && !/[. ]$/.test(key);
 }
 
 export class AiChatStorage {
@@ -28,11 +29,16 @@ export class AiChatStorage {
 	async loadById(key: string): Promise<AiChatSession | null> {
 		const raw = await readChatJson(this.app.vault.adapter, this.path(key)); if (raw === null) return null;
 		let session: AiChatSession;
-		try { session = JSON.parse(raw); } catch { throw new Error('대화 기록이 손상되었습니다. 원본은 덮어쓰지 않았습니다. 이전 .bak 파일이 있으면 복구에 사용할 수 있습니다.'); }
+		try {
+			const parsed: unknown = JSON.parse(raw);
+			if (!isRecord(parsed) || !isUnknownArray(parsed.messages) || typeof parsed.characterPath !== 'string') throw new Error('Invalid session');
+			// Fields below are checked before the hydrated session can leave this boundary.
+			session = parsed as unknown as AiChatSession;
+		} catch { throw new Error('대화 기록이 손상되었습니다. 원본은 덮어쓰지 않았습니다. 이전 .bak 파일이 있으면 복구에 사용할 수 있습니다.'); }
 		if (!session || !Array.isArray(session.messages) || typeof session.characterPath !== 'string') throw new Error('대화 기록 형식이 올바르지 않습니다.');
 		if (session.mode !== undefined && !['character', 'deus'].includes(session.mode)) throw new Error('대화 모드가 올바르지 않습니다. 원본은 보존했습니다.');
 		const validSkill = (value: unknown) => value === undefined || ['research', 'character', 'description', 'dialogue', 'rewrite'].includes(value as string);
-		const validParticipants = (value: unknown) => value === undefined || Array.isArray(value) && value.every(person => person && typeof person.path === 'string' && typeof person.name === 'string');
+		const validParticipants = (value: unknown) => value === undefined || isUnknownArray(value) && value.every(person => isRecord(person) && typeof person.path === 'string' && typeof person.name === 'string');
 		if (!validSkill(session.skill) || !validParticipants(session.participants)) throw new Error('Deus 스킬 설정 형식이 올바르지 않습니다. 원본은 보존했습니다.');
 		// Very early character-scoped sessions had neither id nor title, including an old undefined.json record.
 		// Hydrate in memory only. The original file is not rewritten merely by listing or opening it.
@@ -90,7 +96,17 @@ export class AiChatStorage {
 	private async index(): Promise<SessionIndex[]> {
 		const raw = await readChatJson(this.app.vault.adapter, `${ROOT}/index.json`);
 		if (raw === null) return [];
-		try { const data = JSON.parse(raw); if (!Array.isArray(data)) throw new Error(); return data; }
+		try {
+			const data: unknown = JSON.parse(raw);
+			if (!isUnknownArray(data) || !data.every((entry): entry is SessionIndex => isRecord(entry)
+				&& isChatSessionId(entry.id) && typeof entry.title === 'string' && typeof entry.characterPath === 'string'
+				&& typeof entry.updatedAt === 'number' && Number.isFinite(entry.updatedAt)
+				&& typeof entry.count === 'number' && Number.isSafeInteger(entry.count) && entry.count >= 0
+				&& (entry.pinned === undefined || typeof entry.pinned === 'boolean')
+				&& (entry.mode === undefined || entry.mode === 'character' || entry.mode === 'deus')
+				&& ['parentId', 'forkMessageId', 'projectRoot'].every(key => entry[key] === undefined || typeof entry[key] === 'string'))) throw new Error('Invalid index');
+			return data;
+		}
 		catch { throw new Error('대화 목록이 손상되었습니다. 목록 백업은 index.json.bak에 있습니다.'); }
 	}
 	private async updateIndex(session: AiChatSession | null, removeId?: string): Promise<void> {

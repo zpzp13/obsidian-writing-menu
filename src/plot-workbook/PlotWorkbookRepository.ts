@@ -1,3 +1,4 @@
+import { hasControlCharacters } from '../utils/typeGuards';
 import { normalizePath } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { isThemeAwareColor } from '../utils/themeColor';
@@ -188,7 +189,7 @@ export class PlotWorkbookRepository {
 		if (!Array.isArray(data.sheets) || data.sheets.length !== refs.length) throw new Error('스냅샷의 시트 수가 목록과 다릅니다.');
 		const safeId = (id: string) => typeof id === 'string' && /^[a-zA-Z0-9_-]{1,160}$/.test(id) && !['__proto__', 'constructor', 'prototype'].includes(id);
 		const safeNotePath = (path: string | undefined) => path === undefined || (typeof path === 'string'
-			&& !/^[\\/]|^[a-z]:|[\u0000-\u001f]/i.test(path) && !path.replace(/\\/g, '/').split('/').some(part => part === '..' || part === '.'));
+			&& !/^[\\/]|^[a-z]:/i.test(path) && !hasControlCharacters(path) && !path.replace(/\\/g, '/').split('/').some(part => part === '..' || part === '.'));
 		const seen = new Set<string>();
 		for (const sheet of data.sheets) {
 			if (!safeId(sheet?.sheetId) || seen.has(sheet.sheetId) || !refs.some(ref => ref.id === sheet.sheetId && ref.name === sheet.name)) throw new Error('시트 ID 또는 이름이 올바르지 않습니다.');
@@ -831,7 +832,7 @@ export class PlotWorkbookRepository {
 			'appendColumns', 'insertColumns', 'removeColumns', 'swapColumnBlocks', 'setFrozenPanes', 'resizeHeaders', 'setDefaultDimensions',
 			'setRowNumberStart',
 		].includes(operation.op)) {
-			throw new Error(`알 수 없는 변경 기록입니다: ${(operation as { op?: unknown }).op ?? ''}`);
+			throw new Error(`알 수 없는 변경 기록입니다: ${typeof operation.op === 'string' ? operation.op : '(형식 오류)'}`);
 		}
 		switch (operation.op) {
 			case 'setCell':
@@ -1018,7 +1019,7 @@ export class PlotWorkbookRepository {
 		for (const key of ['color', 'backgroundColor']) {
 			if (value[key] !== undefined && !isThemeAwareColor(value[key])) throw new Error('셀 색상 서식이 올바르지 않습니다.');
 		}
-		if (value.alignment !== undefined && !['left', 'center', 'right'].includes(String(value.alignment))) {
+		if (value.alignment !== undefined && (typeof value.alignment !== 'string' || !['left', 'center', 'right'].includes(value.alignment))) {
 			throw new Error('셀 정렬값이 올바르지 않습니다.');
 		}
 		if (value.fontSize !== undefined && (typeof value.fontSize !== 'number' || !Number.isFinite(value.fontSize))) {

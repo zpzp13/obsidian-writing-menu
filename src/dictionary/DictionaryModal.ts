@@ -142,7 +142,7 @@ export class DictionaryModal extends Modal {
 
 		const bracketBtn = footerLeft.createEl('button', { cls: 'wm-dict-bracket-btn' });
 		const bracketIcon = bracketBtn.createDiv({ cls: 'wm-dict-bracket-icon' });
-		bracketBtn.createEl('span', { text: '괄호 병기' });
+		bracketBtn.createSpan({ text: '괄호 병기' });
 		const syncBracketButton = () => {
 			const checked = this.plugin.settings.hanjaBracketMode;
 			bracketIcon.empty();
@@ -214,7 +214,7 @@ export class DictionaryModal extends Modal {
 			const item = this.dropdownEl.createDiv({ cls: 'wm-dict-dropdown-item', attr: { role: 'option' } });
 			item.setAttribute('data-word', word);
 
-			item.createEl('span', { cls: 'wm-dict-drop-word', text: word });
+			item.createSpan({ cls: 'wm-dict-drop-word', text: word });
 
 			const removeBtn = item.createDiv({ cls: 'wm-dict-drop-remove' });
 			setIcon(removeBtn, 'x');
@@ -236,7 +236,7 @@ export class DictionaryModal extends Modal {
 		});
 
 		const clearAll = this.dropdownEl.createDiv({ cls: 'wm-dict-drop-clear-all', attr: { role: 'button', tabindex: '0' } });
-		clearAll.createEl('span', { text: '최근 검색어 모두 삭제' });
+		clearAll.createSpan({ text: '최근 검색어 모두 삭제' });
 		clearAll.addEventListener('mousedown', (e: MouseEvent) => { void (async () => {
 			e.preventDefault();
 			this.plugin.settings.recentSearches = [];
@@ -266,7 +266,7 @@ export class DictionaryModal extends Modal {
 			const item = this.dropdownEl.createDiv({ cls: 'wm-dict-dropdown-item', attr: { role: 'option' } });
 			item.setAttribute('data-word', entry.word);
 
-			const wordEl = item.createEl('span', { cls: 'wm-dict-dropdown-word' });
+			const wordEl = item.createSpan({ cls: 'wm-dict-dropdown-word' });
 			this.renderHighlight(wordEl, entry.word, query);
 
 			item.addEventListener('mousedown', (e: MouseEvent) => { void (async () => {
@@ -343,7 +343,7 @@ export class DictionaryModal extends Modal {
 		this.selectedIdx = 0;
 		this.leftColEl.empty();
 		this.rightColEl.empty();
-		this.rightColEl.createEl('div', { cls: 'wm-dict-loading', text: '검색 중…' });
+		this.rightColEl.createDiv({ cls: 'wm-dict-loading', text: '검색 중…' });
 
 		if (this.plugin.settings.stdictApiKey) {
 			this.entries = await callStdictSearch(normalizeQuery(this.searchQuery), this.plugin.settings.stdictApiKey);
@@ -366,7 +366,7 @@ export class DictionaryModal extends Modal {
 			});
 			if (this.selectedIdx === idx) item.addClass('is-active');
 
-			const wordEl = item.createEl('span', { cls: 'wm-dict-left-word', text: entry.word });
+			const wordEl = item.createSpan({ cls: 'wm-dict-left-word', text: entry.word });
 			if (entry.supNo > 0) wordEl.createEl('sup', { text: String(entry.supNo) });
 
 			item.addEventListener('click', () => {
@@ -392,7 +392,7 @@ export class DictionaryModal extends Modal {
 			const msg = this.plugin.settings.stdictApiKey
 				? '검색 결과가 없습니다.'
 				: '설정에서 표준국어대사전 API 키를 입력해 주세요.';
-			this.rightColEl.createEl('div', { cls: 'wm-dict-loading', text: msg });
+			this.rightColEl.createDiv({ cls: 'wm-dict-loading', text: msg });
 			this.updateFooter(false);
 			return;
 		}
@@ -403,11 +403,11 @@ export class DictionaryModal extends Modal {
 		const view = this.rightColEl.createDiv({ cls: 'wm-dict-view' });
 
 		if (entry.origin) {
-			view.createEl('div', { cls: 'wm-dict-origin-text', text: entry.origin });
+			view.createDiv({ cls: 'wm-dict-origin-text', text: entry.origin });
 		}
 
 		if (entry.pos) {
-			const posEl = view.createEl('div', { cls: 'wm-dict-pos-tag', text: `「${entry.pos}」` });
+			const posEl = view.createDiv({ cls: 'wm-dict-pos-tag', text: `「${entry.pos}」` });
 			if (!entry.origin) posEl.addClass('wm-dict-pos-first');
 		}
 
@@ -415,16 +415,16 @@ export class DictionaryModal extends Modal {
 			const defsEl = view.createDiv({ cls: 'wm-dict-defs' });
 			entry.senses.forEach(sense => {
 				const senseEl = defsEl.createDiv({ cls: 'wm-dict-sense' });
-				if (sense.no) senseEl.createEl('span', { cls: 'wm-dict-sense-no', text: `「${sense.no}」` });
-				senseEl.createEl('span', { text: sense.definition });
+				if (sense.no) senseEl.createSpan({ cls: 'wm-dict-sense-no', text: `「${sense.no}」` });
+				senseEl.createSpan({ text: sense.definition });
 			});
 		}
 
 		const exSection = view.createDiv({ cls: 'wm-dict-examples-section' });
 		const divider = exSection.createDiv({ cls: 'wm-dict-examples-divider' });
-		divider.createEl('span', { text: '용례' });
+		divider.createSpan({ text: '용례' });
 		const exList = exSection.createDiv({ cls: 'wm-dict-examples-list' });
-		exList.createEl('div', { cls: 'wm-dict-loading-small', text: '로딩 중…' });
+		exList.createDiv({ cls: 'wm-dict-loading-small', text: '로딩 중…' });
 		void this.loadExamples(entry, exList);
 
 		this.updateFooter(!!entry.origin);
@@ -439,32 +439,32 @@ export class DictionaryModal extends Modal {
 		if (!container.isConnected) return;
 		container.empty();
 		if (examples.length === 0) {
-			container.createEl('div', { cls: 'wm-dict-example', text: '용례가 없습니다.' });
+			container.createDiv({ cls: 'wm-dict-example', text: '용례가 없습니다.' });
 			return;
 		}
 		const circled = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩'];
 		examples.slice(0, 10).forEach((ex, i) => {
 			const exEl = container.createDiv({ cls: 'wm-dict-example' });
-			exEl.createEl('span', { cls: 'wm-dict-example-no', text: circled[i] ?? `(${i + 1})` });
-			exEl.createEl('span', { text: ' ' });
+			exEl.createSpan({ cls: 'wm-dict-example-no', text: circled[i] ?? `(${i + 1})` });
+			exEl.createSpan({ text: ' ' });
 			this.renderHighlight(exEl, ex, entry.word);
 		});
 	}
 
 	private renderHighlight(container: HTMLElement, text: string, highlight: string) {
-		if (!highlight) { container.createEl('span', { text }); return; }
+		if (!highlight) { container.createSpan({ text }); return; }
 		const lower = text.toLowerCase();
 		const hl = highlight.toLowerCase();
 		let cursor = 0;
 		let idx = lower.indexOf(hl, cursor);
-		if (idx === -1) { container.createEl('span', { text }); return; }
+		if (idx === -1) { container.createSpan({ text }); return; }
 		while (idx !== -1) {
-			if (idx > cursor) container.createEl('span', { text: text.slice(cursor, idx) });
+			if (idx > cursor) container.createSpan({ text: text.slice(cursor, idx) });
 			container.createEl('mark', { cls: 'wm-dict-highlight', text: text.slice(idx, idx + highlight.length) });
 			cursor = idx + highlight.length;
 			idx = lower.indexOf(hl, cursor);
 		}
-		if (cursor < text.length) container.createEl('span', { text: text.slice(cursor) });
+		if (cursor < text.length) container.createSpan({ text: text.slice(cursor) });
 	}
 
 	private updateFooter(hasOrigin: boolean) {

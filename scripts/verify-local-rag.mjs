@@ -11,7 +11,7 @@ await mkdir(output, { recursive: true });
 const bundle = await build({ entryPoints: [path.join(root, 'scripts/rag-browser-fixture.ts')], bundle: true, write: false, platform: 'browser', format: 'iife', plugins: [{ name: 'fixture', setup(build) {
 	build.onResolve({ filter: /WritingDocument$|AiChatPlotKnowledge$/ }, args => ({ path: args.path, namespace: 'fixture' }));
 	build.onResolve({ filter: /^obsidian$/ }, () => ({ path: 'obsidian', namespace: 'search' }));
-	build.onLoad({ filter: /.*/, namespace: 'search' }, () => ({ contents: obsidianSearchStub }));
+	build.onLoad({ filter: /.*/, namespace: 'search' }, () => ({ contents: obsidianSearchStub + '\nexport class TFile {}' }));
 	build.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ contents: args.path.endsWith('WritingDocument') ? 'export const getOpenWritingDocuments = () => globalThis.ragFixtureOpen;' : 'export const readChatPlotPassages = async () => globalThis.ragFixturePlots;' }));
 } }] });
 const server = createServer(async (req, res) => { try {

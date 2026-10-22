@@ -159,7 +159,7 @@ export class WritingTimeSection {
 				// 활성 편집기의 메모리 내용을 먼저 디스크에 반영한 다음 frontmatter를
 				// 병합한다. 활성 파일을 통째로 건너뛰면 장시간 편집할 때 시간이
 				// 프론트매터에 한 번도 기록되지 않는다.
-				const activeView = app.workspace.activeLeaf?.view;
+				const activeView = app.workspace.getActiveViewOfType(TextFileView);
 				if (
 					isActiveFile
 					&& activeView instanceof TextFileView

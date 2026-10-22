@@ -70,7 +70,7 @@ export function parseDeusDialogue(text: string, fallbackName?: string, names: st
 	append(normalized.slice(0, matches[0].index), 'narration', speaker);
 	for (const [index, match] of matches.entries()) {
 		if (match[1]) speaker = match[1].replace(/^\*\*|\*\*$/g, '').trim();
-		append(normalized.slice(match.index! + match[0].length, matches[index + 1]?.index ?? normalized.length), match[2] === '지문' ? 'narration' : 'dialogue', speaker);
+		append(normalized.slice(match.index + match[0].length, matches[index + 1]?.index ?? normalized.length), match[2] === '지문' ? 'narration' : 'dialogue', speaker);
 	}
 	return segments;
 }

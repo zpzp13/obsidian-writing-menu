@@ -1,4 +1,5 @@
 import type { AiChatMessage, ChatContextItem, DeusSkill } from './AiChatTypes';
+import { isRecord, isUnknownArray } from '../utils/typeGuards';
 
 /** Legacy roleplay wrappers must not dictate the presentation of an ordinary answer. */
 export function plainDeusReply(text: string, skill?: DeusSkill): string {
@@ -8,7 +9,7 @@ export function plainDeusReply(text: string, skill?: DeusSkill): string {
 	let content = body;
 	if (markers.some(marker => marker[1] === '대사')) {
 		content = [body.slice(0, markers[0].index).trim(), ...markers.filter(marker => marker[1] === '대사').map(marker => {
-			const index = markers.indexOf(marker); return body.slice(marker.index! + marker[0].length, markers[index + 1]?.index ?? body.length).trim();
+			const index = markers.indexOf(marker); return body.slice(marker.index + marker[0].length, markers[index + 1]?.index ?? body.length).trim();
 		})].filter(Boolean).join('\n\n');
 	} else content = body.replace(/^\s*\[(?:지문|대사)\][ \t]*/gm, '');
 	return content.replace(/^\s*\[인물\s*[:：]\s*([^\]\n]+)\][ \t]*/gm, '$1: ') + metadata;
@@ -140,8 +141,8 @@ export function normalizeDeusAnswer(text: string, sources: ChatContextItem[], hi
 	const metadata = /<citations\b[^>]*>([\s\S]*?)<\/citations\s*>/i.exec(text);
 	try {
 		const values: unknown = metadata ? JSON.parse(metadata[1]) : [];
-		if (Array.isArray(values)) for (const value of values.slice(0, Math.max(100, Math.min(2000, sources.length * 2)))) {
-			if (!value || !Number.isSafeInteger(value.number) || value.number < 1 || typeof value.sourceId !== 'string') continue;
+		if (isUnknownArray(values)) for (const value of values.slice(0, Math.max(100, Math.min(2000, sources.length * 2)))) {
+			if (!isRecord(value) || typeof value.number !== 'number' || !Number.isSafeInteger(value.number) || value.number < 1 || typeof value.sourceId !== 'string') continue;
 			if (citations.some(item => item.number === value.number)) continue;
 			const alias = /^C([1-9]\d*)$/i.exec(value.sourceId);
 			const source = alias ? sources[Number(alias[1]) - 1] : sources.find(source => source.id === value.sourceId);

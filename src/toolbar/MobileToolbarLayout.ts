@@ -89,13 +89,13 @@ export function bindMobileToolbarLayout(container: HTMLElement, host: HTMLElemen
 	body.observe(container.ownerDocument.body, { attributes: true, attributeFilter: ['class', 'style'] });
 	win.addEventListener('resize', schedule);
 	win.visualViewport?.addEventListener('resize', schedule);
-	for (const type of ['transitionrun', 'transitionend', 'transitioncancel']) container.addEventListener(type, onTransition as EventListener);
+	for (const type of ['transitionrun', 'transitionend', 'transitioncancel']) container.addEventListener(type, onTransition);
 	update();
 	return () => {
 		disposed = true; win.cancelAnimationFrame(frame); stopMirrors();
 		sizes.disconnect(); headerChanges.disconnect(); tree.disconnect(); body.disconnect();
 		win.removeEventListener('resize', schedule); win.visualViewport?.removeEventListener('resize', schedule);
-		for (const type of ['transitionrun', 'transitionend', 'transitioncancel']) container.removeEventListener(type, onTransition as EventListener);
+		for (const type of ['transitionrun', 'transitionend', 'transitioncancel']) container.removeEventListener(type, onTransition);
 		host.removeClass('is-floating-header');
 		for (const key of ['transform', 'opacity', 'pointer-events', '--wm-mobile-toolbar-top', '--wm-mobile-toolbar-left', '--wm-mobile-toolbar-width']) host.style.removeProperty(key);
 		container.style.removeProperty('--wm-mobile-editor-top-space');

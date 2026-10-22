@@ -1,3 +1,4 @@
+import { markdownFilesInFolder } from '../utils/vaultFiles';
 import { TFile } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { WritingProject } from '../types';
@@ -47,7 +48,7 @@ export async function collectDeusScene(plugin: WritingMenuPlugin, project: Writi
 				addCast(excluded.has(row.id) ? [] : row.characterPaths ?? []);
 			}
 			const folder = project.characterFolder?.replace(/\/$/, '');
-			for (const file of folder ? plugin.app.vault.getMarkdownFiles().filter(file => file.path.startsWith(folder + '/')) : []) {
+			for (const file of folder ? markdownFilesInFolder(plugin.app.vault, folder) : []) {
 				const name = getWikiDisplayName(plugin.app, plugin, file);
 				if (name.length >= 2 && source.text.includes(name) && !participants.some(person => person.path === file.path)) participants.push({ path: file.path, name });
 			}

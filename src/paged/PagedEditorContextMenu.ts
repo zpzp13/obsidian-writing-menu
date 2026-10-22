@@ -21,15 +21,15 @@ export function createPagedEditorContextMenu(actions: PagedContextMenuActions): 
 	const action = (target: Menu, title: string, icon: string, run: () => void, disabled = false) => {
 		target.addItem(item => item.setTitle(title).setIcon(icon).setDisabled(disabled).onClick(run));
 	};
-	action(menu, '되돌리기', 'undo-2', actions.undo, !actions.canUndo);
-	action(menu, '다시 실행', 'redo-2', actions.redo, !actions.canRedo);
+	action(menu, '되돌리기', 'undo-2', () => actions.undo(), !actions.canUndo);
+	action(menu, '다시 실행', 'redo-2', () => actions.redo(), !actions.canRedo);
 	menu.addSeparator();
 	const selected = actions.editor.somethingSelected();
 	action(menu, '잘라내기', 'scissors', () => void actions.copy(true), !selected);
 	action(menu, '복사', 'copy', () => void actions.copy(false), !selected);
 	action(menu, '붙여넣기', 'clipboard-paste', () => void actions.paste());
 	action(menu, '일반 텍스트로 붙여넣기', 'clipboard', () => void actions.paste());
-	action(menu, '모두 선택', 'text-select', actions.selectAll);
+	action(menu, '모두 선택', 'text-select', () => actions.selectAll());
 	menu.addSeparator();
 	const group = (label: string, icon: string, populate: (target: Menu) => void) => {
 		// Submenus exist in Obsidian's runtime but not every supported API declaration.
@@ -68,7 +68,7 @@ export function createPagedEditorContextMenu(actions: PagedContextMenuActions): 
 		action(target, '내부 링크', 'link', () => actions.editor.replaceSelection(`[[${actions.editor.getSelection()}]]`));
 		action(target, '외부 링크', 'external-link', () => actions.editor.replaceSelection(`[${actions.editor.getSelection()}](https://)`));
 	});
-	action(menu, '찾기', 'search', actions.find);
+	action(menu, '찾기', 'search', () => actions.find());
 	try { actions.extend(menu); }
 	catch { new Notice('일부 플러그인의 편집 메뉴를 불러오지 못했습니다.'); }
 	return menu;

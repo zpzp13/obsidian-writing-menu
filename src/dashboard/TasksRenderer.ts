@@ -148,6 +148,7 @@ export class TasksRenderer {
 				return true;
 			}), sort);
 			wrap.toggleClass('is-empty', visible.length === 0);
+			if (docked) container.toggleClass('is-empty', visible.length === 0);
 
 			if (visible.length === 0) {
 				if (docked) return;

@@ -1,4 +1,6 @@
-import { App, Notice, PluginSettingTab, Setting, setIcon, Platform, ToggleComponent } from 'obsidian';
+import { App, Notice, PluginSettingTab, Setting, setIcon, Platform, ToggleComponent, requireApiVersion } from 'obsidian';
+import type { SettingDefinitionItem, SettingDefinitionPage } from 'obsidian';
+import { SETTINGS_SEARCH_PAGES } from './settingsSearch.generated';
 import type WritingMenuPlugin from '../../main';
 import { renderWikiSettingsPage } from '../wiki/WikiSettings';
 import { renderPlotWorkbookSettingsPage, renderPlotSnapshotSettings } from '../plot-workbook/PlotWorkbookSettings';
@@ -15,6 +17,8 @@ import { MOBILE_WEB_FONTS } from '../fonts/MobileFontManager';
 export class WritingMenuSettingTab extends PluginSettingTab {
 	plugin: WritingMenuPlugin;
 	private pendingGroup: { containerEl: HTMLElement; itemsEl: HTMLElement } | null = null;
+	private renderingNativePage = false;
+	private nativePage: string | null = null;
 
 	constructor(app: App, plugin: WritingMenuPlugin) {
 		super(app, plugin);
@@ -26,10 +30,55 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		this.renderPage('main');
 	}
 
+	/** Pure metadata: no settings values, DOM, vault reads or API keys are indexed. */
+	getSettingDefinitions(): SettingDefinitionItem[] {
+		if (!requireApiVersion('1.13.0')) return [];
+		const pageDefinition = (page: typeof SETTINGS_SEARCH_PAGES[number]): SettingDefinitionPage => ({
+			type: 'page', name: page.name, desc: page.desc,
+			visible: page.visible && (!page.mobile || Platform.isMobile),
+			items: [{
+				name: page.name, desc: page.desc, aliases: [...page.aliases],
+				render: setting => {
+					// A custom row owns the existing page renderer; saves still use saveSettings().
+					setting.infoEl.remove(); setting.controlEl.remove();
+					setting.settingEl.removeClass('setting-item');
+					setting.settingEl.addClasses(['wm-settings-tab', 'wm-settings-custom-page']);
+					this.nativePage = page.id;
+					this.renderingNativePage = true;
+					this.pendingGroup = null;
+					try { this.renderPageContent(page.id, setting.settingEl); }
+					finally { this.renderingNativePage = false; }
+					this.adoptNativeSettingDescriptions(setting.settingEl);
+					return () => { if (this.nativePage === page.id) this.nativePage = null; };
+				},
+			}, ...SETTINGS_SEARCH_PAGES.filter(child => child.parent === page.id).map(pageDefinition)],
+		});
+		const groups = [...new Set(SETTINGS_SEARCH_PAGES.filter(page => page.parent === 'main').map(page => page.group))];
+		return groups.map(group => ({ type: 'group', heading: group || undefined, items: SETTINGS_SEARCH_PAGES.filter(page => page.parent === 'main' && page.group === group).map(pageDefinition) }));
+	}
+
 	// ── 페이지 라우터 (항상 this.containerEl 기준) ─────────────────────
 
 	public renderPage(page: string) {
 		if (page === 'mobile-fonts' && !Platform.isMobile) page = 'main';
+		const aliases: Record<string, string> = { typography: 'divider', input: 'autocomplete', 'copy-export': 'export', 'writing-stats': 'char-count', time: 'writing-time', 'calendar-chars': 'char-count' };
+		page = aliases[page] ?? page;
+		if (requireApiVersion('1.13.0')) {
+			// Obsidian's settings host owns navigation; never replace its page stack's DOM.
+			const host = (this.app as App & { setting?: { openPagePath?(tabId: string, path: string[]): unknown } }).setting;
+			if (host?.openPagePath) {
+				if (this.nativePage === page) { this.update(); return; }
+				const path: string[] = [];
+				let current: string = page;
+				while (current !== 'main') {
+					const entry = SETTINGS_SEARCH_PAGES.find(entry => entry.id === current);
+					if (!entry) break;
+					path.unshift(entry.name); current = entry.parent;
+				}
+				host.openPagePath(this.plugin.manifest.id, path);
+				return;
+			}
+		}
 		const { containerEl } = this;
 		containerEl.empty();
 		this.pendingGroup = null;
@@ -38,6 +87,11 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		const pageContainerEl = isSettingPage
 			? containerEl.createDiv({ cls: 'setting-page-content' })
 			: containerEl;
+		this.renderPageContent(page, pageContainerEl);
+		this.adoptNativeSettingDescriptions(containerEl);
+	}
+
+	private renderPageContent(page: string, pageContainerEl: HTMLElement): void {
 		switch (page) {
 			case 'main':             this.renderMainPage(pageContainerEl); break;
 			case 'projects':         this.renderProjectsPage(pageContainerEl); break;
@@ -72,7 +126,6 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			case 'repetition':       this.renderRepetitionPage(pageContainerEl); break;
 			case 'ai':               this.renderAiPage(pageContainerEl); break;
 		}
-		this.adoptNativeSettingDescriptions(containerEl);
 	}
 
 	// ── 공통 UI 헬퍼 ───────────────────────────────────────────────────
@@ -95,6 +148,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 	}
 
 	private addBackButton(containerEl: HTMLElement, title: string, parentPage = 'main') {
+		if (this.renderingNativePage) return;
 		const rootEl = containerEl.parentElement;
 		if (!rootEl) return;
 		const titlebarEl = rootEl.createDiv({ cls: 'setting-page-titlebar' });
@@ -363,7 +417,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				.setDesc('프로젝트 등록만 삭제하며 폴더와 문서는 삭제하지 않습니다.')
 				.addButton(button => button
 					.setButtonText('삭제')
-					.setWarning()
+					.setClass('mod-warning')
 					.onClick(async () => {
 						projects.splice(index, 1);
 						await this.plugin.saveSettings();
@@ -1032,7 +1086,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 							m.goalSeconds = (parseInt(v) || 0) * 60;
 							await this.plugin.saveSettings();
 						});
-						const wrap = createEl('div', { cls: 'wm-mode-goal-wrap' });
+						const wrap = createDiv({ cls: 'wm-mode-goal-wrap' });
 						t.inputEl.parentElement?.insertBefore(wrap, t.inputEl);
 						wrap.appendChild(t.inputEl);
 						wrap.createSpan({ cls: 'wm-mode-goal-unit', text: '분' });

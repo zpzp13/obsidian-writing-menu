@@ -1,9 +1,9 @@
 import type { TFile } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
+import { markdownFilesInFolder } from '../utils/vaultFiles';
 
 export function getCharacterCandidateFiles(plugin: WritingMenuPlugin, activeFile: TFile | null): TFile[] {
-	const all = plugin.app.vault.getMarkdownFiles();
 	const project = plugin.projectContext.getProjectForFile(activeFile);
 	const folder = project?.characterFolder?.replace(/\/$/, '');
-	return folder ? all.filter(file => file.path.startsWith(folder + '/')) : all;
+	return folder ? markdownFilesInFolder(plugin.app.vault, folder) : plugin.app.vault.getMarkdownFiles();
 }

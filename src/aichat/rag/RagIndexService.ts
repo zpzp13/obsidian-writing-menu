@@ -1,5 +1,5 @@
 import type WritingMenuPlugin from '../../../main';
-import { prepareSimpleSearch } from 'obsidian';
+import { prepareSimpleSearch, TFile } from 'obsidian';
 import type { WritingProject } from '../../types';
 import { ChatCorpusProvider, type CorpusDocument } from './ChatCorpusProvider';
 import { RagDatabase } from './RagDatabase';
@@ -50,7 +50,8 @@ export class RagIndexService {
 	constructor(private plugin: WritingMenuPlugin) {
 		plugin.register?.(() => { for (const state of this.states.values()) state.controller?.abort(); for (const timer of this.timers.values()) window.clearTimeout(timer); this.legacyWorker?.dispose(); this.listeners.clear(); });
 		if (plugin.app.vault.on) for (const event of ['modify', 'delete', 'rename', 'create'] as const) plugin.registerEvent(plugin.app.vault.on(event as 'modify', file => {
-			const project = plugin.projectContext.getProjectForFile(file as any); if (!project) return;
+			if (!(file instanceof TFile)) return;
+			const project = plugin.projectContext.getProjectForFile(file); if (!project) return;
 			this.revisions.set(project.rootFolder, (this.revisions.get(project.rootFolder) ?? 0) + 1);
 		}));
 	}
@@ -67,7 +68,7 @@ export class RagIndexService {
 		let ready = this.scopeKeys.get(project.rootFolder);
 		if (!ready) {
 			const adapter = this.plugin.app.vault.adapter;
-			let identity: string | undefined = adapter.getResourcePath?.(this.plugin.app.vault.configDir ?? '.obsidian')?.replace(/[?#].*$/, '');
+			let identity: string | undefined = adapter.getResourcePath?.(this.plugin.app.vault.configDir)?.replace(/[?#].*$/, '');
 			if (!identity) { identity = vaultIds.get(adapter); if (!identity) { identity = crypto.randomUUID(); vaultIds.set(adapter, identity); } }
 			ready = ragHash(`${identity}\n${project.rootFolder}\n${RAG_MODEL_KEY}`); this.scopeKeys.set(project.rootFolder, ready);
 		}
@@ -555,7 +556,7 @@ export class RagIndexService {
 			checkChatAbort(signal);
 			if (call.name === 'list_sources') {
 				const offset = call.args.offset ?? 0, kind = call.args.kind;
-				if (!Number.isSafeInteger(offset) || Number(offset) < 0 || (kind !== undefined && !['character', 'plot', 'reference'].includes(String(kind)))) throw new Error('목록 범위가 올바르지 않습니다.');
+				if (typeof offset !== 'number' || !Number.isSafeInteger(offset) || offset < 0 || (kind !== undefined && (typeof kind !== 'string' || !['character', 'plot', 'reference'].includes(kind)))) throw new Error('목록 범위가 올바르지 않습니다.');
 				const corpus = await new ChatCorpusProvider(this.plugin, project).documents(signal);
 				if (strict && corpus.warnings.length) throw new Error(corpus.warnings.join('\n'));
 				const documents = corpus.documents.filter(document => !kind || document.kind === kind).sort((a, b) => a.id.localeCompare(b.id));

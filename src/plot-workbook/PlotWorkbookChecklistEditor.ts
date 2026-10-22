@@ -1,3 +1,4 @@
+import { detachedEl } from '../utils/dom';
 import { Menu, Notice, setIcon } from 'obsidian';
 import { parseChecklist, type ChecklistTask } from './PlotWorkbookChecklist';
 import { PlotWorkbookSession } from './PlotWorkbookSession';
@@ -123,7 +124,7 @@ export class PlotWorkbookChecklistEditor {
 	private beginTitleEdit(title: HTMLButtonElement, task: ChecklistTask): void {
 		this.editing = true;
 		const index = [...this.list.children].indexOf(title.parentElement!);
-		const input = title.ownerDocument.createElement('input');
+		const input = detachedEl(title.ownerDocument, 'input');
 		input.type = 'text'; input.value = task.text;
 		input.className = 'wm-plotbook-checklist-title-input';
 		input.setAttribute('aria-label', '항목 제목');

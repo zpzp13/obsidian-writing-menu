@@ -69,12 +69,12 @@ export class PlotWorkbookSheetTrashModal extends Modal {
 				: '관리할 시트를 선택하세요.')
 			.addButton(button => button
 				.setButtonText('영구 삭제')
-				.setWarning()
+				.setClass('mod-warning')
 				.setDisabled(!selected || this.busy)
 				.onClick(() => selected && new PlotWorkbookSheetDeleteConfirmModal(
 					this.app,
 					selected.name,
-					() => this.remove(selected.id),
+					() => void this.remove(selected.id),
 				).open()))
 			.addButton(button => button
 				.setButtonText('복원')

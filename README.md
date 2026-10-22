@@ -102,4 +102,6 @@ Assign shortcuts under **Obsidian Settings → Hotkeys → Writing Menu**.
 
 Deus AI sends your conversation and reference material to the Gemini API. Dictionary and spell-checking tools use their respective services. Mobile fonts and optional analysis assets are downloaded on request and stored locally. Spell checking uses unofficial endpoints; follow the provider's terms.
 
+See [plugin permissions](docs/plugin-permissions.md) for filesystem, Python, clipboard, and local-storage usage.
+
 [MIT License](LICENSE). Notices for external components, including Claudian, Transformers, and ONNX Runtime, are included with the relevant code and distribution files.

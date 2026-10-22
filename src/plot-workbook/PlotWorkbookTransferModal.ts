@@ -255,7 +255,7 @@ export class PlotWorkbookTransferModal extends Modal {
 		const confirm = new Modal(this.app); confirm.setTitle('스냅샷 삭제');
 		confirm.contentEl.createEl('p', { text: `‘${note.title}’ 스냅샷 파일을 휴지통으로 옮길까요? 현재 플롯은 변경하지 않습니다.` });
 		new Setting(confirm.contentEl).addButton(button => button.setButtonText('취소').onClick(() => confirm.close()))
-			.addButton(button => button.setButtonText('삭제').setWarning().onClick(() => {
+			.addButton(button => button.setButtonText('삭제').setClass('mod-warning').onClick(() => {
 				confirm.close(); void this.run(async () => {
 					const file = this.app.vault.getFileByPath(note.path);
 					if (file) await this.app.fileManager.trashFile(file);
@@ -288,7 +288,7 @@ class PlotSnapshotRestoreModal extends Modal {
 			.addText(text => text.setPlaceholder(this.project.name).onChange(value => { name = value; }));
 		const error = this.contentEl.createDiv({ cls: 'wm-plotbook-export-error', attr: { role: 'alert' } });
 		new Setting(this.contentEl).setClass('wm-plotbook-restore-actions').addButton(button => button.setButtonText('취소').onClick(() => this.close()))
-			.addButton(button => button.setButtonText('복원').setWarning().onClick(() => {
+			.addButton(button => button.setButtonText('복원').setClass('mod-warning').onClick(() => {
 				if (name !== this.project.name) { error.setText('프로젝트 이름을 정확히 입력해주세요.'); return; }
 				this.close(); this.apply();
 			}));

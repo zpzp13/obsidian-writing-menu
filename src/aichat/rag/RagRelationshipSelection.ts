@@ -21,7 +21,7 @@ const strongCue = /^(?:선후배|동창|동문|찐친|절친|친해|친했|친�
 const weakCue = /^(?:선배|후배|대학|학교|처음|언니|동생|마음|작가|배우|감독|작품|함께|기대|고마|감사|이제|달라)$/;
 
 function positions(text: string, entity: ResearchEntity): number[] {
-	return [...new Set(entity.aliases.flatMap(alias => Array.from(text.matchAll(namePattern(alias)), match => match.index! + match[1].length)))].sort((a, b) => a - b);
+	return [...new Set(entity.aliases.flatMap(alias => Array.from(text.matchAll(namePattern(alias)), match => match.index + match[1].length)))].sort((a, b) => a - b);
 }
 
 function relationFeatures(text: string, targets: ResearchEntity[], document: CorpusDocument): { score: number; facets: Facet[]; signals: Candidate['signals']; specific: Candidate['specific']; paired: boolean } {
@@ -34,7 +34,7 @@ function relationFeatures(text: string, targets: ResearchEntity[], document: Cor
 	}
 	const signals: Candidate['signals'] = {}, specific: Candidate['specific'] = {};
 	for (const facet of Object.keys(facets) as Facet[]) for (const match of text.matchAll(facets[facet])) {
-		const proximity = Math.max(...names.map((items, index) => document.id === targets[index].id ? 0 : Math.min(...items.map(at => Math.abs(at - match.index!)))));
+		const proximity = Math.max(...names.map((items, index) => document.id === targets[index].id ? 0 : Math.min(...items.map(at => Math.abs(at - match.index)))));
 		if (proximity > 350) continue;
 		const weight = strongCue.test(match[0]) ? 4 : weakCue.test(match[0]) ? 1 : 2, strength = weight * (2 - proximity / 350);
 		signals[facet] = Math.max(signals[facet] ?? 0, strength);

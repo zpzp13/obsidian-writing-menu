@@ -1,6 +1,8 @@
+import { detachedEl } from '../utils/dom';
 import type { TFile } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { getWikiDisplayName, getWikiImgSrc } from '../wiki/wikiProfileUtils';
+import { toError } from '../utils/typeGuards';
 
 const rasterCaches = new WeakMap<Document, Map<string, Promise<HTMLCanvasElement>>>();
 
@@ -11,13 +13,13 @@ function portraitRaster(document: Document, src: string, pixels: number): Promis
 	const existing = cache.get(key);
 	if (existing) { cache.delete(key); cache.set(key, existing); return existing; }
 	const pending = new Promise<HTMLCanvasElement>((resolve, reject) => {
-		const image = document.createElement('img');
+		const image = detachedEl(document, 'img');
 		image.decoding = 'async';
 		image.onerror = () => reject(new Error('프로필 이미지를 불러오지 못했습니다.'));
 		image.onload = () => {
 			try {
 				if (!image.naturalWidth || !image.naturalHeight) throw new Error('비어 있는 프로필 이미지입니다.');
-				const raster = document.createElement('canvas'); raster.width = pixels; raster.height = pixels;
+				const raster = detachedEl(document, 'canvas'); raster.width = pixels; raster.height = pixels;
 				const context = raster.getContext('2d');
 				if (!context) throw new Error('프로필 이미지를 그리지 못했습니다.');
 				context.imageSmoothingEnabled = true;
@@ -25,7 +27,7 @@ function portraitRaster(document: Document, src: string, pixels: number): Promis
 				const side = Math.min(image.naturalWidth, image.naturalHeight);
 				context.drawImage(image, (image.naturalWidth - side) / 2, (image.naturalHeight - side) / 2, side, side, 0, 0, pixels, pixels);
 				resolve(raster);
-			} catch (error) { reject(error); }
+			} catch (error) { reject(toError(error)); }
 		};
 		image.src = src;
 	});

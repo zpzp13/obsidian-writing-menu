@@ -392,7 +392,7 @@ export const MIN_PLOTBOOK_COLUMN_WIDTH = 56;
 export const MAX_PLOTBOOK_COLUMN_WIDTH = 640;
 
 export function newPlotWorkbookId(prefix: string): string {
-	const cryptoApi = globalThis.crypto;
+	const cryptoApi = crypto;
 	const random = cryptoApi?.randomUUID
 		? cryptoApi.randomUUID().replace(/-/g, '')
 		: `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;

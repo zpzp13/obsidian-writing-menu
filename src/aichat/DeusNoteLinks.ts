@@ -1,4 +1,6 @@
+import { detachedEl } from '../utils/dom';
 import type { App, HoverParent } from 'obsidian';
+import { hasControlCharacters } from '../utils/typeGuards';
 
 /** Native vault links are independent of citations and never bind to arbitrary evidence. */
 export function renderDeusNoteLinks(app: App, content: HTMLElement, sourcePath: string, hoverParent: HoverParent, report: (error: unknown) => void): void {
@@ -6,11 +8,11 @@ export function renderDeusNoteLinks(app: App, content: HTMLElement, sourcePath: 
 	while (walker.nextNode()) if (!walker.currentNode.parentElement?.closest('a, pre, code, button')) nodes.push(walker.currentNode as Text);
 	for (const node of nodes) {
 		const matches = [...node.data.matchAll(/\[\[([^\]\n]+)\]\]/g)]; if (!matches.length) continue;
-		const fragment = document.createElement('span'); let offset = 0;
+		const fragment = detachedEl(document, 'span'); let offset = 0;
 		for (const match of matches) {
-			fragment.appendText(node.data.slice(offset, match.index)); offset = match.index! + match[0].length;
+			fragment.appendText(node.data.slice(offset, match.index)); offset = match.index + match[0].length;
 			const [target, ...alias] = match[1].split('|'), linktext = target.trim();
-			if (!linktext || /^[a-z][a-z\d+.-]*:/i.test(linktext) || /[\u0000-\u001f]/.test(linktext)) { fragment.appendText(match[0]); continue; }
+			if (!linktext || /^[a-z][a-z\d+.-]*:/i.test(linktext) || hasControlCharacters(linktext)) { fragment.appendText(match[0]); continue; }
 			fragment.createEl('a', { cls: 'internal-link', text: alias.join('|').trim() || linktext.replace(/\.md(?=#|$)/i, ''), attr: { href: linktext, 'data-href': linktext } });
 		}
 		fragment.appendText(node.data.slice(offset)); node.replaceWith(...Array.from(fragment.childNodes));

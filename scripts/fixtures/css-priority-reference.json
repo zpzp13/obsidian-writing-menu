@@ -1,0 +1,2424 @@
+[
+  {
+    "selector": ".writing-menu-typewriter-active [data-writing-menu-id] .cm-scroller",
+    "declarations": [
+      {
+        "property": "padding-bottom",
+        "value": "80vh"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "body.theme-dark [data-writing-menu-id] .cm-active.cm-header-1, body.theme-dark [data-writing-menu-id] .cm-active.cm-header-2, body.theme-dark [data-writing-menu-id] .cm-active.cm-header-3, body.theme-dark [data-writing-menu-id] .cm-active.cm-header-4, body.theme-dark [data-writing-menu-id] .cm-active.cm-header-5, body.theme-dark [data-writing-menu-id] .cm-active.cm-header-6, body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-1, body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-2, body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-3, body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-4, body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-5, body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6",
+    "declarations": [
+      {
+        "property": "color",
+        "value": "inherit"
+      },
+      {
+        "property": "background-color",
+        "value": "var(--background-modifier-active-hover)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "[data-writing-menu-id] .cm-selectionBackground, [data-writing-menu-id] ::selection",
+    "declarations": [
+      {
+        "property": "background-color",
+        "value": "var(--text-selection)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-settings-tab .wm-settings-status-success",
+    "declarations": [
+      {
+        "property": "color",
+        "value": "var(--color-green)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".workspace-leaf [data-writing-menu-id] .cm-searchMatch",
+    "declarations": [
+      {
+        "property": "background",
+        "value": "color-mix(in srgb, var(--text-accent) 55%, transparent)"
+      },
+      {
+        "property": "background-color",
+        "value": "color-mix(in srgb, var(--text-accent) 55%, transparent)"
+      },
+      {
+        "property": "border-radius",
+        "value": "2px"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".workspace-leaf [data-writing-menu-id] .cm-searchMatch-selected",
+    "declarations": [
+      {
+        "property": "background",
+        "value": "color-mix(in srgb, var(--text-accent) 80%, transparent)"
+      },
+      {
+        "property": "background-color",
+        "value": "color-mix(in srgb, var(--text-accent) 80%, transparent)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-dash-tab-btn",
+    "declarations": [
+      {
+        "property": "background",
+        "value": "transparent"
+      },
+      {
+        "property": "border-color",
+        "value": "transparent"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-dash-tab-btn:hover",
+    "declarations": [
+      {
+        "property": "background",
+        "value": "transparent"
+      },
+      {
+        "property": "border-color",
+        "value": "transparent"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-dash-tab-btn[aria-pressed=\"true\"]",
+    "declarations": [
+      {
+        "property": "background",
+        "value": "var(--wm-dash-ink-1)"
+      },
+      {
+        "property": "border-color",
+        "value": "transparent"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-dash-tab-btn[aria-pressed=\"true\"]:hover",
+    "declarations": [
+      {
+        "property": "background",
+        "value": "var(--wm-dash-ink-1)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "button.wm-dash-clock-text-action",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "background",
+        "value": "none"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "button.wm-dash-clock-text-action:hover, button.wm-dash-clock-text-action:focus-visible",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "background",
+        "value": "none"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "input[type=\"text\"].wm-dash-clock-time",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "background",
+        "value": "none"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "input[type=\"text\"].wm-dash-clock-time:hover, input[type=\"text\"].wm-dash-clock-time:focus",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "background",
+        "value": "none"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "input[type=\"text\"].wm-dash-clock-time.wm-dash-clock-dial-time",
+    "declarations": [
+      {
+        "property": "font-size",
+        "value": "26px"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "input[type=\"text\"].wm-dash-clock-time.wm-dash-clock-digital-time",
+    "declarations": [
+      {
+        "property": "font-size",
+        "value": "40px"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "button.wm-dash-deadline-edit",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "background",
+        "value": "transparent"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "button.wm-dash-deadline-edit:hover, button.wm-dash-deadline-edit:focus-visible",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "background",
+        "value": "transparent"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "button.wm-dash-deadline-empty-button",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "1px solid var(--wm-dash-ink-1)"
+      },
+      {
+        "property": "background",
+        "value": "var(--wm-dash-ink-1)"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      },
+      {
+        "property": "color",
+        "value": "var(--wm-dash-page)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "button.wm-deadline-modal-day",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "1px solid var(--background-modifier-border)"
+      },
+      {
+        "property": "background",
+        "value": "transparent"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "button.wm-deadline-modal-day[aria-pressed=\"true\"]",
+    "declarations": [
+      {
+        "property": "border-color",
+        "value": "var(--text-normal)"
+      },
+      {
+        "property": "background",
+        "value": "var(--text-normal)"
+      },
+      {
+        "property": "color",
+        "value": "var(--background-primary)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "input[type=\"time\"].wm-deadline-modal-time",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "1px solid var(--background-modifier-border)"
+      },
+      {
+        "property": "background",
+        "value": "transparent"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "input[type=\"time\"].wm-deadline-modal-time:focus",
+    "declarations": [
+      {
+        "property": "border-color",
+        "value": "var(--text-normal)"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-has-marquee",
+    "declarations": [
+      {
+        "property": "text-align",
+        "value": "left"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wiki-graph-filter-input",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      },
+      {
+        "property": "background",
+        "value": "transparent"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wiki-graph-filter-info",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "outline",
+        "value": "0"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      },
+      {
+        "property": "background",
+        "value": "transparent"
+      },
+      {
+        "property": "color",
+        "value": "var(--text-muted)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wiki-graph-filter-info:hover, .wiki-graph-filter-info:focus, .wiki-graph-filter-info:focus-visible, .wiki-graph-filter-info:active",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "outline",
+        "value": "0"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      },
+      {
+        "property": "background",
+        "value": "transparent"
+      },
+      {
+        "property": "color",
+        "value": "var(--text-muted)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wiki-graph-style-key",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      },
+      {
+        "property": "background",
+        "value": "transparent"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wiki-graph-style-key:hover, .wiki-graph-style-key:focus",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      },
+      {
+        "property": "background",
+        "value": "transparent"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wiki-graph-style-color",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      },
+      {
+        "property": "background",
+        "value": "transparent"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wiki-graph-style-action",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      },
+      {
+        "property": "background",
+        "value": "transparent"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wiki-graph-style-action:hover, .wiki-graph-style-action:focus, .wiki-graph-style-action:focus-visible, .wiki-graph-style-action:active",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      },
+      {
+        "property": "background",
+        "value": "transparent"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wiki-toc-text a.internal-link",
+    "declarations": [
+      {
+        "property": "color",
+        "value": "var(--wiki-accent-color, var(--interactive-accent))"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wiki-toc-text p",
+    "declarations": [
+      {
+        "property": "margin",
+        "value": "0"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wiki-profile-image",
+    "declarations": [
+      {
+        "property": "width",
+        "value": "100%"
+      },
+      {
+        "property": "height",
+        "value": "auto"
+      },
+      {
+        "property": "max-height",
+        "value": "none"
+      },
+      {
+        "property": "border-radius",
+        "value": "0"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wiki-prop-val *",
+    "declarations": [
+      {
+        "property": "font-size",
+        "value": "var(--wiki-profile-key-size, 13px)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wiki-prop-val a.internal-link",
+    "declarations": [
+      {
+        "property": "color",
+        "value": "var(--wiki-accent-color, var(--interactive-accent))"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wiki-prop-tags .tag",
+    "declarations": [
+      {
+        "property": "font-size",
+        "value": "var(--wiki-profile-key-size, 13px)"
+      },
+      {
+        "property": "color",
+        "value": "var(--wiki-accent-color, var(--interactive-accent))"
+      },
+      {
+        "property": "background",
+        "value": "color-mix(in srgb, var(--wiki-accent-color, var(--interactive-accent)) 12%, transparent)"
+      },
+      {
+        "property": "text-decoration",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".obsiwiki-rendered-body h1",
+    "declarations": [
+      {
+        "property": "color",
+        "value": "var(--text-normal)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".obsiwiki-rendered-body h2",
+    "declarations": [
+      {
+        "property": "color",
+        "value": "var(--text-normal)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".obsiwiki-rendered-body h3",
+    "declarations": [
+      {
+        "property": "color",
+        "value": "var(--text-normal)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".obsiwiki-rendered-body h4, .obsiwiki-rendered-body h5, .obsiwiki-rendered-body h6",
+    "declarations": [
+      {
+        "property": "color",
+        "value": "var(--text-normal)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".obsiwiki-rendered-body a.internal-link",
+    "declarations": [
+      {
+        "property": "color",
+        "value": "var(--wiki-accent-color, var(--interactive-accent))"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".obsiwiki-rendered-body .heading-collapse-indicator, .obsiwiki-rendered-body a.heading-link",
+    "declarations": [
+      {
+        "property": "display",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".obsiwiki-rendered-body blockquote",
+    "declarations": [
+      {
+        "property": "border-left",
+        "value": "4px solid var(--wiki-accent-color, var(--interactive-accent))"
+      },
+      {
+        "property": "background-color",
+        "value": "color-mix(in srgb, var(--wiki-accent-color, var(--interactive-accent)), transparent 90%)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-hr-custom:not(.wm-hr-svg) .cm-content hr, .wm-hr-custom:not(.wm-hr-svg) .markdown-preview-view hr, .wm-hr-custom:not(.wm-hr-svg) .markdown-rendered hr",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "none"
+      },
+      {
+        "property": "border-top",
+        "value": "none"
+      },
+      {
+        "property": "background",
+        "value": "none"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      },
+      {
+        "property": "height",
+        "value": "1.5em"
+      },
+      {
+        "property": "margin",
+        "value": "var(--wm-hr-margin, 0.5em) 0"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-hr-custom:not(.wm-hr-svg) .cm-content hr::before, .wm-hr-custom:not(.wm-hr-svg) .markdown-preview-view hr::before, .wm-hr-custom:not(.wm-hr-svg) .markdown-rendered hr::before",
+    "declarations": [
+      {
+        "property": "content",
+        "value": "var(--wm-hr-content, '✦ ✦ ✦')"
+      },
+      {
+        "property": "display",
+        "value": "block"
+      },
+      {
+        "property": "text-align",
+        "value": "var(--wm-hr-align, center)"
+      },
+      {
+        "property": "color",
+        "value": "var(--wm-hr-color, var(--text-muted))"
+      },
+      {
+        "property": "width",
+        "value": "100%"
+      },
+      {
+        "property": "font-size",
+        "value": "1em"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".is-mobile .wm-hr-custom:not(.wm-hr-svg) :is(.cm-content, .markdown-preview-view, .markdown-rendered) hr",
+    "declarations": [
+      {
+        "property": "display",
+        "value": "flex"
+      },
+      {
+        "property": "height",
+        "value": "auto"
+      },
+      {
+        "property": "padding",
+        "value": "0.125em 0"
+      },
+      {
+        "property": "overflow",
+        "value": "visible"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-hr-svg .cm-content hr, .wm-hr-svg .markdown-preview-view hr, .wm-hr-svg .markdown-rendered hr",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "none"
+      },
+      {
+        "property": "border-top",
+        "value": "none"
+      },
+      {
+        "property": "background",
+        "value": "none"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      },
+      {
+        "property": "height",
+        "value": "var(--wm-hr-svg-height, 2em)"
+      },
+      {
+        "property": "margin",
+        "value": "var(--wm-hr-margin, 0.5em) 0"
+      },
+      {
+        "property": "background-image",
+        "value": "var(--wm-hr-svg-url)"
+      },
+      {
+        "property": "background-repeat",
+        "value": "no-repeat"
+      },
+      {
+        "property": "background-size",
+        "value": "auto 100%"
+      },
+      {
+        "property": "background-position",
+        "value": "var(--wm-hr-align, center)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "body.wm-focus-mode.wm-has-zen-leaf .workspace-tabs.wm-zen-tabs",
+    "declarations": [
+      {
+        "property": "flex",
+        "value": "1 1 auto"
+      }
+    ],
+    "outcome": "retained: external inline pane flex"
+  },
+  {
+    "selector": "body.wm-focus-mode.wm-has-zen-leaf .workspace-leaf.wm-zen-leaf",
+    "declarations": [
+      {
+        "property": "flex",
+        "value": "1 1 auto"
+      }
+    ],
+    "outcome": "retained: external inline pane flex"
+  },
+  {
+    "selector": "[data-writing-menu-id] .cm-scroller, [data-writing-menu-id] .cm-content, [data-writing-menu-id] .markdown-reading-view",
+    "declarations": [
+      {
+        "property": "font-family",
+        "value": "var(--wm-font-family, inherit)"
+      },
+      {
+        "property": "font-weight",
+        "value": "var(--wm-font-weight, inherit)"
+      },
+      {
+        "property": "font-size",
+        "value": "var(--wm-font-size, inherit)"
+      },
+      {
+        "property": "line-height",
+        "value": "var(--wm-line-height, inherit)"
+      },
+      {
+        "property": "color",
+        "value": "var(--wm-font-color, inherit)"
+      },
+      {
+        "property": "text-align",
+        "value": "justify"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "[data-writing-menu-id] .cm-content",
+    "declarations": [
+      {
+        "property": "caret-color",
+        "value": "var(--wm-font-color, inherit)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "[data-writing-menu-id] .cm-line",
+    "declarations": [
+      {
+        "property": "text-indent",
+        "value": "var(--wm-text-indent, 0px)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "[data-writing-menu-id] .markdown-reading-view p",
+    "declarations": [
+      {
+        "property": "margin-bottom",
+        "value": "var(--wm-paragraph-spacing, 0em)"
+      },
+      {
+        "property": "text-indent",
+        "value": "var(--wm-text-indent, 0px)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "[data-writing-menu-id] .cm-line",
+    "declarations": [
+      {
+        "property": "padding-bottom",
+        "value": "var(--wm-paragraph-spacing, 0em)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "[data-writing-menu-id] .cm-sizer",
+    "declarations": [
+      {
+        "property": "max-width",
+        "value": "var(--wm-line-width, 700px)"
+      },
+      {
+        "property": "margin",
+        "value": "0 auto"
+      },
+      {
+        "property": "background-color",
+        "value": "var(--wm-bg-color, transparent)"
+      },
+      {
+        "property": "padding",
+        "value": "20px var(--wm-inline-padding, 40px)"
+      },
+      {
+        "property": "transition",
+        "value": "max-width 0.3s ease"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".is-mobile [data-writing-menu-id] > .view-content, .is-mobile [data-writing-menu-id] .markdown-source-view, .is-mobile [data-writing-menu-id] .cm-editor, .is-mobile [data-writing-menu-id] .cm-scroller, .is-mobile [data-writing-menu-id] .markdown-reading-view, .is-mobile [data-writing-menu-id] .markdown-preview-view, .is-mobile [data-writing-menu-id] .markdown-preview-sizer",
+    "declarations": [
+      {
+        "property": "background-color",
+        "value": "var(--wm-bg-color, transparent)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "[data-writing-menu-id] .cm-cursor, [data-writing-menu-id] .cm-cursor-primary",
+    "declarations": [
+      {
+        "property": "border-left-color",
+        "value": "var(--wm-font-color, inherit)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "[data-writing-menu-id] .cm-highlight",
+    "declarations": [
+      {
+        "property": "color",
+        "value": "var(--wm-font-color, inherit)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "[data-writing-menu-id].wm-disable-link-color .cm-content .cm-link, [data-writing-menu-id].wm-disable-link-color a",
+    "declarations": [
+      {
+        "property": "color",
+        "value": "var(--wm-font-color, inherit)"
+      },
+      {
+        "property": "text-decoration",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "[data-writing-menu-id] .cm-line.HyperMD-header-1",
+    "declarations": [
+      {
+        "property": "font-family",
+        "value": "var(--wm-h1-font-family, inherit)"
+      },
+      {
+        "property": "font-size",
+        "value": "var(--wm-h1-font-size, inherit)"
+      },
+      {
+        "property": "line-height",
+        "value": "var(--wm-h1-line-height, inherit)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "[data-writing-menu-id] .cm-line.HyperMD-header-1 *",
+    "declarations": [
+      {
+        "property": "font-family",
+        "value": "var(--wm-h1-font-family, inherit)"
+      },
+      {
+        "property": "font-size",
+        "value": "var(--wm-h1-font-size, inherit)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "[data-writing-menu-id] .markdown-reading-view h1",
+    "declarations": [
+      {
+        "property": "font-family",
+        "value": "var(--wm-h1-font-family, inherit)"
+      },
+      {
+        "property": "font-size",
+        "value": "var(--wm-h1-font-size, inherit)"
+      },
+      {
+        "property": "line-height",
+        "value": "var(--wm-h1-line-height, inherit)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "[data-writing-menu-id] .cm-line.HyperMD-header-1, [data-writing-menu-id] .cm-line.HyperMD-header-1 *, [data-writing-menu-id] .markdown-reading-view h1, [data-writing-menu-id] .markdown-reading-view h1 *",
+    "declarations": [
+      {
+        "property": "color",
+        "value": "var(--wm-h1-color, unset)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "[data-writing-menu-id] .cm-line.HyperMD-footnote",
+    "declarations": [
+      {
+        "property": "font-family",
+        "value": "var(--wm-footnote-font-family, inherit)"
+      },
+      {
+        "property": "font-size",
+        "value": "var(--wm-footnote-font-size, inherit)"
+      },
+      {
+        "property": "line-height",
+        "value": "var(--wm-footnote-line-height, inherit)"
+      },
+      {
+        "property": "color",
+        "value": "var(--wm-footnote-color, unset)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "[data-writing-menu-id] .cm-line.HyperMD-footnote *",
+    "declarations": [
+      {
+        "property": "font-family",
+        "value": "var(--wm-footnote-font-family, inherit)"
+      },
+      {
+        "property": "font-size",
+        "value": "var(--wm-footnote-font-size, inherit)"
+      },
+      {
+        "property": "color",
+        "value": "var(--wm-footnote-color, unset)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "[data-writing-menu-id] .cm-footref",
+    "declarations": [
+      {
+        "property": "font-family",
+        "value": "var(--wm-footnote-font-family, inherit)"
+      },
+      {
+        "property": "font-size",
+        "value": "var(--wm-footnote-font-size, inherit)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "[data-writing-menu-id] .markdown-reading-view .footnotes",
+    "declarations": [
+      {
+        "property": "font-family",
+        "value": "var(--wm-footnote-font-family, inherit)"
+      },
+      {
+        "property": "font-size",
+        "value": "var(--wm-footnote-font-size, inherit)"
+      },
+      {
+        "property": "line-height",
+        "value": "var(--wm-footnote-line-height, inherit)"
+      },
+      {
+        "property": "color",
+        "value": "var(--wm-footnote-color, unset)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "[data-writing-menu-id] .markdown-reading-view sup.footnote-ref a",
+    "declarations": [
+      {
+        "property": "color",
+        "value": "var(--wm-footnote-color, unset)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "[data-writing-menu-id] .cm-line.HyperMD-header-1 .cm-link, [data-writing-menu-id] .cm-line.HyperMD-header-1 .cm-hmd-internal-link",
+    "declarations": [
+      {
+        "property": "color",
+        "value": "inherit"
+      },
+      {
+        "property": "text-decoration",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "[data-writing-menu-id] .cm-line.HyperMD-header-1 a",
+    "declarations": [
+      {
+        "property": "color",
+        "value": "inherit"
+      },
+      {
+        "property": "text-decoration",
+        "value": "none"
+      },
+      {
+        "property": "pointer-events",
+        "value": "none"
+      },
+      {
+        "property": "cursor",
+        "value": "text"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "[data-writing-menu-id] .markdown-reading-view h1 a",
+    "declarations": [
+      {
+        "property": "color",
+        "value": "inherit"
+      },
+      {
+        "property": "text-decoration",
+        "value": "none"
+      },
+      {
+        "property": "pointer-events",
+        "value": "none"
+      },
+      {
+        "property": "cursor",
+        "value": "text"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "[data-writing-menu-id] .cm-line.HyperMD-header-2, [data-writing-menu-id] .cm-line.HyperMD-header-3, [data-writing-menu-id] .cm-line.HyperMD-header-4, [data-writing-menu-id] .cm-line.HyperMD-header-5, [data-writing-menu-id] .cm-line.HyperMD-header-6, [data-writing-menu-id] .cm-line.HyperMD-header-2 *, [data-writing-menu-id] .cm-line.HyperMD-header-3 *, [data-writing-menu-id] .cm-line.HyperMD-header-4 *, [data-writing-menu-id] .cm-line.HyperMD-header-5 *, [data-writing-menu-id] .cm-line.HyperMD-header-6 *",
+    "declarations": [
+      {
+        "property": "color",
+        "value": "unset"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "[data-writing-menu-id] .markdown-reading-view h2, [data-writing-menu-id] .markdown-reading-view h3, [data-writing-menu-id] .markdown-reading-view h4, [data-writing-menu-id] .markdown-reading-view h5, [data-writing-menu-id] .markdown-reading-view h6",
+    "declarations": [
+      {
+        "property": "color",
+        "value": "unset"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-spell-modal.wm-spell-mobile-sheet",
+    "declarations": [
+      {
+        "property": "padding",
+        "value": "0"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-spell-mobile-sheet .modal-close-button",
+    "declarations": [
+      {
+        "property": "display",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-spell-mobile-container .modal-header, .wm-spell-mobile-sheet .modal-header",
+    "declarations": [
+      {
+        "property": "display",
+        "value": "none"
+      },
+      {
+        "property": "height",
+        "value": "0"
+      },
+      {
+        "property": "min-height",
+        "value": "0"
+      },
+      {
+        "property": "padding",
+        "value": "0"
+      },
+      {
+        "property": "margin",
+        "value": "0"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-spell-mobile-container .modal-header-button.mod-raised.clickable-icon, .wm-spell-mobile-sheet .modal-header-button.mod-raised.clickable-icon",
+    "declarations": [
+      {
+        "property": "display",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-spell-mobile-tool",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "background",
+        "value": "transparent"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      },
+      {
+        "property": "color",
+        "value": "var(--text-muted)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-spell-mobile-tool.is-active",
+    "declarations": [
+      {
+        "property": "background",
+        "value": "var(--background-modifier-hover)"
+      },
+      {
+        "property": "color",
+        "value": "var(--text-normal)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-spell-mobile-tool:active",
+    "declarations": [
+      {
+        "property": "background",
+        "value": "var(--background-modifier-active-hover)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-spell-mobile-navigator button",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "background",
+        "value": "transparent"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      },
+      {
+        "property": "color",
+        "value": "var(--text-muted)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-spell-mobile-navigator button:active",
+    "declarations": [
+      {
+        "property": "background",
+        "value": "var(--background-modifier-hover)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-spell-mobile-orig-card .wm-spell-orig-card-value--error",
+    "declarations": [
+      {
+        "property": "font-weight",
+        "value": "700"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-spell-mobile-session .markdown-source-view .cm-scroller",
+    "declarations": [
+      {
+        "property": "padding-bottom",
+        "value": "calc(min(44dvh, 380px) + 12px)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-calendar-agenda .wm-cal-today-btn",
+    "declarations": [
+      {
+        "property": "background",
+        "value": "transparent"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-calendar-agenda button.wm-cal-icon-btn svg",
+    "declarations": [
+      {
+        "property": "width",
+        "value": "1em"
+      },
+      {
+        "property": "height",
+        "value": "1em"
+      },
+      {
+        "property": "stroke",
+        "value": "currentColor"
+      },
+      {
+        "property": "stroke-width",
+        "value": "2"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-calendar-agenda .wm-cal-today-btn:hover, .wm-calendar-agenda .wm-cal-today-btn:focus",
+    "declarations": [
+      {
+        "property": "background",
+        "value": "transparent"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-calendar-agenda .wm-cal-week-cell::before",
+    "declarations": [
+      {
+        "property": "content",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-cal-task-dock",
+    "declarations": [
+      {
+        "property": "background",
+        "value": "transparent"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-calendar-agenda button:hover, .wm-calendar-agenda .wm-cal-week-cell:hover, .wm-calendar-agenda .wm-cal-task-dock .wm-task-item:hover, .wm-calendar-agenda .wm-cal-task-dock .wm-task-item:focus-within",
+    "declarations": [
+      {
+        "property": "background-color",
+        "value": "transparent"
+      },
+      {
+        "property": "background-image",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "button.wm-archive-mini-art",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-music-library-waveform",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "background",
+        "value": "transparent"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-music-library-wave-loading",
+    "declarations": [
+      {
+        "property": "box-shadow",
+        "value": "none"
+      },
+      {
+        "property": "filter",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-music-library-waveform.is-loading::before, .wm-music-library-waveform.is-loading::after",
+    "declarations": [
+      {
+        "property": "content",
+        "value": "none"
+      },
+      {
+        "property": "display",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-music-library-waveform.is-loading .wm-music-library-wave-layer",
+    "declarations": [
+      {
+        "property": "display",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-music-library-volume .wm-music-vol-slider",
+    "declarations": [
+      {
+        "property": "overflow",
+        "value": "visible"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-paged-view-content",
+    "declarations": [
+      {
+        "property": "padding",
+        "value": "0"
+      },
+      {
+        "property": "overflow",
+        "value": "hidden"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-paged-find-action",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "background",
+        "value": "transparent"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-paged-find-replace-button",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "1px solid var(--background-modifier-border)"
+      },
+      {
+        "property": "background",
+        "value": "var(--background-primary)"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-paged-find-replace-button:hover",
+    "declarations": [
+      {
+        "property": "border-color",
+        "value": "var(--text-normal)"
+      },
+      {
+        "property": "background",
+        "value": "var(--text-normal)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-paged-autocomplete",
+    "declarations": [
+      {
+        "property": "position",
+        "value": "absolute"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-paged-button-chevron svg, .wm-paged-select-chevron svg, .wm-paged-text-color-chevron svg, .wm-paged-layout-preset-chevron svg",
+    "declarations": [
+      {
+        "property": "width",
+        "value": "14px"
+      },
+      {
+        "property": "height",
+        "value": "14px"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-paged-text-color-chevron",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "background",
+        "value": "transparent"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-paged-text-color-chevron:hover, .wm-paged-text-color-chevron.is-open",
+    "declarations": [
+      {
+        "property": "background",
+        "value": "var(--background-modifier-hover)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "button.wm-toolbar-select",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "1px solid var(--background-modifier-border)"
+      },
+      {
+        "property": "background-color",
+        "value": "transparent"
+      },
+      {
+        "property": "background-image",
+        "value": "none"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      },
+      {
+        "property": "filter",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "button.wm-toolbar-select:hover, button.wm-toolbar-select.is-open",
+    "declarations": [
+      {
+        "property": "background-color",
+        "value": "var(--background-modifier-hover)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-paged-toolbar button.wm-paged-zoom-reset, .wm-paged-toolbar button.wm-paged-zoom-reset:hover, .wm-paged-toolbar button.wm-paged-zoom-reset:focus",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "background",
+        "value": "transparent"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      },
+      {
+        "property": "filter",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-paged-popover-item",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "background",
+        "value": "transparent"
+      },
+      {
+        "property": "background-image",
+        "value": "none"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-paged-popover-item:hover, .wm-paged-popover-item.is-active",
+    "declarations": [
+      {
+        "property": "background",
+        "value": "transparent"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-paged-size-option:hover",
+    "declarations": [
+      {
+        "property": "background",
+        "value": "var(--background-modifier-hover)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-paged-alignment-option",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "background",
+        "value": "transparent"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-paged-alignment-option.is-active, .wm-paged-alignment-option.is-active:hover",
+    "declarations": [
+      {
+        "property": "background",
+        "value": "var(--text-normal)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-paged-color-reset",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "background",
+        "value": "transparent"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-paged-layout-preset",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "1px solid var(--background-modifier-border)"
+      },
+      {
+        "property": "background",
+        "value": "transparent"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-paged-layout-preset-option",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "background",
+        "value": "transparent"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-paged-layout-preset-option:hover",
+    "declarations": [
+      {
+        "property": "background",
+        "value": "var(--background-modifier-hover)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-paged-layout-cancel, .wm-paged-layout-apply",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-paged-layout-cancel",
+    "declarations": [
+      {
+        "property": "background",
+        "value": "transparent"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-paged-layout-apply",
+    "declarations": [
+      {
+        "property": "background",
+        "value": "var(--text-normal)"
+      },
+      {
+        "property": "color",
+        "value": "var(--background-primary)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-markdown-toolbar-content",
+    "declarations": [
+      {
+        "property": "display",
+        "value": "flex"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "body:not(.is-mobile) .wm-markdown-toolbar-content",
+    "declarations": [
+      {
+        "property": "padding",
+        "value": "0"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-writing-toolbar .wm-paged-toolbar-button:disabled, .wm-writing-toolbar .wm-paged-toolbar-button:disabled:hover, .wm-writing-toolbar .wm-paged-zoom-reset:disabled, .wm-writing-toolbar .wm-paged-zoom-reset:disabled:hover",
+    "declarations": [
+      {
+        "property": "border-color",
+        "value": "transparent"
+      },
+      {
+        "property": "background",
+        "value": "transparent"
+      },
+      {
+        "property": "color",
+        "value": "var(--text-faint)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "button.wm-writing-widget-card",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "background",
+        "value": "transparent"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "button.wm-writing-widget-card:hover",
+    "declarations": [
+      {
+        "property": "border-color",
+        "value": "transparent"
+      },
+      {
+        "property": "background",
+        "value": "transparent"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-writing-toolbar-switch > svg",
+    "declarations": [
+      {
+        "property": "width",
+        "value": "16px"
+      },
+      {
+        "property": "height",
+        "value": "16px"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-writing-color-swatch",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-themed-text-color",
+    "declarations": [
+      {
+        "property": "color",
+        "value": "var(--wm-themed-text-light)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-themed-background-color",
+    "declarations": [
+      {
+        "property": "background-color",
+        "value": "var(--wm-themed-background-light)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".theme-dark .wm-themed-text-color",
+    "declarations": [
+      {
+        "property": "color",
+        "value": "var(--wm-themed-text-dark)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".theme-dark .wm-themed-background-color",
+    "declarations": [
+      {
+        "property": "background-color",
+        "value": "var(--wm-themed-background-dark)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-writing-format-slider",
+    "declarations": [
+      {
+        "property": "width",
+        "value": "100%"
+      },
+      {
+        "property": "overflow",
+        "value": "visible"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "input.slider.wm-writing-format-slider::-webkit-slider-thumb",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "2px solid var(--background-primary)"
+      },
+      {
+        "property": "background",
+        "value": "var(--text-normal)"
+      },
+      {
+        "property": "box-shadow",
+        "value": "0 0 0 2px var(--text-normal)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "input.slider.wm-writing-format-slider::-moz-range-thumb",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "2px solid var(--background-primary)"
+      },
+      {
+        "property": "background",
+        "value": "var(--text-normal)"
+      },
+      {
+        "property": "box-shadow",
+        "value": "0 0 0 2px var(--text-normal)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-writing-format-style .writing-menu-icon, .wm-writing-format-style .writing-menu-control label",
+    "declarations": [
+      {
+        "property": "color",
+        "value": "var(--text-muted)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-writing-control-popover .writing-menu-icon, .wm-writing-control-popover .writing-menu-control label",
+    "declarations": [
+      {
+        "property": "color",
+        "value": "var(--text-muted)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-paged-search-match",
+    "declarations": [
+      {
+        "property": "background",
+        "value": "var(--text-highlight-bg)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-paged-search-match.is-active",
+    "declarations": [
+      {
+        "property": "background",
+        "value": "color-mix(in srgb, var(--interactive-accent) 38%, transparent)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-paged-paragraph.wm-paged-custom-divider",
+    "declarations": [
+      {
+        "property": "text-indent",
+        "value": "0"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-paged-paragraph.wm-paged-custom-divider > .wm-paged-text-run",
+    "declarations": [
+      {
+        "property": "color",
+        "value": "transparent"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-paged-page-text::selection, .wm-paged-page-text ::selection",
+    "declarations": [
+      {
+        "property": "background",
+        "value": "var(--text-selection)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-plotbook-view",
+    "declarations": [
+      {
+        "property": "padding",
+        "value": "0"
+      },
+      {
+        "property": "overflow",
+        "value": "hidden"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-plotbook-findbar",
+    "declarations": [
+      {
+        "property": "display",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-plotbook-selected-cell-preview",
+    "declarations": [
+      {
+        "property": "background-color",
+        "value": "var(--wm-plotbook-preview-background, var(--background-primary))"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-plotbook-cell.is-collapsed-row, .wm-plotbook-cell.is-collapsed-column",
+    "declarations": [
+      {
+        "property": "color",
+        "value": "transparent"
+      },
+      {
+        "property": "font-size",
+        "value": "0"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-plotbook-cell.is-cast",
+    "declarations": [
+      {
+        "property": "justify-content",
+        "value": "center"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-plotbook-cell.is-status, .wm-plotbook-cell.is-date",
+    "declarations": [
+      {
+        "property": "justify-content",
+        "value": "space-between"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-plotbook-profile-avatar img, .wm-plotbook-profile-canvas",
+    "declarations": [
+      {
+        "property": "image-rendering",
+        "value": "auto"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-plotbook-cell-editor",
+    "declarations": [
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "textarea.wm-plotbook-cell-editor",
+    "declarations": [
+      {
+        "property": "box-shadow",
+        "value": "var(--shadow-s)"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": "input.wm-plotbook-date-editor",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "border-radius",
+        "value": "0"
+      },
+      {
+        "property": "outline",
+        "value": "0"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-plotbook-date-picker",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "box-shadow",
+        "value": "none"
+      },
+      {
+        "property": "background",
+        "value": "transparent"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-plotbook-column-title-editor",
+    "declarations": [
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-plotbook-resize-guide.is-row",
+    "declarations": [
+      {
+        "property": "left",
+        "value": "0"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-plotbook-resize-guide.is-column",
+    "declarations": [
+      {
+        "property": "top",
+        "value": "0"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-plotbook-sheet-name-editor",
+    "declarations": [
+      {
+        "property": "box-shadow",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-plotbook-sheet-tab.is-renaming",
+    "declarations": [
+      {
+        "property": "color",
+        "value": "transparent"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-plotbook-sidebar button.wm-toolbar-select.is-sidebar-context, .wm-plotbook-sidebar button.wm-toolbar-select.is-sidebar-context:hover, .wm-plotbook-sidebar button.wm-toolbar-select.is-sidebar-context.is-open",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      },
+      {
+        "property": "background-color",
+        "value": "transparent"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-plotbook-transfer-modal .modal-sidebar-list-item:not(.is-active):not(:hover):not(:focus-visible)",
+    "declarations": [
+      {
+        "property": "background",
+        "value": "transparent"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-snapshot-diff-equal[hidden]",
+    "declarations": [
+      {
+        "property": "display",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-revision-root [hidden]",
+    "declarations": [
+      {
+        "property": "display",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-manuscript-snapshot-modal [hidden]",
+    "declarations": [
+      {
+        "property": "display",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-chat-avatar > .wm-chat-avatar-image, .wm-chat-suggest-avatar > .wm-chat-avatar-image",
+    "declarations": [
+      {
+        "property": "image-rendering",
+        "value": "auto"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-chat-avatar > [hidden], .wm-chat-suggest-avatar > [hidden]",
+    "declarations": [
+      {
+        "property": "display",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".wm-plotbook-transfer-modal [hidden]",
+    "declarations": [
+      {
+        "property": "display",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".deus-container .deus-message-content a.deus-citation-chip, .deus-container .deus-message-content a.deus-citation-chip:is(:hover, :focus, :active), .deus-container .wm-chat-source-chip",
+    "declarations": [
+      {
+        "property": "text-decoration",
+        "value": "none"
+      },
+      {
+        "property": "text-decoration-line",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".deus-container .deus-pending a.deus-citation-chip",
+    "declarations": [
+      {
+        "property": "text-decoration",
+        "value": "none"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  },
+  {
+    "selector": ".deus-container .deus-composer-dropdown-item, .deus-container .deus-composer-dropdown-item:is(:focus, :hover, :active)",
+    "declarations": [
+      {
+        "property": "border",
+        "value": "0"
+      }
+    ],
+    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+  }
+]

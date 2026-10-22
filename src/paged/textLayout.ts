@@ -1,3 +1,4 @@
+import { detachedEl, detachedFragment } from '../utils/dom';
 const PARAGRAPH_CLASS = 'wm-paged-paragraph';
 const TEXT_RUN_CLASS = 'wm-paged-text-run';
 const EMPTY_CARET_CHAR = '\u200b';
@@ -17,7 +18,7 @@ export function renderPagedText(
 ): void {
 	container.empty();
 	container.removeAttribute('data-virtual-trailing-newline');
-	const fragment = container.ownerDocument.createDocumentFragment();
+	const fragment = detachedFragment(container.ownerDocument);
 	let localFrom = 0;
 	let paragraphIndex = 0;
 
@@ -33,13 +34,13 @@ export function renderPagedText(
 			break;
 		}
 
-		const paragraph = container.ownerDocument.createElement('div');
+		const paragraph = detachedEl(container.ownerDocument, 'div');
 		paragraph.className = PARAGRAPH_CLASS;
 		if (paragraphIndex > 0 || firstLineStartsParagraph) paragraph.classList.add('starts-paragraph');
 		paragraph.dataset.from = String(absoluteFrom + localFrom);
 		paragraph.dataset.to = String(absoluteFrom + localTo);
 
-		const run = container.ownerDocument.createElement('span');
+		const run = detachedEl(container.ownerDocument, 'span');
 		run.className = TEXT_RUN_CLASS;
 		const isEmpty = localTo === localFrom;
 		if (isEmpty) run.classList.add('is-empty');

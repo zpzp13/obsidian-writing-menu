@@ -654,9 +654,9 @@ export class WritingToolbar {
 			cls: 'wm-paged-toolbar-button wm-paged-text-color-button clickable-icon',
 			attr: { type: 'button', 'aria-label': '최근 글자색 적용' },
 		});
-		const svg = this.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		const svg = button.createSvg('svg');
 		svg.setAttribute('viewBox', FONT_COLOR_ICON_VIEWBOX);
-		const path = this.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'path');
+		const path = svg.createSvg('path');
 		path.setAttribute('d', FONT_COLOR_ICON_PATH);
 		path.setAttribute('fill', 'currentColor');
 		svg.appendChild(path);

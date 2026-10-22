@@ -37,7 +37,7 @@ function characterSceneText(args: Record<string, unknown>, partial = false): str
 		if ((turn.type !== 'narration' && turn.type !== 'dialogue') || typeof turn.text !== 'string' || typeof turn.speaker !== 'string' || turn.type === 'dialogue' && !turn.speaker.trim()) {
 			if (partial) return ''; throw new Error('캐릭터 응답의 화자 또는 대사 형식이 올바르지 않습니다.');
 		}
-		const speaker = turn.speaker.replace(/[\[\]\r\n]/g, '').trim(), text = turn.text.trim();
+		const speaker = turn.speaker.replace(/[[\]\r\n]/g, '').trim(), text = turn.text.trim();
 		if (!text) return '';
 		return `${speaker ? `[인물: ${speaker}]\n` : ''}${turn.type === 'narration' ? '[지문]\n' : ''}${text}`;
 	}).filter(Boolean).join('\n\n');
@@ -72,6 +72,7 @@ async function step(options: GeminiRagOptions, contents: GeminiContent[], allowT
 		if (sceneText || text) options.onText?.(sceneText || text);
 	};
 	if (options.stream) {
+		// Streaming must remain abortable and readable incrementally; requestUrl buffers the body.
 		const response = await fetch(`${base}:streamGenerateContent?alt=sse`, { method: 'POST', headers: { 'x-goog-api-key': options.key, 'Content-Type': 'application/json' }, body, signal: options.signal });
 		if (!response.ok) throw geminiApiError(response.status, await response.json().catch(() => ({})), response.headers.get('retry-after'));
 		if (!response.body) throw new Error('Gemini 응답 본문을 받지 못했습니다. 잠시 후 재시도해 주세요.');

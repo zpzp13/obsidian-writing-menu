@@ -43,7 +43,7 @@ export class ManuscriptSnapshotRepository {
 		if (!await this.adapter.exists(path)) return { data: { filePath: this.sourcePath, versions: [] }, raw: null };
 		const raw = await this.adapter.read(path);
 		let data: ManuscriptSnapshotManifest;
-		try { data = JSON.parse(raw); } catch { throw new Error('스냅샷 목록이 손상되었습니다. 기존 기록은 덮어쓰지 않았습니다.'); }
+		try { data = JSON.parse(raw) as ManuscriptSnapshotManifest; } catch { throw new Error('스냅샷 목록이 손상되었습니다. 기존 기록은 덮어쓰지 않았습니다.'); }
 		if (data?.filePath !== this.sourcePath || !Array.isArray(data.versions)) throw new Error('스냅샷 목록의 대상 문서가 일치하지 않습니다.');
 		const ids = new Set<string>();
 		for (const entry of data.versions) {
@@ -98,7 +98,7 @@ export class ManuscriptSnapshotRepository {
 	async save(name: string, source: string, backup = false): Promise<ManuscriptSnapshot> {
 		return this.serial(async () => {
 			const { data, raw } = await this.readManifest();
-			const id = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+			const id = crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
 			const counts = calcAllCharCounts(source);
 			const entry: ManuscriptSnapshot = { id, name: name.trim() || '스냅샷', timestamp: Date.now(), fileName: `${id}.md`, charCount: counts.novelpia, charCountTotal: counts.munpia, ...(backup ? { backup: true } : {}) };
 			await this.mkdir(this.directory);

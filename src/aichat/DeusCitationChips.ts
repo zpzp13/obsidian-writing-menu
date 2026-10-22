@@ -1,3 +1,4 @@
+import { detachedEl } from '../utils/dom';
 import { Menu, type App, type HoverParent } from 'obsidian';
 import type { ChatContextItem } from './AiChatTypes';
 import type { DeusDisplayReference } from './AiChatPrompt';
@@ -32,9 +33,9 @@ export function renderDeusCitationChips(app: App, content: HTMLElement, host: HT
 	for (const node of nodes) {
 		const groups = [...node.data.matchAll(/\[\d+\](?:[ \t]*(?:[,，][ \t]*)?\[\d+\])*/g)];
 		if (!groups.length) continue;
-		const fragment = document.createElement('span'); let offset = 0;
+		const fragment = detachedEl(document, 'span'); let offset = 0;
 		for (const match of groups) {
-			fragment.appendText(node.data.slice(offset, match.index)); offset = match.index! + match[0].length;
+			fragment.appendText(node.data.slice(offset, match.index)); offset = match.index + match[0].length;
 			const numbers = [...new Set([...match[0].matchAll(/\[(\d+)\]/g)].map(item => Number(item[1])))];
 			const known = numbers.map(number => references.find(reference => reference.number === number)).filter((reference): reference is DeusDisplayReference => Boolean(reference));
 			if (!known.length) { fragment.appendText(match[0]); continue; }

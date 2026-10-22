@@ -27,7 +27,7 @@ import { SpellCheckerService } from './src/spellcheck/index';
 import { initializeWritingDocuments } from './src/writing/WritingDocument';
 import { openSnapshotManager, snapshotTarget } from './src/snapshots/SnapshotManager';
 import { initializeManuscriptSnapshots } from './src/snapshots/ManuscriptSnapshotLifecycle';
-import { migrateDashboardSettings } from './src/settings/migrateDashboardSettings';
+import { migrateDashboardSettings, takeLegacyTrackingFolder } from './src/settings/migrateDashboardSettings';
 
 const LEGACY_PLOT_VIEW_TYPE = 'writing-menu-plot-manager';
 const LEGACY_PLOT_TIMELINE_VIEW_TYPE = 'writing-menu-plot-timeline';
@@ -396,7 +396,7 @@ export default class WritingMenuPlugin extends Plugin {
 			icon: 'copy',
 			name: '복사하기',
 			callback: async () => {
-				const activeLeaf = this.app.workspace.activeLeaf;
+				const activeLeaf = this.app.workspace.getActiveViewOfType(MarkdownView)?.leaf ?? this.app.workspace.getActiveViewOfType(PagedWritingView)?.leaf;
 				if (activeLeaf?.view instanceof MarkdownView || activeLeaf?.view instanceof PagedWritingView) {
 					await this.copyWithOptions(activeLeaf);
 				}
@@ -593,7 +593,7 @@ export default class WritingMenuPlugin extends Plugin {
 			return;
 		}
 
-		const activeLeaf = this.app.workspace.activeLeaf;
+		const activeLeaf = this.app.workspace.getActiveViewOfType(MarkdownView)?.leaf;
 		const leaf = activeLeaf?.view instanceof MarkdownView && activeLeaf.view.file?.path === file.path
 			? activeLeaf
 			: this.app.workspace.getLeaf('tab');
@@ -626,7 +626,7 @@ export default class WritingMenuPlugin extends Plugin {
 			? this.app.workspace.getRightLeaf(false)
 			: target === 'tab'
 				? this.app.workspace.getLeaf('tab')
-				: (this.app.workspace.activeLeaf ?? this.app.workspace.getLeaf(false));
+				: (this.app.workspace.getLeaf(false));
 		if (!leaf) return;
 		if (leaf.view.getViewType() !== VIEW_TYPE_CALENDAR) {
 			await leaf.setViewState({ type: VIEW_TYPE_CALENDAR, active: true });
@@ -703,7 +703,8 @@ export default class WritingMenuPlugin extends Plugin {
 
 	async loadSettings() {
 		const savedData = (await this.loadData() ?? {}) as Partial<WritingMenuSettings> & { showTimeInStatusBar?: boolean };
-		const dashboardSettingsMigrated = migrateDashboardSettings(savedData as Record<string, unknown>);
+		const legacyTrackingFolder = takeLegacyTrackingFolder(savedData);
+		const dashboardSettingsMigrated = migrateDashboardSettings(savedData);
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, savedData);
 		const obsoleteSettings = this.settings as unknown as Record<string, unknown>;
 		const currentTheme = activeDocument.body.classList.contains('theme-dark') ? 'dark' : 'light';
@@ -796,21 +797,8 @@ export default class WritingMenuPlugin extends Plugin {
 			}))
 			: [];
 
-		// trackingFolder 마이그레이션: heatmapFolder + timeTrackingFolder → trackingFolder
-		if (!this.settings.trackingFolder) {
-			// @ts-ignore
-			const tf = this.settings.timeTrackingFolder as string | undefined;
-			// @ts-ignore
-			const hf = this.settings.heatmapFolder as string | undefined;
-			this.settings.trackingFolder = tf || hf || '';
-			// @ts-ignore
-			delete this.settings.timeTrackingFolder;
-			// @ts-ignore
-			delete this.settings.heatmapFolder;
-			void this.saveSettings();
-		}
-		if (this.settings.projects.length === 0 && this.settings.trackingFolder.trim()) {
-			const rootFolder = normalizePath(this.settings.trackingFolder).replace(/^\/+|\/+$/g, '');
+		if (this.settings.projects.length === 0 && legacyTrackingFolder.trim()) {
+			const rootFolder = normalizePath(legacyTrackingFolder).replace(/^\/+|\/+$/g, '');
 			this.settings.projects.push({
 				id: 'legacy-tracking-project',
 				name: rootFolder.split('/').pop() || '프로젝트',
@@ -890,7 +878,7 @@ export default class WritingMenuPlugin extends Plugin {
 	}
 
 	getActiveWritingEditor(): Editor | null {
-		const view = this.app.workspace.activeLeaf?.view;
+		const view = this.app.workspace.getActiveViewOfType(MarkdownView) ?? this.app.workspace.getActiveViewOfType(PagedWritingView);
 		if ((view instanceof MarkdownView || view instanceof PagedWritingView) && !this.shouldApplyToFile(view.file)) return null;
 		if (view instanceof MarkdownView) return view.editor;
 		if (view instanceof PagedWritingView) return view.getEditorAdapter();

@@ -1,4 +1,4 @@
-import { Platform, TFile, Notice, WorkspaceLeaf, MarkdownView, FileSystemAdapter } from 'obsidian';
+import { Platform, TFile, Notice, WorkspaceLeaf, MarkdownView, FileSystemAdapter, normalizePath } from 'obsidian';
 import { CONVERTER_PY_CONTENT } from './converterScript';
 import type WritingMenuPlugin from '../../main';
 import { joinPath, getFs } from '../utils/nodeShims';
@@ -28,17 +28,45 @@ function getVaultBasePath(plugin: WritingMenuPlugin): string {
 	return adapter.getBasePath();
 }
 
-export async function ensureConverterScript(plugin: WritingMenuPlugin){
-	const fs = await getFs();
-	const pluginDir = joinPath(getVaultBasePath(plugin), plugin.manifest.dir || '');
-	const scriptDir = joinPath(pluginDir, 'scripts');
-	const scriptPath = joinPath(scriptDir, 'converter.py');
+function pluginDirectory(plugin: WritingMenuPlugin): string {
+	return normalizePath(plugin.manifest.dir || `${plugin.app.vault.configDir}/plugins/${plugin.manifest.id}`);
+}
 
-	if (!fs.existsSync(scriptDir)) {
-		fs.mkdirSync(scriptDir, { recursive: true });
-	}
+async function converterScriptExists(plugin: WritingMenuPlugin): Promise<boolean> {
+	return plugin.app.vault.adapter.exists(`${pluginDirectory(plugin)}/scripts/converter.py`);
+}
+
+async function removeConverterList(plugin: WritingMenuPlugin, name: string): Promise<void> {
+	const path = `${pluginDirectory(plugin)}/scripts/${name}`;
+	try { if (await plugin.app.vault.adapter.exists(path)) await plugin.app.vault.adapter.remove(path); }
+	catch (error) { console.error('Failed to delete temp list', error); }
+}
+
+/** Source paths stay inside the vault; only the chosen export destination uses fs. */
+async function vaultMarkdownPaths(plugin: WritingMenuPlugin, folderPath: string): Promise<string[]> {
+	const folder = normalizePath(folderPath).replace(/^\/+|\/+$/g, '');
+	if (folder.includes(':') || folder.split('/').includes('..')) throw new Error('볼트 내부 폴더를 선택해 주세요.');
+	const paths: string[] = [];
+	const visit = async (path: string): Promise<void> => {
+		const { files, folders } = await plugin.app.vault.adapter.list(path);
+		const directories = new Set(folders);
+		for (const child of [...files, ...folders].sort((a, b) => a.localeCompare(b))) {
+			if (directories.has(child)) await visit(child);
+			else if (/\.md$/i.test(child)) paths.push(child);
+		}
+	};
+	await visit(folder);
+	return paths;
+}
+
+export async function ensureConverterScript(plugin: WritingMenuPlugin){
+	const adapter = plugin.app.vault.adapter;
+	const pluginDir = pluginDirectory(plugin);
+	const scriptDir = `${pluginDir}/scripts`;
+	const scriptPath = `${scriptDir}/converter.py`;
+	if (!await adapter.exists(scriptDir)) await adapter.mkdir(scriptDir);
 	// Always overwrite to ensure latest version
-	fs.writeFileSync(scriptPath, CONVERTER_PY_CONTENT, 'utf-8');
+	await adapter.write(scriptPath, CONVERTER_PY_CONTENT);
 
 }
 
@@ -51,13 +79,10 @@ export async function openTemplatePicker(plugin: WritingMenuPlugin): Promise<str
 }
 
 export async function runPicker(plugin: WritingMenuPlugin, mode: 'folder' | 'file'): Promise<string | null>{
-	const fs = await getFs();
-	const pluginDir = joinPath(getVaultBasePath(plugin), plugin.manifest.dir || '');
+	const pluginDir = joinPath(getVaultBasePath(plugin), pluginDirectory(plugin));
 	const scriptDir = joinPath(pluginDir, 'scripts');
 	const scriptFile = 'converter.py';
-	const fullScriptPath = joinPath(scriptDir, scriptFile);
-
-	if (!fs.existsSync(scriptDir) || !fs.existsSync(fullScriptPath)) {
+	if (!await converterScriptExists(plugin)) {
 		new Notice('오류: 스크립트 파일을 찾을 수 없습니다.', 5000);
 		return null;
 	}
@@ -92,18 +117,15 @@ export async function runPicker(plugin: WritingMenuPlugin, mode: 'folder' | 'fil
 export async function convertToHwp(plugin: WritingMenuPlugin, file: TFile, fileName: string, exportPath: string, useSpaceIndent: boolean, excludeHeadings: boolean = false): Promise<boolean>{
 	new Notice('HWP로 변환 중...', 5000);
 
-	const fs = await getFs();
 	const basePath = getVaultBasePath(plugin);
 	const absolutePath = joinPath(basePath, file.path);
 	const safeExportPath = exportPath.replace(/[\\/]$/, '');
 	const fullOutputPath = joinPath(safeExportPath, fileName);
 
-	const pluginDir = joinPath(basePath, plugin.manifest.dir || '');
+	const pluginDir = joinPath(basePath, pluginDirectory(plugin));
 	const scriptDir = joinPath(pluginDir, 'scripts');
 	const scriptFile = 'converter.py';
-	const fullScriptPath = joinPath(scriptDir, scriptFile);
-
-	if (!fs.existsSync(scriptDir) || !fs.existsSync(fullScriptPath)) {
+	if (!await converterScriptExists(plugin)) {
 		new Notice('오류: 스크립트 폴더 또는 파일이 없습니다.', 5000);
 		return false;
 	}
@@ -138,7 +160,6 @@ export async function convertToHwp(plugin: WritingMenuPlugin, file: TFile, fileN
 
 		pythonProcess.stdout.on('data', (data) => {
 			stdoutOutput += data.toString('utf-8');
-			console.log(`[Python]: ${data.toString('utf-8')}`);
 		});
 
 		pythonProcess.stderr.on('data', (data) => {
@@ -257,48 +278,28 @@ export async function convertFolderToTxt(plugin: WritingMenuPlugin, folderPath: 
 	new Notice(`폴더 변환 시작 (TXT)`, 3000);
 
 	const fs = await getFs();
-	const absoluteFolderPath = joinPath(getVaultBasePath(plugin), folderPath);
 
 	let count = 0;
 	let successCount = 0;
 
-	const processFolder = async (currentPath: string, relativePath: string) => {
-		const entries = fs.readdirSync(currentPath, { withFileTypes: true });
-
-		for (const entry of entries) {
-			const entryPath = joinPath(currentPath, entry.name);
-
-			if (entry.isDirectory()) {
-				await processFolder(entryPath, joinPath(relativePath, entry.name));
-			} else if (entry.name.toLowerCase().endsWith('.md')) {
-				const content = fs.readFileSync(entryPath, 'utf-8');
-				let bodyText = plugin.cleanMarkdownFrontmatter(content);
-
-				if (excludeHeadings) {
-					bodyText = stripMarkdownHeadings(bodyText);
-				}
-
-				if (useSpaceIndent) {
-					bodyText = plugin.applySpaceIndent(bodyText);
-				}
-
-				const outputDir = joinPath(exportPath, relativePath);
-				if (!fs.existsSync(outputDir)) {
-					fs.mkdirSync(outputDir, { recursive: true });
-				}
-
-				const baseName = entry.name.replace(/\.md$/i, '');
-				const outputPath = joinPath(outputDir, baseName + '.txt');
-				fs.writeFileSync(outputPath, bodyText, 'utf-8');
-
-				count++;
-				successCount++;
-			}
+	const processFolder = async () => {
+		const root = normalizePath(folderPath).replace(/^\/+|\/+$/g, '');
+		for (const path of await vaultMarkdownPaths(plugin, root)) {
+			const content = await plugin.app.vault.adapter.read(path);
+			let bodyText = plugin.cleanMarkdownFrontmatter(content);
+			if (excludeHeadings) bodyText = stripMarkdownHeadings(bodyText);
+			if (useSpaceIndent) bodyText = plugin.applySpaceIndent(bodyText);
+			const relativePath = root ? path.slice(root.length + 1) : path;
+			const slash = relativePath.lastIndexOf('/');
+			const outputDir = joinPath(exportPath, slash < 0 ? '' : relativePath.slice(0, slash));
+			if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+			fs.writeFileSync(joinPath(outputDir, relativePath.slice(slash + 1).replace(/\.md$/i, '.txt')), bodyText, 'utf-8');
+			count++; successCount++;
 		}
 	};
 
 	try {
-		await processFolder(absoluteFolderPath, '');
+		await processFolder();
 		new Notice(`TXT 변환 완료: ${successCount}/${count}`, 5000);
 	} catch (e) {
 		console.error('Folder TXT conversion error:', e);
@@ -322,7 +323,7 @@ export async function convertFilesToTxt(plugin: WritingMenuPlugin, files: TFile[
 
 export async function convertFolderToHwp(plugin: WritingMenuPlugin, folderPath: string, exportPath: string, useSpaceIndent: boolean, excludeHeadings: boolean = false): Promise<void>{
 	const basePath = getVaultBasePath(plugin);
-	const pluginDir = joinPath(basePath, plugin.manifest.dir || '');
+	const pluginDir = joinPath(basePath, pluginDirectory(plugin));
 	const scriptDir = joinPath(pluginDir, 'scripts');
 	const scriptFile = 'converter.py';
 	const absoluteFolderPath = joinPath(basePath, folderPath);
@@ -346,9 +347,8 @@ export async function convertFolderToHwp(plugin: WritingMenuPlugin, folderPath: 
 
 		const pythonProcess = spawn('python', args, { cwd: scriptDir });
 
-		pythonProcess.stdout.on('data', (data) => {
-			console.log(`[Python]: ${data.toString()}`);
-		});
+		// Drain converter output without logging document paths or content.
+		pythonProcess.stdout.on('data', () => {});
 
 		pythonProcess.stderr.on('data', (data) => {
 			console.error(`[Python Error]: ${data.toString()}`);
@@ -371,19 +371,20 @@ export async function convertFolderToHwp(plugin: WritingMenuPlugin, folderPath: 
 }
 
 export async function convertFilesToHwp(plugin: WritingMenuPlugin, files: TFile[], exportPath: string, useSpaceIndent: boolean, excludeHeadings: boolean = false): Promise<void>{
-	const fs = await getFs();
 	const basePath = getVaultBasePath(plugin);
-	const pluginDir = joinPath(basePath, plugin.manifest.dir || '');
+	const pluginDir = joinPath(basePath, pluginDirectory(plugin));
 	const scriptDir = joinPath(pluginDir, 'scripts');
 	const scriptFile = 'converter.py';
 
+	const spawn = await getSpawn();
+
 	// Create temp list file
-	const listFileName = `batch_list_${Date.now()}.txt`;
+	const listFileName = `batch_list_${Date.now()}_${crypto.randomUUID()}.txt`;
 	const listFilePath = joinPath(scriptDir, listFileName);
 
 	try {
 		const pathsToConvert = files.map(f => joinPath(basePath, f.path)).join('\n');
-		fs.writeFileSync(listFilePath, pathsToConvert, 'utf-8');
+		await plugin.app.vault.adapter.write(`${pluginDirectory(plugin)}/scripts/${listFileName}`, pathsToConvert);
 	} catch (e) {
 		new Notice('임시 리스트 파일 생성 실패', 5000);
 		console.error(e);
@@ -392,9 +393,8 @@ export async function convertFilesToHwp(plugin: WritingMenuPlugin, files: TFile[
 
 	new Notice(`${files.length}개 파일 변환 시작 (HWP)`, 3000);
 
-	const spawn = await getSpawn();
 
-	return new Promise((resolve) => {
+	return new Promise<void>((resolve) => {
 		const args = [scriptFile, '--batch-list', listFilePath, exportPath];
 		if (useSpaceIndent) {
 			args.push('--space-indent');
@@ -413,11 +413,8 @@ export async function convertFilesToHwp(plugin: WritingMenuPlugin, files: TFile[
 			console.error(`[Python Error]: ${data.toString()}`);
 		});
 
+		pythonProcess.on('error', (error: Error) => { new Notice(`Python 실행 오류!\n${error.message}`, 5000); resolve(); });
 		pythonProcess.on('close', (code: number) => {
-			// Clean up list file
-			try {
-				if (fs.existsSync(listFilePath)) fs.unlinkSync(listFilePath);
-			} catch (e) { console.error('Failed to delete temp list', e); }
 
 			if (code === 0) {
 				new Notice('HWP 선택 변환 완료!', 5000);
@@ -426,40 +423,23 @@ export async function convertFilesToHwp(plugin: WritingMenuPlugin, files: TFile[
 			}
 			resolve();
 		});
-	});
+	}).finally(() => removeConverterList(plugin, listFileName));
 }
 
 export async function convertFolderToTxtMerged(plugin: WritingMenuPlugin, folderPath: string, exportPath: string, fileName: string, useSpaceIndent: boolean): Promise<void>{
 	new Notice('병합 변환 시작 (TXT)', 3000);
 
 	const fs = await getFs();
-	const absoluteFolderPath = joinPath(getVaultBasePath(plugin), folderPath);
 
 	const allContents: string[] = [];
 
-	const processFolder = (currentPath: string) => {
-		const entries = fs.readdirSync(currentPath, { withFileTypes: true });
-
-		for (const entry of entries) {
-			const entryPath = joinPath(currentPath, entry.name);
-
-			if (entry.isDirectory()) {
-				processFolder(entryPath);
-			} else if (entry.name.toLowerCase().endsWith('.md')) {
-				const content = fs.readFileSync(entryPath, 'utf-8');
-				let bodyText = plugin.cleanMarkdownFrontmatter(content);
-
-				if (useSpaceIndent) {
-					bodyText = plugin.applySpaceIndent(bodyText);
-				}
-
-				allContents.push(bodyText);
-			}
-		}
-	};
 
 	try {
-		processFolder(absoluteFolderPath);
+		for (const path of await vaultMarkdownPaths(plugin, folderPath)) {
+			let bodyText = plugin.cleanMarkdownFrontmatter(await plugin.app.vault.adapter.read(path));
+			if (useSpaceIndent) bodyText = plugin.applySpaceIndent(bodyText);
+			allContents.push(bodyText);
+		}
 
 		const mergedContent = allContents.join('\n\n');
 		const safeExportPath = exportPath.replace(/[\\/]$/, '');
@@ -517,7 +497,7 @@ export async function convertFilesToTxtMerged(plugin: WritingMenuPlugin, files: 
 
 export async function convertFolderToHwpMerged(plugin: WritingMenuPlugin, folderPath: string, exportPath: string, fileName: string, useSpaceIndent: boolean, excludeHeadings: boolean = false): Promise<void>{
 	const basePath = getVaultBasePath(plugin);
-	const pluginDir = joinPath(basePath, plugin.manifest.dir || '');
+	const pluginDir = joinPath(basePath, pluginDirectory(plugin));
 	const scriptDir = joinPath(pluginDir, 'scripts');
 	const scriptFile = 'converter.py';
 	const absoluteFolderPath = joinPath(basePath, folderPath);
@@ -563,20 +543,21 @@ export async function convertFolderToHwpMerged(plugin: WritingMenuPlugin, folder
 }
 
 export async function convertFilesToHwpMerged(plugin: WritingMenuPlugin, files: TFile[], exportPath: string, fileName: string, useSpaceIndent: boolean, excludeHeadings: boolean = false): Promise<void>{
-	const fs = await getFs();
 	const basePath = getVaultBasePath(plugin);
-	const pluginDir = joinPath(basePath, plugin.manifest.dir || '');
+	const pluginDir = joinPath(basePath, pluginDirectory(plugin));
 	const scriptDir = joinPath(pluginDir, 'scripts');
 	const scriptFile = 'converter.py';
 	const fullOutputPath = joinPath(exportPath, fileName);
 
+	const spawn = await getSpawn();
+
 	// Create temp list file
-	const listFileName = `merge_list_${Date.now()}.txt`;
+	const listFileName = `merge_list_${Date.now()}_${crypto.randomUUID()}.txt`;
 	const listFilePath = joinPath(scriptDir, listFileName);
 
 	try {
 		const pathsToConvert = files.map(f => joinPath(basePath, f.path)).join('\n');
-		fs.writeFileSync(listFilePath, pathsToConvert, 'utf-8');
+		await plugin.app.vault.adapter.write(`${pluginDirectory(plugin)}/scripts/${listFileName}`, pathsToConvert);
 	} catch (e) {
 		new Notice('임시 리스트 파일 생성 실패', 5000);
 		console.error(e);
@@ -585,9 +566,8 @@ export async function convertFilesToHwpMerged(plugin: WritingMenuPlugin, files: 
 
 	new Notice(`${files.length}개 파일 병합 시작 (HWP)`, 3000);
 
-	const spawn = await getSpawn();
 
-	return new Promise((resolve) => {
+	return new Promise<void>((resolve) => {
 		const args = [scriptFile, '--merge-list', listFilePath, fullOutputPath];
 		if (useSpaceIndent) {
 			args.push('--space-indent');
@@ -606,11 +586,8 @@ export async function convertFilesToHwpMerged(plugin: WritingMenuPlugin, files: 
 			console.error(`[Python Error]: ${data.toString()}`);
 		});
 
+		pythonProcess.on('error', (error: Error) => { new Notice(`Python 실행 오류!\n${error.message}`, 5000); resolve(); });
 		pythonProcess.on('close', (code: number) => {
-			// Clean up list file
-			try {
-				if (fs.existsSync(listFilePath)) fs.unlinkSync(listFilePath);
-			} catch (e) { console.error('Failed to delete temp list', e); }
 
 			if (code === 0) {
 				new Notice(`병합 저장 완료: ${fileName}`, 5000);
@@ -619,5 +596,5 @@ export async function convertFilesToHwpMerged(plugin: WritingMenuPlugin, files: 
 			}
 			resolve();
 		});
-	});
+	}).finally(() => removeConverterList(plugin, listFileName));
 }

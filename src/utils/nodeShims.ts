@@ -17,19 +17,10 @@ export function joinPath(...segments: string[]): string {
 		.join(PATH_SEP);
 }
 
-export interface DirentLike {
-	name: string;
-	isDirectory(): boolean;
-}
-
 export interface FsLike {
 	existsSync(path: string): boolean;
 	mkdirSync(path: string, options?: { recursive?: boolean }): void;
 	writeFileSync(path: string, data: string | Uint8Array, encoding?: string): void;
-	readFileSync(path: string, encoding: string): string;
-	readFileSync(path: string): Uint8Array;
-	readdirSync(path: string, options: { withFileTypes: true }): DirentLike[];
-	unlinkSync(path: string): void;
 }
 
 interface DataEventEmitterLike {

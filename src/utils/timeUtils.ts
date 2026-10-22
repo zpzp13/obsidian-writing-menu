@@ -1,3 +1,5 @@
+import { scalarText } from './typeGuards';
+
 /** seconds → "HH:MM:SS" (프론트매터 저장용) */
 export function toHMS(sec: number): string {
 	const h = Math.floor(sec / 3600);
@@ -29,7 +31,7 @@ export function stripTrackedTimeFieldsFromPaste(text: string, keys: string[]): s
 		const separator = line.indexOf(':');
 		if (separator < 0) return true;
 		const rawKey = line.slice(0, separator).trim();
-		const key = rawKey.replace(/^(?:"([\s\S]*)"|'([\s\S]*)')$/, (_m, doubleQuoted, singleQuoted) => doubleQuoted ?? singleQuoted ?? rawKey);
+		const key = rawKey.replace(/^(?:"([\s\S]*)"|'([\s\S]*)')$/, (_m, doubleQuoted: string | undefined, singleQuoted: string | undefined) => doubleQuoted ?? singleQuoted ?? rawKey);
 		return !trackedKeys.has(key);
 	});
 
@@ -41,7 +43,7 @@ export function stripTrackedTimeFieldsFromPaste(text: string, keys: string[]): s
 /** "HH:MM:SS" 또는 "MM:SS" 문자열 → seconds */
 export function parseTimeHMS(val: unknown): number {
 	if (!val) return 0;
-	const parts = String(val).trim().split(':').map(Number);
+	const parts = scalarText(val).trim().split(':').map(Number);
 	if (parts.some(isNaN)) return 0;
 	if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
 	if (parts.length === 2) return parts[0] * 60 + parts[1];

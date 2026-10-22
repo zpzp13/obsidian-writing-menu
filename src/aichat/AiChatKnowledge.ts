@@ -84,7 +84,7 @@ export class AiChatKnowledge {
 				const previous = previousTurns[previousTurns.length - 1];
 				const relationFollowup = /^(?:좀\s*더\s*자세히?|더\s*자세히?|자세히|좀\s*더|계속)[\s.!?。？！]*$/.test(message.content.trim()) && previous?.context?.research?.purpose === 'relationship';
 				const relationshipQuestion = isRelationshipResearch(message.content) ? message.content : relationFollowup
-					? `${previous!.context!.research!.characters.map(entity => entity.name).join('과 ')}의 관계\n${message.content}` : '';
+					? `${previous.context!.research!.characters.map(entity => entity.name).join('과 ')}의 관계\n${message.content}` : '';
 				const relationship = input.requireComplete && !targetScope && episode === undefined && relationshipQuestion
 					? await service.relationship(project, relationshipQuestion, Math.max(0, remaining - 1000), signal, previous?.content ?? '') : undefined;
 				if (targetScope) {

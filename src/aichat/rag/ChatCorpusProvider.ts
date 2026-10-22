@@ -5,6 +5,7 @@ import { getOpenWritingDocuments } from '../../writing/WritingDocument';
 import { readChatPlotPassages } from '../AiChatPlotKnowledge';
 import type { ChatContextItem } from '../AiChatTypes';
 import { checkChatAbort } from '../ChatStream';
+import { isUnknownArray } from '../../utils/typeGuards';
 
 export interface CorpusDocument {
 	id: string; title: string; path?: string; stamp: string; links: string[]; names?: string[]; kind: ChatContextItem['kind'];
@@ -25,8 +26,8 @@ export class ChatCorpusProvider {
 		const documents: CorpusDocument[] = app.vault.getMarkdownFiles().filter(file => this.eligible(file)).map(file => {
 			const cache = app.metadataCache.getFileCache(file);
 			const metadata = cache?.frontmatter;
-			const alias = metadata?.aliases ?? metadata?.alias;
-			const names = [file.basename, metadata?.name, metadata?.title, metadata?.[this.plugin.settings.wikiNameFieldName], ...(Array.isArray(alias) ? alias : [alias])]
+			const alias: unknown = metadata?.aliases ?? metadata?.alias;
+			const names = [file.basename, metadata?.name, metadata?.title, metadata?.[this.plugin.settings.wikiNameFieldName], ...(isUnknownArray(alias) ? alias : [alias])]
 				.filter((name): name is string => typeof name === 'string' && Boolean(name.trim())).map(name => name.trim());
 			const links = (cache?.links ?? []).map(link => app.metadataCache.getFirstLinkpathDest(link.link, file.path)?.path).filter((path): path is string => Boolean(path));
 			return {

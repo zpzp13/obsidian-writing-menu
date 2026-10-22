@@ -13,6 +13,7 @@ export async function runtimeAsset(database: RagDatabase, kind: keyof typeof FIL
 	const cached = await database.get<{ blob: Blob }>('assets', key);
 	if (cached) return cached.blob.arrayBuffer();
 	if (!install) throw new Error('로컬 검색 실행 파일이 없습니다. 설정에서 모델 설치를 실행해 주세요.');
+	// ReadableStream supplies byte progress/watchdog signals and immediate cancellation during installation.
 	const response = await fetch(`https://cdn.jsdelivr.net/npm/onnxruntime-web@${VERSION}/dist/${file.name}`, { method: 'GET', credentials: 'omit', signal });
 	if (!response.ok) throw new Error(`로컬 실행 파일 다운로드 실패 (HTTP ${response.status})`);
 	let bytes: ArrayBuffer;

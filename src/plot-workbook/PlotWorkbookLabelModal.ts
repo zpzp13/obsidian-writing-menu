@@ -44,7 +44,7 @@ export class PlotWorkbookLabelModal extends Modal {
 						this.session.setColumnLabel(this.columnIds, label.id);
 						this.close();
 					}));
-			const swatch = document.createElement('span');
+			const swatch = createSpan();
 			swatch.className = 'wm-plotbook-label-swatch';
 			swatch.style.backgroundColor = label.color;
 			setting.nameEl.prepend(swatch);

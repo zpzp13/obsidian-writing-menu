@@ -46,6 +46,7 @@ export class LeafStyleManager {
 		const dataAttr = leaf.view.containerEl.getAttribute('data-writing-menu-id');
 		if (dataAttr) return dataAttr;
 		const newId = `wm-leaf-${this.plugin.leafIdCounter++}`;
+		leaf.view.containerEl.addClass('wm-styled-document');
 		leaf.view.containerEl.setAttribute('data-writing-menu-id', newId);
 		return newId;
 	}
@@ -158,6 +159,7 @@ export class LeafStyleManager {
 
 		if (!shouldApply) {
 			container.removeAttribute('data-writing-menu-id');
+			container.removeClass('wm-styled-document');
 			container.removeClass('wm-disable-link-color', 'wm-hr-custom', 'wm-hr-svg');
 			for (const property of Array.from(container.style)) {
 				if (property.startsWith('--wm-')) container.style.removeProperty(property);
@@ -178,6 +180,7 @@ export class LeafStyleManager {
 		if (!force && currentVersion === this.plugin.cssSettingsVersion && container.hasAttribute('data-writing-menu-id')) return;
 
 		const leafId = this.getLeafId(leaf);
+		container.addClass('wm-styled-document');
 		container.setAttribute('data-writing-menu-id', leafId);
 		this.applyLeafCssProps(container);
 		if (view instanceof PagedWritingView) view.refreshFromSettings();
@@ -230,6 +233,7 @@ export class LeafStyleManager {
 			if (!leafSet.has(leaf)) {
 				if (this.isWritingView(leaf.view)) {
 					leaf.view.containerEl.removeAttribute('data-writing-menu-id');
+					leaf.view.containerEl.removeClass('wm-styled-document');
 				}
 				this.plugin.leafStyleVersions.delete(leaf);
 			}
@@ -299,7 +303,7 @@ export class LeafStyleManager {
 		const focusActive = this.plugin.zenState === 'focus' || body.classList.contains('wm-focus-mode');
 		const wideActive = this.plugin.zenState === 'wide' || body.classList.contains('wm-wide-mode');
 		const requestedModeActive = mode === 'focus' ? focusActive : wideActive;
-		const leaf = targetLeaf ?? this.plugin.app.workspace.getMostRecentLeaf() ?? this.plugin.app.workspace.activeLeaf;
+		const leaf = targetLeaf ?? this.plugin.app.workspace.getMostRecentLeaf();
 		const activeView = leaf?.view;
 		if (!requestedModeActive && (!this.isWritingView(activeView) || !this.shouldApplyToFile(activeView.file))) return;
 		this.applyZenState(requestedModeActive ? 'off' : mode, leaf ?? undefined);
@@ -340,7 +344,7 @@ export class LeafStyleManager {
 		const rightGroup = div.createDiv();
 		rightGroup.setCssStyles({ display: 'flex', alignItems: 'center', gap: '8px' });
 
-		const valueSpan = rightGroup.createEl('span', { text: this.formatCharCount(count) });
+		const valueSpan = rightGroup.createSpan({ text: this.formatCharCount(count) });
 		valueSpan.setCssStyles({ color: 'var(--text-muted)', fontSize: '12px' });
 
 		const modeGroup = rightGroup.createDiv();

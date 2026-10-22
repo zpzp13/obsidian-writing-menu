@@ -6,7 +6,7 @@ import { obsidianSearchStub } from './obsidian-search-stub.mjs';
 const output = await build({ stdin: { contents: `export * from './src/aichat/rag/RagIndexService'; export * from './src/aichat/rag/RagSourceGraph';`, resolveDir: process.cwd(), loader: 'ts' }, bundle: true, write: false, platform: 'node', format: 'cjs', plugins: [{ name: 'navigation-fixture', setup(builder) {
 	builder.onResolve({ filter: /ChatCorpusProvider$/ }, () => ({ path: 'corpus', namespace: 'fixture' }));
 	builder.onResolve({ filter: /^obsidian$/ }, () => ({ path: 'obsidian', namespace: 'search' }));
-	builder.onLoad({ filter: /.*/, namespace: 'search' }, () => ({ contents: obsidianSearchStub }));
+	builder.onLoad({ filter: /.*/, namespace: 'search' }, () => ({ contents: obsidianSearchStub + '\nexport class TFile {}' }));
 	builder.onLoad({ filter: /.*/, namespace: 'fixture' }, () => ({ contents: 'export class ChatCorpusProvider { async documents() { return { documents: globalThis.navigationDocuments, warnings: [] }; } }' }));
 } }] });
 const module = { exports: {} }; new Function('module', 'exports', output.outputFiles[0].text)(module, module.exports);

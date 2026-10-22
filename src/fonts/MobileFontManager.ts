@@ -48,7 +48,7 @@ export class MobileFontManager {
 		if (retry) this.failures.delete(selected.key);
 		if (this.failures.has(selected.key)) return;
 		let jobs = this.loading.get(doc);
-		if (!jobs) this.loading.set(doc, jobs = new Map());
+		if (!jobs) this.loading.set(doc, jobs = new Map<string, Promise<void>>());
 		const existing = jobs.get(selected.key);
 		if (existing) return existing;
 		const job = (async () => {
@@ -59,7 +59,7 @@ export class MobileFontManager {
 				if (this.disposed) return;
 				doc.fonts.add(face);
 				let loaded = this.faces.get(doc);
-				if (!loaded) this.faces.set(doc, loaded = new Map());
+				if (!loaded) this.faces.set(doc, loaded = new Map<string, FontFace>());
 				loaded.set(selected.key, face);
 				this.onReady();
 			} catch (error) {

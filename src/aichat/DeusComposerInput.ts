@@ -1,3 +1,4 @@
+import { detachedEl, detachedFragment } from '../utils/dom';
 /** A plain-text editor with atomic note links. Paths are serialized for storage/API only. */
 export type DeusComposerInput = HTMLDivElement & {
 	value: string; placeholder: string; readonly selectionStart: number; readonly selectionEnd: number;
@@ -15,14 +16,14 @@ function read(node: Node): string {
 	return [...node.childNodes].map(read).join('');
 }
 function fragment(document: Document, value: string): DocumentFragment {
-	const result = document.createDocumentFragment(); let from = 0;
+	const result = detachedFragment(document); let from = 0;
 	for (const match of value.matchAll(mention)) {
 		result.append(document.createTextNode(value.slice(from, match.index)));
-		const path = match[1], link = document.createElement('a');
+		const path = match[1], link = detachedEl(document, 'a');
 		link.className = 'internal-link deus-input-mention'; link.contentEditable = 'false';
 		link.dataset.deusMention = path; link.dataset.href = path; link.setAttribute('href', path);
 		link.textContent = path.split('/').pop()?.replace(/\.md$/i, '') ?? path;
-		link.setAttribute('aria-label', link.textContent); result.append(link); from = match.index! + match[0].length;
+		link.setAttribute('aria-label', link.textContent); result.append(link); from = match.index + match[0].length;
 	}
 	result.append(document.createTextNode(value.slice(from))); return result;
 }

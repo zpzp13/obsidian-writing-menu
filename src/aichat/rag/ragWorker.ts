@@ -2,18 +2,20 @@ import { env, AutoModel, AutoTokenizer, FeatureExtractionPipeline } from '@huggi
 import { RagDatabase, ragAssetCache } from './RagDatabase';
 import { RAG_MODEL, RAG_REVISION, RAG_MODEL_KEY } from './RagTypes';
 import { ragTextWindows } from './RagChunking';
+import { readWorkerRequest, readWorkerProgress, readEmbedding, type RagWorkerRequest, type RagWorkerProgress } from './RagWorkerProtocol';
+import { isRecord } from '../../utils/typeGuards';
 
-const scope = globalThis as unknown as { onmessage: ((event: MessageEvent) => void) | null; postMessage(data: unknown): void };
+const scope = self as unknown as { onmessage: ((event: MessageEvent<unknown>) => void) | null; postMessage(data: unknown): void };
 let extractor: FeatureExtractionPipeline | undefined, networkAllowed = false;
 let chain: Promise<unknown> = Promise.resolve();
-async function init(data: { install: boolean; wasm: ArrayBuffer; module: string }, id: number) {
+async function init(data: Extract<RagWorkerRequest, { op: 'init' }>['data'], id: number) {
 	scope.postMessage({ id, progress: { message: '모델 캐시와 실행 환경 준비 중…' } });
 	networkAllowed = data.install;
 	const db = new RagDatabase();
 	env.allowLocalModels = false; env.allowRemoteModels = true; env.useFS = false; env.useFSCache = false; env.useBrowserCache = false; env.useCustomCache = true; env.customCache = ragAssetCache(db); env.useWasmCache = false;
 	// Some v4 metadata/tokenizer probes omit revision; pin the URL template as well as load options.
 	env.remotePathTemplate = `{model}/resolve/${RAG_REVISION}/`;
-	const originalFetch = globalThis.fetch.bind(globalThis);
+	const originalFetch = self.fetch.bind(self);
 	env.fetch = (input: string | URL, options?: RequestInit) => {
 		const url = String(input);
 		if (!networkAllowed) throw new Error('로컬 모델 파일이 없습니다. 설정에서 모델 설치를 실행해 주세요. 외부 임베딩은 사용하지 않습니다.');
@@ -23,20 +25,21 @@ async function init(data: { install: boolean; wasm: ArrayBuffer; module: string 
 	const onnx = env.backends.onnx;
 	if (!onnx?.wasm) throw new Error('로컬 검색의 브라우저 WASM 실행 환경을 준비하지 못했습니다. 플러그인 실행 파일을 갱신해 주세요.');
 	onnx.wasm.numThreads = 1; onnx.wasm.proxy = false;
-	onnx.wasm!.wasmBinary = new Uint8Array(data.wasm);
+	onnx.wasm.wasmBinary = new Uint8Array(data.wasm);
 	// Apply the same Node-detection guard used by Transformers' web WASM
 	// loader. Electron also exposes globalThis.process inside Workers.
 	const webModule = data.module.split('globalThis.process?.versions?.node').join('false');
-	onnx.wasm!.wasmPaths = { mjs: URL.createObjectURL(new Blob([webModule], { type: 'text/javascript' })) };
+	onnx.wasm.wasmPaths = { mjs: URL.createObjectURL(new Blob([webModule], { type: 'text/javascript' })) };
 	// Explicit components avoid v4 pipeline discovery probing an unpinned `main` revision.
 	// Fast downloads/cache reads can emit thousands of chunks. Bound IPC and UI
 	// updates so model installation cannot monopolize the Obsidian renderer.
-	let latest: unknown, timer: ReturnType<typeof setTimeout> | undefined, last = 0;
+	let latest: RagWorkerProgress | undefined, timer: number | undefined, last = 0;
 	const flush = () => { if (latest) { scope.postMessage({ id, progress: latest }); latest = undefined; last = Date.now(); } timer = undefined; };
-	const progress_callback = (event: any) => {
+	const progress_callback = (value: unknown) => {
+		const event = readWorkerProgress(value);
 		latest = event;
-		if (event.status !== 'progress' || Date.now() - last >= 200) { if (timer !== undefined) clearTimeout(timer); flush(); }
-		else if (timer === undefined) timer = setTimeout(flush, 200 - (Date.now() - last));
+		if (event.status !== 'progress' || Date.now() - last >= 200) { if (timer !== undefined) self.clearTimeout(timer); flush(); }
+		else if (timer === undefined) timer = self.setTimeout(flush, 200 - (Date.now() - last));
 	};
 	try {
 	const [tokenizer, model] = await Promise.all([
@@ -47,20 +50,27 @@ async function init(data: { install: boolean; wasm: ArrayBuffer; module: string 
 	networkAllowed = false;
 	progress_callback({ message: '다운로드 완료 · 모델 초기화와 검색 동작 확인 중…' });
 	const sample = await extractor('query: 검색 준비 확인', { pooling: 'mean', normalize: true });
-	if (sample.data.length !== 384 || !Array.from(sample.data as ArrayLike<number>).every(Number.isFinite)) throw new Error('검색 모델 동작 확인에 실패했습니다.');
+	readEmbedding(sample);
 	await db.put('assets', { key: `ready:${RAG_MODEL_KEY}`, ready: true });
-	} finally { networkAllowed = false; if (timer !== undefined) clearTimeout(timer); }
+	} finally { networkAllowed = false; if (timer !== undefined) self.clearTimeout(timer); }
 }
 scope.onmessage = event => {
-	const { id, op, data } = event.data;
+	let request: RagWorkerRequest;
+	try { request = readWorkerRequest(event.data); }
+	catch (error) {
+		const id = isRecord(event.data) && typeof event.data.id === 'number' ? event.data.id : 0;
+		scope.postMessage({ id, error: error instanceof Error ? error.message : String(error) }); return;
+	}
+	const { id } = request;
 	chain = chain.catch(() => {}).then(async () => {
 		try {
 			let result: unknown;
-			if (op === 'init') await init(data, id);
+			if (request.op === 'init') await init(request.data, id);
 			else {
 				if (!extractor) throw new Error('로컬 검색 모델이 준비되지 않았습니다.');
-				if (op === 'chunks') result = ragTextWindows(data.text, data.title, value => extractor!.tokenizer.encode(value).length);
-				else if (op === 'embed') {
+				if (request.op === 'chunks') result = ragTextWindows(request.data.text, request.data.title, value => extractor!.tokenizer.encode(value).length);
+				else if (request.op === 'embed') {
+					const data = request.data;
 					const prefix = data.query ? 'query' : 'passage';
 					let text: string = data.text;
 					if (extractor.tokenizer.encode(`${prefix}: ${text}`).length > 512) {
@@ -70,7 +80,7 @@ scope.onmessage = event => {
 						text = text.slice(0, low);
 					}
 					const output = await extractor(`${prefix}: ${text}`, { pooling: 'mean', normalize: true });
-					result = Float32Array.from(output.data as ArrayLike<number>);
+					result = readEmbedding(output);
 				} else throw new Error('알 수 없는 로컬 검색 작업입니다.');
 			}
 			scope.postMessage({ id, result });

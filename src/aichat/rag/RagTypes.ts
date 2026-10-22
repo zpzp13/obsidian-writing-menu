@@ -34,7 +34,7 @@ export async function ragHash(text: string): Promise<string> {
 // Timer clamping can turn every document into a one-second wait when Obsidian
 // is in the background. MessageChannel yields to UI tasks without that clamp.
 export const ragYield = () => new Promise<void>(resolve => {
-	if (typeof MessageChannel === 'undefined') { setTimeout(resolve, 0); return; }
+	if (typeof MessageChannel === 'undefined') { window.setTimeout(resolve, 0); return; }
 	const channel = new MessageChannel();
 	channel.port1.onmessage = () => { channel.port1.close(); channel.port2.close(); resolve(); };
 	channel.port2.postMessage(null);

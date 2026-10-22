@@ -1,19 +1,14 @@
+import { loadTsFixture } from './ts-fixture-loader.mjs';
 // Installer lifecycle checks without network, model files or wall-clock waits.
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import ts from 'typescript';
-const load = async (path, imports = {}) => {
-	const code = ts.transpileModule(await readFile(new URL('../' + path, import.meta.url), 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
-	const module = { exports: {} };
-	new Function('require', 'module', 'exports', code)(key => { assert(key in imports, key); return imports[key]; }, module, module.exports);
-	return module.exports;
-};
+const load = loadTsFixture;
 const stream = await load('src/aichat/ChatStream.ts');
 const { RagWorkerClient, RAG_PREPARATION_IDLE_MS, ragProgressMessage } = await load('src/aichat/rag/RagWorkerClient.ts', {
 	'./RagTypes': { RAG_MODEL_KEY: 'synthetic' }, '../ChatStream': stream,
 	'./RagRuntimeAssets': { bundledRagWorker: '', runtimeAsset: () => { throw new Error('Unexpected network fallback'); } },
 });
-const native = { Worker: globalThis.Worker, setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout };
+const native = { Worker: globalThis.Worker, window: globalThis.window, setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout };
+globalThis.window = globalThis;
 const timers = new Map(), instances = []; let nextTimer = 0;
 globalThis.setTimeout = (callback, milliseconds) => { assert.equal(milliseconds, RAG_PREPARATION_IDLE_MS); timers.set(++nextTimer, callback); return nextTimer; };
 globalThis.clearTimeout = id => timers.delete(id);

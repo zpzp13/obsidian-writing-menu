@@ -10,6 +10,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { obsidianSearchStub } from './obsidian-search-stub.mjs';
+import { installObsidianDomHelpers } from './obsidian-dom-stub.mjs';
+import { assertCssVisualParity } from './css-visual-parity.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ragSettingsSuite = process.argv.includes('--rag-settings');
@@ -162,6 +164,7 @@ export class Setting {
 export class ButtonComponent {
 	constructor(parent) { this.buttonEl = parent.createEl('button'); }
 	setButtonText(value) { this.buttonEl.textContent = value; return this; }
+	setClass(value) { this.buttonEl.addClass(value); return this; }
 	setWarning() { this.buttonEl.addClass('mod-warning'); return this; }
 	setCta() { this.buttonEl.addClass('mod-cta'); return this; }
 	setDisabled(value) { this.buttonEl.disabled = value; return this; }
@@ -515,7 +518,7 @@ const extraFonts = plotSuite && liveFonts ? new Map(await Promise.all([
 const html = `<!doctype html><html><head><meta charset="utf-8">${dashboardSuite && nativeSnapshotCss ? '<link rel="stylesheet" href="/native-snapshot.css">' : ''}<link rel="stylesheet" href="/styles.css">
 <style>:root { --font-text: Arial; --text-normal: #222; --text-muted: #777; --text-faint: #aaa; --background-primary: white; --background-modifier-border: #ddd; }
 body { margin: 0; } .test-leaf { height: 800px; width: 1280px; } .test-leaf > div:last-child { height: 800px; }</style>
-</head><body><script src="/bundle.js"></script><script>window.runPagedChecks = ${suite.toString()};</script></body></html>`;
+</head><body><script>(${installObsidianDomHelpers.toString()})();</script><script src="/bundle.js"></script><script>window.runPagedChecks = ${suite.toString()};</script></body></html>`;
 const server = createServer((request, response) => {
 	if(request.url === '/extra-fonts.json') {response.writeHead(200,{'Content-Type':'application/json'});response.end(JSON.stringify([...extraFonts.keys()]));return;}
 	if(request.url?.startsWith('/extra-font/')) {
@@ -591,7 +594,13 @@ try {
 	if (dashboardSuite && !ragSettingsSuite) {
 		const evaluate = async expression => { const result = await command('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true}); if(result.exceptionDetails)throw new Error(result.exceptionDetails.exception?.description); return result.result.value; };
 		const output = path.join(root,'.codex-tmp','dashboard-overhaul'); await mkdir(output,{recursive:true});
-		const capture = async name => { const shot=await command('Page.captureScreenshot',{format:'png'}); await writeFile(path.join(output,name+'.png'),Buffer.from(shot.data,'base64')); console.log('UI preview:',path.join(output,name+'.png')); };
+		const capture = async name => {
+			const shot=await command('Page.captureScreenshot',{format:'png'}); await writeFile(path.join(output,name+'.png'),Buffer.from(shot.data,'base64')); console.log('UI preview:',path.join(output,name+'.png'));
+			await assertCssVisualParity({
+				evaluate: (fn, data) => evaluate(`(${fn.toString()})(${JSON.stringify(data) ?? ''})`),
+				capture: async () => Buffer.from((await command('Page.captureScreenshot',{format:'png'})).data,'base64'),
+			}, name);
+		};
 		await evaluate('document.body.firstElementChild.hidden=true'); await capture('cards-chat-light');
 		await evaluate('dashboardPreview.setTheme(true)'); await capture('cards-chat-dark');
 		await evaluate('dashboardPreview.setTheme(false); dashboardPreview.showSnapshot(); new Promise(resolve=>setTimeout(resolve,80))'); await capture('manuscript-snapshot');

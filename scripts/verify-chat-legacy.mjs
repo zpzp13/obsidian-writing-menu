@@ -1,15 +1,8 @@
+import { loadTsFixture } from './ts-fixture-loader.mjs';
 // In-memory source-level checks; no browser, network, real vault writes or paid requests.
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import ts from 'typescript';
 
-async function loadSource(file, bindings = {}) {
-	const source = await readFile(new URL('../' + file, import.meta.url), 'utf8');
-	const js = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
-	const module = { exports: {} };
-	new Function('require', 'module', 'exports', js)(name => { assert(name in bindings, 'Unexpected runtime dependency: ' + name); return bindings[name]; }, module, module.exports);
-	return module.exports;
-}
+const loadSource = loadTsFixture;
 const notices = [];
 const store = await loadSource('src/aichat/ChatJsonStore.ts');
 const { AiChatStorage, isChatSessionId } = await loadSource('src/aichat/AiChatStorage.ts', { obsidian: { Notice: class { constructor(text) { notices.push(text); } } }, './ChatJsonStore': store });
@@ -119,7 +112,7 @@ const { snapshotTarget } = await loadSource('src/snapshots/SnapshotManager.ts', 
 	'../writing/WritingDocument': { getWritingDocumentForView: view => view?.document ?? null }, './ManuscriptSnapshotModal': {},
 });
 const previous = { document: { file: { path: 'Project/source.md' } } };
-const plugin = { app: { workspace: { activeLeaf: { view: {} }, getMostRecentLeaf: () => ({ view: previous }) } }, projectContext: { getProjects: () => [{ id: 'project' }], getProjectForFile: file => file.path.startsWith('Project/') ? {} : null } };
+const plugin = { app: { workspace: { getLeaf: () => ({ view: {} }), getMostRecentLeaf: () => ({ view: previous }) } }, projectContext: { getProjects: () => [{ id: 'project' }], getProjectForFile: file => file.path.startsWith('Project/') ? {} : null } };
 assert.equal(snapshotTarget(plugin), null, 'Snapshot command targeted a remembered document instead of the active unrelated view');
 assert.equal(snapshotTarget(plugin, { view: previous }).kind, 'manuscript');
 assert.equal(snapshotTarget(plugin, { view: new PlotView() }).kind, 'plot');

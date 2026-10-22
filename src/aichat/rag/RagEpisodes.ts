@@ -21,7 +21,7 @@ export function episodeInVolume(document: CorpusDocument, project: WritingProjec
 	const folder = project.manuscriptFolder?.replace(/\/$/, '');
 	if (!folder || !document.path?.startsWith(folder + '/')) return false;
 	return document.path.slice(folder.length + 1).split('/').slice(0, -1).some(part => {
-		const found = /^(?:제\s*)?(\d+)\s*권(?=$|\s|[(_\-])/u.exec(part.normalize('NFKC'));
+		const found = /^(?:제\s*)?(\d+)\s*권(?=$|\s|[(_-])/u.exec(part.normalize('NFKC'));
 		return found && Number(found[1]) === volume;
 	});
 }
@@ -32,7 +32,7 @@ export function requestedEpisode(question: string): number | undefined {
 	const normalized = question.normalize('NFKC');
 	const numbers = new Set<number>();
 	for (const match of normalized.matchAll(/(?:^|[^\p{L}\p{N}])(?:제\s*)?(\d{1,6})\s*(?:회차|화|회|편|장)(?![\p{N}])/gu)) {
-		if (/^\s*(?:분량|짜리|규모)/.test(normalized.slice(match.index! + match[0].length))) continue;
+		if (/^\s*(?:분량|짜리|규모)/.test(normalized.slice(match.index + match[0].length))) continue;
 		numbers.add(Number(match[1]));
 	}
 	for (const match of normalized.matchAll(/\b(?:episode|chapter|ep\.?)[\s#]*(\d{1,6})\b/gi)) numbers.add(Number(match[1]));

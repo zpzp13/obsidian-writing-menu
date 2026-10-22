@@ -1,3 +1,4 @@
+import { scalarText } from '../utils/typeGuards';
 import { Component, MarkdownRenderer, Menu, Notice, TFile, TFolder, setIcon, sanitizeHTMLToDom, App, type WorkspaceLeaf } from 'obsidian';
 import ForceGraph, { type GraphData, type LinkObject, type NodeObject } from 'force-graph';
 import type WritingMenuPlugin from '../../main';
@@ -617,7 +618,7 @@ export class WikiPanel {
 	// ── B. 검색 · 관계 그래프 ──────────────────────────────────────────────
 
 	private foldSearchText(value: unknown): string {
-		return String(value ?? '').normalize('NFKC').toLocaleLowerCase('ko-KR').replace(/\s+/g, ' ').trim();
+		return scalarText(value).normalize('NFKC').toLocaleLowerCase('ko-KR').replace(/\s+/g, ' ').trim();
 	}
 
 	private valueToSearchText(value: unknown): string[] {
@@ -626,7 +627,7 @@ export class WikiPanel {
 		if (typeof value === 'object') {
 			return Object.values(value as Record<string, unknown>).flatMap(item => this.valueToSearchText(item));
 		}
-		const text = String(value).trim();
+		const text = scalarText(value).trim();
 		return text ? [text] : [];
 	}
 
@@ -1281,10 +1282,15 @@ export class WikiPanel {
 		const graph = this.relationshipGraph;
 		if (!graph) return;
 		const physics = this.getGraphPhysics(distance);
-		graph.d3Force('link')?.distance?.(physics.linkDistance);
-		graph.d3Force('link')?.strength?.(physics.linkStrength);
-		graph.d3Force('charge')?.strength?.(physics.chargeStrength);
-		graph.d3Force('center')?.strength?.(1);
+		// force-graph types custom D3 setters as any; expose only the methods used here.
+		type ConfigurableForce = { (alpha: number): void; distance?: (value: number) => unknown; strength?: (value: number) => unknown };
+		const link: ConfigurableForce | undefined = graph.d3Force('link');
+		const charge: ConfigurableForce | undefined = graph.d3Force('charge');
+		const center: ConfigurableForce | undefined = graph.d3Force('center');
+		link?.distance?.(physics.linkDistance);
+		link?.strength?.(physics.linkStrength);
+		charge?.strength?.(physics.chargeStrength);
+		center?.strength?.(1);
 		if (reheat) graph.d3ReheatSimulation();
 	}
 
@@ -2423,7 +2429,7 @@ export class WikiPanel {
 	): Array<{ file: TFile; label: WikiGraphRelationLabel }> {
 		const raw: string[] = [];
 		const appendText = (input: unknown) => {
-			for (const part of String(input ?? '').split(',')) {
+			for (const part of scalarText(input).split(',')) {
 				const token = part.trim();
 				if (token) raw.push(token);
 			}

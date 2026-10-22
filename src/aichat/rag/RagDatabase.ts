@@ -32,7 +32,7 @@ export class RagDatabase {
 	}
 	async get<T>(store: Store, key: string): Promise<T | undefined> {
 		const db = await this.open();
-		return new Promise((resolve, reject) => { const request = db.transaction(store).objectStore(store).get(key); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+		return new Promise((resolve, reject) => { const request = db.transaction(store).objectStore(store).get(key); request.onsuccess = () => { const value: unknown = request.result; resolve(value as T | undefined); }; request.onerror = () => reject(request.error ?? new Error('로컬 색인을 읽지 못했습니다.')); });
 	}
 	async put(store: Store, value: unknown): Promise<void> {
 		const db = await this.open();
@@ -43,8 +43,8 @@ export class RagDatabase {
 		const db = await this.open();
 		return new Promise((resolve, reject) => {
 			const result: T[] = [], transaction = db.transaction(store), request = transaction.objectStore(store).index(index === 'scope' ? 'scopeKey' : index).openCursor(index === 'scope' ? IDBKeyRange.bound([value, after ?? ''], [value, '\uffff'], Boolean(after)) : IDBKeyRange.only(value));
-			request.onsuccess = () => { const cursor = request.result; if (!cursor || result.length >= limit) { resolve(result); return; } if (!after || String(cursor.primaryKey) > after) result.push(cursor.value); cursor.continue(); };
-			request.onerror = () => reject(request.error);
+			request.onsuccess = () => { const cursor = request.result; if (!cursor || result.length >= limit) { resolve(result); return; } if (typeof cursor.primaryKey !== 'string') { reject(new Error('로컬 색인의 문서 키가 문자열이 아닙니다.')); return; } const value: unknown = cursor.value; if (!after || cursor.primaryKey > after) result.push(value as T); cursor.continue(); };
+			request.onerror = () => reject(request.error ?? new Error('로컬 색인 구간을 읽지 못했습니다.'));
 		});
 	}
 	async *records(scope: string): AsyncGenerator<RagRecord[]> {
@@ -75,15 +75,15 @@ export class RagDatabase {
 			request.onsuccess = () => { const cursor = request.result; if (cursor) { cursor.delete(); cursor.continue(); } };
 			const research = transaction.objectStore('research').index('documentKey').openCursor(IDBKeyRange.only(key));
 			research.onsuccess = () => { const cursor = research.result; if (cursor) { cursor.delete(); cursor.continue(); } };
-			transaction.oncomplete = () => resolve(); transaction.onabort = () => reject(transaction.error); transaction.onerror = () => {};
+			transaction.oncomplete = () => resolve(); transaction.onabort = () => reject(transaction.error ?? new Error('로컬 색인을 삭제하지 못했습니다.')); transaction.onerror = () => {};
 		});
 	}
 	async pruneDocument(key: string, keep: Set<string>): Promise<void> {
 		const db = await this.open();
 		return new Promise((resolve, reject) => {
 			const transaction = db.transaction('records', 'readwrite'), request = transaction.objectStore('records').index('documentKey').openCursor(IDBKeyRange.only(key));
-			request.onsuccess = () => { const cursor = request.result; if (cursor) { if (!keep.has(String(cursor.primaryKey))) cursor.delete(); cursor.continue(); } };
-			transaction.oncomplete = () => resolve(); transaction.onabort = () => reject(transaction.error); transaction.onerror = () => {};
+			request.onsuccess = () => { const cursor = request.result; if (cursor) { if (typeof cursor.primaryKey !== 'string') { reject(new Error('로컬 색인의 문서 키가 문자열이 아닙니다.')); return; } if (!keep.has(cursor.primaryKey)) cursor.delete(); cursor.continue(); } };
+			transaction.oncomplete = () => resolve(); transaction.onabort = () => reject(transaction.error ?? new Error('로컬 색인을 정리하지 못했습니다.')); transaction.onerror = () => {};
 		});
 	}
 	async clearScope(scope: string): Promise<void> {
@@ -91,7 +91,7 @@ export class RagDatabase {
 		return new Promise((resolve, reject) => {
 			const transaction = db.transaction(['records', 'documents', 'research'], 'readwrite');
 			for (const store of ['records', 'documents', 'research']) { const request = transaction.objectStore(store).index('scope').openCursor(IDBKeyRange.only(scope)); request.onsuccess = () => { const cursor = request.result; if (cursor) { cursor.delete(); cursor.continue(); } }; }
-			transaction.oncomplete = () => resolve(); transaction.onabort = () => reject(transaction.error); transaction.onerror = () => {};
+			transaction.oncomplete = () => resolve(); transaction.onabort = () => reject(transaction.error ?? new Error('프로젝트 색인을 비우지 못했습니다.')); transaction.onerror = () => {};
 		});
 	}
 }

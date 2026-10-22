@@ -291,17 +291,17 @@ export class CorrectionModal extends Modal {
 		}
 
 		const header = contentEl.createDiv({ cls: 'wm-spell-header' });
-		header.createEl('span', { cls: 'wm-spell-header-title', text: '맞춤법 검사' });
+		header.createSpan({ cls: 'wm-spell-header-title', text: '맞춤법 검사' });
 		this.headerCountsEl = header.createDiv({ cls: 'wm-spell-header-counts' });
 
 		const split = contentEl.createDiv({ cls: 'wm-spell-split' });
 
 		const listPanel = split.createDiv({ cls: 'wm-spell-list-panel' });
-		listPanel.createEl('div', { cls: 'wm-spell-panel-title', text: '오류 목록' });
+		listPanel.createDiv({ cls: 'wm-spell-panel-title', text: '오류 목록' });
 		this.listEl = listPanel.createDiv({ cls: 'wm-spell-list' });
 
 		const previewPanel = split.createDiv({ cls: 'wm-spell-preview-panel' });
-		previewPanel.createEl('div', { cls: 'wm-spell-panel-title', text: '미리보기' });
+		previewPanel.createDiv({ cls: 'wm-spell-panel-title', text: '미리보기' });
 		this.previewEl = previewPanel.createDiv({ cls: 'wm-spell-preview-content' });
 
 		this.detailEl = split.createDiv({ cls: 'wm-spell-detail' });
@@ -718,7 +718,7 @@ export class CorrectionModal extends Modal {
 
 		// 고정 영역: 타이틀 + 카드 + 제안
 		const fixed = this.detailEl.createDiv({ cls: 'wm-spell-detail-fixed' });
-		fixed.createEl('div', { cls: 'wm-spell-panel-title', text: '상세' });
+		fixed.createDiv({ cls: 'wm-spell-panel-title', text: '상세' });
 
 		if (!c || !info) return;
 
@@ -755,7 +755,7 @@ export class CorrectionModal extends Modal {
 		const helpText = (c.help || '').replace(/^도움말\s*[:-]?\s*/i, '').trim();
 		if (helpText) {
 			const scroll = this.detailEl.createDiv({ cls: 'wm-spell-detail-scroll' });
-			scroll.createEl('div', { cls: 'wm-spell-labeled-divider', text: '도움말' });
+			scroll.createDiv({ cls: 'wm-spell-labeled-divider', text: '도움말' });
 			scroll.createDiv({ cls: 'wm-spell-section wm-spell-help-section' }).createDiv({ cls: 'wm-spell-help', text: helpText });
 		}
 	}
@@ -1072,7 +1072,7 @@ export class CorrectionModal extends Modal {
 		}
 
 		const popup = overlay.createDiv({ cls: 'wm-spell-edit-popup' });
-		popup.createEl('div', { cls: 'wm-spell-edit-label', text: '직접 수정' });
+		popup.createDiv({ cls: 'wm-spell-edit-label', text: '직접 수정' });
 
 		const input = popup.createEl('input', { cls: 'wm-spell-edit-input', type: 'text' });
 		input.value = info.state === 'user-edited' ? info.value : c.original;

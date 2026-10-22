@@ -1,7 +1,6 @@
 import { Platform } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { MorphToken } from './types';
-import { getFs } from '../utils/nodeShims';
 import { getAssetPaths, isGaruAssetsDownloaded } from './GaruAssets';
 
 // Obsidian's community installer downloads only main.js, manifest.json and styles.css.
@@ -93,15 +92,15 @@ export async function analyzeText(text: string, plugin: WritingMenuPlugin): Prom
 	}
 	if (!(await isGaruAssetsDownloaded(plugin))) throw new ModelNotDownloadedError();
 
-	const fs = await getFs();
+	const adapter = plugin.app.vault.adapter;
 	const { workerPath, wasmPath, modelPath } = getAssetPaths(plugin);
-	const workerSource = bundledGaruWorker || (fs.existsSync(workerPath) ? fs.readFileSync(workerPath, 'utf8') : '');
+	const workerSource = bundledGaruWorker || (await adapter.exists(workerPath) ? await adapter.read(workerPath) : '');
 	if (!workerSource) {
 		throw new Error('분석 워커 파일이 없습니다. 플러그인을 다시 설치하거나 업데이트해 주세요.');
 	}
 
-	const wasmBytes = fs.readFileSync(wasmPath);
-	const modelBytes = fs.readFileSync(modelPath);
+	const wasmBytes = new Uint8Array(await adapter.readBinary(wasmPath));
+	const modelBytes = new Uint8Array(await adapter.readBinary(modelPath));
 	const tokens = await analyzeInWorker(text, workerSource, wasmBytes, modelBytes);
 	return convertTokenOffsets(tokens, text);
 }

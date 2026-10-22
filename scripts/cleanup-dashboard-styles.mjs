@@ -1,7 +1,7 @@
 // Emits an apply_patch patch; never writes source files itself.
 import { readFileSync } from 'node:fs';
 const file = process.argv[2];
-if (!['styles.css', 'src/ui/globalStyles.ts'].includes(file)) throw new Error('Unexpected cleanup target');
+if (file !== 'styles.css') throw new Error('Unexpected cleanup target');
 const source = readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
 const changes = [];
 const obsolete = value => /\.version-control-view|\.wm-(?:vhv-|ver-(?!popup)|diff-|episodechat(?:-|\s|$)|stage-(?:del-btn|name-input))|\.wiki-(?:genimg|profile-genimg)|\.wm-aichat-(?!(?:suggest|panel|mode))|\.wm-rep-(?!editor-hl)|wm-episodechat-(?:spin|pulse)|wm-aichat-typing-bounce/.test(value);

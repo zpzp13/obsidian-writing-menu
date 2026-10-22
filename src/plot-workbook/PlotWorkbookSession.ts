@@ -397,7 +397,7 @@ export class PlotWorkbookSession {
 			.filter(columnId => sheet.columns[columnId])
 			.map(columnId => ({
 				columnId,
-				before: sheet.columns[columnId].role ?? 'text' as PlotWorkbookColumnRole,
+				before: sheet.columns[columnId].role ?? 'text',
 				after: role,
 			}))
 			.filter(change => change.before !== change.after);
@@ -420,7 +420,7 @@ export class PlotWorkbookSession {
 				const column = sheet.columns[columnId];
 				return {
 					columnId,
-					before: column.role ?? 'text' as PlotWorkbookColumnRole,
+					before: column.role ?? 'text',
 					after: role,
 					beforeCharacterNotePath: column.characterNotePath,
 					afterCharacterNotePath: role === 'character' ? column.characterNotePath : undefined,
@@ -1701,9 +1701,9 @@ export class PlotWorkbookSession {
 		this.snapshotBusy = true;
 		try {
 			await this.flush();
-			const data: PlotWorkbookSnapshotData = JSON.parse(JSON.stringify({
+			const data = JSON.parse(JSON.stringify({
 				manifest: this.manifest, sheets: [...this.sheets.values()], foreshadows: this.foreshadows, cellSnapshots: [],
-			}));
+			})) as PlotWorkbookSnapshotData;
 			delete data.manifest.storageGeneration;
 			for (const ref of data.manifest.snapshots ?? []) {
 				const snapshot = await this.repository.readCellSnapshot(ref.id);
@@ -1790,7 +1790,7 @@ export class PlotWorkbookSession {
 			seq: sheet.lastSeq + 1,
 			at: Date.now(),
 			tx: newPlotWorkbookId('tx'),
-		} as PlotWorkbookOperation;
+		};
 		applyPlotWorkbookOperation(sheet, operation);
 		this.repository.recordOperation(sheet, operation);
 	}

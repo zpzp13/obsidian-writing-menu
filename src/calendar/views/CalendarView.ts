@@ -1,6 +1,5 @@
 import { ItemView, WorkspaceLeaf, setIcon, TFile } from 'obsidian';
 
-declare const moment: (date?: unknown, fmt?: string) => { format(f: string): string };
 import type WritingMenuPlugin from '../../../main';
 import { DashboardSection } from '../../dashboard/DashboardSection';
 import { TaskParser } from '../../dashboard/data/TaskParser';
@@ -308,6 +307,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 	}
 
 	private renderMainDashboard(panel: HTMLElement) {
+		panel.addClass('wm-dash-panel-main');
 		const fallback: DashSectionConfig[] = [
 			{ id: 'calendar', label: '일정', visible: true },
 			{ id: 'timer', label: '타이머', visible: true },

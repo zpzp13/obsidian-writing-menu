@@ -20,7 +20,7 @@ export function renderDeusSettings(plugin: WritingMenuPlugin, layout: DeusSettin
 			await plugin.saveSettings();
 		});
 	});
-	new Setting(container).setName('API 키').addButton(button => button.setButtonText('API 열기').onClick(layout.openApi));
+	new Setting(container).setName('API 키').addButton(button => button.setButtonText('API 열기').onClick(() => layout.openApi()));
 	new Setting(container).setName('스트리밍').setDesc('답변을 생성되는 순서대로 표시합니다.')
 		.addToggle(toggle => toggle.setValue(settings.aiChatStreaming).onChange(async value => { settings.aiChatStreaming = value; await plugin.saveSettings(); }));
 	new Setting(container).setName('각주 열기').setDesc('채팅 답변의 각주와 출처 목록을 열 위치입니다.')

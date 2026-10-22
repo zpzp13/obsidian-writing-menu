@@ -1,6 +1,5 @@
-import { FileSystemAdapter, requestUrl } from 'obsidian';
+import { normalizePath, requestUrl } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
-import { joinPath, getFs } from '../utils/nodeShims';
 
 // garu-ko의 WASM 엔진(~390KB)/모델(~1MB)은 main.js에 내장하면 설치 용량이 3배 가까이
 // 뛰기 때문에, 대신 npm 패키지를 그대로 미러링하는 jsDelivr CDN에서 처음 사용할 때만
@@ -11,37 +10,32 @@ const MODEL_URL = `https://cdn.jsdelivr.net/npm/garu-ko@${GARU_VERSION}/models/b
 
 export type GaruAssetStatus = 'current' | 'outdated' | 'missing';
 
-function getVaultBasePath(plugin: WritingMenuPlugin): string {
-	const adapter = plugin.app.vault.adapter;
-	if (!(adapter instanceof FileSystemAdapter)) {
-		throw new Error('데스크톱 vault에서만 사용할 수 있습니다.');
-	}
-	return adapter.getBasePath();
+function getPluginDir(plugin: WritingMenuPlugin): string {
+	return normalizePath(plugin.manifest.dir || `${plugin.app.vault.configDir}/plugins/${plugin.manifest.id}`);
 }
 
 function getAssetDir(plugin: WritingMenuPlugin): string {
-	const pluginDir = joinPath(getVaultBasePath(plugin), plugin.manifest.dir || '');
-	return joinPath(pluginDir, 'garu-assets');
+	return `${getPluginDir(plugin)}/garu-assets`;
 }
 
 export function getAssetPaths(plugin: WritingMenuPlugin): { wasmPath: string; modelPath: string; versionPath: string; workerPath: string } {
-	const pluginDir = joinPath(getVaultBasePath(plugin), plugin.manifest.dir || '');
+	const pluginDir = getPluginDir(plugin);
 	const dir = getAssetDir(plugin);
 	return {
-		wasmPath: joinPath(dir, 'garu_wasm_bg.wasm'),
-		modelPath: joinPath(dir, 'base.gmdl'),
-		versionPath: joinPath(dir, 'version.txt'),
-		workerPath: joinPath(pluginDir, 'garu-worker.js'),
+		wasmPath: `${dir}/garu_wasm_bg.wasm`,
+		modelPath: `${dir}/base.gmdl`,
+		versionPath: `${dir}/version.txt`,
+		workerPath: `${pluginDir}/garu-worker.js`,
 	};
 }
 
 export async function getGaruAssetStatus(plugin: WritingMenuPlugin): Promise<GaruAssetStatus> {
-	const fs = await getFs();
+	const adapter = plugin.app.vault.adapter;
 	const { wasmPath, modelPath, versionPath } = getAssetPaths(plugin);
-	if (!fs.existsSync(wasmPath) || !fs.existsSync(modelPath)) return 'missing';
-	if (!fs.existsSync(versionPath)) return 'outdated';
+	if (!await adapter.exists(wasmPath) || !await adapter.exists(modelPath)) return 'missing';
+	if (!await adapter.exists(versionPath)) return 'outdated';
 	try {
-		return fs.readFileSync(versionPath, 'utf8').trim() === GARU_VERSION ? 'current' : 'outdated';
+		return (await adapter.read(versionPath)).trim() === GARU_VERSION ? 'current' : 'outdated';
 	} catch {
 		return 'outdated';
 	}
@@ -51,16 +45,17 @@ export async function isGaruAssetsDownloaded(plugin: WritingMenuPlugin): Promise
 	return (await getGaruAssetStatus(plugin)) === 'current';
 }
 
-async function downloadFile(url: string): Promise<Uint8Array> {
+async function downloadFile(url: string): Promise<ArrayBuffer> {
 	const res = await requestUrl({ url, throw: false });
 	if (res.status !== 200) throw new Error(`다운로드 실패 (HTTP ${res.status}): ${url}`);
-	return new Uint8Array(res.arrayBuffer);
+	if (!res.arrayBuffer.byteLength) throw new Error(`빈 분석 파일을 받았습니다: ${url}`);
+	return res.arrayBuffer;
 }
 
 export async function downloadGaruAssets(plugin: WritingMenuPlugin, onProgress?: (step: string) => void): Promise<void> {
-	const fs = await getFs();
+	const adapter = plugin.app.vault.adapter;
 	const dir = getAssetDir(plugin);
-	fs.mkdirSync(dir, { recursive: true });
+	if (!await adapter.exists(dir)) await adapter.mkdir(dir);
 	const { wasmPath, modelPath, versionPath } = getAssetPaths(plugin);
 
 	onProgress?.('WASM 엔진 다운로드 중… (약 400KB)');
@@ -72,7 +67,8 @@ export async function downloadGaruAssets(plugin: WritingMenuPlugin, onProgress?:
 	// The marker is written last. A network or disk failure can therefore never
 	// make a partially updated engine look current on the next launch.
 	onProgress?.('엔진 설치 중…');
-	fs.writeFileSync(wasmPath, wasmBytes);
-	fs.writeFileSync(modelPath, modelBytes);
-	fs.writeFileSync(versionPath, GARU_VERSION, 'utf8');
+	if (await adapter.exists(versionPath)) await adapter.remove(versionPath);
+	await adapter.writeBinary(wasmPath, wasmBytes);
+	await adapter.writeBinary(modelPath, modelBytes);
+	await adapter.write(versionPath, GARU_VERSION);
 }

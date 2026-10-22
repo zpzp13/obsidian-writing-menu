@@ -166,6 +166,7 @@ export async function callAiChat(apiKeys: AiChatApiKeys, systemPrompt: string, h
 	if (getModelProvider(model) === 'gemini' && options.stream) {
 		let response: Response;
 		try {
+			// requestUrl does not expose an SSE body reader or AbortSignal cancellation.
 			response = await fetch(GEMINI_CHAT_URL(model).replace(':generateContent', ':streamGenerateContent?alt=sse'), {
 				method: 'POST', signal: options.signal,
 				headers: { 'x-goog-api-key': apiKeys.gemini, 'Content-Type': 'application/json' },
@@ -175,7 +176,7 @@ export async function callAiChat(apiKeys: AiChatApiKeys, systemPrompt: string, h
 					generationConfig: buildGeminiGenerationConfig(model, temperature, maxTokens),
 				}),
 			});
-		} catch (error) {
+		} catch {
 			checkChatAbort(options.signal);
 			throw new Error('스트리밍에 연결하지 못했습니다. AI 챗 설정에서 스트리밍을 끄고 다시 시도해 주세요.');
 		}

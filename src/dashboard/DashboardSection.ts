@@ -136,7 +136,7 @@ export class DashboardSection {
 		};
 		const refreshChars = (preferredView?: MarkdownView | PagedWritingView) => {
 			const recentView = plugin.app.workspace.getMostRecentLeaf()?.view;
-			const activeView = plugin.app.workspace.activeLeaf?.view;
+			const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView) ?? plugin.app.workspace.getActiveViewOfType(PagedWritingView);
 			const view = preferredView
 				?? (recentView instanceof MarkdownView || recentView instanceof PagedWritingView
 				? recentView
