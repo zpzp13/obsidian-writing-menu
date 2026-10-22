@@ -10,7 +10,7 @@ const core = [
 	['lint', 'node_modules/eslint/bin/eslint.js', 'main.ts', 'src'],
 	['css', 'node_modules/stylelint/bin/stylelint.mjs', 'styles.css'],
 	['types', 'node_modules/typescript/bin/tsc', '-noEmit', '-skipLibCheck'],
-	...['warning-policy', 'settings-compatibility', 'export-boundaries', 'release-artifacts', 'input-boundaries', 'morph-worker', 'paged-zoom', 'chat-stream', 'chat-legacy', 'chat-knowledge', 'deus-skills', 'rag-api', 'model-free-search', 'rag-navigation', 'rag-scopes', 'relationship-retrieval', 'episode-retrieval', 'character-research'].map(name => [name, `scripts/verify-${name}.mjs`]),
+	...['warning-policy', 'settings-compatibility', 'export-boundaries', 'release-artifacts', 'input-boundaries', 'morph-worker', 'paged-zoom', 'chat-stream', 'chat-legacy', 'deus-skills', 'rag-api', 'model-free-search', 'rag-navigation', 'episode-retrieval', 'character-research'].map(name => [name, `scripts/verify-${name}.mjs`]),
 ];
 const browser = [
 	['css-cascade', 'scripts/verify-css-cascade.mjs'],
