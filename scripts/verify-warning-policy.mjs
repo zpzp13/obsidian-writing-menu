@@ -4,7 +4,7 @@ import { ESLint } from 'eslint';
 import stylelint from 'stylelint';
 import { sourceWarnings, cssWarnings, capabilities, sourceKey, cssKey, capabilityKey } from './warning-policy.mjs';
 
-const registry = JSON.parse(fs.readFileSync('docs/warning-exceptions.json', 'utf8'));
+const registry = JSON.parse(fs.readFileSync('scripts/warning-exceptions.json', 'utf8'));
 const [source, css] = await Promise.all([new ESLint().lintFiles(['main.ts', 'src']), stylelint.lint({ files: 'styles.css' })]);
 const raw = { source: sourceWarnings(source), css: cssWarnings(css.results), capabilities: capabilities() };
 fs.mkdirSync('.codex-tmp/warning-audit', { recursive: true });

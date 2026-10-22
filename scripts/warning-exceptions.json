@@ -1,0 +1,719 @@
+{
+  "description": "Reviewed exceptions only. Raw diagnostics are preserved; new, changed or stale entries fail verification. Errors cannot be exceptions.",
+  "source": [
+    {
+      "file": "src/aichat/GeminiTransport.ts",
+      "rule": "no-restricted-globals",
+      "symbol": "fetch",
+      "count": 1,
+      "reason": "The shared Gemini SSE transport needs a readable response body and AbortSignal. requestUrl only exposes buffered responses; non-streaming requests use requestUrl.",
+      "tests": [
+        "scripts/verify-chat-stream.mjs",
+        "scripts/verify-rag-api.mjs"
+      ]
+    },
+    {
+      "file": "src/utils/inputCompatibility.ts",
+      "rule": "@typescript-eslint/no-deprecated",
+      "symbol": "keyCode",
+      "count": 1,
+      "reason": "Old Chromium IME final Enter can have isComposing=false but code 229; standard state is checked first.",
+      "tests": [
+        "scripts/verify-input-boundaries.mjs",
+        "scripts/verify-paged-performance.mjs"
+      ]
+    },
+    {
+      "file": "src/utils/inputCompatibility.ts",
+      "rule": "@typescript-eslint/no-deprecated",
+      "symbol": "caretRangeFromPoint",
+      "count": 1,
+      "reason": "Minimum-runtime Chromium lacks caretPositionFromPoint; this branch runs only when the standard API is absent.",
+      "tests": [
+        "scripts/verify-input-boundaries.mjs",
+        "scripts/verify-paged-performance.mjs"
+      ]
+    }
+  ],
+  "css": [
+    {
+      "file": "styles.css",
+      "rule": "plugin/no-unsupported-browser-features",
+      "selector": ".wm-styled-document[data-writing-menu-id] .cm-line",
+      "property": "text-indent",
+      "value": "var(--wm-text-indent, 0px)",
+      "context": "",
+      "count": 1,
+      "reason": "Only a length or zero is used, not the unsupported each-line/hanging keywords. See docs/plugin-permissions.md for syntax sources.",
+      "tests": [
+        "scripts/verify-css-cascade.mjs",
+        "scripts/verify-paged-performance.mjs",
+        "scripts/verify-deus-ui.mjs"
+      ]
+    },
+    {
+      "file": "styles.css",
+      "rule": "plugin/no-unsupported-browser-features",
+      "selector": ".wm-styled-document[data-writing-menu-id] .markdown-reading-view p",
+      "property": "text-indent",
+      "value": "var(--wm-text-indent, 0px)",
+      "context": "",
+      "count": 1,
+      "reason": "Only a length or zero is used, not the unsupported each-line/hanging keywords. See docs/plugin-permissions.md for syntax sources.",
+      "tests": [
+        "scripts/verify-css-cascade.mjs",
+        "scripts/verify-paged-performance.mjs",
+        "scripts/verify-deus-ui.mjs"
+      ]
+    },
+    {
+      "file": "styles.css",
+      "rule": "plugin/no-unsupported-browser-features",
+      "selector": ".wm-cal-task-dock .is-calendar-docked .wm-task-item-main",
+      "property": "display",
+      "value": "contents",
+      "context": "",
+      "count": 1,
+      "reason": "Only a non-semantic layout div uses contents; controls and accessible names remain child elements, not replaced/table elements.",
+      "tests": [
+        "scripts/verify-css-cascade.mjs",
+        "scripts/verify-paged-performance.mjs",
+        "scripts/verify-deus-ui.mjs"
+      ]
+    },
+    {
+      "file": "styles.css",
+      "rule": "plugin/no-unsupported-browser-features",
+      "selector": ".wm-paged-paragraph.starts-paragraph",
+      "property": "text-indent",
+      "value": "var(--wm-paged-render-indent, 0px)",
+      "context": "",
+      "count": 1,
+      "reason": "Only a length or zero is used, not the unsupported each-line/hanging keywords. See docs/plugin-permissions.md for syntax sources.",
+      "tests": [
+        "scripts/verify-css-cascade.mjs",
+        "scripts/verify-paged-performance.mjs",
+        "scripts/verify-deus-ui.mjs"
+      ]
+    },
+    {
+      "file": "styles.css",
+      "rule": "plugin/no-unsupported-browser-features",
+      "selector": ".wm-paged-paragraph.wm-paged-custom-divider",
+      "property": "text-indent",
+      "value": "0",
+      "context": "",
+      "count": 1,
+      "reason": "Only a length or zero is used, not the unsupported each-line/hanging keywords. See docs/plugin-permissions.md for syntax sources.",
+      "tests": [
+        "scripts/verify-css-cascade.mjs",
+        "scripts/verify-paged-performance.mjs",
+        "scripts/verify-deus-ui.mjs"
+      ]
+    },
+    {
+      "file": "styles.css",
+      "rule": "plugin/no-unsupported-browser-features",
+      "selector": ".wm-paged-paragraph.wm-paged-custom-divider::after",
+      "property": "text-indent",
+      "value": "0",
+      "context": "",
+      "count": 1,
+      "reason": "Only a length or zero is used, not the unsupported each-line/hanging keywords. See docs/plugin-permissions.md for syntax sources.",
+      "tests": [
+        "scripts/verify-css-cascade.mjs",
+        "scripts/verify-paged-performance.mjs",
+        "scripts/verify-deus-ui.mjs"
+      ]
+    },
+    {
+      "file": "styles.css",
+      "rule": "plugin/no-unsupported-browser-features",
+      "selector": ".wm-plotbook-sheet .wm-plotbook-search-hit, .wm-plotbook-selected-cell-preview .wm-plotbook-search-hit",
+      "property": "-webkit-box-decoration-break",
+      "value": "clone",
+      "context": "",
+      "count": 1,
+      "reason": "Prefixed clone is retained alongside the standard property for minimum-runtime Chromium.",
+      "tests": [
+        "scripts/verify-css-cascade.mjs",
+        "scripts/verify-paged-performance.mjs",
+        "scripts/verify-deus-ui.mjs"
+      ]
+    },
+    {
+      "file": "styles.css",
+      "rule": "plugin/no-unsupported-browser-features",
+      "selector": ".wm-plotbook-sheet .wm-plotbook-search-hit, .wm-plotbook-selected-cell-preview .wm-plotbook-search-hit",
+      "property": "box-decoration-break",
+      "value": "clone",
+      "context": "",
+      "count": 1,
+      "reason": "clone is paired with the WebKit-prefixed fallback required by minimum-runtime Chromium.",
+      "tests": [
+        "scripts/verify-css-cascade.mjs",
+        "scripts/verify-paged-performance.mjs",
+        "scripts/verify-deus-ui.mjs"
+      ]
+    },
+    {
+      "file": "styles.css",
+      "rule": "plugin/no-unsupported-browser-features",
+      "selector": ".wm-plotbook-row-label.is-linked:hover",
+      "property": "text-decoration-thickness",
+      "value": "2px",
+      "context": "",
+      "count": 1,
+      "reason": "A 2px hover/focus underline is an enhancement; the existing underline remains if thickness is ignored.",
+      "tests": [
+        "scripts/verify-css-cascade.mjs",
+        "scripts/verify-paged-performance.mjs",
+        "scripts/verify-deus-ui.mjs"
+      ]
+    },
+    {
+      "file": "styles.css",
+      "rule": "plugin/no-unsupported-browser-features",
+      "selector": ".wm-plotbook-character-name.is-link:focus-visible",
+      "property": "text-decoration-thickness",
+      "value": "2px",
+      "context": "",
+      "count": 1,
+      "reason": "A 2px hover/focus underline is an enhancement; the existing underline remains if thickness is ignored.",
+      "tests": [
+        "scripts/verify-css-cascade.mjs",
+        "scripts/verify-paged-performance.mjs",
+        "scripts/verify-deus-ui.mjs"
+      ]
+    },
+    {
+      "file": "styles.css",
+      "rule": "plugin/no-unsupported-browser-features",
+      "selector": ".wm-plotbook-snapshot-diff-add",
+      "property": "text-decoration-color",
+      "value": "color-mix(in srgb, var(--color-green) 70%, transparent)",
+      "context": "",
+      "count": 1,
+      "reason": "The underline is already present; its color is an enhancement with the inherited decoration color as fallback.",
+      "tests": [
+        "scripts/verify-css-cascade.mjs",
+        "scripts/verify-paged-performance.mjs",
+        "scripts/verify-deus-ui.mjs"
+      ]
+    },
+    {
+      "file": "styles.css",
+      "rule": "plugin/no-unsupported-browser-features",
+      "selector": ".deus-container .deus-message-content :not(pre)>code",
+      "property": "box-decoration-break",
+      "value": "clone",
+      "context": "",
+      "count": 1,
+      "reason": "clone is paired with the WebKit-prefixed fallback required by minimum-runtime Chromium.",
+      "tests": [
+        "scripts/verify-css-cascade.mjs",
+        "scripts/verify-paged-performance.mjs",
+        "scripts/verify-deus-ui.mjs"
+      ]
+    },
+    {
+      "file": "styles.css",
+      "rule": "plugin/no-unsupported-browser-features",
+      "selector": ".deus-container .deus-message-content :not(pre)>code",
+      "property": "-webkit-box-decoration-break",
+      "value": "clone",
+      "context": "",
+      "count": 1,
+      "reason": "Prefixed clone is retained alongside the standard property for minimum-runtime Chromium.",
+      "tests": [
+        "scripts/verify-css-cascade.mjs",
+        "scripts/verify-paged-performance.mjs",
+        "scripts/verify-deus-ui.mjs"
+      ]
+    },
+    {
+      "file": "styles.css",
+      "rule": "declaration-no-important",
+      "selector": "body.wm-focus-mode.wm-has-zen-leaf .workspace-tabs.wm-zen-tabs",
+      "property": "flex",
+      "value": "1 1 auto",
+      "context": "",
+      "count": 1,
+      "reason": "Obsidian assigns inline flex values to workspace panes. Zen mode must override those external values; these two exact selectors only.",
+      "tests": [
+        "scripts/verify-css-cascade.mjs",
+        "scripts/verify-paged-performance.mjs",
+        "scripts/verify-deus-ui.mjs"
+      ]
+    },
+    {
+      "file": "styles.css",
+      "rule": "declaration-no-important",
+      "selector": "body.wm-focus-mode.wm-has-zen-leaf .workspace-leaf.wm-zen-leaf",
+      "property": "flex",
+      "value": "1 1 auto",
+      "context": "",
+      "count": 1,
+      "reason": "Obsidian assigns inline flex values to workspace panes. Zen mode must override those external values; these two exact selectors only.",
+      "tests": [
+        "scripts/verify-css-cascade.mjs",
+        "scripts/verify-paged-performance.mjs",
+        "scripts/verify-deus-ui.mjs"
+      ]
+    }
+  ],
+  "capabilities": [
+    {
+      "file": "src/aichat/AiChatPanel.ts",
+      "kind": "vault-enumeration",
+      "call": "this.plugin.app.vault.getMarkdownFiles",
+      "fingerprint": "1e6f1258de55aa0e5db42d0a121d96bcdaa096d9e300248a692c8a32f2bbc449",
+      "count": 1,
+      "reason": "The feature needs a vault-wide file catalog for global selectors/statistics, or filters project eligibility before reading note contents. Bounded character/manuscript reads use the folder tree.",
+      "tests": [
+        "scripts/verify-input-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/aichat/AiChatPanel.ts",
+      "kind": "clipboard",
+      "call": "navigator.clipboard.writeText",
+      "fingerprint": "0adb3a0adcc1507b7985fbf88e31408ed37847658839effd954ee188717058c9",
+      "count": 1,
+      "reason": "Explicit copy/paste or export action; no background polling or automatic submission.",
+      "tests": [
+        "scripts/verify-paged-performance.mjs",
+        "scripts/verify-deus-ui.mjs"
+      ]
+    },
+    {
+      "file": "src/aichat/AiChatScope.ts",
+      "kind": "vault-enumeration",
+      "call": "plugin.app.vault.getMarkdownFiles",
+      "fingerprint": "ee187a81afcb2adf6511820e5451fd7a285ad2bf54dd4042b80f1db85d423360",
+      "count": 1,
+      "reason": "The feature needs a vault-wide file catalog for global selectors/statistics, or filters project eligibility before reading note contents. Bounded character/manuscript reads use the folder tree.",
+      "tests": [
+        "scripts/verify-input-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/aichat/rag/ChatCorpusProvider.ts",
+      "kind": "vault-enumeration",
+      "call": "app.vault.getMarkdownFiles",
+      "fingerprint": "b2d464008746375ee923a6e6c915a7c8fc71a6c998706297be2a499e5297b310",
+      "count": 1,
+      "reason": "The feature needs a vault-wide file catalog for global selectors/statistics, or filters project eligibility before reading note contents. Bounded character/manuscript reads use the folder tree.",
+      "tests": [
+        "scripts/verify-input-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/dashboard/data/DailyCharStore.ts",
+      "kind": "vault-enumeration",
+      "call": "this.plugin.app.vault.getMarkdownFiles",
+      "fingerprint": "1e6f1258de55aa0e5db42d0a121d96bcdaa096d9e300248a692c8a32f2bbc449",
+      "count": 2,
+      "reason": "The feature needs a vault-wide file catalog for global selectors/statistics, or filters project eligibility before reading note contents. Bounded character/manuscript reads use the folder tree.",
+      "tests": [
+        "scripts/verify-input-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/dashboard/data/TaskParser.ts",
+      "kind": "vault-enumeration",
+      "call": "plugin.app.vault.getMarkdownFiles",
+      "fingerprint": "ee187a81afcb2adf6511820e5451fd7a285ad2bf54dd4042b80f1db85d423360",
+      "count": 1,
+      "reason": "The feature needs a vault-wide file catalog for global selectors/statistics, or filters project eligibility before reading note contents. Bounded character/manuscript reads use the folder tree.",
+      "tests": [
+        "scripts/verify-input-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/dashboard/data/WritingTimeStore.ts",
+      "kind": "vault-enumeration",
+      "call": "app.vault.getMarkdownFiles",
+      "fingerprint": "b2d464008746375ee923a6e6c915a7c8fc71a6c998706297be2a499e5297b310",
+      "count": 3,
+      "reason": "The feature needs a vault-wide file catalog for global selectors/statistics, or filters project eligibility before reading note contents. Bounded character/manuscript reads use the folder tree.",
+      "tests": [
+        "scripts/verify-input-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/dashboard/MusicPlayer.ts",
+      "kind": "vault-enumeration",
+      "call": "this.plugin.app.vault.getFiles",
+      "fingerprint": "6a14a5e1dd80529b7e559c0cacf086102f16d2251793cc55f2c2b2017a0d2bef",
+      "count": 1,
+      "reason": "The feature needs a vault-wide file catalog for global selectors/statistics, or filters project eligibility before reading note contents. Bounded character/manuscript reads use the folder tree.",
+      "tests": [
+        "scripts/verify-input-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/export/converterMethods.ts",
+      "kind": "process",
+      "call": "require(child_process)",
+      "fingerprint": "2fbcd86bc8bd5690991c18f316a130c0a1c99d0f94d3e8a8a611ee66a77ee1b2",
+      "count": 1,
+      "reason": "Explicit HWP conversion or native picker uses a fixed Python command with separate literal arguments and no shell option.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-input-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/export/converterMethods.ts",
+      "kind": "process",
+      "call": "spawn",
+      "fingerprint": "bcd246667ee6559c05817a3ec693ebfc8990fe0b33de3aa0d4e0f6c4c6c2b0d7",
+      "count": 1,
+      "reason": "Explicit HWP conversion or native picker uses a fixed Python command with separate literal arguments and no shell option.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-input-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/export/converterMethods.ts",
+      "kind": "process",
+      "call": "spawn",
+      "fingerprint": "637f4fa2e4b0dd84c6ba076346ffb128f5e974c0da774dde68d9f9da5dea9398",
+      "count": 1,
+      "reason": "Explicit HWP conversion or native picker uses a fixed Python command with separate literal arguments and no shell option.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-input-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/export/converterMethods.ts",
+      "kind": "clipboard",
+      "call": "navigator.clipboard.writeText",
+      "fingerprint": "deef6a2b7d8d854ed846968d58435315ee94d8b7f60fbc93ec26fb570b8b7ecf",
+      "count": 1,
+      "reason": "Explicit copy/paste or export action; no background polling or automatic submission.",
+      "tests": [
+        "scripts/verify-paged-performance.mjs",
+        "scripts/verify-deus-ui.mjs"
+      ]
+    },
+    {
+      "file": "src/export/converterMethods.ts",
+      "kind": "filesystem",
+      "call": "getFs",
+      "fingerprint": "4a12d434879a5efe0ce06b0ee49260882b3bc14ef6d846fad84bf9d97c329c87",
+      "count": 4,
+      "reason": "Explicit desktop export, external source-folder conversion or HWP template access. Vault-internal scripts and temporary lists use the vault adapter.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-input-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/export/converterMethods.ts",
+      "kind": "filesystem",
+      "call": "fs.existsSync",
+      "fingerprint": "be3d47448df8221041880351fe9f3f1dfbdb6748846f8e9d2caee0887758a826",
+      "count": 3,
+      "reason": "Explicit desktop export, external source-folder conversion or HWP template access. Vault-internal scripts and temporary lists use the vault adapter.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-input-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/export/converterMethods.ts",
+      "kind": "filesystem",
+      "call": "fs.mkdirSync",
+      "fingerprint": "32c4b569c2ca796ff26598df2de6e0159239a314c1ebba563827314891720a91",
+      "count": 3,
+      "reason": "Explicit desktop export, external source-folder conversion or HWP template access. Vault-internal scripts and temporary lists use the vault adapter.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-input-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/export/converterMethods.ts",
+      "kind": "filesystem",
+      "call": "fs.writeFileSync",
+      "fingerprint": "26d966feef3079396b0c00831b55e3af0c8723cecc29ba14a3a84ed73773f04d",
+      "count": 1,
+      "reason": "Explicit desktop export, external source-folder conversion or HWP template access. Vault-internal scripts and temporary lists use the vault adapter.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-input-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/export/converterMethods.ts",
+      "kind": "filesystem",
+      "call": "fs.existsSync",
+      "fingerprint": "ae19f4cfaa3b54a9aff286f4ad55482cd4b01148f8c6162c096c9d70d376e68c",
+      "count": 1,
+      "reason": "Explicit desktop export, external source-folder conversion or HWP template access. Vault-internal scripts and temporary lists use the vault adapter.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-input-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/export/converterMethods.ts",
+      "kind": "filesystem",
+      "call": "fs.mkdirSync",
+      "fingerprint": "3f70cc5964b60fd6ca2786d02a16fe2c2b568653f2c14b2688c69ab2cfa6b294",
+      "count": 1,
+      "reason": "Explicit desktop export, external source-folder conversion or HWP template access. Vault-internal scripts and temporary lists use the vault adapter.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-input-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/export/converterMethods.ts",
+      "kind": "filesystem",
+      "call": "fs.writeFileSync",
+      "fingerprint": "5c0a8532492aedf45ef6cd79adfcc2c08d3a204f1aeb72749dc2ff0f03649884",
+      "count": 1,
+      "reason": "Explicit desktop export, external source-folder conversion or HWP template access. Vault-internal scripts and temporary lists use the vault adapter.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-input-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/export/converterMethods.ts",
+      "kind": "process",
+      "call": "spawn",
+      "fingerprint": "623db3d582c3cc6ee0489b7ce6f655e5cd6dcfd8d5141ec2c4651955b025091a",
+      "count": 4,
+      "reason": "Explicit HWP conversion or native picker uses a fixed Python command with separate literal arguments and no shell option.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-input-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/export/converterMethods.ts",
+      "kind": "filesystem",
+      "call": "fs.writeFileSync",
+      "fingerprint": "d95755234f17396e422a8d09fbe832620c715c08c6264271113b950f5f505f30",
+      "count": 2,
+      "reason": "Explicit desktop export, external source-folder conversion or HWP template access. Vault-internal scripts and temporary lists use the vault adapter.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-input-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/paged/PagedWritingView.ts",
+      "kind": "clipboard",
+      "call": "clipboard.writeText",
+      "fingerprint": "9e5428bbabb02001f25105301117e89939429e37631f0bcb2fbe090cd3add214",
+      "count": 1,
+      "reason": "Explicit copy/paste or export action; no background polling or automatic submission.",
+      "tests": [
+        "scripts/verify-paged-performance.mjs",
+        "scripts/verify-deus-ui.mjs"
+      ]
+    },
+    {
+      "file": "src/paged/PagedWritingView.ts",
+      "kind": "clipboard",
+      "call": "clipboard.readText",
+      "fingerprint": "cea084affd52a6c27bc6ac14b451057fc0ff528b66b09e79685797d9544d142f",
+      "count": 1,
+      "reason": "Explicit copy/paste or export action; no background polling or automatic submission.",
+      "tests": [
+        "scripts/verify-paged-performance.mjs",
+        "scripts/verify-deus-ui.mjs"
+      ]
+    },
+    {
+      "file": "src/paged/PagedZoomStorage.ts",
+      "kind": "device-storage",
+      "call": "window.localStorage.getItem",
+      "fingerprint": "26c4e04db9c464473ffd692f228ffdf2cec74ed14b0110e2b8bca34b0da37566",
+      "count": 1,
+      "reason": "Per-vault/per-document zoom on 1.7.2 must survive upgrade/downgrade. The newer API is guarded; device-local values stay separate from synced settings.",
+      "tests": [
+        "scripts/verify-paged-zoom.mjs"
+      ]
+    },
+    {
+      "file": "src/paged/PagedZoomStorage.ts",
+      "kind": "device-storage",
+      "call": "window.localStorage.removeItem",
+      "fingerprint": "72ce4a497972d795cc88f7c6dc591afe0f13b3ddefd2f22914f1c4fb7d9c9db0",
+      "count": 1,
+      "reason": "Per-vault/per-document zoom on 1.7.2 must survive upgrade/downgrade. The newer API is guarded; device-local values stay separate from synced settings.",
+      "tests": [
+        "scripts/verify-paged-zoom.mjs"
+      ]
+    },
+    {
+      "file": "src/paged/PagedZoomStorage.ts",
+      "kind": "device-storage",
+      "call": "window.localStorage.setItem",
+      "fingerprint": "576f51f0d29f4c0d0a5af124bfac006e987c446b06c22c91747e22a5c71b4114",
+      "count": 1,
+      "reason": "Per-vault/per-document zoom on 1.7.2 must survive upgrade/downgrade. The newer API is guarded; device-local values stay separate from synced settings.",
+      "tests": [
+        "scripts/verify-paged-zoom.mjs"
+      ]
+    },
+    {
+      "file": "src/plot-workbook/InfinitePlotSheet.ts",
+      "kind": "clipboard",
+      "call": "clipboard.writeText",
+      "fingerprint": "64a19f153a579c931fd19dab9c71f627b552f99f34378d53e0d526a56148ad20",
+      "count": 1,
+      "reason": "Explicit copy/paste or export action; no background polling or automatic submission.",
+      "tests": [
+        "scripts/verify-paged-performance.mjs",
+        "scripts/verify-deus-ui.mjs"
+      ]
+    },
+    {
+      "file": "src/plot-workbook/InfinitePlotSheet.ts",
+      "kind": "clipboard",
+      "call": "clipboard.readText",
+      "fingerprint": "cea084affd52a6c27bc6ac14b451057fc0ff528b66b09e79685797d9544d142f",
+      "count": 1,
+      "reason": "Explicit copy/paste or export action; no background polling or automatic submission.",
+      "tests": [
+        "scripts/verify-paged-performance.mjs",
+        "scripts/verify-deus-ui.mjs"
+      ]
+    },
+    {
+      "file": "src/plot-workbook/PlotWorkbookNoteModal.ts",
+      "kind": "vault-enumeration",
+      "call": "this.app.vault.getMarkdownFiles",
+      "fingerprint": "ca01e700c013e484d91a263b042ea9c148f32036beeb3c34f9f4a91ac60eaae4",
+      "count": 1,
+      "reason": "The feature needs a vault-wide file catalog for global selectors/statistics, or filters project eligibility before reading note contents. Bounded character/manuscript reads use the folder tree.",
+      "tests": [
+        "scripts/verify-input-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/plot-workbook/PlotWorkbookSnapshotModal.ts",
+      "kind": "clipboard",
+      "call": "navigator.clipboard.writeText",
+      "fingerprint": "44fe514e8e168ff722b239569710bb341f62c3d1348d963216df0b169355972c",
+      "count": 1,
+      "reason": "Explicit copy/paste or export action; no background polling or automatic submission.",
+      "tests": [
+        "scripts/verify-paged-performance.mjs",
+        "scripts/verify-deus-ui.mjs"
+      ]
+    },
+    {
+      "file": "src/plot-workbook/PlotWorkbookTransferModal.ts",
+      "kind": "vault-enumeration",
+      "call": "this.app.vault.getMarkdownFiles",
+      "fingerprint": "ca01e700c013e484d91a263b042ea9c148f32036beeb3c34f9f4a91ac60eaae4",
+      "count": 1,
+      "reason": "The feature needs a vault-wide file catalog for global selectors/statistics, or filters project eligibility before reading note contents. Bounded character/manuscript reads use the folder tree.",
+      "tests": [
+        "scripts/verify-input-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/plot-workbook/PlotWorkbookTransferModal.ts",
+      "kind": "clipboard",
+      "call": "navigator.clipboard.writeText",
+      "fingerprint": "a9af143ef4c8306653316c21769f55b3358886c69c714055594341fd1615dd48",
+      "count": 1,
+      "reason": "Explicit copy/paste or export action; no background polling or automatic submission.",
+      "tests": [
+        "scripts/verify-paged-performance.mjs",
+        "scripts/verify-deus-ui.mjs"
+      ]
+    },
+    {
+      "file": "src/snapshots/ManuscriptSnapshotModal.ts",
+      "kind": "clipboard",
+      "call": "navigator.clipboard.writeText",
+      "fingerprint": "db57bddc25a9398f097c981d7b3abc78db16d1e664d2a9ad89bb3638ba747fe0",
+      "count": 1,
+      "reason": "Explicit copy/paste or export action; no background polling or automatic submission.",
+      "tests": [
+        "scripts/verify-paged-performance.mjs",
+        "scripts/verify-deus-ui.mjs"
+      ]
+    },
+    {
+      "file": "src/utils/nodeShims.ts",
+      "kind": "filesystem",
+      "call": "require(fs)",
+      "fingerprint": "b110746fdd7b8851db5401bc6bed1ed5e640132a131b1a04f8ad6e419a9288b9",
+      "count": 1,
+      "reason": "Explicit desktop export, external source-folder conversion or HWP template access. Vault-internal scripts and temporary lists use the vault adapter.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-input-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/wiki/WikiModals.ts",
+      "kind": "vault-enumeration",
+      "call": "this.app.vault.getMarkdownFiles",
+      "fingerprint": "ca01e700c013e484d91a263b042ea9c148f32036beeb3c34f9f4a91ac60eaae4",
+      "count": 2,
+      "reason": "The feature needs a vault-wide file catalog for global selectors/statistics, or filters project eligibility before reading note contents. Bounded character/manuscript reads use the folder tree.",
+      "tests": [
+        "scripts/verify-input-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/wiki/WikiModals.ts",
+      "kind": "vault-enumeration",
+      "call": "this.app.vault.getAllLoadedFiles",
+      "fingerprint": "611ffc027b6fa1b1a75aa18c9ce1579bd9441d7528e099ac2520d479ed9d4307",
+      "count": 2,
+      "reason": "The feature needs a vault-wide file catalog for global selectors/statistics, or filters project eligibility before reading note contents. Bounded character/manuscript reads use the folder tree.",
+      "tests": [
+        "scripts/verify-input-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/wiki/WikiModals.ts",
+      "kind": "vault-enumeration",
+      "call": "this.app.vault.getFiles",
+      "fingerprint": "d113ae2cc386dfe326c75bd67aa27b32191eb95f34870021bfb2282a4966bd5c",
+      "count": 1,
+      "reason": "The feature needs a vault-wide file catalog for global selectors/statistics, or filters project eligibility before reading note contents. Bounded character/manuscript reads use the folder tree.",
+      "tests": [
+        "scripts/verify-input-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/wiki/WikiPanel.ts",
+      "kind": "vault-enumeration",
+      "call": "this.app.vault.getMarkdownFiles",
+      "fingerprint": "ca01e700c013e484d91a263b042ea9c148f32036beeb3c34f9f4a91ac60eaae4",
+      "count": 2,
+      "reason": "The feature needs a vault-wide file catalog for global selectors/statistics, or filters project eligibility before reading note contents. Bounded character/manuscript reads use the folder tree.",
+      "tests": [
+        "scripts/verify-input-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/aichat/GeminiTransport.ts",
+      "kind": "stream-network",
+      "call": "fetch",
+      "fingerprint": "2e8c8d1ad0c073836b956aee1a0ac7612dded38014ebb8512f7d6df457df47d9",
+      "count": 1,
+      "reason": "A single shared Gemini SSE request preserves incremental responses and AbortSignal cancellation. All buffered HTTP requests use Obsidian requestUrl.",
+      "tests": [
+        "scripts/verify-chat-stream.mjs",
+        "scripts/verify-rag-api.mjs"
+      ]
+    }
+  ]
+}

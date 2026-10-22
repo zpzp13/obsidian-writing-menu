@@ -443,8 +443,6 @@ export const SETTINGS_SEARCH_PAGES = [
 		"visible": false,
 		"mobile": false,
 		"aliases": [
-			"검사 엔진",
-			"맞춤법 검사에 사용할 엔진을 선택합니다.",
 			"고유명사",
 			"고유명사 관리",
 			"등록한 고유명사를 검사에서 제외합니다."
