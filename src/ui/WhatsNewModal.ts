@@ -57,12 +57,6 @@ const RELEASE_NOTES: ReleaseNote[] = [
 		],
 	},
 	{
-		version: '3.1.2',
-		date: '2026-07-08',
-		notice: [
-		],
-	},
-	{
 		version: '3.0.16',
 		date: '2026-06-23',
 		new: [

@@ -6,16 +6,17 @@ import { fileURLToPath } from 'node:url';
 import { copyArtifacts } from './ReleaseArtifacts.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const variant = process.argv[2] || 'standard';
+const variant = 'standard';
 const manifest = JSON.parse(await readFile(path.join(root, 'manifest.json'), 'utf8'));
 const pkg = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
 if (pkg.version !== manifest.version) throw new Error('Package and manifest versions differ');
-const directory = path.resolve(process.argv[3] || path.join(root, 'dist', manifest.version));
+const directory = path.resolve(process.argv[2] || path.join(root, 'dist', manifest.version));
 const staging = path.join(directory, variant), plugin = path.join(staging, 'writing-menu');
 await mkdir(directory, { recursive: true });
 const result = await copyArtifacts(root, plugin);
 const notes = `RELEASE_v${manifest.version}.md`;
 await copyFile(path.join(root, notes), path.join(directory, notes));
+const archive = path.join(directory, `writing-menu-${manifest.version}.zip`);
 const tar = process.platform === 'win32' ? 'tar.exe' : 'bsdtar';
 execFileSync(tar, ['--format', 'zip', '-cf', archive, 'writing-menu'], { cwd: staging, windowsHide: true });
 // Verify bytes read from the ZIP, not just its filenames.

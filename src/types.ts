@@ -424,7 +424,6 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	specialCharCustom: [],
 	plotManagerFolder: '',
 	plotDataFolder: '',
-	spellCheckEngine: 'daum',
 	spellCheckIgnoredWords: [],
 	aiChatApiKey: '',
 	aiChatGeminiApiKey: '',

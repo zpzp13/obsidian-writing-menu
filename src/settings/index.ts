@@ -1357,21 +1357,6 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 	private renderSpellCheckPage(containerEl: HTMLElement) {
 		this.addBackButton(containerEl, '맞춤법 검사', 'misc');
 
-		this.addGroupTitle(containerEl, '검사 엔진');
-		const engineBox = this.createGroupBox(containerEl);
-		new Setting(engineBox)
-			.setName('검사 엔진')
-			.setDesc('맞춤법 검사에 사용할 엔진을 선택합니다.')
-			.addDropdown(dropdown => dropdown
-				.addOption('daum', 'Daum')
-				.setValue(this.plugin.settings.spellCheckEngine ?? 'daum')
-				.onChange(async value => {
-					await this.plugin.saveSettings();
-				}));
-		engineBox.createDiv({
-			cls: 'wm-settings-item-desc',
-		});
-
 		this.addGroupTitle(containerEl, '고유명사');
 		const spellcheckBox = this.createGroupBox(containerEl);
 		this.addNavCard(spellcheckBox, '고유명사 관리', '등록한 고유명사를 검사에서 제외합니다.', 'list', 'spellcheck-words');
