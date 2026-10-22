@@ -40,6 +40,9 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				name: page.name, desc: page.desc, aliases: [...page.aliases],
 				render: setting => {
 					// A custom row owns the existing page renderer; saves still use saveSettings().
+					// The native host adds a card around this row; our page already owns its section cards.
+					const hostItemsEl = setting.settingEl.parentElement;
+					hostItemsEl?.addClass('wm-settings-page-items');
 					setting.infoEl.remove(); setting.controlEl.remove();
 					setting.settingEl.removeClass('setting-item');
 					setting.settingEl.addClasses(['wm-settings-tab', 'wm-settings-custom-page']);
@@ -49,7 +52,10 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					try { this.renderPageContent(page.id, setting.settingEl); }
 					finally { this.renderingNativePage = false; }
 					this.adoptNativeSettingDescriptions(setting.settingEl);
-					return () => { if (this.nativePage === page.id) this.nativePage = null; };
+					return () => {
+						hostItemsEl?.removeClass('wm-settings-page-items');
+						if (this.nativePage === page.id) this.nativePage = null;
+					};
 				},
 			}, ...SETTINGS_SEARCH_PAGES.filter(child => child.parent === page.id).map(pageDefinition)],
 		});

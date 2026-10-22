@@ -15,6 +15,11 @@ interface ReleaseNote {
 
 const RELEASE_NOTES: ReleaseNote[] = [
 	{
+		version: '3.4.4',
+		date: '2026-10-22',
+		fixed: ['설정 소제목이 카드 안에 표시되던 문제를 수정했습니다.'],
+	},
+	{
 		version: '3.4.3',
 		date: '2026-10-22',
 		improved: [

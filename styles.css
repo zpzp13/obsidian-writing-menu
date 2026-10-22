@@ -318,6 +318,13 @@ body.theme-dark .wm-styled-document[data-writing-menu-id] .cm-activeLine .cm-hea
     fill: none;
 }
 
+/* Custom settings pages already contain native section cards. */
+.setting-group > .setting-items.wm-settings-page-items {
+	background: transparent;
+	border: 0;
+	border-radius: 0;
+}
+
 /* Settings controls share one vertical center line. */
 .wm-settings-tab .setting-group .setting-item:not(.setting-item-heading) {
 	align-items: center;
