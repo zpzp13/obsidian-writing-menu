@@ -43,7 +43,8 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					// The native host adds a card around this row; our page already owns its section cards.
 					const hostItemsEl = setting.settingEl.parentElement;
 					hostItemsEl?.addClass('wm-settings-page-items');
-					setting.infoEl.remove(); setting.controlEl.remove();
+					// The native host reuses this row on update(), including its custom content.
+					setting.settingEl.empty();
 					setting.settingEl.removeClass('setting-item');
 					setting.settingEl.addClasses(['wm-settings-tab', 'wm-settings-custom-page']);
 					this.nativePage = page.id;
@@ -57,7 +58,11 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 						if (this.nativePage === page.id) this.nativePage = null;
 					};
 				},
-			}, ...SETTINGS_SEARCH_PAGES.filter(child => child.parent === page.id).map(pageDefinition)],
+			}, ...SETTINGS_SEARCH_PAGES.filter(child => child.parent === page.id && !child.group).map(pageDefinition),
+			...[...new Set(SETTINGS_SEARCH_PAGES.filter(child => child.parent === page.id && child.group).map(child => child.group))].map(group => ({
+				type: 'group' as const, heading: group,
+				items: SETTINGS_SEARCH_PAGES.filter(child => child.parent === page.id && child.group === group).map(pageDefinition),
+			}))],
 		});
 		const groups = [...new Set(SETTINGS_SEARCH_PAGES.filter(page => page.parent === 'main').map(page => page.group))];
 		return groups.map(group => ({ type: 'group', heading: group || undefined, items: SETTINGS_SEARCH_PAGES.filter(page => page.parent === 'main' && page.group === group).map(pageDefinition) }));
@@ -303,9 +308,12 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					this.plugin.playAlarm();
 				}));
 
-		this.addGroupTitle(containerEl, '맞춤법 검사');
-		const spellcheckBox = this.createGroupBox(containerEl);
-		this.addNavCard(spellcheckBox, '고유명사 관리', '등록한 고유명사를 검사에서 제외합니다.', 'list', 'spellcheck-words');
+		// Native child-page definitions already provide this heading and navigation row.
+		if (!this.renderingNativePage) {
+			this.addGroupTitle(containerEl, '맞춤법 검사');
+			const spellcheckBox = this.createGroupBox(containerEl);
+			this.addNavCard(spellcheckBox, '고유명사 관리', '등록한 고유명사를 검사에서 제외합니다.', 'list', 'spellcheck-words');
+		}
 	}
 
 	private renderProjectsPage(containerEl: HTMLElement) {

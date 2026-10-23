@@ -453,7 +453,7 @@ export const SETTINGS_SEARCH_PAGES = [
 		"name": "고유명사 관리",
 		"desc": "등록한 고유명사를 검사에서 제외합니다.",
 		"parent": "misc",
-		"group": "",
+		"group": "맞춤법 검사",
 		"visible": true,
 		"mobile": false,
 		"aliases": [

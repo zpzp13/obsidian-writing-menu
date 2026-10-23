@@ -27,7 +27,9 @@ for (const [method, node] of methods) {
 		const page = pages.find(page => page.id === literal(call.arguments[4]));
 		if (!page) continue;
 		Object.assign(page, { name: literal(call.arguments[1]), desc: literal(call.arguments[2]), visible: true });
-		if (method === 'renderMainPage') { page.group = group; page.order = navigationOrder++; }
+		const parentMethod = page.parent === 'main' ? 'renderMainPage' : pages.find(parent => parent.id === page.parent)?.method;
+		if (method === parentMethod) page.group = group;
+		if (method === 'renderMainPage') page.order = navigationOrder++;
 	}
 }
 const extras = {
