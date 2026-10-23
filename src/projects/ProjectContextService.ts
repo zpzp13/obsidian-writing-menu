@@ -6,6 +6,11 @@ function normalizeFolder(path: string): string {
 	return normalizePath(path.trim()).replace(/^\/+|\/+$/g, '');
 }
 
+function isPluginStoragePath(path: string): boolean {
+	// 플롯과 내부 백업은 프로젝트 통계 범위 안에 있어도 원고로 집계하지 않는다.
+	return normalizeFolder(path).split('/').includes('.writing-menu');
+}
+
 function isInside(path: string, folder: string): boolean {
 	const normalizedPath = normalizePath(path).replace(/^\/+/, '');
 	const normalizedFolder = normalizeFolder(folder);
@@ -48,11 +53,13 @@ export class ProjectContextService {
 	}
 
 	getStatisticsProjectForPath(path: string): WritingProject | null {
+		if (isPluginStoragePath(path)) return null;
 		const project = this.getProjectForPath(path);
 		return project && this.isInsideProjectStatisticsScope(path, project) ? project : null;
 	}
 
 	isInStatisticsScope(path: string): boolean {
+		if (isPluginStoragePath(path)) return false;
 		if (!this.plugin.settings.restrictStatisticsToProjects) return true;
 		return this.getStatisticsProjectForPath(path) !== null;
 	}
