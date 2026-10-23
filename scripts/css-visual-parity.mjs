@@ -10,6 +10,7 @@ const archive = await readFile('C:/Users/82109/AppData/Local/Programs/Obsidian/r
 const header = JSON.parse(archive.subarray(16, 16 + archive.readUInt32LE(12)).toString());
 const file = header.files['app.css'], offset = 8 + archive.readUInt32LE(4) + Number(file.offset);
 const native = archive.subarray(offset, offset + file.size).toString();
+export { native as nativeObsidianCss };
 
 export async function assertCssVisualParity(driver, name) {
 	await driver.evaluate(({ native }) => {

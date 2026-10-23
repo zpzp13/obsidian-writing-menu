@@ -1,12 +1,18 @@
 import { isComposingKey } from '../utils/inputCompatibility';
-import { cliChatOptions } from './CliChatApi';
 import { Component, MarkdownRenderer, Menu, Modal, Notice, Setting, TFile, normalizePath, setIcon, type HoverParent } from 'obsidian';
+import { cliChatOptions } from './CliChatApi';
+import { listCliModels } from './CliModelCatalog';
+import { cliEffortLabel, selectedCliModel, supportedCliEffort } from './CliReasoning';
+import { renderDeusProviderIcon, type DeusModelProvider } from './DeusProviderIcon';
+import { renderDeusEffortControl } from './DeusEffortControl';
+import { DeusModelDropdown } from './DeusModelDropdown';
+import { geminiThinkingLevels, resolveGeminiThinking } from './GeminiThinking';
 import type WritingMenuPlugin from '../../main';
 import { getOpenWritingDocuments, getWritingDocument, getWritingDocumentForView } from '../writing/WritingDocument';
 import { createDeusChatLayout } from './DeusChatLayout';
 import { bindDeusSidebarResize, DEUS_SIDEBAR_BREAKPOINT } from './DeusSidebarResize';
 import { createDeusComposerMenu } from './DeusComposerMenu';
-import { alignDeusSubmenu, compactDeusMenu } from './DeusMenus';
+import { alignDeusSubmenu } from './DeusMenus';
 import { renderDeusNoteLinks } from './DeusNoteLinks';
 import { renderDeusMentions, type DeusComposerInput } from './DeusComposerInput';
 import { bindDeusScrollFollow } from './DeusScrollFollow';
@@ -17,7 +23,7 @@ import { deusCitationLeaf } from './DeusCitationLeaf';
 import { getWikiColor, getWikiDisplayName } from '../wiki/wikiProfileUtils';
 import { renderChatAvatar } from './ChatAvatar';
 import { AiChatRenameModal } from './AiChatRenameModal';
-import { AI_CHAT_MODELS, cliChatProvider, selectChatModel, deusChatModels, effectiveChatModel, getModelProvider, hasApiKeyForModel } from './AiChatApi';
+import { cliChatProvider, deusChatModels, effectiveChatModel, hasApiKeyForModel, selectChatModel } from './AiChatApi';
 import { stripWrapping } from './AiChatContext';
 import { AiChatStorage } from './AiChatStorage';
 import { AiChatRequest, type ChatRequestOptions, type ChatRequestState } from './AiChatRequest';
@@ -43,6 +49,8 @@ export class AiChatPanel {
 	private messagesEl: HTMLElement | null = null;
 	private sendButton: HTMLButtonElement | null = null;
 	private statusEl: HTMLElement | null = null;
+	private modelDropdown?: DeusModelDropdown;
+	private modelSettingsTimer = 0;
 	private drafts = new Map<string, string>();
 	private contexts = new Map<string, ChatContextItem[]>();
 	private states = new Map<string, ChatRequestState>();
@@ -81,7 +89,7 @@ export class AiChatPanel {
 		rememberScene(plugin.app.workspace.getMostRecentLeaf?.()?.view);
 		host.registerEvent(plugin.app.workspace.on('active-leaf-change', leaf => { rememberScene(leaf?.view); this.refreshContextPreview(); }));
 		host.registerEvent(plugin.app.workspace.on('editor-change', () => this.refreshContextPreview()));
-		host.register(() => { this.disposed = true; this.generation++; this.contextGeneration++; this.navigatorGeneration++; this.layoutCleanup?.(); window.clearTimeout(this.contextTimer); this.requests.stopAll(); this.hoverParent.hoverPopover?.unload(); });
+		host.register(() => { this.disposed = true; this.generation++; this.contextGeneration++; this.navigatorGeneration++; this.layoutCleanup?.(); window.clearTimeout(this.contextTimer); if (this.modelSettingsTimer) { window.clearTimeout(this.modelSettingsTimer); void this.plugin.saveSettings().catch(report); } this.requests.stopAll(); this.hoverParent.hoverPopover?.unload(); });
 	}
 	private async ensureSession(): Promise<void> {
 		if (this.mode === 'deus' && !this.session) {
@@ -117,7 +125,7 @@ export class AiChatPanel {
 		layout.backdrop.onclick = closeNavigator;
 		const escape = (event: KeyboardEvent) => { if (event.key === 'Escape' && this.history) { event.preventDefault(); closeNavigator(); } };
 		layout.root.addEventListener('keydown', escape);
-		this.layoutCleanup = () => { resize.disconnect(); sidebarResize.dispose(); composerMenu.dispose(); this.scrollFollow?.dispose(); this.scrollFollow = undefined; this.refreshReferenceMenu = undefined; layout.root.removeEventListener('keydown', escape); this.syncNavigator = undefined; };
+		this.layoutCleanup = () => { this.closeModelMenu(); resize.disconnect(); sidebarResize.dispose(); composerMenu.dispose(); this.scrollFollow?.dispose(); this.scrollFollow = undefined; this.refreshReferenceMenu = undefined; layout.root.removeEventListener('keydown', escape); this.syncNavigator = undefined; };
 		void this.renderNavigator(layout.sidebar, closeNavigator);
 		this.icon(layout.header, 'panel-left', '프로젝트와 세션 열기', () => { this.history = !this.history; this.syncNavigator?.(); }).addClass('deus-navigator-toggle');
 		this.icon(layout.header, 'square-pen', '새 대화', () => void this.newSession());
@@ -172,10 +180,11 @@ export class AiChatPanel {
 			references: () => this.referenceChoices(), toggle: (source, checked) => this.toggleReference(source, checked),
 		}); this.refreshReferenceMenu = composerMenu.refresh;
 		footer.createDiv({ cls: 'deus-toolbar-spacer' });
-		const model = footer.createEl('button', { cls: 'deus-toolbar-chip deus-model-selector', attr: { 'aria-label': '모델 선택', type: 'button' } });
+		const model = footer.createEl('button', { cls: 'deus-toolbar-chip deus-model-selector', attr: { 'aria-label': '모델 선택', 'aria-haspopup': 'dialog', 'aria-expanded': 'false', type: 'button' } });
+		model.createSpan({ cls: 'deus-model-icon', attr: { 'aria-hidden': 'true' } });
 		this.statusEl = model.createSpan({ cls: 'deus-model-label' });
 		setIcon(model.createSpan({ cls: 'deus-model-chevron', attr: { 'aria-hidden': 'true' } }), 'chevron-down');
-		model.onclick = event => this.modelMenu(event);
+		model.onclick = event => { event.stopPropagation(); this.modelMenu(); };
 		this.sendButton = this.icon(footer, 'arrow-up', '보내기', () => { if (this.session && this.requests.isSending(this.session.id)) this.requests.stop(this.session.id); else void this.send(input.value); });
 		this.updateComposer(); this.refreshContextPreview();
 	}
@@ -209,14 +218,44 @@ export class AiChatPanel {
 		const sessions = parent.createDiv({ cls: 'deus-session-list' });
 		await this.renderHistory(sessions);
 	}
-	private modelMenu(event: MouseEvent): void {
-		const menu = new Menu();
-		compactDeusMenu(menu);
-		for (const model of deusChatModels(this.plugin.settings)) menu.addItem(item => item.setTitle(model.label).setChecked(effectiveChatModel(this.plugin.settings) === model.id).onClick(async () => {
-			selectChatModel(this.plugin.settings, model.id);
-			await this.plugin.saveSettings(); this.updateComposer();
-		}));
-		menu.showAtMouseEvent(event);
+	private closeModelMenu(): void { this.modelDropdown?.close(); }
+	private saveModelChoice(): void {
+		this.updateComposer(); window.clearTimeout(this.modelSettingsTimer);
+		this.modelSettingsTimer = window.setTimeout(() => { this.modelSettingsTimer = 0; void this.plugin.saveSettings().catch(report); }, 150);
+	}
+	private selectedDropdownModel(provider: DeusModelProvider): string {
+		const settings = this.plugin.settings;
+		return provider === 'claude' ? settings.aiChatClaudeCliModel : provider === 'codex' ? settings.aiChatCodexCliModel
+			: cliChatProvider(effectiveChatModel(settings)) ? settings.aiChatFreeModel : effectiveChatModel(settings);
+	}
+	private modelMenu(): void {
+		const trigger = this.container?.querySelector<HTMLElement>('.deus-model-selector'); if (!trigger) return;
+		this.modelDropdown ??= new DeusModelDropdown({
+			provider: () => cliChatProvider(effectiveChatModel(this.plugin.settings)) ?? 'gemini',
+			selected: provider => this.selectedDropdownModel(provider),
+			models: (provider, signal) => provider === 'gemini'
+				? deusChatModels(this.plugin.settings).filter(model => model.provider === 'gemini').map(model => ({ id: model.id, label: model.label, isDefault: model.id === this.selectedDropdownModel(provider), efforts: [] }))
+				: listCliModels(cliChatOptions(this.plugin, provider, this.session?.projectRoot), signal),
+			choose: (provider, model) => {
+				const settings = this.plugin.settings; selectChatModel(settings, provider === 'gemini' ? model.id : provider + '-cli');
+				if (provider !== 'gemini') {
+					settings[provider === 'claude' ? 'aiChatClaudeCliModel' : 'aiChatCodexCliModel'] = model.id;
+					const key = provider === 'claude' ? 'aiChatClaudeCliEffort' : 'aiChatCodexCliEffort'; settings[key] = supportedCliEffort(model, settings[key]);
+				}
+				this.saveModelChoice();
+			},
+			control: (host, provider, models) => {
+				const settings = this.plugin.settings, id = this.selectedDropdownModel(provider);
+				if (provider === 'gemini') {
+					const selected = resolveGeminiThinking(id, settings.aiChatGeminiThinking[id]);
+					return renderDeusEffortControl(host, { id, label: '', isDefault: false, defaultEffort: selected, efforts: geminiThinkingLevels(id).map(level => ({ id: level, label: cliEffortLabel(level) })) }, selected, value => { settings.aiChatGeminiThinking[id] = value; this.saveModelChoice(); }, 'Gemini 추론 강도');
+				} else {
+					const key = provider === 'claude' ? 'aiChatClaudeCliEffort' : 'aiChatCodexCliEffort', model = selectedCliModel(models, id);
+					return renderDeusEffortControl(host, model, settings[key], value => { settings[key] = value; this.saveModelChoice(); });
+				}
+			},
+		});
+		this.modelDropdown.toggle(trigger);
 	}
 	private async prepareDeusSources(value: string, session: AiChatSession, signal?: AbortSignal, includeExcluded = false) {
 		const project = this.plugin.settings.projects.find(item => item.rootFolder === session.projectRoot);
@@ -537,7 +576,11 @@ export class AiChatPanel {
 		if (speaker) speaker.disabled = sending;
 		if (this.sendButton) { setIcon(this.sendButton, sending ? 'square' : 'arrow-up'); this.sendButton.setAttribute('aria-label', sending ? '응답 수신 중단' : '보내기'); }
 		const model = effectiveChatModel(this.plugin.settings);
-		if (this.statusEl) this.statusEl.setText(sending ? (getModelProvider(model) === 'gemini' && this.plugin.settings.aiChatStreaming ? '응답 중' : '응답 대기') : AI_CHAT_MODELS.find(item => item.id === model)?.label.split(' (')[0] ?? model);
+		const provider = cliChatProvider(model) ?? 'gemini', label = provider === 'claude' ? 'Claude Code' : provider === 'codex' ? 'Codex' : 'Gemini';
+		const icon = this.container?.querySelector<HTMLElement>('.deus-model-icon'); if (icon) renderDeusProviderIcon(icon, provider);
+		if (this.statusEl) {
+			this.statusEl.setText(label); this.statusEl.parentElement?.setAttribute('title', label);
+		}
 	}
 	private async send(value: string, existing?: AiChatMessage, retry = false): Promise<void> {
 		const session = this.session;
@@ -559,6 +602,7 @@ export class AiChatPanel {
 		const settings = this.plugin.settings;
 		const cooldown = this.states.get(session.id); if (cooldown?.retryAt && cooldown.retryAt > Date.now()) { new Notice(cooldown.error ?? 'API 재시도 시간까지 기다려 주세요.'); return; }
 		const options: ChatRequestOptions = { keys: { nvidia: settings.aiChatApiKey, gemini: settings.aiChatGeminiApiKey }, model: effectiveChatModel(settings), temperature: settings.aiChatTemperature, maxTokens: settings.aiChatMaxOutputTokens, historyTurns: settings.aiChatHistoryTurns, stream: settings.aiChatStreaming, freeOnly: settings.aiChatFreeOnly };
+		if (!cliChatProvider(options.model)) options.thinkingLevel = resolveGeminiThinking(options.model, settings.aiChatGeminiThinking[options.model]);
 		if (!hasApiKeyForModel(options.keys, options.model)) { new Notice('선택한 모델의 API 키를 설정해 주세요.'); return; }
 		let prepared: Awaited<ReturnType<AiChatPanel['prepareDeusSources']>>;
 		try { prepared = await this.prepareDeusSources(value, session); } catch (error) { report(error); return; }

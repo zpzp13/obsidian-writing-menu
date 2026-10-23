@@ -5,6 +5,7 @@ import { formatChatMessage, prepareChatHistory, sourceEvidenceDelta, historicalC
 import { checkChatAbort, abortableChat, readChatSse } from './ChatStream';
 import { geminiApiError } from './GeminiApiError';
 import { requestGeminiStream } from './GeminiTransport';
+import { resolveGeminiThinking } from './GeminiThinking';
 
 export interface GeminiUsage { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number; totalTokenCount?: number }
 export interface GeminiPart { text?: string; thought?: boolean; functionCall?: { id?: string; name: string; args?: Record<string, unknown> }; [key: string]: unknown }
@@ -20,6 +21,7 @@ const declarations = [
 ];
 export interface GeminiRagOptions {
 	key: string; model: string; system: string; history: AiChatMessage[]; maxTokens: number; stream: boolean; signal?: AbortSignal;
+	thinkingLevel?: string;
 	tools?: RagTools; message: AiChatMessage; onText?: (text: string) => void; onPhase?: (phase: 'reading' | 'answering') => void;
 	onCheckpoint?: () => Promise<void>;
 	/** Alternative inference transport; evidence, tool limits and citations use the same loop. */
@@ -55,7 +57,7 @@ async function step(options: GeminiRagOptions, contents: GeminiContent[], allowT
 	const system = options.system + (finish ? '\n이번 응답은 추가 자료 조회 없이 최종 답변을 작성하세요. 제공된 원문과 확인한 근거로 질문에 직접 답하고, 근거가 없는 부분은 확인하지 못했다고 밝히세요. 조회한 범위와 인용 규칙을 지키세요.' : '') + (character ? `\n최종 장면은 반드시 ${sceneTool} 도구의 turns 배열로 출력하세요. 지문과 대사는 각각 별도 항목이며 대사마다 speaker에 실제 화자 이름을 넣으세요. 대사 text에는 목록 기호나 화자 이름을 중복해서 넣지 마세요.` : '');
 	if (options.generate) return options.generate({ system, contents, tools: forceSearch ? declarations.filter(tool => tool.name === 'search_sources') : availableDeclarations, forceSearch, maxTokens: options.maxTokens }, options.signal, options.onText);
 	const body = JSON.stringify({ system_instruction: { parts: [{ text: system }] }, contents,
-		generationConfig: { maxOutputTokens: options.maxTokens, thinkingConfig: { thinkingLevel: options.model === 'gemini-3.8-flash' ? 'low' : 'minimal' } },
+		generationConfig: { maxOutputTokens: options.maxTokens, thinkingConfig: { thinkingLevel: resolveGeminiThinking(options.model, options.thinkingLevel) } },
 		...(availableDeclarations.length ? { tools: [{ functionDeclarations: availableDeclarations }] } : {}),
 		...(forceSearch ? { toolConfig: { functionCallingConfig: { mode: 'ANY', allowedFunctionNames: ['search_sources'] } } } : {}),
 		...(!forceSearch && character ? { toolConfig: { functionCallingConfig: { mode: 'ANY', allowedFunctionNames: availableDeclarations.map(tool => tool.name) } } } : {}),

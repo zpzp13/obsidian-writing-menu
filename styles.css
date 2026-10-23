@@ -12511,6 +12511,36 @@ button.deus-message-image img{width:100%;height:100%;object-fit:cover;display:bl
 .deus-model-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .deus-model-icon, .deus-model-chevron { display: flex; align-items: center; flex: 0 0 auto; }
 .deus-model-icon svg, .deus-model-chevron svg { width: 13px; height: 13px; }
+.deus-model-icon:empty { display: none; }
+.deus-model-icon svg { display: block; width: 16px; height: 16px; }
+.deus-effort-control { --deus-effort-accent: var(--interactive-accent); min-width: 230px; box-sizing: border-box; padding: 8px 12px 12px; font: 13px var(--font-interface); }
+.deus-effort-heading { display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+.deus-effort-value { color: var(--deus-effort-accent); font-size: 13px; font-weight: 600; line-height: 18px; }
+.deus-effort-track { position: relative; height: 24px; border-radius: 12px; background: var(--background-modifier-hover); cursor: pointer; touch-action: none; }
+.deus-effort-fill { position: absolute; inset: 0 auto 0 0; width: calc(14px + (100% - 28px) * var(--deus-effort-progress)); border-radius: inherit; background: var(--deus-effort-accent); pointer-events: none; }
+.deus-effort-dots { position: absolute; inset: 0 14px; pointer-events: none; }
+.deus-effort-dots span { position: absolute; width: var(--deus-effort-dot-size, 4px); height: var(--deus-effort-dot-size, 4px); border-radius: 50%; background: var(--text-muted); opacity: .65; }
+.deus-effort-thumb { position: absolute; top: 50%; left: calc(14px + (100% - 28px) * var(--deus-effort-progress)); width: 28px; height: 28px; border-radius: 50%; background: #fff; transform: translate(-50%, -50%); pointer-events: none; }
+.deus-effort-control input.deus-effort-slider { appearance: none; position: absolute; inset: -2px 0; display: block; box-sizing: border-box; width: 100%; height: 28px; margin: 0; padding: 0; border: 0; border-radius: 14px; background: transparent; box-shadow: none; opacity: 0; pointer-events: none; }
+.deus-effort-control input.deus-effort-slider::-webkit-slider-runnable-track { height: 24px; border: 0; border-radius: 12px; background: transparent; box-shadow: none; }
+.deus-effort-control input.deus-effort-slider::-webkit-slider-thumb { appearance: none; width: 28px; height: 28px; margin-top: -2px; border: 0; border-radius: 50%; background: var(--text-on-accent, var(--color-base-00)); box-shadow: none; }
+.deus-model-menu .menu-item-icon svg { width: 16px; height: 16px; }
+.menu.deus-model-menu { position: fixed; transform: none; overflow: auto; }
+.deus-model-menu button.deus-model-row { display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 100%; min-height: 28px; margin: 0; padding: 6px 10px; border: 0; border-radius: 4px; box-shadow: none; background: transparent; color: var(--text-normal); font: 13px/18px var(--font-interface); text-align: start; cursor: pointer; }
+.deus-model-menu button.deus-model-row:hover, .deus-model-menu button.deus-model-row:focus-visible { background: var(--background-modifier-hover); }
+.deus-model-menu button.deus-model-row:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: -2px; }
+.deus-model-row-icon, .deus-model-row-chevron, .deus-model-row-check { display: flex; align-items: center; justify-content: center; flex: 0 0 16px; width: 16px; height: 16px; }
+.deus-model-row-icon svg { width: 16px; height: 16px; }
+.deus-model-row-chevron svg, .deus-model-row-check svg { width: 13px; height: 13px; }
+.deus-model-row svg { display: block; }
+.deus-model-row-chevron { margin-inline-start: auto; }
+.deus-model-row-check { color: var(--interactive-accent); }
+.deus-model-option[aria-checked=false] .deus-model-row-check { visibility: hidden; }
+.deus-model-back { border-bottom: 1px solid var(--background-modifier-border); }
+.deus-model-back .deus-model-row-chevron { margin-inline-start: 0; }
+.deus-model-back .deus-model-back-label { display: flex; align-items: center; height: 18px; }
+.deus-model-controls:not(:empty) { border-top: 1px solid var(--background-modifier-border); margin-top: 4px; }
+.deus-model-loading { max-width: 260px; padding: 10px; color: var(--text-muted); font-size: 13px; }
 .deus-model-chevron { opacity: .65; }
 .deus-composer-plus { flex: 0 0 26px; }
 .deus-navigator, .deus-navigator-backdrop { display: none; }

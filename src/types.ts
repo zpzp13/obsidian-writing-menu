@@ -220,6 +220,7 @@ export interface WritingMenuSettings {
 	// ── AI 챗 ──────────────────────────────────────────────────────────────────
 	aiChatApiKey: string;
 	aiChatGeminiApiKey: string;
+	aiChatGeminiThinking: Record<string, string>;
 	aiChatModel: string;
 	aiChatClaudeCliPath: string;
 	aiChatClaudeCliModel: string;
@@ -417,6 +418,7 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	spellCheckIgnoredWords: [],
 	aiChatApiKey: '',
 	aiChatGeminiApiKey: '',
+	aiChatGeminiThinking: {},
 	aiChatModel: 'gemini-3.8-flash',
 	aiChatClaudeCliPath: '',
 	aiChatClaudeCliModel: '',

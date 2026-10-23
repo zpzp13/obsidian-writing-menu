@@ -11,6 +11,7 @@ import { GeminiServiceError } from './GeminiApiError';
 
 export interface ChatRequestOptions {
 	keys: AiChatApiKeys; model: string; temperature: number; maxTokens: number; historyTurns: number; stream: boolean;
+	thinkingLevel?: string;
 	ragTools?: RagTools;
 	freeOnly?: boolean;
 	cli?: CliChatOptions;
@@ -50,7 +51,7 @@ export class AiChatRequest {
 			if (options.freeOnly && !cli && !['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.1-flash-lite'].includes(options.model)) throw new Error('무료 전용 모드에서는 지원되는 Gemini 모델을 직접 선택해 주세요.');
 			const onText = (value: string) => { if (!controller.signal.aborted) { text = value; update({ status: 'streaming', text: session.mode === 'deus' ? visibleDeusAnswer(plainDeusReply(value, message.skill)) : value }); } };
 			const generate = cli && options.cli ? (await import('./CliChatApi')).cliGenerator(options.cli, options.stream) : undefined;
-			text = cli || options.freeOnly || session.mode === 'deus' ? await callGeminiRag({ key: options.keys.gemini, model: options.model, system, history, message, maxTokens: options.maxTokens, stream: options.stream, tools: options.ragTools, signal: controller.signal, onText, generate,
+			text = cli || options.freeOnly || session.mode === 'deus' ? await callGeminiRag({ key: options.keys.gemini, model: options.model, system, history, message, maxTokens: options.maxTokens, stream: options.stream, thinkingLevel: options.thinkingLevel, tools: options.ragTools, signal: controller.signal, onText, generate,
 				onPhase: phase => update({ status: 'sending', phase, text: '' }), onCheckpoint: () => this.storage.save(session),
 			}) : await callAiChat(options.keys, system, requestHistory, options.temperature, options.model, options.maxTokens, {
 				signal: controller.signal, stream: options.stream,
