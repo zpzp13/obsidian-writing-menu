@@ -1,3 +1,4 @@
+import { renderPlotWorkbookLinks } from './PlotWorkbookLinks';
 import { TFile, setIcon } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { PlotWorkbookSession } from './PlotWorkbookSession';
@@ -69,6 +70,8 @@ export function renderSidebarCell(parent: HTMLElement, plugin: WritingMenuPlugin
 		}
 		if(!items.length)parent.createSpan({cls:'wm-plotbook-sidebar-cell-empty',text:value || '등록된 복선이 없습니다.'});
 	} else {
-		parent.createDiv({cls:'wm-plotbook-sidebar-cell-text',text:value ? (expanded ? value : value.slice(0,1200)) : '내용 없음'});
+		const content = parent.createDiv({cls:'wm-plotbook-sidebar-cell-text'});
+		renderPlotWorkbookLinks(content, value ? (expanded ? value : value.slice(0,1200)) : '내용 없음', plugin.app,
+			sheet.rows[rowId]?.linkedNotePath || `${session.repository.projectRoot}/__plot__.md`);
 	}
 }

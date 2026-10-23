@@ -1,3 +1,5 @@
+import { PlotWorkbookLinkSuggest } from './PlotWorkbookLinkSuggest';
+import { renderPlotWorkbookLinks } from './PlotWorkbookLinks';
 import { detachedEl } from '../utils/dom';
 import { Menu, Notice, TFile, normalizePath, setIcon, type EventRef } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
@@ -139,6 +141,7 @@ export class InfinitePlotSheet {
 	private selectedCellKeys = new Set<string>();
 	private zoom = 1;
 	private editingCell: HTMLTextAreaElement | HTMLInputElement | null = null;
+	private linkSuggest: PlotWorkbookLinkSuggest | null = null;
 	private editorSize: PlotWorkbookCellEditorSize | null = null;
 	private selectedCellPreview: HTMLElement;
 	private selectedCellPreviewContent: HTMLElement;
@@ -637,6 +640,8 @@ export class InfinitePlotSheet {
 	}
 
 	destroy(): void {
+		this.linkSuggest?.destroy();
+		this.linkSuggest = null;
 		this.editorSize?.destroy();
 		this.editorSize = null;
 		this.checklistPopover?.close();
@@ -2055,7 +2060,7 @@ export class InfinitePlotSheet {
 	private readonly handleCellEvent = (event: Event): void => {
 		// Native textarea selection, focus and text dragging belong to the editor,
 		// not to the surrounding spreadsheet cell.
-		if ((event.target as Element | null)?.closest('.wm-plotbook-cell-editor')) return;
+		if ((event.target as Element | null)?.closest('.wm-plotbook-cell-editor, a.internal-link')) return;
 		const surface = (event.target as Element | null)?.closest?.<HTMLElement>('.wm-plotbook-cell, .wm-plotbook-selected-cell-preview');
 		const preview = surface === this.selectedCellPreview;
 		let cell = preview ? this.selectedCellPreviewSource : surface;
@@ -2232,23 +2237,23 @@ export class InfinitePlotSheet {
 	}
 
 	private renderSearchableText(content: HTMLElement, value: string, rowId: string, columnId: string): void {
-		const matches = this.findMatchesByCell.get(this.cellKey(rowId, columnId))?.filter(match => match.to > match.from && match.from < value.length);
-		if (!matches?.length || !this.searchContentNeedle) {
-			content.appendText(value);
-			return;
-		}
+		const matches = this.findMatchesByCell.get(this.cellKey(rowId, columnId)) ?? [];
 		const active = this.findMatches[this.activeFindMatch];
-		let offset = 0;
-		for (const match of matches) {
-			if (match.from > offset) content.appendText(value.slice(offset, match.from));
-			const mark = content.createSpan({ cls: 'wm-plotbook-search-hit', text: value.slice(match.from, match.to) });
-			mark.toggleClass('is-active', active?.rowId === rowId
-				&& active.columnId === columnId
-				&& active.from === match.from
-				&& active.to === match.to);
-			offset = Math.max(offset, match.to);
-		}
-		if (offset < value.length) content.appendText(value.slice(offset));
+		const sheet = this.session.activeSheet;
+		const sourcePath = sheet.rows[rowId]?.linkedNotePath || `${this.session.repository.projectRoot}/__plot__.md`;
+		renderPlotWorkbookLinks(content, value, this.plugin.app, sourcePath, (parent, text, start) => {
+			let offset = 0;
+			for (const match of this.searchContentNeedle ? matches : []) {
+				const from = Math.max(0, match.from - start), to = Math.min(text.length, match.to - start);
+				if (to <= from) continue;
+				parent.appendText(text.slice(offset, from));
+				const mark = parent.createSpan({ cls: 'wm-plotbook-search-hit', text: text.slice(from, to) });
+				mark.toggleClass('is-active', active?.rowId === rowId && active.columnId === columnId
+					&& active.from === match.from && active.to === match.to);
+				offset = to;
+			}
+			parent.appendText(text.slice(offset));
+		});
 	}
 
 	private renderMatchingLabel(content: HTMLElement, value: string): void {
@@ -3730,10 +3735,14 @@ export class InfinitePlotSheet {
 		this.selectionBox.addClass('is-editing-cell');
 		this.editingCell = input;
 		this.editorSize = new PlotWorkbookCellEditorSize(input, cell, this.viewport, this.zoom);
+		this.linkSuggest = new PlotWorkbookLinkSuggest(this.plugin.app, input,
+			sheet.rows[rowId]?.linkedNotePath || `${this.session.repository.projectRoot}/__plot__.md`);
 		let finished = false;
 		const finish = (commit: boolean) => {
 			if (finished) return;
 			finished = true;
+			this.linkSuggest?.destroy();
+			this.linkSuggest = null;
 			this.editorSize?.destroy();
 			this.editorSize = null;
 			const value = input.value;
@@ -3743,7 +3752,9 @@ export class InfinitePlotSheet {
 			input.remove();
 			cell.draggable = wasDraggable;
 			cell.removeClass('is-editing-expanded');
-			cell.setText(commit ? value : before);
+			// Restore the rendered content synchronously, before Enter moves selection.
+			// A plain-text placeholder flashes raw [[links]] until the next grid frame.
+			this.renderSearchableCellText(cell, commit ? value : before, rowId, columnId);
 			this.selectionBox.removeClass('is-editing-cell');
 			if (commit) this.session.setCell(rowId, columnId, value);
 			this.editingCell = null;
@@ -3751,7 +3762,7 @@ export class InfinitePlotSheet {
 		};
 		input.addEventListener('blur', () => finish(true));
 		input.addEventListener('keydown', event => {
-			if (event.isComposing) return;
+			if (event.defaultPrevented || event.isComposing) return;
 			if (event.key === 'Escape') {
 				event.preventDefault();
 				finish(false);

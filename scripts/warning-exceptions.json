@@ -264,6 +264,15 @@
   ],
   "capabilities": [
     {
+      "file": "src/plot-workbook/PlotWorkbookLinkSuggest.ts",
+      "kind": "vault-enumeration",
+      "call": "this.app.vault.getMarkdownFiles",
+      "fingerprint": "ca01e700c013e484d91a263b042ea9c148f32036beeb3c34f9f4a91ac60eaae4",
+      "count": 1,
+      "reason": "The existing native plot link suggestions enumerate vault Markdown names and cached aliases to insert a selected internal link. They do not read or transmit note contents.",
+      "tests": ["scripts/verify-plot-link-suggest.mjs"]
+    },
+    {
       "file": "src/aichat/AiChatPanel.ts",
       "kind": "vault-enumeration",
       "call": "this.plugin.app.vault.getMarkdownFiles",

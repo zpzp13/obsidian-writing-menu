@@ -43,6 +43,19 @@ if (plotSuite) {
 
 const obsidianStub = obsidianSearchStub + `
 export class Scope { register() {} }
+// Native SDK contract double; dropdown styling/keymap are supplied by Obsidian.
+export const prepareFuzzySearch = prepareSimpleSearch;
+export function parseFrontMatterAliases(fm) { return fm?.aliases ?? []; }
+export function renderResults(el, text) { el.setText(text); }
+export class AbstractInputSuggest {
+ constructor(app, input) {
+  this.app = app;
+  const update = () => { this.items = this.getSuggestions(this.getValue()); };
+  input.addEventListener('input', update); input.addEventListener('focus', update);
+ }
+ close() {}
+}
+
 export class Notice { constructor(message) { console.warn(message); } }
 export class WorkspaceLeaf {}
 export class App {}

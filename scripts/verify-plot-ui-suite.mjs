@@ -890,6 +890,22 @@ export async function runPlotChecks() {
 	assert(searchGrid.editingCell.value === completeCellSource, 'Cell editing opened a shortened source value');
 	searchGrid.editingCell.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
 	assert(searchSession.getCell(searchSheet, searchRow, searchColumns[1]) === completeCellSource, 'Preview measurement modified persisted data');
+	// Check in the same task as edit completion: waiting a frame masks raw-link flashes.
+	await settle();
+	for (const mode of ['Enter', 'blur', 'Escape']) {
+		searchGrid.select(2, 1, false);
+		const linkCell = searchGrid.canvas.querySelector('.wm-plotbook-cell[data-row="2"][data-column="1"]');
+		searchGrid.beginEditingCell(linkCell, 2, 1);
+		searchGrid.editingCell.value = mode === 'Escape' ? '취소할 변경' : '앞 [[노트#제목|표시 이름]] 뒤';
+		if (mode === 'blur') searchGrid.editingCell.dispatchEvent(new Event('blur'));
+		else searchGrid.editingCell.dispatchEvent(new KeyboardEvent('keydown', { key: mode, bubbles: true, cancelable: true }));
+		assert(linkCell.querySelector('a.internal-link')?.dataset.href === '노트#제목'
+			&& linkCell.textContent === '앞 표시 이름 뒤', `${mode} left raw wiki syntax until a scheduled render`);
+		if (mode === 'Enter') assert(searchGrid.selected.rowIndex === 3, 'Immediate link rendering blocked Enter navigation');
+		assert(searchSession.getCell(searchSheet, searchRow, searchColumns[1]) === '앞 [[노트#제목|표시 이름]] 뒤', 'Immediate rendering changed stored link syntax');
+		await settle();
+	}
+	console.info('Enter, blur and Escape render internal links synchronously before the next grid frame');
 	searchGrid.destroy(); searchHost.remove();
 	console.info('Search, bounded native wrapping at 100%/160%, full preview, clipboard and editing passed');
 
