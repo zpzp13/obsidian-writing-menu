@@ -54,6 +54,7 @@ export async function runPlotChecks() {
 		leafStyleVersions: new Map(), cssSettingsVersion: 1, leafIdCounter: 1,
 		toolbarElements: new Map(), charCountElements: new Map(),
 	};
+	plugin.toolbarManager = new ToolbarManager(plugin);
 	const styles = new LeafStyleManager(plugin);
 	plugin.shouldApplyToFile = file => styles.shouldApplyToFile(file);
 	// Mount the real shared toolbar, not the ToolbarManager isolation stub.
@@ -147,6 +148,7 @@ export async function runPlotChecks() {
 	const otherLeaf = { view: { file: { path:'Notes/other.md' } } };
 	app.workspace.getMostRecentLeaf = () => otherLeaf;
 	const modePlugin = { ...plugin, settings: { ...plugin.settings, writingWidgetOrder:[] },
+		get zenState() { return plugin.zenState; },
 		stopwatchManager: { subscribeWidget: () => () => {} },
 		addDualColorControl() {},
 		calculateAllCharCounts: text => ({ munpia:text.length, novelpia:text.length }),
@@ -157,6 +159,18 @@ export async function runPlotChecks() {
 		getAlignment:() => null, setAlignment() {}, applyTextColor() {}, clearTextColors() {},
 		getRecentTextColor:() => '', switchView() {}, getZoom:() => 1, setZoom() {} };
 	const modeToolbar = new WritingToolbar(modePlugin, modeHost, modeSurface);
+	plugin.toolbarManager.writingToolbars.set(leaf, modeToolbar);
+	const secondModeHost = scopeHost.createDiv();
+	const secondModeToolbar = new WritingToolbar(modePlugin, secondModeHost, { ...modeSurface, kind:'paged' });
+	const secondModeLeaf = {};
+	plugin.toolbarManager.writingToolbars.set(secondModeLeaf, secondModeToolbar);
+	const assertModeButtons = state => {
+		for (const toolbar of [modeToolbar, secondModeToolbar]) for (const mode of ['wide', 'focus']) {
+			const button = toolbar.toolbarEl.querySelector(`.wm-writing-${mode}-mode-button`);
+			assert(button.classList.contains('is-active') === (state === mode), `${toolbar.toolbarEl.className}: ${mode} button is stale after switching to ${state}`);
+			assert(button.getAttribute('aria-pressed') === String(state === mode), `${mode} button's aria-pressed is stale after switching to ${state}`);
+		}
+	};
 	modePlugin.saveSettings = async () => {
 		Object.assign(plugin.settings, modePlugin.settings);
 		styles.regenerateCSSTemplate();
@@ -173,12 +187,36 @@ export async function runPlotChecks() {
 	modeToolbar.closePopover();
 	modeToolbar.toolbarEl.querySelector('.wm-writing-wide-mode-button').click();
 	assert(plugin.zenState === 'wide', 'Wide icon ignored the toolbar document');
+	assertModeButtons('wide');
+	styles.toggleZenMode('wide'); // The command takes this path, without a toolbar target.
+	assertModeButtons('off');
+	app.workspace.getMostRecentLeaf = () => leaf;
+	styles.toggleZenMode('wide');
+	assertModeButtons('wide');
 	modeToolbar.toolbarEl.querySelector('.wm-writing-wide-mode-button').click();
+	assertModeButtons('off');
 	modeToolbar.toolbarEl.querySelector('.wm-writing-focus-mode-button').click();
 	assert(plugin.zenState === 'focus' && plugin.zenLeaf === leaf, 'Focus icon did not target the toolbar document');
+	assertModeButtons('focus');
+	styles.toggleZenMode('focus');
+	assertModeButtons('off');
+	styles.toggleZenMode('focus');
+	assertModeButtons('focus');
 	modeToolbar.toolbarEl.querySelector('.wm-writing-focus-mode-button').click();
 	assert(plugin.zenState === 'off', 'Focus icon did not toggle off');
+	assertModeButtons('off');
+	styles.toggleZenMode('wide');
+	styles.toggleZenMode('focus');
+	assertModeButtons('focus');
+	styles.toggleZenMode('wide');
+	assertModeButtons('wide');
+	styles.toggleZenMode('focus');
+	styles.exitZenFocus(); // Escape/fullscreenchange and project-scope exits share this path.
+	assertModeButtons('off');
+	plugin.toolbarManager.writingToolbars.clear();
+	secondModeToolbar.destroy(); secondModeHost.remove();
 	modeToolbar.destroy(); modeHost.remove();
+	console.info('Wide/focus buttons stay synchronized across commands, toolbar clicks, mode switches, fullscreen exit and both editor types');
 	const mobilePlugin = { ...modePlugin, toolbarElements:new Map(), charCountElements:new Map(), updateLeafStyles() {} };
 	plugin.mobileFonts = mobilePlugin.mobileFonts = {ensureSelected:async()=>{},cssFamily:()=>mobilePlugin.settings.mobileFontFamily === 'ridibatang' ? 'monospace' : mobilePlugin.settings.mobileFontFamily === 'maruburi' ? 'serif' : 'inherit'};
 	const mobileToolbar = new ToolbarManager(mobilePlugin);

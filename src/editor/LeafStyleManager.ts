@@ -254,6 +254,7 @@ export class LeafStyleManager {
 			if (this.plugin.zenLeafEventRef) { this.plugin.app.workspace.offref(this.plugin.zenLeafEventRef); this.plugin.zenLeafEventRef = null; }
 			if (prevState === 'focus' && activeDocument.fullscreenElement) void activeDocument.exitFullscreen().catch(() => {});
 			activeDocument.body.classList.add('wm-wide-mode');
+			this.plugin.toolbarManager.refreshZenModeButtons();
 			return;
 		}
 
@@ -272,6 +273,7 @@ export class LeafStyleManager {
 			this.plugin.app.workspace.offref(this.plugin.zenLeafEventRef);
 			this.plugin.zenLeafEventRef = null;
 		}
+		this.plugin.toolbarManager.refreshZenModeButtons();
 	}
 
 	activateFocusMode(leaf?: WorkspaceLeaf) {
@@ -288,6 +290,7 @@ export class LeafStyleManager {
 				if (leaf && this.plugin.zenState === 'focus') this.applyZenLeaf(leaf);
 			});
 		}
+		this.plugin.toolbarManager.refreshZenModeButtons();
 	}
 
 	toggleZenMode(mode: 'wide' | 'focus', targetLeaf?: WorkspaceLeaf) {

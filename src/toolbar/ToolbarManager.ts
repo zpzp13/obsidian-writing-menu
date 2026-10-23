@@ -171,6 +171,10 @@ export class ToolbarManager {
 		this.writingToolbars.forEach(toolbar => toolbar.refresh());
 	}
 
+	refreshZenModeButtons(): void {
+		this.writingToolbars.forEach(toolbar => toolbar.refreshZenModeButtons());
+	}
+
 	destroy(): void {
 		for (const leaf of Array.from(this.writingToolbars.keys())) this.forgetToolbar(leaf);
 	}

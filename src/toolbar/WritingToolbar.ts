@@ -209,13 +209,11 @@ export class WritingToolbar {
 
 		this.wideModeButtonEl = this.createIconButton(actions, 'maximize-2', '길게 보기', () => {
 			this.plugin.toggleZenMode('wide', this.surface.leaf);
-			this.refreshZenModeButtons();
 		});
 		this.wideModeButtonEl.addClass('wm-writing-wide-mode-button');
 		this.wideModeButtonEl.setAttribute('aria-pressed', 'false');
 		this.focusModeButtonEl = this.createIconButton(actions, 'flame', '집중 모드', () => {
 			this.plugin.toggleZenMode('focus', this.surface.leaf);
-			this.refreshZenModeButtons();
 		});
 		this.focusModeButtonEl.addClass('wm-writing-focus-mode-button');
 		this.focusModeButtonEl.setAttribute('aria-pressed', 'false');
@@ -375,7 +373,7 @@ export class WritingToolbar {
 		this.timerWidgetValueEl.parentElement?.toggleClass('is-running', TimerStopwatchWidget.isRunning(this.plugin));
 	}
 
-	private refreshZenModeButtons(): void {
+	refreshZenModeButtons(): void {
 		const wideActive = this.plugin.zenState === 'wide' || activeDocument.body.classList.contains('wm-wide-mode');
 		const focusActive = this.plugin.zenState === 'focus' || activeDocument.body.classList.contains('wm-focus-mode');
 		this.wideModeButtonEl?.toggleClass('is-active', wideActive);
