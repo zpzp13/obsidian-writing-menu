@@ -25,7 +25,7 @@ export default [...obsidianmd.configs.recommended, {
 		'no-console': ['error', { allow: ['warn', 'error', 'debug'] }],
 		'obsidianmd/ui/sentence-case': ['warn', {
 			brands: ['Obsidian', 'Markdown', 'Daum', 'NVIDIA Build', 'Google AI Studio', 'Python', 'Lucide', 'Enter', 'Music Library'],
-			acronyms: ['TXT', 'HWP', 'PC', 'AI', 'API', 'NVIDIA', 'BGM', 'SVG', 'JSON'],
+			acronyms: ['TXT', 'HWP', 'PC', 'AI', 'API', 'CLI', 'NVIDIA', 'BGM', 'SVG', 'JSON'],
 			ignoreRegex: ['^inherit$', '^YYYY-MM-DD$', '^nvapi-\\.\\.\\.$', '^AIza\\.\\.\\.$', '^Music/BGM$', String.raw`^C:\\Users\\사용자\\Desktop$`],
 			enforceCamelCaseLower: true,
 		}],

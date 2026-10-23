@@ -1,4 +1,5 @@
 import { isComposingKey } from '../utils/inputCompatibility';
+import { cliChatOptions } from './CliChatApi';
 import { Component, MarkdownRenderer, Menu, Modal, Notice, Setting, TFile, normalizePath, setIcon, type HoverParent } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { getOpenWritingDocuments, getWritingDocument, getWritingDocumentForView } from '../writing/WritingDocument';
@@ -16,7 +17,7 @@ import { deusCitationLeaf } from './DeusCitationLeaf';
 import { getWikiColor, getWikiDisplayName } from '../wiki/wikiProfileUtils';
 import { renderChatAvatar } from './ChatAvatar';
 import { AiChatRenameModal } from './AiChatRenameModal';
-import { AI_CHAT_MODELS, deusChatModels, effectiveChatModel, getModelProvider, hasApiKeyForModel } from './AiChatApi';
+import { AI_CHAT_MODELS, cliChatProvider, selectChatModel, deusChatModels, effectiveChatModel, getModelProvider, hasApiKeyForModel } from './AiChatApi';
 import { stripWrapping } from './AiChatContext';
 import { AiChatStorage } from './AiChatStorage';
 import { AiChatRequest, type ChatRequestOptions, type ChatRequestState } from './AiChatRequest';
@@ -212,7 +213,7 @@ export class AiChatPanel {
 		const menu = new Menu();
 		compactDeusMenu(menu);
 		for (const model of deusChatModels(this.plugin.settings)) menu.addItem(item => item.setTitle(model.label).setChecked(effectiveChatModel(this.plugin.settings) === model.id).onClick(async () => {
-			if (this.plugin.settings.aiChatFreeOnly) this.plugin.settings.aiChatFreeModel = model.id; else this.plugin.settings.aiChatModel = model.id;
+			selectChatModel(this.plugin.settings, model.id);
 			await this.plugin.saveSettings(); this.updateComposer();
 		}));
 		menu.showAtMouseEvent(event);
@@ -564,6 +565,10 @@ export class AiChatPanel {
 		const { intent, source, project, open: openDocuments } = prepared;
 		const contexts = existing?.context ? existing.context.sources.filter(item => !item.automatic || item.kind === 'selection' || item.kind === 'document' || item.id.startsWith('deus-cast:')).map(item => ({ ...item })) : prepared.attachments;
 		if (session.mode === 'deus' && !project) { new Notice('검색할 프로젝트를 선택해 주세요.'); return; }
+		const cli = cliChatProvider(options.model);
+		if (cli) {
+			try { options.cli = cliChatOptions(this.plugin, cli, project?.rootFolder); } catch (error) { report(error); return; }
+		}
 		try { requestedEpisodeScope(value); } catch (error) { report(error); return; }
 		const episodeTarget = requestedEpisode(value);
 		session.projectRoot ??= project?.rootFolder;

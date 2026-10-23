@@ -8,7 +8,7 @@ import { requestGeminiStream } from './GeminiTransport';
 const NVIDIA_CHAT_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
 const GEMINI_CHAT_URL = (model: string) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
-export type AiChatProvider = 'nvidia' | 'gemini';
+export type AiChatProvider = 'nvidia' | 'gemini' | 'cli';
 
 export interface AiChatApiKeys {
 	nvidia: string;
@@ -21,14 +21,22 @@ export const AI_CHAT_MODELS: Array<{ id: string; label: string; provider: AiChat
 	{ id: 'gemma-4-31b-it', label: 'Gemma 4 31B IT (창작 · 오픈 모델)', provider: 'gemini' },
 	{ id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash-Lite', provider: 'gemini' },
 	{ id: 'google/diffusiongemma-26b-a4b-it', label: 'DiffusionGemma 26B (NVIDIA · 실험적)', provider: 'nvidia' },
+	{ id: 'claude-cli', label: 'Claude Code (CLI)', provider: 'cli' },
+	{ id: 'codex-cli', label: 'Codex (CLI)', provider: 'cli' },
 ];
 export const DEFAULT_AI_CHAT_MODEL = 'gemini-3.5-flash-lite';
 export const FREE_CHAT_MODELS = AI_CHAT_MODELS.filter(model => ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.1-flash-lite'].includes(model.id));
-const DEUS_CHAT_MODELS = AI_CHAT_MODELS.filter(model => model.id.startsWith('gemini-'));
+const CLI_CHAT_MODELS = AI_CHAT_MODELS.filter(model => model.provider === 'cli');
+const DEUS_CHAT_MODELS = AI_CHAT_MODELS.filter(model => model.id.startsWith('gemini-') || model.provider === 'cli');
 export function deusChatModels(settings: { aiChatFreeOnly: boolean }): typeof AI_CHAT_MODELS {
-	return settings.aiChatFreeOnly ? FREE_CHAT_MODELS : DEUS_CHAT_MODELS;
+	return settings.aiChatFreeOnly ? [...FREE_CHAT_MODELS, ...CLI_CHAT_MODELS] : DEUS_CHAT_MODELS;
 }
-export function effectiveChatModel(settings: { aiChatModel: string; aiChatFreeOnly: boolean; aiChatFreeModel?: string }): string { return settings.aiChatFreeOnly ? FREE_CHAT_MODELS.some(model => model.id === settings.aiChatFreeModel) ? settings.aiChatFreeModel! : DEFAULT_AI_CHAT_MODEL : settings.aiChatModel; }
+export function cliChatProvider(model: string): 'claude' | 'codex' | undefined { return model === 'claude-cli' ? 'claude' : model === 'codex-cli' ? 'codex' : undefined; }
+export function selectChatModel(settings: { aiChatModel: string; aiChatFreeOnly: boolean; aiChatFreeModel: string }, model: string): void {
+	settings.aiChatModel = model;
+	if (settings.aiChatFreeOnly && !cliChatProvider(model)) settings.aiChatFreeModel = model;
+}
+export function effectiveChatModel(settings: { aiChatModel: string; aiChatFreeOnly: boolean; aiChatFreeModel?: string }): string { return cliChatProvider(settings.aiChatModel) ? settings.aiChatModel : settings.aiChatFreeOnly ? FREE_CHAT_MODELS.some(model => model.id === settings.aiChatFreeModel) ? settings.aiChatFreeModel! : DEFAULT_AI_CHAT_MODEL : settings.aiChatModel; }
 
 export function getModelProvider(model: string): AiChatProvider {
 	const configured = AI_CHAT_MODELS.find(m => m.id === model)?.provider;
@@ -37,7 +45,8 @@ export function getModelProvider(model: string): AiChatProvider {
 }
 
 export function hasApiKeyForModel(apiKeys: AiChatApiKeys, model: string): boolean {
-	return Boolean(apiKeys[getModelProvider(model)]?.trim());
+	const provider = getModelProvider(model);
+	return provider === 'cli' || Boolean(apiKeys[provider]?.trim());
 }
 
 // enable_thinking chat_template_kwargs를 지원하는 모델들 (Gemma 계열 채팅 템플릿 전용 옵션, NVIDIA 라우팅 모델만 해당)
@@ -164,6 +173,7 @@ export interface AiChatRequestOptions { signal?: AbortSignal; stream?: boolean; 
 
 export async function callAiChat(apiKeys: AiChatApiKeys, systemPrompt: string, history: AiChatMessage[], temperature = 1.0, model = DEFAULT_AI_CHAT_MODEL, maxTokens = 8192, options: AiChatRequestOptions = {}): Promise<string> {
 	checkChatAbort(options.signal);
+	if (cliChatProvider(model)) throw new Error('CLI 모델은 프로젝트 문맥을 포함하는 Deus 요청으로 실행해 주세요.');
 	if (getModelProvider(model) === 'gemini' && options.stream) {
 		let response: Response;
 		try {

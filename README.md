@@ -48,7 +48,7 @@ Ask questions using your project's manuscripts, character notes, and plots.
   </tr>
 </table>
 
-Requires a Gemini API key. Citations open in the current tab by default; you can choose a new tab in settings.
+Choose Gemini, Claude Code (CLI), or Codex (CLI) in the model selector. Gemini requires an API key. CLI models use an installed, authenticated desktop CLI. Selecting a CLI opens the model catalog and supported effort levels reported by the installed tool. You can also choose its model, effort, and executable path in Deus settings; a blank path uses automatic executable discovery. All providers share the same project context, retrieval, and citation handling. Citations open in the current tab by default; you can choose a new tab in settings.
 
 ## Review and restore
 
@@ -94,13 +94,13 @@ Look up Korean words, review spelling corrections, and insert symbols with layou
 1. Download `writing-menu-3.4.1.zip` from the [release page](https://github.com/zpzp13/obsidian-writing-menu/releases/tag/3.4.1).
 2. Extract the ZIP and copy the complete `writing-menu` folder into `.obsidian/plugins/` in your vault.
 3. Enable Writing Menu in Obsidian's Community Plugins settings. Keep your existing `data.json` when updating.
-4. Register your project and manuscript/character folders in the plugin settings. Add API keys for the dictionary and Deus AI services you use.
+4. Register your project and manuscript/character folders in the plugin settings. Add API keys for the dictionary and Gemini services you use. For CLI models, first sign in from a terminal with `claude auth login` or `codex login`.
 
 Assign shortcuts under **Obsidian Settings → Hotkeys → Writing Menu**.
 
 ## External services and license
 
-Deus AI sends your conversation and reference material to the Gemini API. Dictionary and spell-checking tools use their respective services. Mobile fonts and optional analysis assets are downloaded on request and stored locally. Spell checking uses unofficial endpoints; follow the provider's terms.
+Deus AI sends your conversation and reference material to the selected model provider through the Gemini API or an installed CLI. Dictionary and spell-checking tools use their respective services. Mobile fonts and optional analysis assets are downloaded on request and stored locally. Spell checking uses unofficial endpoints; follow the provider's terms.
 
 See [plugin permissions](docs/plugin-permissions.md) for filesystem, Python, clipboard, and local-storage usage.
 

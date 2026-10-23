@@ -7,9 +7,11 @@ import { geminiApiError } from './GeminiApiError';
 import { requestGeminiStream } from './GeminiTransport';
 
 export interface GeminiUsage { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number; totalTokenCount?: number }
-interface GeminiPart { text?: string; thought?: boolean; functionCall?: { id?: string; name: string; args?: Record<string, unknown> }; [key: string]: unknown }
-interface GeminiContent { role: string; parts: GeminiPart[] }
-interface GeminiStep { parts: GeminiPart[]; text: string; calls: RagToolCall[]; usage?: GeminiUsage }
+export interface GeminiPart { text?: string; thought?: boolean; functionCall?: { id?: string; name: string; args?: Record<string, unknown> }; [key: string]: unknown }
+export interface GeminiContent { role: string; parts: GeminiPart[] }
+export interface GeminiStep { parts: GeminiPart[]; text: string; calls: RagToolCall[]; usage?: GeminiUsage }
+export interface DeusGenerationInput { system: string; contents: GeminiContent[]; tools: unknown[]; forceSearch: boolean; maxTokens: number }
+export type DeusGenerator = (input: DeusGenerationInput, signal?: AbortSignal, onText?: (text: string) => void) => Promise<GeminiStep>;
 const declarations = [
 	{ name: 'list_sources', description: '프로젝트 전체의 자료 목록을 페이지별로 조회합니다. 전체 인물·설정 목록 질문에 사용하세요. next_offset이 있으면 다음 페이지를 조회하세요.', parameters: { type: 'OBJECT', properties: { offset: { type: 'INTEGER' }, kind: { type: 'STRING', enum: ['character', 'plot', 'reference'] } } } },
 	{ name: 'search_sources', description: 'Obsidian API로 프로젝트 본문·인물·설정·플롯을 검색합니다. 인물 이름·별칭·관련 용어로 찾고, 부족하면 다른 표현으로 검색하세요. 검색된 원문의 앞뒤는 read_source로 확인하세요.', parameters: { type: 'OBJECT', properties: { query: { type: 'STRING' }, mode: { type: 'STRING', enum: ['keyword'] } }, required: ['query'] } },
@@ -20,6 +22,8 @@ export interface GeminiRagOptions {
 	key: string; model: string; system: string; history: AiChatMessage[]; maxTokens: number; stream: boolean; signal?: AbortSignal;
 	tools?: RagTools; message: AiChatMessage; onText?: (text: string) => void; onPhase?: (phase: 'reading' | 'answering') => void;
 	onCheckpoint?: () => Promise<void>;
+	/** Alternative inference transport; evidence, tool limits and citations use the same loop. */
+	generate?: DeusGenerator;
 }
 
 const sceneTool = 'render_character_scene';
@@ -48,7 +52,9 @@ async function step(options: GeminiRagOptions, contents: GeminiContent[], allowT
 	const finish = Boolean(options.tools) && !allowTools;
 	const character = options.message.skill === 'character';
 	const availableDeclarations = [...(allowTools ? declarations : []), ...(character ? [characterSceneDeclaration(options)] : [])];
-	const body = JSON.stringify({ system_instruction: { parts: [{ text: options.system + (finish ? '\n이번 응답은 추가 자료 조회 없이 최종 답변을 작성하세요. 제공된 원문과 확인한 근거로 질문에 직접 답하고, 근거가 없는 부분은 확인하지 못했다고 밝히세요. 조회한 범위와 인용 규칙을 지키세요.' : '') + (character ? `\n최종 장면은 반드시 ${sceneTool} 도구의 turns 배열로 출력하세요. 지문과 대사는 각각 별도 항목이며 대사마다 speaker에 실제 화자 이름을 넣으세요. 대사 text에는 목록 기호나 화자 이름을 중복해서 넣지 마세요.` : '') }] }, contents,
+	const system = options.system + (finish ? '\n이번 응답은 추가 자료 조회 없이 최종 답변을 작성하세요. 제공된 원문과 확인한 근거로 질문에 직접 답하고, 근거가 없는 부분은 확인하지 못했다고 밝히세요. 조회한 범위와 인용 규칙을 지키세요.' : '') + (character ? `\n최종 장면은 반드시 ${sceneTool} 도구의 turns 배열로 출력하세요. 지문과 대사는 각각 별도 항목이며 대사마다 speaker에 실제 화자 이름을 넣으세요. 대사 text에는 목록 기호나 화자 이름을 중복해서 넣지 마세요.` : '');
+	if (options.generate) return options.generate({ system, contents, tools: forceSearch ? declarations.filter(tool => tool.name === 'search_sources') : availableDeclarations, forceSearch, maxTokens: options.maxTokens }, options.signal, options.onText);
+	const body = JSON.stringify({ system_instruction: { parts: [{ text: system }] }, contents,
 		generationConfig: { maxOutputTokens: options.maxTokens, thinkingConfig: { thinkingLevel: options.model === 'gemini-3.8-flash' ? 'low' : 'minimal' } },
 		...(availableDeclarations.length ? { tools: [{ functionDeclarations: availableDeclarations }] } : {}),
 		...(forceSearch ? { toolConfig: { functionCallingConfig: { mode: 'ANY', allowedFunctionNames: ['search_sources'] } } } : {}),

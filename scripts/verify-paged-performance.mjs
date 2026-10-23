@@ -2,6 +2,7 @@
 // process is opened. Run with: node scripts/verify-paged-performance.mjs
 import { build } from 'esbuild';
 import { spawn } from 'node:child_process';
+import { builtinModules } from 'node:module';
 import { createServer } from 'node:http';
 import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, rm, mkdir, writeFile } from 'node:fs/promises';
@@ -269,7 +270,7 @@ const bundle = await build({
 	write: false,
 	format: 'iife',
 	platform: 'browser',
-	external: ['fs'],
+	external: [...builtinModules],
 	plugins: [{
 		name: 'minimal-obsidian-host',
 		setup(builder) {

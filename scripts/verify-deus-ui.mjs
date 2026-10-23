@@ -11,6 +11,8 @@ const { chromium } = require('C:/Users/82109/.cache/codex-runtimes/codex-primary
 const obsidian = `
 export class Component { children=[]; callbacks=[]; addChild(child){this.children.push(child);return child;} register(fn){this.callbacks.push(fn);} registerEvent(){} load(){} unload(){for(const child of this.children)child.unload();for(const fn of this.callbacks.splice(0))fn();} }
 export class TFile {}
+export class FileSystemAdapter { getFullPath(path){return 'C:/Synthetic Vault/'+path;} getBasePath(){return 'C:/Synthetic Vault';} }
+export const Platform = {isDesktop:false};
 export class Modal extends Component { constructor(app){super();this.app=app;} }
 export class FuzzySuggestModal extends Modal {setPlaceholder(){} open(){} close(){}}
 export class Notice {constructor(text){console.log(text);}}
@@ -27,7 +29,7 @@ export const requestUrl=async()=>{throw Error('Unexpected real API');};
 export const prepareSimpleSearch=()=>()=>null;
 export const MarkdownRenderer={render:async(_app,text,el)=>{for(const para of text.split(/\\n\\n+/)){const p=el.createEl('p');p.textContent=para;}}};
 `;
-const bundle = await build({ entryPoints: ['scripts/deus-ui-fixture.ts'], bundle: true, write: false, platform: 'browser', format: 'iife', plugins: [{ name: 'offline-ui', setup(builder) {
+const bundle = await build({ entryPoints: ['scripts/deus-ui-fixture.ts'], bundle: true, write: false, platform: 'browser', format: 'iife', external: ['child_process', 'fs/promises', 'os', 'path'], plugins: [{ name: 'offline-ui', setup(builder) {
 	builder.onResolve({ filter: /^obsidian$/ }, () => ({ path: 'obsidian', namespace: 'fixture' }));
 	builder.onResolve({ filter: /WritingDocument$|AiChatPlotKnowledge$|AiChatContextModal$|wikiProfileUtils$|RagIndexService$/ }, args => ({ path: args.path, namespace: 'fixture' }));
 	builder.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ contents: args.path === 'obsidian' ? obsidian

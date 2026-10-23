@@ -160,7 +160,7 @@ const quota = await load('src/aichat/ChatQuotaError.ts');
 const apiErrors = await load('src/aichat/GeminiApiError.ts', { './ChatQuotaError': quota });
 let calls = [], responses = [];
 const rag = await load('src/aichat/GeminiRagApi.ts', { obsidian: { requestUrl: async options => { calls.push(JSON.parse(options.body)); const text = responses.shift(); assert(text, 'Unexpected extra API call'); return { status: 200, json: { candidates: [{ content: { parts: [{ text }] } }] } }; } }, './AiChatPrompt': prompt, './ChatStream': stream, './GeminiApiError': apiErrors });
-const { AiChatRequest } = await load('src/aichat/AiChatRequest.ts', { './AiChatApi': { callAiChat: () => { throw Error('Unexpected provider'); } }, './AiChatPrompt': prompt, './AiChatContext': { parseAssistantSegments: text => [{ type: 'dialogue', text }] }, './ChatStream': stream, './GeminiRagApi': rag, './ChatQuotaError': quota, './GeminiApiError': apiErrors });
+const { AiChatRequest } = await load('src/aichat/AiChatRequest.ts', { './AiChatApi': { cliChatProvider: () => undefined, callAiChat: () => { throw Error('Unexpected provider'); } }, './AiChatPrompt': prompt, './AiChatContext': { parseAssistantSegments: text => [{ type: 'dialogue', text }] }, './ChatStream': stream, './GeminiRagApi': rag, './ChatQuotaError': quota, './GeminiApiError': apiErrors });
 globalThis.window = globalThis;
 let saved, state;
 const request = new AiChatRequest({ save: async session => { saved = structuredClone(session); } });

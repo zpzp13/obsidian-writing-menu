@@ -273,6 +273,42 @@
       "tests": ["scripts/verify-plot-link-suggest.mjs"]
     },
     {
+      "file": "src/aichat/CliChatProcess.ts",
+      "kind": "process",
+      "call": "require(child_process)",
+      "fingerprint": "2fbcd86bc8bd5690991c18f316a130c0a1c99d0f94d3e8a8a611ee66a77ee1b2",
+      "count": 1,
+      "reason": "Desktop-only CLI inference and cancellation load the process API only behind Platform.isDesktop; mobile never loads Node modules.",
+      "tests": ["scripts/verify-deus-cli.mjs"]
+    },
+    {
+      "file": "src/aichat/CliChatProcess.ts",
+      "kind": "filesystem",
+      "call": "require(fs/promises)",
+      "fingerprint": "4989c350b4f4d457f1f91d000d744b50db1e6e2065423fed20bc60cb45dd1311",
+      "count": 1,
+      "reason": "Desktop CLI discovery uses stat to validate executable and project paths; it does not read or write files outside the vault.",
+      "tests": ["scripts/verify-deus-cli.mjs"]
+    },
+    {
+      "file": "src/aichat/CliChatProcess.ts",
+      "kind": "process",
+      "call": "spawn",
+      "fingerprint": "42b5e679390f22ab80706a57ac098dbb3d7ba66e65c5af213aba41f163de6a3b",
+      "count": 1,
+      "reason": "Launches the user's native CLI or a real Node runtime, never the Electron host, with an argument array, shell:false and windowsHide:true. Both inference and model-catalog initialization use stdin/stdout; Deus owns read-only retrieval.",
+      "tests": ["scripts/verify-deus-cli.mjs"]
+    },
+    {
+      "file": "src/aichat/CliChatProcess.ts",
+      "kind": "process",
+      "call": "spawn",
+      "fingerprint": "73c7afa0ff80b2acb81804644eb547240b5ed50702517b755ceecf8b692cecd5",
+      "count": 1,
+      "reason": "Windows cancellation terminates only the PID and descendants of the CLI spawned for this request, using taskkill without a shell. Other platforms kill the child directly.",
+      "tests": ["scripts/verify-deus-cli.mjs"]
+    },
+    {
       "file": "src/aichat/AiChatPanel.ts",
       "kind": "vault-enumeration",
       "call": "this.plugin.app.vault.getMarkdownFiles",

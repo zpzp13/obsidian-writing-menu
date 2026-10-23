@@ -1,4 +1,4 @@
-import { Component, TFile } from 'obsidian';
+import { Component, FileSystemAdapter, TFile } from 'obsidian';
 import { AiChatPanel } from '../src/aichat/AiChatPanel';
 import { DEFAULT_SETTINGS } from '../src/types';
 import { alignDeusSubmenu } from '../src/aichat/DeusMenus';
@@ -22,7 +22,7 @@ const settle = () => new Promise(resolve => setTimeout(resolve, 350));
 	(globalThis as any).deusFixtureDocument = { file: files[0], path: files[0].path, read: () => '아린과 도윤이 문 앞에서 만났다. 저장 전 장면.', editor: { getSelection: () => '' } };
 	(globalThis as any).deusFixturePlots = [{ id: 'plot-row', path: files[0].path, kind: 'plot', title: '플롯 · 10행', text: '화해를 시도한다.', characterPaths: [files[1].path, files[2].path], automatic: true }];
 	const owner = new Component(), panel: any = new AiChatPanel(plugin, owner), host = document.body.createDiv({ cls: 'wm-chat-panel' });
-	const settingsHost=document.body.createDiv(),settingsPlugin={settings:structuredClone(DEFAULT_SETTINGS),saveSettings:async()=>{}},sections:string[]=[];let apiOpened=false;
+	const settingsHost=document.body.createDiv(),settingsPlugin={settings:structuredClone(DEFAULT_SETTINGS),app:{vault:{adapter:new FileSystemAdapter()}},saveSettings:async()=>{}},sections:string[]=[];let apiOpened=false;
 	renderDeusSettings(settingsPlugin as any,{section:title=>{sections.push(title);const group=settingsHost.createDiv();group.dataset.section=title;return group;},openApi:()=>{apiOpened=true;}});
 	assert(sections.join(',')==='알아둬야 할 것들,대화','Search guidance is not the first settings section');
 	assert(settingsHost.querySelector('[data-section="알아둬야 할 것들"]')?.textContent?.includes('회차 조회')&&settingsHost.querySelector('[data-section="알아둬야 할 것들"]')?.textContent?.includes('인물 행적 조회'),'Search guidance items are missing');
@@ -259,9 +259,9 @@ const settle = () => new Promise(resolve => setTimeout(resolve, 350));
 	};
 	(globalThis as any).deusUiCommandRequestCheck = async () => {
 		plugin.settings.aiChatGeminiApiKey = 'synthetic-only';
-		let sent:any, system = '', calls = 0;
+		let sent:any, sentOptions:any, system = '', calls = 0;
 		panel.knowledge.collect = async (options:any) => ({version:1,projectRoot:'Story',sources:options.attachments,warnings:[],retrieval:{version:1,strategy:'focused'}});
-		panel.requests.send = async (_session:any,message:any,build:any) => { calls++; sent=message; system=await build(new AbortController().signal); };
+		panel.requests.send = async (_session:any,message:any,build:any,options:any) => { calls++; sent=message; sentOptions=options; system=await build(new AbortController().signal); };
 		await panel.send('/character 아린과 도윤의 관계에 맞는 대화를 작성해 줘');
 		assert(calls === 1 && sent.skill === 'character' && !sent.content.includes('/character') && system.includes('각 발언은 반드시 [인물: 이름]'), 'Slash text was sent as a conversation question or the character instruction was missing');
 		const count = calls; await panel.send('/character'); await panel.send('/description');
@@ -274,6 +274,15 @@ const settle = () => new Promise(resolve => setTimeout(resolve, 350));
 		const prior={id:'prior-scene',role:'user',skill:'character',content:'아린과 도윤이 우주선에서 다투는 장면',participants:sent.participants,context:{sources:[{id:'previous-plan',kind:'plot',title:'가상 장면',text:'우주선에서 말다툼한다.'}]}};
 		panel.session.messages.push(prior);const continued=await panel.prepareDeusSources('조금 더 날카롭게',panel.session);panel.session.messages.pop();
 		assert(continued.intent.scene==='explicit'&&continued.attachments.some((source:any)=>source.id==='previous-plan')&&!continued.attachments.some((source:any)=>source.kind==='document')&&continued.intent.participants.length===2,'Short follow-up lost the previous hypothetical scene or inherited a stale manuscript');
+		const previousAdapter = plugin.app.vault.adapter, previousModel = plugin.settings.aiChatModel;
+		plugin.app.vault.adapter = new FileSystemAdapter(); plugin.settings.aiChatGeminiApiKey = '';
+		for (const provider of ['claude','codex']) {
+			plugin.settings.aiChatModel = provider + '-cli';
+			const before = calls; await panel.send('미회수 복선을 알려줘');
+			assert(calls === before + 1 && sentOptions.cli.provider === provider && sentOptions.cli.cwd === 'C:/Synthetic Vault/Story', 'CLI send lost project context or still required an API key');
+			assert(sentOptions.ragTools && sent.context.sources.length, 'CLI send omitted shared Deus retrieval');
+		}
+		plugin.app.vault.adapter = previousAdapter; plugin.settings.aiChatModel = previousModel;
 		return {assertions, simulatedRequests:calls, noApiCalls:true};
 	};
 	(globalThis as any).deusUiStreamingCheck = async () => {

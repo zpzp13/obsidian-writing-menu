@@ -1,6 +1,6 @@
 import { Setting } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
-import { deusChatModels, effectiveChatModel } from './AiChatApi';
+import { cliChatProvider, deusChatModels, effectiveChatModel, selectChatModel } from './AiChatApi';
 import { renderRagSettings } from './rag/RagSettings';
 
 interface DeusSettingsLayout {
@@ -15,12 +15,23 @@ export function renderDeusSettings(plugin: WritingMenuPlugin, layout: DeusSettin
 	new Setting(container).setName('모델').addDropdown(select => {
 		for (const model of deusChatModels(settings)) select.addOption(model.id, model.label);
 		select.setValue(effectiveChatModel(settings)).onChange(async value => {
-			if (settings.aiChatFreeOnly) settings.aiChatFreeModel = value;
-			else settings.aiChatModel = value;
+			selectChatModel(settings, value);
 			await plugin.saveSettings();
+			renderConnection();
 		});
 	});
-	new Setting(container).setName('API 키').addButton(button => button.setButtonText('API 열기').onClick(() => layout.openApi()));
+	const connection = container.createDiv();
+	const renderConnection = () => {
+		connection.empty();
+		const cli = cliChatProvider(effectiveChatModel(settings));
+		if (!cli) { new Setting(connection).setName('API 키').addButton(button => button.setButtonText('API 열기').onClick(() => layout.openApi())); return; }
+		const pathKey = cli === 'claude' ? 'aiChatClaudeCliPath' : 'aiChatCodexCliPath', modelKey = cli === 'claude' ? 'aiChatClaudeCliModel' : 'aiChatCodexCliModel';
+		new Setting(connection).setName('CLI 경로').setDesc('설치하고 로그인한 CLI를 사용합니다. 비워 두면 자동으로 찾습니다. 데스크톱에서 사용할 수 있습니다.')
+			.addText(text => text.setValue(settings[pathKey]).onChange(async value => { settings[pathKey] = value.trim(); await plugin.saveSettings(); }));
+		new Setting(connection).setName('CLI 모델').setDesc('비워 두면 CLI 기본 모델을 사용합니다. 기존 프로젝트 자료와 검색 도구는 그대로 전달됩니다.')
+			.addText(text => text.setValue(settings[modelKey]).onChange(async value => { settings[modelKey] = value.trim(); await plugin.saveSettings(); }));
+	};
+	renderConnection();
 	new Setting(container).setName('스트리밍').setDesc('답변을 생성되는 순서대로 표시합니다.')
 		.addToggle(toggle => toggle.setValue(settings.aiChatStreaming).onChange(async value => { settings.aiChatStreaming = value; await plugin.saveSettings(); }));
 	new Setting(container).setName('각주 열기').setDesc('채팅 답변의 각주와 출처 목록을 열 위치입니다.')

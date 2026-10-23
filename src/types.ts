@@ -221,6 +221,12 @@ export interface WritingMenuSettings {
 	aiChatApiKey: string;
 	aiChatGeminiApiKey: string;
 	aiChatModel: string;
+	aiChatClaudeCliPath: string;
+	aiChatClaudeCliModel: string;
+	aiChatClaudeCliEffort: string;
+	aiChatCodexCliPath: string;
+	aiChatCodexCliModel: string;
+	aiChatCodexCliEffort: string;
 	aiChatLastCharacterPath: string;
 	aiChatLastSpeakerPath: string;
 	aiChatTemperature: number;
@@ -412,6 +418,12 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	aiChatApiKey: '',
 	aiChatGeminiApiKey: '',
 	aiChatModel: 'gemini-3.8-flash',
+	aiChatClaudeCliPath: '',
+	aiChatClaudeCliModel: '',
+	aiChatClaudeCliEffort: '',
+	aiChatCodexCliPath: '',
+	aiChatCodexCliModel: '',
+	aiChatCodexCliEffort: '',
 	aiChatLastCharacterPath: '',
 	aiChatLastSpeakerPath: '',
 	aiChatTemperature: 1.0,
