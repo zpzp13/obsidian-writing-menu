@@ -207,25 +207,6 @@ export const SETTINGS_SEARCH_PAGES = [
 		]
 	},
 	{
-		"id": "footnotes",
-		"name": "각주",
-		"desc": "각주의 글꼴과 크기, 색상을 설정합니다.",
-		"parent": "main",
-		"group": "편집기",
-		"visible": true,
-		"mobile": false,
-		"aliases": [
-			"각주에만 적용할 글꼴입니다. 비워 두면 본문 글꼴을 사용합니다.",
-			"글꼴",
-			"각주의 글자 크기를 지정하세요.",
-			"크기(px)",
-			"각주의 줄 간격을 지정하세요.",
-			"행간",
-			"각주의 글자색을 지정하세요.",
-			"색상"
-		]
-	},
-	{
 		"id": "autocomplete",
 		"name": "자동 완성",
 		"desc": "트리거와 자동 완성 기호를 관리합니다.",

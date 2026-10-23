@@ -1,5 +1,293 @@
 ﻿/* Writing Menu Plugin Styles */
 
+/* @settings
+name: Writing Menu · 프로젝트 문서
+id: writing-menu-project-typography
+settings:
+  - id: wm-project-style-info
+    title: 프로젝트 문서의 헤딩·각주
+    type: info-text
+    description: 등록한 프로젝트 폴더와 하위 폴더의 문서에만 적용합니다. 각 항목의 초기화 버튼으로 현재 테마의 기본 스타일로 돌아갑니다.
+  - id: wm-project-h1
+    title: 헤딩 1
+    type: heading
+    level: 1
+    collapsed: true
+  - id: wm-project-h1-font
+    title: 글꼴
+    type: variable-text
+    default: inherit
+    description: 글꼴 이름을 입력합니다. 초기화하면 테마 기본 글꼴을 사용합니다.
+  - id: wm-project-h1-size
+    title: 글자 크기(px)
+    type: variable-number-slider
+    default: 32
+    min: 8
+    max: 72
+    step: 1
+    format: px
+  - id: wm-project-h1-line-height
+    title: 행간
+    type: variable-number-slider
+    default: 1.2
+    min: 1
+    max: 3
+    step: 0.05
+  - id: wm-project-h1-weight
+    title: 굵기
+    type: variable-select
+    default: "700"
+    options:
+      - {label: 보통, value: "400"}
+      - {label: 중간, value: "500"}
+      - {label: 약간 굵게, value: "600"}
+      - {label: 굵게, value: "700"}
+      - {label: 매우 굵게, value: "800"}
+  - id: wm-project-h1-color
+    title: 색상
+    type: variable-themed-color
+    format: hex
+    default-light: "#222222"
+    default-dark: "#dddddd"
+  - id: wm-project-h2
+    title: 헤딩 2
+    type: heading
+    level: 1
+    collapsed: true
+  - id: wm-project-h2-font
+    title: 글꼴
+    type: variable-text
+    default: inherit
+    description: 글꼴 이름을 입력합니다. 초기화하면 테마 기본 글꼴을 사용합니다.
+  - id: wm-project-h2-size
+    title: 글자 크기(px)
+    type: variable-number-slider
+    default: 28
+    min: 8
+    max: 72
+    step: 1
+    format: px
+  - id: wm-project-h2-line-height
+    title: 행간
+    type: variable-number-slider
+    default: 1.2
+    min: 1
+    max: 3
+    step: 0.05
+  - id: wm-project-h2-weight
+    title: 굵기
+    type: variable-select
+    default: "700"
+    options:
+      - {label: 보통, value: "400"}
+      - {label: 중간, value: "500"}
+      - {label: 약간 굵게, value: "600"}
+      - {label: 굵게, value: "700"}
+      - {label: 매우 굵게, value: "800"}
+  - id: wm-project-h2-color
+    title: 색상
+    type: variable-themed-color
+    format: hex
+    default-light: "#222222"
+    default-dark: "#dddddd"
+  - id: wm-project-h3
+    title: 헤딩 3
+    type: heading
+    level: 1
+    collapsed: true
+  - id: wm-project-h3-font
+    title: 글꼴
+    type: variable-text
+    default: inherit
+    description: 글꼴 이름을 입력합니다. 초기화하면 테마 기본 글꼴을 사용합니다.
+  - id: wm-project-h3-size
+    title: 글자 크기(px)
+    type: variable-number-slider
+    default: 24
+    min: 8
+    max: 72
+    step: 1
+    format: px
+  - id: wm-project-h3-line-height
+    title: 행간
+    type: variable-number-slider
+    default: 1.2
+    min: 1
+    max: 3
+    step: 0.05
+  - id: wm-project-h3-weight
+    title: 굵기
+    type: variable-select
+    default: "700"
+    options:
+      - {label: 보통, value: "400"}
+      - {label: 중간, value: "500"}
+      - {label: 약간 굵게, value: "600"}
+      - {label: 굵게, value: "700"}
+      - {label: 매우 굵게, value: "800"}
+  - id: wm-project-h3-color
+    title: 색상
+    type: variable-themed-color
+    format: hex
+    default-light: "#222222"
+    default-dark: "#dddddd"
+  - id: wm-project-h4
+    title: 헤딩 4
+    type: heading
+    level: 1
+    collapsed: true
+  - id: wm-project-h4-font
+    title: 글꼴
+    type: variable-text
+    default: inherit
+    description: 글꼴 이름을 입력합니다. 초기화하면 테마 기본 글꼴을 사용합니다.
+  - id: wm-project-h4-size
+    title: 글자 크기(px)
+    type: variable-number-slider
+    default: 22
+    min: 8
+    max: 72
+    step: 1
+    format: px
+  - id: wm-project-h4-line-height
+    title: 행간
+    type: variable-number-slider
+    default: 1.2
+    min: 1
+    max: 3
+    step: 0.05
+  - id: wm-project-h4-weight
+    title: 굵기
+    type: variable-select
+    default: "700"
+    options:
+      - {label: 보통, value: "400"}
+      - {label: 중간, value: "500"}
+      - {label: 약간 굵게, value: "600"}
+      - {label: 굵게, value: "700"}
+      - {label: 매우 굵게, value: "800"}
+  - id: wm-project-h4-color
+    title: 색상
+    type: variable-themed-color
+    format: hex
+    default-light: "#222222"
+    default-dark: "#dddddd"
+  - id: wm-project-h5
+    title: 헤딩 5
+    type: heading
+    level: 1
+    collapsed: true
+  - id: wm-project-h5-font
+    title: 글꼴
+    type: variable-text
+    default: inherit
+    description: 글꼴 이름을 입력합니다. 초기화하면 테마 기본 글꼴을 사용합니다.
+  - id: wm-project-h5-size
+    title: 글자 크기(px)
+    type: variable-number-slider
+    default: 20
+    min: 8
+    max: 72
+    step: 1
+    format: px
+  - id: wm-project-h5-line-height
+    title: 행간
+    type: variable-number-slider
+    default: 1.4
+    min: 1
+    max: 3
+    step: 0.05
+  - id: wm-project-h5-weight
+    title: 굵기
+    type: variable-select
+    default: "700"
+    options:
+      - {label: 보통, value: "400"}
+      - {label: 중간, value: "500"}
+      - {label: 약간 굵게, value: "600"}
+      - {label: 굵게, value: "700"}
+      - {label: 매우 굵게, value: "800"}
+  - id: wm-project-h5-color
+    title: 색상
+    type: variable-themed-color
+    format: hex
+    default-light: "#222222"
+    default-dark: "#dddddd"
+  - id: wm-project-h6
+    title: 헤딩 6
+    type: heading
+    level: 1
+    collapsed: true
+  - id: wm-project-h6-font
+    title: 글꼴
+    type: variable-text
+    default: inherit
+    description: 글꼴 이름을 입력합니다. 초기화하면 테마 기본 글꼴을 사용합니다.
+  - id: wm-project-h6-size
+    title: 글자 크기(px)
+    type: variable-number-slider
+    default: 18
+    min: 8
+    max: 72
+    step: 1
+    format: px
+  - id: wm-project-h6-line-height
+    title: 행간
+    type: variable-number-slider
+    default: 1.4
+    min: 1
+    max: 3
+    step: 0.05
+  - id: wm-project-h6-weight
+    title: 굵기
+    type: variable-select
+    default: "700"
+    options:
+      - {label: 보통, value: "400"}
+      - {label: 중간, value: "500"}
+      - {label: 약간 굵게, value: "600"}
+      - {label: 굵게, value: "700"}
+      - {label: 매우 굵게, value: "800"}
+  - id: wm-project-h6-color
+    title: 색상
+    type: variable-themed-color
+    format: hex
+    default-light: "#222222"
+    default-dark: "#dddddd"
+  - id: wm-project-footnote
+    title: 각주
+    type: heading
+    level: 1
+    collapsed: true
+  - id: wm-project-footnote-font
+    title: 글꼴
+    type: variable-text
+    default: inherit
+    description: 초기화하면 본문 글꼴을 사용합니다.
+  - id: wm-project-footnote-size
+    title: 글자 크기(px)
+    type: variable-number-slider
+    default: 13
+    min: 8
+    max: 32
+    step: 1
+    format: px
+  - id: wm-project-footnote-line-height
+    title: 행간
+    type: variable-number-slider
+    default: 1.5
+    min: 1
+    max: 3
+    step: 0.05
+  - id: wm-project-footnote-color
+    title: 색상
+    type: variable-themed-color
+    format: hex
+    default-light: "#222222"
+    default-dark: "#dddddd"
+*/
+
+
 .writing-menu-dropdown label { line-height: 1; display: flex; align-items: center; }
 
 /* ── Menu Navigation Cards ── */
@@ -5251,76 +5539,99 @@ button.wiki-graph-style-action:active {
     text-decoration: none;
 }
 
-/* H1 styles */
-.wm-styled-document[data-writing-menu-id] .cm-line.HyperMD-header-1 {
-    font-family: var(--wm-h1-font-family, inherit);
-    font-size: var(--wm-h1-font-size, inherit);
-    line-height: var(--wm-h1-line-height, inherit);
-}
-.wm-styled-document[data-writing-menu-id] .cm-line.HyperMD-header-1 * {
-    font-family: var(--wm-h1-font-family, inherit);
-    font-size: var(--wm-h1-font-size, inherit);
-}
-.wm-styled-document[data-writing-menu-id] .markdown-reading-view h1 {
-    font-family: var(--wm-h1-font-family, inherit);
-    font-size: var(--wm-h1-font-size, inherit);
-    line-height: var(--wm-h1-line-height, inherit);
-}
+/* Style Settings uses unique body variables; only project document roots consume them. */
 .wm-styled-document[data-writing-menu-id] .cm-line.HyperMD-header-1,
-.wm-styled-document[data-writing-menu-id] .cm-line.HyperMD-header-1 *,
 .wm-styled-document[data-writing-menu-id] .markdown-reading-view h1,
-.wm-styled-document[data-writing-menu-id] .markdown-reading-view h1 * {
-    color: var(--wm-h1-color, unset);
+.wm-styled-document[data-writing-menu-id] .markdown-rendered h1 {
+    font-family: var(--wm-project-h1-font, var(--h1-font, inherit));
+    font-size: var(--wm-project-h1-size, var(--h1-size));
+    line-height: var(--wm-project-h1-line-height, var(--h1-line-height));
+    font-weight: var(--wm-project-h1-weight, var(--h1-weight));
+    color: var(--wm-project-h1-color, var(--h1-color));
 }
-
-/* Footnote styles */
-.wm-styled-document[data-writing-menu-id] .cm-line.HyperMD-footnote {
-    font-family: var(--wm-footnote-font-family, inherit);
-    font-size: var(--wm-footnote-font-size, inherit);
-    line-height: var(--wm-footnote-line-height, inherit);
-    color: var(--wm-footnote-color, unset);
-}
-.wm-styled-document[data-writing-menu-id] .cm-line.HyperMD-footnote * {
-    font-family: var(--wm-footnote-font-family, inherit);
-    font-size: var(--wm-footnote-font-size, inherit);
-    color: var(--wm-footnote-color, unset);
-}
-.wm-styled-document[data-writing-menu-id] .cm-footref {
-    font-family: var(--wm-footnote-font-family, inherit);
-    font-size: var(--wm-footnote-font-size, inherit);
-}
-.wm-styled-document[data-writing-menu-id] .markdown-reading-view .footnotes {
-    font-family: var(--wm-footnote-font-family, inherit);
-    font-size: var(--wm-footnote-font-size, inherit);
-    line-height: var(--wm-footnote-line-height, inherit);
-    color: var(--wm-footnote-color, unset);
-}
-.wm-styled-document[data-writing-menu-id] .markdown-reading-view sup.footnote-ref a {
-    color: var(--wm-footnote-color, unset);
-}
-
-/* H1 link fix */
-.wm-styled-document[data-writing-menu-id] .cm-line.HyperMD-header-1 .cm-link,
-.wm-styled-document[data-writing-menu-id] .cm-line.HyperMD-header-1 .cm-hmd-internal-link { color: inherit; text-decoration: none; }
-.wm-styled-document[data-writing-menu-id] .cm-line.HyperMD-header-1 a { color: inherit; text-decoration: none; pointer-events: none; cursor: text; }
-.wm-styled-document[data-writing-menu-id] .markdown-reading-view h1 a { color: inherit; text-decoration: none; pointer-events: none; cursor: text; }
-
-/* H2-H6 color unset */
 .wm-styled-document[data-writing-menu-id] .cm-line.HyperMD-header-2,
-.wm-styled-document[data-writing-menu-id] .cm-line.HyperMD-header-3,
-.wm-styled-document[data-writing-menu-id] .cm-line.HyperMD-header-4,
-.wm-styled-document[data-writing-menu-id] .cm-line.HyperMD-header-5,
-.wm-styled-document[data-writing-menu-id] .cm-line.HyperMD-header-6,
-.wm-styled-document[data-writing-menu-id] .cm-line.HyperMD-header-2 *,
-.wm-styled-document[data-writing-menu-id] .cm-line.HyperMD-header-3 *,
-.wm-styled-document[data-writing-menu-id] .cm-line.HyperMD-header-4 *,
-.wm-styled-document[data-writing-menu-id] .cm-line.HyperMD-header-5 *,
-.wm-styled-document[data-writing-menu-id] .cm-line.HyperMD-header-6 * { color: unset; }
 .wm-styled-document[data-writing-menu-id] .markdown-reading-view h2,
+.wm-styled-document[data-writing-menu-id] .markdown-rendered h2 {
+    font-family: var(--wm-project-h2-font, var(--h2-font, inherit));
+    font-size: var(--wm-project-h2-size, var(--h2-size));
+    line-height: var(--wm-project-h2-line-height, var(--h2-line-height));
+    font-weight: var(--wm-project-h2-weight, var(--h2-weight));
+    color: var(--wm-project-h2-color, var(--h2-color));
+}
+.wm-styled-document[data-writing-menu-id] .cm-line.HyperMD-header-3,
 .wm-styled-document[data-writing-menu-id] .markdown-reading-view h3,
+.wm-styled-document[data-writing-menu-id] .markdown-rendered h3 {
+    font-family: var(--wm-project-h3-font, var(--h3-font, inherit));
+    font-size: var(--wm-project-h3-size, var(--h3-size));
+    line-height: var(--wm-project-h3-line-height, var(--h3-line-height));
+    font-weight: var(--wm-project-h3-weight, var(--h3-weight));
+    color: var(--wm-project-h3-color, var(--h3-color));
+}
+.wm-styled-document[data-writing-menu-id] .cm-line.HyperMD-header-4,
 .wm-styled-document[data-writing-menu-id] .markdown-reading-view h4,
+.wm-styled-document[data-writing-menu-id] .markdown-rendered h4 {
+    font-family: var(--wm-project-h4-font, var(--h4-font, inherit));
+    font-size: var(--wm-project-h4-size, var(--h4-size));
+    line-height: var(--wm-project-h4-line-height, var(--h4-line-height));
+    font-weight: var(--wm-project-h4-weight, var(--h4-weight));
+    color: var(--wm-project-h4-color, var(--h4-color));
+}
+.wm-styled-document[data-writing-menu-id] .cm-line.HyperMD-header-5,
 .wm-styled-document[data-writing-menu-id] .markdown-reading-view h5,
-.wm-styled-document[data-writing-menu-id] .markdown-reading-view h6 { color: unset; }
+.wm-styled-document[data-writing-menu-id] .markdown-rendered h5 {
+    font-family: var(--wm-project-h5-font, var(--h5-font, inherit));
+    font-size: var(--wm-project-h5-size, var(--h5-size));
+    line-height: var(--wm-project-h5-line-height, var(--h5-line-height));
+    font-weight: var(--wm-project-h5-weight, var(--h5-weight));
+    color: var(--wm-project-h5-color, var(--h5-color));
+}
+.wm-styled-document[data-writing-menu-id] .cm-line.HyperMD-header-6,
+.wm-styled-document[data-writing-menu-id] .markdown-reading-view h6,
+.wm-styled-document[data-writing-menu-id] .markdown-rendered h6 {
+    font-family: var(--wm-project-h6-font, var(--h6-font, inherit));
+    font-size: var(--wm-project-h6-size, var(--h6-size));
+    line-height: var(--wm-project-h6-line-height, var(--h6-line-height));
+    font-weight: var(--wm-project-h6-weight, var(--h6-weight));
+    color: var(--wm-project-h6-color, var(--h6-color));
+}
+.wm-styled-document[data-writing-menu-id] .cm-line.HyperMD-header :is(.cm-header, .cm-link, .cm-hmd-internal-link),
+.wm-styled-document[data-writing-menu-id] .cm-line.HyperMD-header a,
+.wm-styled-document[data-writing-menu-id] .markdown-rendered :is(h1, h2, h3, h4, h5, h6) a {
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+    color: inherit;
+}
+
+/* Definition text and reference markers share the project footnote settings. */
+.wm-styled-document[data-writing-menu-id] .cm-line.HyperMD-footnote,
+.wm-styled-document[data-writing-menu-id] .markdown-reading-view .footnotes,
+.wm-styled-document[data-writing-menu-id] .markdown-rendered .footnotes {
+    font-family: var(--wm-project-footnote-font, var(--wm-font-family, inherit));
+    font-size: var(--wm-project-footnote-size, var(--footnote-size));
+    line-height: var(--wm-project-footnote-line-height, var(--footnote-line-height, var(--wm-line-height)));
+    color: var(--wm-project-footnote-color, var(--wm-font-color, inherit));
+}
+.wm-styled-document[data-writing-menu-id] .cm-s-obsidian .cm-content .cm-line.HyperMD-footnote *,
+.wm-styled-document[data-writing-menu-id] .cm-s-obsidian .cm-content .cm-line.HyperMD-footnote span {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+}
+.wm-styled-document[data-writing-menu-id] .cm-s-obsidian .cm-content .cm-footref,
+.wm-styled-document[data-writing-menu-id] .markdown-reading-view sup.footnote-ref,
+.wm-styled-document[data-writing-menu-id] .markdown-rendered sup.footnote-ref {
+    font-family: var(--wm-project-footnote-font, var(--wm-font-family, inherit));
+    font-size: var(--wm-project-footnote-size, var(--footnote-size));
+    color: var(--wm-project-footnote-color, var(--wm-font-color, inherit));
+}
+.wm-styled-document[data-writing-menu-id] .cm-s-obsidian .cm-content .cm-footref *,
+.wm-styled-document[data-writing-menu-id] .markdown-reading-view sup.footnote-ref a,
+.wm-styled-document[data-writing-menu-id] .markdown-rendered sup.footnote-ref a {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+}
 
 /* ── Icon button helper class (used by styleIconButton) ── */
 .clickable-icon.wm-icon-btn-20 {

@@ -72,7 +72,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 
 	public renderPage(page: string) {
 		if (page === 'mobile-fonts' && !Platform.isMobile) page = 'main';
-		const aliases: Record<string, string> = { typography: 'divider', input: 'autocomplete', 'copy-export': 'export', 'writing-stats': 'char-count', time: 'writing-time', 'calendar-chars': 'char-count' };
+		const aliases: Record<string, string> = { footnotes: 'main', 'document-styles': 'main', typography: 'divider', input: 'autocomplete', 'copy-export': 'export', 'writing-stats': 'char-count', time: 'writing-time', 'calendar-chars': 'char-count' };
 		page = aliases[page] ?? page;
 		if (requireApiVersion('1.13.0')) {
 			// Obsidian's settings host owns navigation; never replace its page stack's DOM.
@@ -111,7 +111,6 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			case 'control':          this.renderControlPage(pageContainerEl); break;
 			case 'misc':             this.renderMiscPage(pageContainerEl); break;
 			case 'divider':          this.renderDividerPage(pageContainerEl); break;
-			case 'footnotes':        this.renderFootnotesPage(pageContainerEl); break;
 			case 'mobile-fonts':     this.renderMobileFontsPage(pageContainerEl); break;
 			case 'autocomplete':     this.renderAutocompletePage(pageContainerEl); break;
 			case 'substitutions':    this.renderTextSubstitutionPage(pageContainerEl); break;
@@ -225,7 +224,6 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		this.addNavCard(editorBox, '플롯 매니저', '프로젝트별 플롯 시트와 기존 데이터 가져오기를 관리합니다.', 'table-2', 'plot');
 		if (Platform.isMobile) this.addNavCard(editorBox, '모바일 글꼴', 'PC와 별도로 사용할 웹폰트를 선택하고 내려받습니다.', 'type', 'mobile-fonts');
 		this.addNavCard(editorBox, '커스텀 구분선', '마크다운 구분선의 모양과 배치를 설정합니다.', 'minus', 'divider');
-		this.addNavCard(editorBox, '각주', '각주의 글꼴과 크기, 색상을 설정합니다.', 'notebook-tabs', 'footnotes');
 		this.addNavCard(editorBox, '자동 완성', '트리거와 자동 완성 기호를 관리합니다.', 'keyboard', 'autocomplete');
 		this.addNavCard(editorBox, '텍스트 치환', '입력 중 자동으로 바꿀 문자열을 관리합니다.', 'replace', 'substitutions');
 		this.addNavCard(editorBox, '복사', '헤딩과 각주를 제외하는 복사 동작을 설정합니다.', 'copy', 'copy');
@@ -802,76 +800,6 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 				text.inputEl.min = '0.1';
 				text.inputEl.step = '0.1';
 			});
-	}
-
-	// ── 각주 ────────────────────────────────────────────────────────────
-	private renderFootnotesPage(containerEl: HTMLElement) {
-		this.addBackButton(containerEl, '각주');
-		const footnoteBox = this.createGroupBox(containerEl);
-
-		new Setting(footnoteBox)
-			.setName('글꼴')
-			.setDesc('각주에만 적용할 글꼴입니다. 비워 두면 본문 글꼴을 사용합니다.')
-			.addText(text => text
-				.setPlaceholder('inherit')
-				.setValue(this.plugin.settings.footnoteFontFamily === 'inherit' ? '' : this.plugin.settings.footnoteFontFamily)
-				.onChange(async value => {
-					this.plugin.settings.footnoteFontFamily = value.trim() || 'inherit';
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(footnoteBox)
-			.setName('크기(px)')
-			.setDesc('각주의 글자 크기를 지정하세요.')
-			.addText(text => {
-				text.setPlaceholder('13')
-					.setValue(String(this.plugin.settings.footnoteFontSize))
-					.onChange(async value => {
-						const parsed = Number.parseInt(value, 10);
-						if (!Number.isFinite(parsed) || parsed <= 0) return;
-						this.plugin.settings.footnoteFontSize = parsed;
-						await this.plugin.saveSettings();
-					});
-				text.inputEl.type = 'number';
-				text.inputEl.min = '1';
-			});
-
-		new Setting(footnoteBox)
-			.setName('행간')
-			.setDesc('각주의 줄 간격을 지정하세요.')
-			.addText(text => {
-				text.setPlaceholder('1.5')
-					.setValue(String(this.plugin.settings.footnoteLineHeight))
-					.onChange(async value => {
-						const parsed = Number.parseFloat(value);
-						if (!Number.isFinite(parsed) || parsed <= 0) return;
-						this.plugin.settings.footnoteLineHeight = parsed;
-						await this.plugin.saveSettings();
-					});
-				text.inputEl.type = 'number';
-				text.inputEl.min = '0.1';
-				text.inputEl.step = '0.1';
-			});
-
-		new Setting(footnoteBox)
-			.setName('색상')
-			.setDesc('각주의 글자색을 지정하세요.')
-			.addExtraButton(button => button
-				.setIcon('reset')
-				.setTooltip('기본값으로 초기화')
-				.onClick(async () => {
-					this.plugin.settings.footnoteColor = 'inherit';
-					await this.plugin.saveSettings();
-					this.renderPage('footnotes');
-				}))
-			.addColorPicker(picker => picker
-				.setValue(this.plugin.settings.footnoteColor === 'inherit' || !this.plugin.settings.footnoteColor
-					? '#000000'
-					: this.plugin.settings.footnoteColor)
-				.onChange(async value => {
-					this.plugin.settings.footnoteColor = value;
-					await this.plugin.saveSettings();
-				}));
 	}
 
 	// ── 자동 완성 · 텍스트 치환 ─────────────────────────────────────────

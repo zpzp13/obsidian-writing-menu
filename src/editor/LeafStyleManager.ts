@@ -188,7 +188,7 @@ export class LeafStyleManager {
 	}
 
 	private applyLeafCssProps(container: HTMLElement): void {
-		const { fontFamily, fontWeight, fontSize, fontColor, lineHeight, paragraphSpacing, indentation, lineWidth, inlinePadding, backgroundColor, h1FontFamily, h1FontSize, h1LineHeight, h1Color, footnoteFontFamily, footnoteFontSize, footnoteLineHeight, footnoteColor, disableLinkColor } = this.plugin.settings;
+		const { fontFamily, fontWeight, fontSize, fontColor, lineHeight, paragraphSpacing, indentation, lineWidth, inlinePadding, backgroundColor, disableLinkColor } = this.plugin.settings;
 		const inlinePad = inlinePadding ?? 40;
 		if (Platform.isMobile) void this.plugin.mobileFonts?.ensureSelected(container.ownerDocument);
 		const fontFamilyValue = Platform.isMobile ? this.plugin.mobileFonts?.cssFamily(container.ownerDocument) ?? 'inherit'
@@ -197,11 +197,11 @@ export class LeafStyleManager {
 		const fontColorValue = resolvedFontColor === 'inherit' ? 'var(--text-normal)' : resolvedFontColor;
 		const resolvedBgColor = this.resolveThemeColor(backgroundColor);
 		const bgColorValue = resolvedBgColor === 'transparent' ? 'transparent' : resolvedBgColor;
-		const h1FontFamilyValue = Platform.isMobile || h1FontFamily === 'inherit' ? 'inherit' : h1FontFamily.includes(' ') ? `"${h1FontFamily}", serif` : `${h1FontFamily}, serif`;
-		const h1ColorValue = (h1Color && h1Color !== 'inherit') ? h1Color : '';
-		const footnoteFontFamilyValue = Platform.isMobile || footnoteFontFamily === 'inherit' ? 'inherit' : footnoteFontFamily.includes(' ') ? `"${footnoteFontFamily}", serif` : `${footnoteFontFamily}, serif`;
-		const footnoteColorValue = (footnoteColor && footnoteColor !== 'inherit') ? footnoteColor : '';
 
+		// Older builds wrote these inline, which outranks Style Settings on body.
+		for (const property of Array.from(container.style)) {
+			if (property.startsWith('--wm-h1-') || property.startsWith('--wm-footnote-')) container.style.removeProperty(property);
+		}
 		container.setCssProps({
 			'--wm-font-family': fontFamilyValue,
 			'--wm-font-weight': String(fontWeight || 400),
@@ -213,14 +213,6 @@ export class LeafStyleManager {
 			'--wm-line-width': `${lineWidth}px`,
 			'--wm-inline-padding': `${inlinePad}px`,
 			'--wm-bg-color': bgColorValue,
-			'--wm-h1-font-family': h1FontFamilyValue,
-			'--wm-h1-font-size': `${h1FontSize}px`,
-			'--wm-h1-line-height': String(h1LineHeight),
-			'--wm-h1-color': h1ColorValue,
-			'--wm-footnote-font-family': footnoteFontFamilyValue,
-			'--wm-footnote-font-size': `${footnoteFontSize}px`,
-			'--wm-footnote-line-height': String(footnoteLineHeight),
-			'--wm-footnote-color': footnoteColorValue,
 		});
 		container.toggleClass('wm-disable-link-color', !!disableLinkColor);
 	}

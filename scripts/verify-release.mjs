@@ -13,6 +13,7 @@ const core = [
 	...['warning-policy', 'settings-compatibility', 'statistics-scope', 'export-boundaries', 'release-artifacts', 'input-boundaries', 'morph-worker', 'paged-zoom', 'chat-stream', 'chat-legacy', 'deus-skills', 'rag-api', 'model-free-search', 'rag-navigation', 'episode-retrieval', 'character-research'].map(name => [name, `scripts/verify-${name}.mjs`]),
 ];
 const browser = [
+	['project-typography', 'scripts/verify-project-typography.mjs'],
 	['css-cascade', 'scripts/verify-css-cascade.mjs'],
 	['css-compatibility', 'scripts/verify-css-compatibility.mjs'],
 	['deus-ui', 'scripts/verify-deus-ui.mjs'],

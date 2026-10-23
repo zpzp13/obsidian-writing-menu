@@ -69,6 +69,8 @@ assert.deepEqual(pages.filter(page => page.visible).slice(0, 6).map(page => page
 const ai = pages.find(page => page.name === 'Deus AI');
 assert(ai.items[0].aliases.includes('각주 열기'), 'Search must include inner settings labels');
 const page = pages.find(page => page.name === '커스텀 구분선');
+assert(!pages.some(page => page.id === 'document-styles' || page.name === '헤딩·각주 스타일'), 'Retired typography page remains indexed');
+assert(!pages.some(page => page.name === '각주'), 'Retired footnote controls remain indexed');
 rows.length = 0;
 const wrapper = new Setting(new Element());
 let cleanup = page.items[0].render(wrapper);
@@ -94,6 +96,10 @@ for (let attempt = 0; attempt < 3; attempt++) {
 refresh = () => {};
 cleanup();
 assert(!wrapper.settingEl.parentElement.classes.has('wm-settings-page-items'), 'Native card styling must be restored when the custom page is torn down');
+tab.renderPage('footnotes');
+assert.deepEqual(routes.at(-1), ['writing-menu', []]);
+tab.renderPage('document-styles');
+assert.deepEqual(routes.at(-1), ['writing-menu', []]);
 tab.renderPage('spellcheck-words');
 const privateSpellingPage = pages.find(page => page.name === '기타').items.some(item => item.type === 'page' && item.name === '맞춤법 검사' && item.visible);
 assert.deepEqual(routes.at(-1)[1], privateSpellingPage ? ['기타', '맞춤법 검사', '고유명사 관리'] : ['기타', '고유명사 관리']);

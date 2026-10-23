@@ -148,14 +148,6 @@ export interface WritingMenuSettings {
 	hwpTemplatePath: string;
 	exportDefaultSpaceIndent: boolean;
 	exportDefaultExcludeHeadings: boolean;
-	h1FontFamily: string;
-	h1FontSize: number;
-	h1LineHeight: number;
-	h1Color: string;
-	footnoteFontFamily: string;
-	footnoteFontSize: number;
-	footnoteLineHeight: number;
-	footnoteColor: string;
 	copyExcludeHeadings: boolean;
 	copyExcludeFootnotes: boolean;
 	stdictApiKey: string;
@@ -343,14 +335,6 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	hwpTemplatePath: '',
 	exportDefaultSpaceIndent: false,
 	exportDefaultExcludeHeadings: false,
-	h1FontFamily: 'inherit',
-	h1FontSize: 24,
-	h1LineHeight: 1.5,
-	h1Color: 'inherit',
-	footnoteFontFamily: 'inherit',
-	footnoteFontSize: 13,
-	footnoteLineHeight: 1.5,
-	footnoteColor: 'inherit',
 	copyExcludeHeadings: true,
 	copyExcludeFootnotes: true,
 	stdictApiKey: '',
