@@ -6,7 +6,7 @@ import { PlotWorkbookSession } from './PlotWorkbookSession';
 import { plotWorkbookSessions, type PlotWorkbookSessionLease } from './PlotWorkbookSessionStore';
 import { PlotWorkbookToolbar } from './PlotWorkbookToolbar';
 import { PlotWorkbookSheetTrashModal } from './PlotWorkbookSheetTrashModal';
-import { PLOT_WORKBOOK_VIEW_TYPE, type PlotWorkbookForeshadowLocation } from './PlotWorkbookTypes';
+import { PLOT_WORKBOOK_VIEW_TYPE, type PlotWorkbookColumnRole, type PlotWorkbookForeshadowLocation } from './PlotWorkbookTypes';
 
 interface PlotWorkbookViewState {
 	projectId?: string;
@@ -52,8 +52,12 @@ export class PlotWorkbookView extends ItemView {
 		return { projectRoot: project.rootFolder, sheetId: this.session.activeSheet.sheetId, rowIds: this.sheetView.getSelectedSceneRows() };
 	}
 
-	async revealCell(sheetId: string, rowId: string, columnId: string): Promise<boolean> {
-		return this.revealForeshadowLocation({ sheetId, rowId, columnId });
+	async revealCell(sheetId: string, rowId: string, columnId?: string, columnRole?: PlotWorkbookColumnRole): Promise<boolean> {
+		const sheet = this.session?.sheets.get(sheetId);
+		const column = columnId ?? (columnRole ? sheet?.columnOrder.find(id => sheet.columns[id]?.role === columnRole) : undefined)
+			?? sheet?.columnOrder.find(id => sheet.columns[id]?.role === 'plot') ?? sheet?.columnOrder.find(id => sheet.columns[id]);
+		if (!sheet?.rows[rowId] || !column) return false;
+		return this.revealForeshadowLocation({ sheetId, rowId, columnId: column });
 	}
 
 	getState(): Record<string, unknown> {

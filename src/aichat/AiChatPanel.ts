@@ -11,6 +11,8 @@ import { renderDeusMentions, type DeusComposerInput } from './DeusComposerInput'
 import { bindDeusScrollFollow } from './DeusScrollFollow';
 import type { DeusPlotSelection } from './AiChatPlotKnowledge';
 import { renderDeusCitationChips } from './DeusCitationChips';
+import { deusPlotLocation } from './DeusPlotNavigation';
+import { deusCitationLeaf } from './DeusCitationLeaf';
 import { getWikiColor, getWikiDisplayName } from '../wiki/wikiProfileUtils';
 import { renderChatAvatar } from './ChatAvatar';
 import { AiChatRenameModal } from './AiChatRenameModal';
@@ -501,11 +503,18 @@ export class AiChatPanel {
 	}
 
 	private async openCitation(source: ChatContextItem, quote: string): Promise<void> {
+		if (source.kind === 'plot') {
+			const project = this.plugin.settings.projects.find(project => project.rootFolder === this.session?.projectRoot);
+			const location = deusPlotLocation(source, project?.rootFolder, quote);
+			if (project && location && await this.plugin.openPlotWorkbookCell(project.id, location.sheetId, location.rowId, undefined, this.plugin.settings.aiChatCitationOpenMode ?? 'current', location.columnRole)) return;
+			new Notice('연결된 플롯 행을 찾을 수 없습니다. 답변 당시의 근거를 표시합니다.');
+			new ChatTextModal(this.plugin, `${source.title} · 저장된 근거`, quote).open(); return;
+		}
 		const file = source.path ? this.plugin.app.vault.getAbstractFileByPath(source.path) : null;
 		if (file instanceof TFile && this.plugin.projectContext.getProjectForFile(file)?.rootFolder !== this.session?.projectRoot) {
 			new ChatTextModal(this.plugin, `${source.title} · 현재 프로젝트 밖으로 이동한 근거`, quote).open(); return;
 		}
-		if (!(file instanceof TFile) || source.kind === 'plot') { new ChatTextModal(this.plugin, `${source.title} · 저장된 근거`, quote).open(); return; }
+		if (!(file instanceof TFile)) { new ChatTextModal(this.plugin, `${source.title} · 저장된 근거`, quote).open(); return; }
 		const content = getOpenWritingDocuments(this.plugin).find(document => document.path === file.path)?.read() ?? await this.plugin.app.vault.read(file);
 		const range = locateChatQuote(source, quote, content);
 		if (!range) {
@@ -513,7 +522,7 @@ export class AiChatPanel {
 			new ChatTextModal(this.plugin, source.title, quote).open(); return;
 		}
 		const workspace = this.plugin.app.workspace;
-		const leaf = workspace.getLeaf(this.plugin.settings.aiChatCitationOpenMode === 'tab' ? 'tab' : false);
+		const leaf = deusCitationLeaf(workspace, this.plugin.settings.aiChatCitationOpenMode);
 		if (getWritingDocumentForView(leaf.view)?.path !== file.path) await leaf.openFile(file, { eState: { line: content.slice(0, range.from).split('\n').length - 1 } });
 		await workspace.revealLeaf(leaf);
 		const document = getWritingDocumentForView(leaf.view);

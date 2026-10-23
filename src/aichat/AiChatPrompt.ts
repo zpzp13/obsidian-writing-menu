@@ -109,7 +109,7 @@ export function formatChatMessage(message: AiChatMessage): string {
 	const selections = message.context.sources.filter(source => source.kind === 'selection');
 	const scene = selections.length ? selections : message.context.sources.filter(source => source.kind === 'document');
 	const knowledge = message.context.sources.filter(source => !scene.includes(source));
-	const evidence = (source: ChatContextItem) => ['character-history', 'character-relationship'].includes(message.context?.retrieval?.strategy ?? '') || message.context?.episodeRange
+	const evidence = (source: ChatContextItem) => source.kind === 'plot' || ['character-history', 'character-relationship'].includes(message.context?.retrieval?.strategy ?? '') || message.context?.episodeRange
 		? researchEvidenceText(source, message.context!.sources.indexOf(source))
 		: `[citation_id: C${message.context!.sources.indexOf(source) + 1}]\n${contextSourceText(source, true)}`;
 	return [
@@ -154,7 +154,6 @@ export function normalizeDeusAnswer(text: string, sources: ChatContextItem[], hi
 	} catch { /* Invalid citation metadata stays non-actionable; never retry a paid request. */ }
 	// Old providers sometimes return unique note titles instead of numeric footnotes.
 	// Resolve only supplied, unambiguous sources. Never invent a supporting quote.
-	if (/\[[^\]\n]*#[a-f\d]{16,}/i.test(content)) return { content, citations };
 	const prepared = prepareDeusMarkdown({ role: 'assistant', content, citations, skill, timestamp: 0 }, sources);
 	return { content: prepared.markdown, unresolved: prepared.unresolved, citations: prepared.references.map(reference => ({ number: reference.number, sourceId: reference.source.id,
 		quote: reference.quote ?? '', ...(!reference.quote ? { kind: 'reference' as const } : {}) })) };
@@ -170,6 +169,11 @@ export function prepareDeusMarkdown(message: AiChatMessage, sources: ChatContext
 	}
 	let next = Math.max(0, ...references.map(item => item.number), ...Array.from(message.content.matchAll(/\[(\d+)\]/g), match => Number(match[1])).filter(Number.isSafeInteger)) + 1;
 	let unresolved = false;
+	const referenceFor = (source: ChatContextItem): DeusDisplayReference => {
+		let reference = references.find(item => item.source.id === source.id);
+		if (!reference) { reference = { number: next++, source }; references.push(reference); }
+		return reference;
+	};
 	// C aliases refer to the immutable evidence attached to this question. They
 	// need no model-generated JSON to become file references, but never prove a quote.
 	const citationGroup = (label: string): string | undefined => {
@@ -179,21 +183,26 @@ export function prepareDeusMarkdown(message: AiChatMessage, sources: ChatContext
 			if (!alias) { if (!references.some(item => item.number === Number(id))) unresolved = true; return `[${id}]`; }
 			const source = sources[Number(alias[1]) - 1];
 			if (!source) { unresolved = true; return '〔출처 미확인〕'; }
-			let reference = references.find(item => item.source.id === source.id);
-			if (!reference) { reference = { number: next++, source }; references.push(reference); }
-			return `[${reference.number}]`;
+			return `[${referenceFor(source).number}]`;
 		}).filter((value, index, values) => values.indexOf(value) === index).join(' ');
 	};
 	const normalized = (text: string) => text.trim().replace(/\\/g, '/').replace(/\.md$/i, '').normalize('NFKC').replace(/\s+/g, '');
+	const identity = (source: ChatContextItem) => source.kind === 'plot' ? source.id : source.path ?? source.id;
 	const namedReference = (token: string): DeusDisplayReference | undefined => {
 		const name = normalized(token);
-		const candidates = sources.filter(source => [source.title, source.path ?? '', source.path?.split('/').pop() ?? ''].some(value => value && normalized(value) === name));
+		const candidates = sources.filter(source => (source.kind === 'plot' ? [source.title] : [source.title, source.path ?? '', source.path?.split('/').pop() ?? '']).some(value => value && normalized(value) === name));
 		// Multiple excerpts from the same note are one reference; duplicate
 		// basenames in different folders must never be resolved arbitrarily.
-		if (!candidates.length || new Set(candidates.map(source => source.path ?? source.id)).size !== 1) return;
-		let reference = references.find(item => (item.source.path ?? item.source.id) === (candidates[0].path ?? candidates[0].id));
+		if (!candidates.length || new Set(candidates.map(identity)).size !== 1) return;
+		let reference = references.find(item => identity(item.source) === identity(candidates[0]));
 		if (!reference) { reference = { number: next++, source: candidates[0] }; references.push(reference); }
 		return reference;
+	};
+	const decode = (token: string) => { try { return decodeURIComponent(token); } catch { return token; } };
+	const sourceReference = (value: string): DeusDisplayReference | undefined => {
+		const token = decode(value.trim().replace(/^<|>$/g, '')).replace(/^source_id:\s*/i, '');
+		const candidates = sources.filter(source => source.id === token || /#[a-f\d]{16,}$/i.test(token) && source.id.endsWith(`:${token}`));
+		return candidates.length === 1 ? referenceFor(candidates[0]) : namedReference(token);
 	};
 	const markdown = visibleDeusAnswer(plainDeusReply(message.content, message.skill)).split(/(```[\s\S]*?```|~~~[\s\S]*?~~~|`[^`\n]*`)/g).map((part, index) => {
 		if (index % 2) return part;
@@ -201,6 +210,10 @@ export function prepareDeusMarkdown(message: AiChatMessage, sources: ChatContext
 		// Resolve only an exact ID or a unique hash-bearing suffix, never a title guess.
 		return part.replace(/!\[\[([^\]]+)\]\]/g, '$1').split(/(\[\[[^\]\n]+\]\])/g).map((piece, pieceIndex) => {
 			if (pieceIndex % 2) {
+				const [target] = piece.slice(2, -2).split('|');
+				const plot = sourceReference(target);
+				if (plot?.source.kind === 'plot') return `[${plot.number}]`;
+				if (/^plot:/i.test(decode(target))) { unresolved = true; return '〔출처 미확인〕'; }
 				const numeric = /^\[\[([^|\]\n]+)\|\s*\d+\s*\]\]$/.exec(piece);
 				// Numeric wiki aliases are another provider citation format. Resolve by
 				// the supplied note, never by the alias (which is often restarted at 1).
@@ -211,30 +224,36 @@ export function prepareDeusMarkdown(message: AiChatMessage, sources: ChatContext
 				}
 				return piece.replace(/</g, '&lt;');
 			}
-			return piece.replace(/\[([^\]\n]*#[a-f\d]{16,}[^\]\n]*)\]/gi, (_match, ids: string) => ids.split(/,\s*/).map(id => {
-			const token = id.trim().replace(/^source_id:\s*/i, '');
-			const matches = sources.filter(source => source.id === token || /#[a-f\d]{16,}$/i.test(token) && source.id.endsWith(`:${token}`));
-			if (matches.length !== 1) { unresolved = true; return '〔출처 미확인〕'; }
-			let reference = references.find(item => item.source.id === matches[0].id);
-			if (!reference) { reference = { number: next++, source: matches[0] }; references.push(reference); }
-			return `[${reference.number}]`;
-		}).join(' '))
-			.replace(/\[([^\]\n]+)\]\(([^)\n]+)\)/g, (whole, label: string, target: string) => {
+			return piece.replace(/\[([^\]\n]+)\]\(([^)\n]+)\)/g, (whole, label: string, target: string) => {
 				const group = citationGroup(label); if (group !== undefined) return group;
-				let decoded = target; try { decoded = decodeURIComponent(target); } catch { /* Keep literal paths on invalid escaping. */ }
+				const reference = sourceReference(target) ?? sourceReference(label);
+				if (reference?.source.kind === 'plot' || reference && /#[a-f\d]{16,}/i.test(target + label)) return `[${reference.number}]`;
+				const decoded = decode(target.trim().replace(/^<|>$/g, ''));
+				if (/^plot:/i.test(decoded)) { unresolved = true; return `${label} 〔출처 미확인〕`; }
 				if (/^[a-z][a-z\d+.-]*:/i.test(decoded)) return whole;
 				const path = decoded.split('#')[0], matching = sources.filter(source => source.path && normalized(source.path) === normalized(path));
 				const targets = [...new Set(matching.map(source => source.path!))];
 				if (targets.length === 1 || /\.md(?:#|$)/i.test(decoded)) return `[[${targets.length === 1 ? targets[0] + decoded.slice(path.length) : decoded}|${label}]]`;
 				return whole;
 			})
+			.split(/(\[[^\]\n]+\]\([^)\n]+\)|<?https?:\/\/[^\s<>]+>?)/g).map((text, index) => {
+				if (index % 2) return text;
+				return text.replace(/\[([^\]\n]*#[a-f\d]{16,}[^\]\n]*)\]/gi, (_match, ids: string) => ids.split(/,\s*/).map(id => {
+				const reference = sourceReference(id);
+				if (reference) return `[${reference.number}]`;
+				unresolved = true; return '〔출처 미확인〕';
+			}).join(' '))
 			.replace(/(?<!\[)\[([^\][\n]+)\](?!\]|\(|:)/g, (whole, label: string) => {
 				const group = citationGroup(label); if (group !== undefined) return group;
 				if (/^\^?(?:C\d+|H\d+(?:_\d+)?)\b/i.test(label)) { unresolved = true; return '〔출처 미확인〕'; }
 				const direct = namedReference(label); if (direct) return `[${direct.number}]`;
+				if (/^plot:/i.test(label)) { const reference = sourceReference(label); if (reference) return `[${reference.number}]`; unresolved = true; return '〔출처 미확인〕'; }
 				if (!/\.md(?:\s*,|$)/i.test(label)) return whole;
 				return label.split(/,\s*/).map(name => { const reference = namedReference(name); if (reference) return `[${reference.number}]`; unresolved = true; return '〔출처 미확인〕'; }).join(' ');
 			})
+			.replace(/<?\bplot:[^\s<>[\]()]+>?/gi, token => { const reference = sourceReference(token); if (reference) return `[${reference.number}]`; unresolved = true; return '〔출처 미확인〕'; })
+			.replace(/(^|[\s(])C([1-9]\d*)(?=$|[\s.,;:!?，。！？)])/g, (_whole, prefix: string, number: string) => prefix + (citationGroup(`C${number}`) ?? `C${number}`));
+			}).join('')
 			// Do not let generated Markdown silently fetch remote images or embeds.
 			.replace(/!\[\[([^\]]+)\]\]/g, '$1')
 			.replace(/!\[([^\]]*)\]\([^\n]*?\)/g, '$1')

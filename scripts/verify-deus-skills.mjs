@@ -3,6 +3,76 @@ import { loadTsFixture } from './ts-fixture-loader.mjs';
 import assert from 'node:assert/strict';
 const load = loadTsFixture;
 const skills = await load('src/aichat/DeusSkills.ts'), prompt = await load('src/aichat/AiChatPrompt.ts'), stream = await load('src/aichat/ChatStream.ts');
+// Flash Lite has emitted each of these instead of the requested [C1] syntax.
+const plotSource = { id: `plot:Test:sheet-main:row-one:1:0#${'a'.repeat(64)}`, title: 'Test / 메인 플롯 / 2행', kind: 'plot', path: 'Test/원고.md', text: '복선 (미회수): 수수께끼의 전화와 소문' };
+for (const content of [
+	`수수께끼 [C1]`, `수수께끼 C1`, `수수께끼 C1.`, `[${plotSource.title}]`, `[[${plotSource.title}]]`,
+	`[${plotSource.title}](${plotSource.id})`, `[복선](<${plotSource.id}>)`, `[${plotSource.id}](source)`,
+	`[[${plotSource.id}|복선]]`, `[${plotSource.id}]`, plotSource.id, `<${plotSource.id}>`,
+	`[복선](${encodeURIComponent(plotSource.id)})`, `[1:0#${'a'.repeat(64)}]`,
+]) {
+	const normalized = prompt.normalizeDeusAnswer(content, [plotSource]);
+	assert.equal(normalized.citations.length, 1, 'Plot reference was not bound: ' + content);
+	assert.equal(normalized.citations[0].sourceId, plotSource.id);
+	assert(!normalized.content.includes('plot:') && !normalized.content.includes('a'.repeat(32)), 'Internal ID leaked: ' + content);
+	assert(!normalized.content.includes('](') && !normalized.content.includes('[['), 'Plot reference retained provider link syntax');
+	assert.equal(prompt.prepareDeusMarkdown({ role: 'assistant', content, timestamp: 0 }, [plotSource]).references.length, 1, 'Saved response was not repaired for display');
+}
+const plotQuestion = { role: 'user', content: '미회수 복선은?', context: { version: 1, sources: [plotSource], warnings: [] } };
+assert(!prompt.formatChatMessage(plotQuestion).includes(plotSource.id), 'Raw plot IDs were sent to the model');
+const ambiguousPlots = [plotSource, { ...plotSource, id: plotSource.id.replace('row-one', 'row-two') }];
+assert.equal(prompt.normalizeDeusAnswer(`[${plotSource.title}]`, ambiguousPlots).citations.length, 0, 'Duplicate plot titles bound an arbitrary row');
+assert.equal(prompt.normalizeDeusAnswer('[복선](plot:Test:sheet-main:row-missing)', [plotSource]).citations.length, 0, 'Unknown plot row became actionable');
+assert.equal(prompt.normalizeDeusAnswer('`C1` and `'+plotSource.id+'`', [plotSource]).citations.length, 0, 'Code examples became citations');
+for (const text of ['[외부 링크](https://example.com/C1)', '[링크 C1](https://example.com)', 'https://example.com/?q=C1', '![그림](https://example.com/image.png)']) {
+	const result = prompt.normalizeDeusAnswer(text, [plotSource]);
+	assert.equal(result.citations.length, 0, 'An external URL became a source reference');
+	assert.equal(result.content, text.startsWith('!') ? '그림' : text);
+}
+const { deusPlotLocation } = await load('src/aichat/DeusPlotNavigation.ts');
+const { deusCitationLeaf } = await load('src/aichat/DeusCitationLeaf.ts');
+const rootPlotLeaf = { view: { navigation: false } }, leafModes = [];
+const citationWorkspace = { getMostRecentLeaf: () => rootPlotLeaf, getLeaf: mode => { leafModes.push(mode); return { newLeaf: true }; } };
+assert.equal(deusCitationLeaf(citationWorkspace, 'current'), rootPlotLeaf, 'Current-tab citation opened a new tab for a custom plot view');
+assert.equal(deusCitationLeaf(citationWorkspace), rootPlotLeaf);
+assert.equal(leafModes.length, 0, 'Existing root tab was passed through the navigable-only leaf API');
+assert(deusCitationLeaf(citationWorkspace, 'tab').newLeaf); assert.deepEqual(leafModes, ['tab']);
+citationWorkspace.getMostRecentLeaf = () => null; assert(deusCitationLeaf(citationWorkspace, 'current').newLeaf); assert.deepEqual(leafModes, ['tab', false]);
+assert.deepEqual(deusPlotLocation(plotSource, 'Test'), { sheetId: 'sheet-main', rowId: 'row-one', columnRole: 'foreshadow' });
+assert.deepEqual(deusPlotLocation({ ...plotSource, id: plotSource.id + ':read:20:history:H1_1' }, 'Test'), { sheetId: 'sheet-main', rowId: 'row-one', columnRole: 'foreshadow' });
+assert.deepEqual(deusPlotLocation({ ...plotSource, text: '플롯: 수수께끼의 전화가 걸려온다.' }, 'Test'), { sheetId: 'sheet-main', rowId: 'row-one' });
+assert.deepEqual(deusPlotLocation({ ...plotSource, text: '플롯: 복선에 관한 대화다.\n\n복선 (회수): 전화의 정체' }, 'Test', '복선 (회수): 전화의 정체'), { sheetId: 'sheet-main', rowId: 'row-one', columnRole: 'foreshadow' });
+assert.equal(deusPlotLocation(plotSource, 'Test', '수수께끼의 전화와 소문').columnRole, 'foreshadow', 'A foreshadow title quote lost its column without the field header');
+assert.equal(deusPlotLocation({ ...plotSource, text: '플롯: 전화의 정체\n\n복선 (미회수): 전화의 정체' }, 'Test', '전화의 정체').columnRole, undefined, 'An ambiguous quote was assigned to a column');
+assert.equal(deusPlotLocation({ ...plotSource, text: '플롯: 복선에 관한 대화다.\n\n복선 (미회수): 전화의 정체' }, 'Test', '플롯: 복선에 관한 대화다.').columnRole, undefined, 'A non-foreshadow quote selected the foreshadow column');
+assert.equal(deusPlotLocation(plotSource, 'Other'), undefined);
+assert.equal(deusPlotLocation({ ...plotSource, kind: 'reference' }, 'Test'), undefined);
+assert.equal(deusPlotLocation({ ...plotSource, id: 'plot:Test:sheet-only' }, 'Test'), undefined);
+const { PlotWorkbookView } = await load('src/plot-workbook/PlotWorkbookView.ts', {
+	obsidian: { ItemView: class {} }, './InfinitePlotSheet': {}, './PlotWorkbookSession': {}, './PlotWorkbookSessionStore': {}, './PlotWorkbookToolbar': {}, './PlotWorkbookSheetTrashModal': {},
+});
+const plotSheet = { sheetId: 'sheet-main', rowOrder: ['row-other', 'row-one'], columnOrder: ['text', 'plot'], rows: { 'row-one': { collapsed: true } }, columns: { text: { role: 'text' }, plot: { role: 'plot', collapsed: true } } };
+const plotSelections = [], plotSession = { sheets: new Map([[plotSheet.sheetId, plotSheet]]), manifest: { activeSheetId: 'sheet-other' }, activeSheet: plotSheet,
+	selectSheet: async id => { plotSession.manifest.activeSheetId = id; }, setRowCollapsed: (id, value) => { plotSheet.rows[id].collapsed = value; }, setColumnCollapsed: (id, value) => { plotSheet.columns[id].collapsed = value; } };
+const plotView = { session: plotSession, render: () => {}, sheetView: { select: (...args) => plotSelections.push(args), revealSelected: () => {}, focus: () => {} }, revealForeshadowLocation: PlotWorkbookView.prototype.revealForeshadowLocation };
+assert.equal(await PlotWorkbookView.prototype.revealCell.call(plotView, 'sheet-main', 'row-one'), true);
+assert.equal(plotSession.manifest.activeSheetId, 'sheet-main'); assert.deepEqual(plotSelections[0], [1, 1, false]);
+assert(!plotSheet.rows['row-one'].collapsed && !plotSheet.columns.plot.collapsed, 'Plot citation remained hidden in a folded row or column');
+assert.equal(await PlotWorkbookView.prototype.revealCell.call(plotView, 'sheet-main', 'missing'), false);
+assert.equal(await PlotWorkbookView.prototype.revealCell.call(plotView, 'missing', 'row-one'), false);
+assert.equal(plotSelections.length, 1, 'Missing plot row selected an unrelated cell');
+plotSheet.columnOrder.push('foreshadow'); plotSheet.columns.foreshadow = { role: 'foreshadow', collapsed: true };
+assert.equal(await PlotWorkbookView.prototype.revealCell.call(plotView, 'sheet-main', 'row-one', undefined, 'foreshadow'), true);
+assert.deepEqual(plotSelections.at(-1), [1, 2, false], 'Foreshadow citation selected the plot or first column');
+assert(!plotSheet.columns.foreshadow.collapsed, 'Foreshadow citation did not expand the selected column');
+plotSheet.columnOrder = ['foreshadow', 'text', 'plot'];
+await PlotWorkbookView.prototype.revealCell.call(plotView, 'sheet-main', 'row-one', undefined, 'foreshadow');
+assert.deepEqual(plotSelections.at(-1), [1, 0, false], 'Foreshadow tracking depended on a fixed column index');
+await PlotWorkbookView.prototype.revealCell.call(plotView, 'sheet-main', 'row-one', 'text', 'foreshadow');
+assert.deepEqual(plotSelections.at(-1), [1, 1, false], 'Preferred role overrode an exact cell location');
+delete plotSheet.columns.foreshadow; plotSheet.columnOrder = ['text', 'plot'];
+await PlotWorkbookView.prototype.revealCell.call(plotView, 'sheet-main', 'row-one', undefined, 'foreshadow');
+assert.deepEqual(plotSelections.at(-1), [1, 1, false], 'Missing foreshadow column broke the existing plot fallback');
 const cast = [{ path: 'Story/인물/아린.md', name: '아린' }, { path: 'Story/인물/도윤.md', name: '도윤' }];
 assert.deepEqual(skills.parseDeusCommand('/character'), {skill:'character',question:''});
 assert.deepEqual(skills.parseDeusCommand('/Character 지금 장면의 대화'), {skill:'character',question:'지금 장면의 대화'});

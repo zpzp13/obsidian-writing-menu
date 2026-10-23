@@ -69,6 +69,15 @@ await callGeminiRag({ ...options(turn), maxInputChars: 1, maxTokens: 65536, tool
 assert.equal(calls.length, 2); assert(!turn.context.warnings.some(warning => warning.includes('문맥 크기 제한')));
 assert.equal(JSON.parse(calls[1].body).contents.at(-1).parts[0].functionResponse.response.sources[0].text, largeText, 'Large evidence was clipped or excluded');
 assert.equal(JSON.parse(calls[0].body).generationConfig.maxOutputTokens, 65536, 'User output token setting was clamped');
+reset(); queue = [answer([{ functionCall: { name: 'search_sources', args: { query: '미회수 복선' } } }]), answer([{ functionCall: { name: 'read_source', args: { source_id: 'C2' } } }]), answer([{ text: '복선을 확인했습니다. [C2]' }])];
+const plotSource = { id: `plot:Story:sheet-main:row-one:1:0#${'a'.repeat(64)}`, title: 'Story / 메인 플롯 / 2행', kind: 'plot', path: 'Story/원고.md', text: '미회수 복선: 수수께끼의 전화' };
+const plotTurn = message(); let plotRead;
+await callGeminiRag({ ...options(plotTurn), tools: { execute: async call => { if (call.name === 'read_source') plotRead = call.args.source_id; return { sources: [plotSource], warnings: [] }; } } });
+const plotPayload = JSON.parse(calls[1].body).contents.at(-1).parts[0].functionResponse.response.sources[0];
+assert.equal(plotPayload.source_id, 'C2'); assert.equal(plotPayload.citation_id, 'C2'); assert.equal(plotPayload.path, undefined);
+assert.equal(plotRead, plotSource.id, 'Plot alias did not resolve for a follow-up source lookup');
+assert.equal(plotTurn.context.sources[1].id, plotSource.id, 'Frozen plot ID was not retained locally');
+assert(!JSON.stringify(calls).includes(plotSource.id), 'Raw plot ID leaked through a tool response');
 assert(apiErrors.geminiApiError(400, { error: { message: 'Input token count exceeds maximum' } }).message.includes('Input token count exceeds maximum'), 'Actual API input error was hidden');
 reset();queue=[answer([{functionCall:{name:'search_sources',args:{query:'다른 표현으로 다시 검색'}}}]),answer([{text:'읽지 못했지만 답변한다.'}])];
 await assert.rejects(callGeminiRag({...options(message()),tools:{strict:true,execute:async()=>{throw new Error('원문 조회 실패');}}}),/원문 조회 실패/);

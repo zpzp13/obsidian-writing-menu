@@ -13,7 +13,8 @@ import { openDictionary } from './src/dictionary';
 import { openSpecialChars } from './src/special-chars/SpecialCharsModal';
 import { CalendarView, VIEW_TYPE_CALENDAR } from './src/calendar/views/CalendarView';
 import { PlotWorkbookView } from './src/plot-workbook/PlotWorkbookView';
-import { PLOT_WORKBOOK_VIEW_TYPE, PLOT_WORKBOOK_SIDEBAR_TYPE } from './src/plot-workbook/PlotWorkbookTypes';
+import { PLOT_WORKBOOK_VIEW_TYPE, PLOT_WORKBOOK_SIDEBAR_TYPE, type PlotWorkbookColumnRole } from './src/plot-workbook/PlotWorkbookTypes';
+import { deusCitationLeaf } from './src/aichat/DeusCitationLeaf';
 import { PlotWorkbookSidebarView } from './src/plot-workbook/PlotWorkbookSidebarView';
 import { disposePlotWorkbookSessions } from './src/plot-workbook/PlotWorkbookSessionStore';
 import { LegacyPlotViewRedirect } from './src/plot-workbook/LegacyPlotViewRedirect';
@@ -557,13 +558,13 @@ export default class WritingMenuPlugin extends Plugin {
 		await this.app.workspace.revealLeaf(leaf);
 	}
 
-	async openPlotWorkbookCell(projectId: string, sheetId: string, rowId?: string, columnId?: string): Promise<void> {
-		const leaf = this.app.workspace.getLeavesOfType(PLOT_WORKBOOK_VIEW_TYPE)
+	async openPlotWorkbookCell(projectId: string, sheetId: string, rowId?: string, columnId?: string, openMode?: 'current' | 'tab', columnRole?: PlotWorkbookColumnRole): Promise<boolean> {
+		const leaf = openMode ? deusCitationLeaf(this.app.workspace, openMode) : this.app.workspace.getLeavesOfType(PLOT_WORKBOOK_VIEW_TYPE)
 			.find(candidate => candidate.view instanceof PlotWorkbookView && candidate.view.getState().projectId === projectId)
 			?? this.app.workspace.getLeaf('tab');
 		await leaf.setViewState({ type:PLOT_WORKBOOK_VIEW_TYPE, state:{projectId}, active:true });
 		await this.app.workspace.revealLeaf(leaf);
-		if (rowId && columnId && leaf.view instanceof PlotWorkbookView) await leaf.view.revealCell(sheetId, rowId, columnId);
+		return leaf.view instanceof PlotWorkbookView && (!rowId || await leaf.view.revealCell(sheetId, rowId, columnId, columnRole));
 	}
 
 	private async migrateLegacyPlotViews(): Promise<void> {

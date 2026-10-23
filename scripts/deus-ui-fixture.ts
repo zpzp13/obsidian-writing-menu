@@ -16,7 +16,7 @@ const settle = () => new Promise(resolve => setTimeout(resolve, 350));
 	const events: any[] = [], registrations: any[] = [], openedNotes: any[] = [];
 	const plugin: any = { saveSettings: async () => {}, settings: { ...structuredClone(DEFAULT_SETTINGS), projects: [{ id: 'story', name: '합성 작품', rootFolder: 'Story', characterFolder: 'Story/인물' }, { id: 'other', name: '다른 작품', rootFolder: 'Other', characterFolder: 'Other/인물' }], aiChatFreeOnly: false }, registerHoverLinkSource: (...args: any[]) => registrations.push(args), projectContext: { getProjectForFile: (file: any) => file ? { rootFolder: file.path.startsWith('Other/') ? 'Other' : 'Story' } : null }, app: {
 		vault: { getAbstractFileByPath: (path: string) => files.find(file => file.path === path) ?? null, getMarkdownFiles: () => files, read: async (file: TFile) => file.basename + '의 인물 설정', adapter: {} },
-		workspace: { on: () => ({}), trigger: (...args: any[]) => events.push(args), openLinkText: async (...args:any[]) => { openedNotes.push(args); } },
+		workspace: { on: () => ({}), getMostRecentLeaf: () => null, trigger: (...args: any[]) => events.push(args), openLinkText: async (...args:any[]) => { openedNotes.push(args); } },
 		metadataCache: { getFileCache: () => ({}) },
 	} };
 	(globalThis as any).deusFixtureDocument = { file: files[0], path: files[0].path, read: () => '아린과 도윤이 문 앞에서 만났다. 저장 전 장면.', editor: { getSelection: () => '' } };
@@ -76,6 +76,19 @@ const settle = () => new Promise(resolve => setTimeout(resolve, 350));
 	assert(navigation[0]==='tab'&&navigation.at(-1).path===files[0].path&&documentOpens===3,'Single-source citation did not follow the new-tab preference');
 	plugin.settings.aiChatCitationOpenMode='current';navigation.length=0;
 	await clickGroupSource();assert(navigation[0]===false&&navigation.at(-1).path===files[1].path&&documentOpens===3,'Current-tab preference reopened a document already displayed in that tab');
+	const plotNavigation: any[] = [];
+	plugin.openPlotWorkbookCell = async (...args: any[]) => { plotNavigation.push(args); return true; };
+	const plotSource = { id: `plot:Story:sheet-main:row-one:1:0#${'a'.repeat(64)}`, title: '합성 작품 / 메인 플롯 / 2행', kind: 'plot', text: '플롯: 전화가 걸려온다.\n\n복선 (미회수): 수수께끼의 전화', path: 'Other/이동한원고.md' };
+	const plotHost = host.createDiv();
+	await panel.renderDeusAnswer(plotHost, { role: 'assistant', content: `수수께끼의 전화 [${plotSource.title}](${plotSource.id})`, timestamp: 0 }, [plotSource], false);
+	assert(plotHost.querySelectorAll('.deus-citation-chip').length === 1 && !plotHost.textContent?.includes('plot:'), 'Flash Lite plot link did not render as a clean citation');
+	plotHost.querySelector<HTMLAnchorElement>('.deus-citation-chip')!.click(); await settle();
+	assert(JSON.stringify(plotNavigation[0]) === JSON.stringify(['story','sheet-main','row-one',undefined,'current','foreshadow']), 'Foreshadow citation did not request its column, independently of a moved linked note');
+	plugin.settings.aiChatCitationOpenMode = 'tab'; plotHost.querySelector<HTMLAnchorElement>('.wm-chat-source-chip')!.click(); await settle();
+	assert(plotNavigation[1][4] === 'tab' && plotNavigation[1][5] === 'foreshadow', 'Source-list navigation ignored the selected foreshadow column or new-tab preference');
+	await panel.openCitation({ ...plotSource, id: plotSource.id.replace('plot:Story:', 'plot:Other:') }, plotSource.text);
+	assert(plotNavigation.length === 2, 'A plot citation crossed the conversation project boundary');
+	plotHost.remove(); plugin.settings.aiChatCitationOpenMode = 'current'; delete plugin.openPlotWorkbookCell;
 	plugin.app.workspace=originalWorkspace;plugin.app.vault.read=originalRead;delete (globalThis as any).deusNavigationDocuments;
 	const opened: string[] = []; panel.openCitation = async (item: any) => { opened.push(item.id); };
 	citation.click(); let menu = (globalThis as any).deusLastMenu;

@@ -142,7 +142,8 @@ export async function callGeminiRag(options: GeminiRagOptions): Promise<string> 
 				const references = delta.references.map(previous => `C${(context?.sources.findIndex(item => item.id === previous.id && item.text === previous.text) ?? -1) + 1}`).join(', ');
 				if (!supplied.some(item => item.id === source.id && item.text === source.text)) supplied.push(source);
 				const whole = delta.excerpts.length === 1 && delta.excerpts[0].text === source.text;
-				return { source_id: source.id, citation_id: `C${(context?.sources.findIndex(item => item.id === source.id && item.text === source.text) ?? -1) + 1}`, title: source.title, path: source.path, location: source.location,
+				const alias = `C${(context?.sources.findIndex(item => item.id === source.id && item.text === source.text) ?? -1) + 1}`;
+				return { source_id: source.kind === 'plot' ? alias : source.id, citation_id: alias, title: source.title, path: source.kind === 'plot' ? undefined : source.path, location: source.location,
 					text: whole ? source.text : delta.excerpts.length ? `새 원문 구간은 excerpts에 있습니다. 겹치는 구간은 앞서 제공한 ${references}를 함께 읽으세요.` : `이 원문은 앞서 ${references}로 제공되었습니다. 앞선 발췌를 그대로 참고하세요.`,
 					...(!whole && delta.excerpts.length ? { excerpts: delta.excerpts } : {}) };
 			});
