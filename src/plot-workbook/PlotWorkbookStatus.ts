@@ -1,4 +1,11 @@
+import { getLanguage } from '../i18n/index';
 import { DEFAULT_PLOT_WORKBOOK_STATUSES, type PlotWorkbookStatus } from './PlotWorkbookTypes';
+
+export function plotWorkbookStatusName(status: PlotWorkbookStatus): string {
+	const original = DEFAULT_PLOT_WORKBOOK_STATUSES.find(item => item.id === status.id);
+	if (getLanguage() !== 'en' || original?.name !== status.name) return status.name;
+	return ({ idea: 'Idea', draft: 'Draft', revised: 'Revised', done: 'Done' } as Record<string, string>)[status.id] ?? status.name;
+}
 
 export function plotWorkbookStatuses(overrides: readonly PlotWorkbookStatus[] = [], includeHidden = false): PlotWorkbookStatus[] {
 	const statuses = new Map(DEFAULT_PLOT_WORKBOOK_STATUSES.map(status => [status.id, { ...status }]));

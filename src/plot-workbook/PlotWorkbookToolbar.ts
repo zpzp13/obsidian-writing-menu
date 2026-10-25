@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { setIcon } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { FONT_COLOR_ICON_PATH, FONT_COLOR_ICON_VIEWBOX } from '../assets/fontColorIcon';
@@ -88,8 +89,8 @@ export class PlotWorkbookToolbar {
 	refresh(): void {
 		const style = this.sheet.getSelectionStyle();
 		const project = this.projects.find(item => item.id === this.projectId);
-		this.projectLabelEl?.setText(project?.name ?? '프로젝트');
-		this.fontLabelEl?.setText(style.fontFamily ?? '시스템 폰트');
+		this.projectLabelEl?.setText(project?.name ?? wmT("프로젝트"));
+		this.fontLabelEl?.setText(style.fontFamily ?? wmT("시스템 폰트"));
 		this.sizeLabelEl?.setText(`${this.formatNumber(this.pixelsToPoints(style.fontSize ?? DEFAULT_PLOTBOOK_FONT_SIZE))} pt`);
 		if (this.undoButton) this.undoButton.disabled = !this.session.canUndo;
 		if (this.redoButton) this.redoButton.disabled = !this.session.canRedo;
@@ -117,11 +118,11 @@ export class PlotWorkbookToolbar {
 
 	private render(): void {
 		const history = this.toolbarEl.createDiv({ cls: 'wm-paged-toolbar-group is-history' });
-		this.undoButton = this.createIconButton(history, 'undo-2', '이전 (Ctrl/Cmd+Z)', () => this.session.undo());
-		this.redoButton = this.createIconButton(history, 'redo-2', '다음 (Ctrl/Cmd+Shift+Z)', () => this.session.redo());
+		this.undoButton = this.createIconButton(history, 'undo-2', wmT("이전 (Ctrl/Cmd+Z)"), () => this.session.undo());
+		this.redoButton = this.createIconButton(history, 'redo-2', wmT("다음 (Ctrl/Cmd+Shift+Z)"), () => this.session.redo());
 
 		const projectGroup = this.toolbarEl.createDiv({ cls: 'wm-paged-toolbar-group is-project' });
-		const project = this.createSelect(projectGroup, '프로젝트 폴더', '프로젝트', 'is-project', 'folder');
+		const project = this.createSelect(projectGroup, wmT("프로젝트 폴더"), wmT("프로젝트"), 'is-project', 'folder');
 		project.addClass('wm-project-select-field');
 		this.projectLabelEl = project.querySelector('.wm-paged-select-label');
 		project.addEventListener('click', event => {
@@ -129,26 +130,26 @@ export class PlotWorkbookToolbar {
 			this.openProjectPopover(project);
 		});
 		const typography = this.toolbarEl.createDiv({ cls: 'wm-paged-toolbar-group is-typography' });
-		const font = this.createSelect(typography, '글꼴', '시스템 폰트', 'is-font');
+		const font = this.createSelect(typography, wmT("글꼴"), wmT("시스템 폰트"), 'is-font');
 		this.fontLabelEl = font.querySelector('.wm-paged-select-label');
 		font.addEventListener('click', event => {
 			event.stopPropagation();
 			this.openFontPopover(font);
 		});
-		const size = this.createSelect(typography, '글꼴 크기', '7.5 pt', 'is-size');
+		const size = this.createSelect(typography, wmT("글꼴 크기"), '7.5 pt', 'is-size');
 		this.sizeLabelEl = size.querySelector('.wm-paged-select-label');
 		size.addEventListener('click', event => {
 			event.stopPropagation();
 			this.openFontSizePopover(size);
 		});
-		const dimensions = this.createSelect(typography, '행·열 기본 크기', '기본값', 'is-dimensions');
+		const dimensions = this.createSelect(typography, wmT("행·열 기본 크기"), wmT("기본값"), 'is-dimensions');
 		dimensions.addEventListener('click', event => {
 			event.stopPropagation();
 			this.openDimensionsPopover(dimensions);
 		});
 		dimensions.setAttribute('aria-haspopup', 'menu');
 		const formatting = this.toolbarEl.createDiv({ cls: 'wm-paged-toolbar-group is-formatting' });
-		this.filterButton = this.createIconButton(formatting, 'list-filter', '검색 · 필터 (Ctrl/Cmd+F)', () => {
+		this.filterButton = this.createIconButton(formatting, 'list-filter', wmT("검색 · 필터 (Ctrl/Cmd+F)"), () => {
 			if (this.activeAnchor === this.filterButton && this.activePopover) {
 				this.closePopover();
 				this.sheet.focus();
@@ -158,16 +159,16 @@ export class PlotWorkbookToolbar {
 		});
 		this.filterButton.setAttribute('aria-haspopup', 'menu');
 		this.filterButton.setAttribute('aria-pressed', 'false');
-		this.alignmentButton = this.createIconButton(formatting, 'align-left', '정렬', () => {
+		this.alignmentButton = this.createIconButton(formatting, 'align-left', wmT("정렬"), () => {
 			if (!this.alignmentButton) return;
 			this.openAlignmentPopover(this.alignmentButton);
 		});
 		this.alignmentButton.setAttribute('aria-haspopup', 'menu');
 		for (const [icon, label, kind] of [
-			['bold', '굵게 (Ctrl/Cmd+B)', 'bold'],
-			['italic', '이탤릭체 (Ctrl/Cmd+I)', 'italic'],
-			['underline', '밑줄 (Ctrl/Cmd+U)', 'underline'],
-			['strikethrough', '취소선 (Ctrl/Cmd+Shift+S)', 'strikethrough'],
+			['bold', wmT("굵게 (Ctrl/Cmd+B)"), 'bold'],
+			['italic', wmT("이탤릭체 (Ctrl/Cmd+I)"), 'italic'],
+			['underline', wmT("밑줄 (Ctrl/Cmd+U)"), 'underline'],
+			['strikethrough', wmT("취소선 (Ctrl/Cmd+Shift+S)"), 'strikethrough'],
 		] as const) {
 			const button = this.createIconButton(formatting, icon, label, () => this.sheet.toggleSelectionStyle(kind));
 			button.setAttribute('aria-pressed', 'false');
@@ -175,10 +176,10 @@ export class PlotWorkbookToolbar {
 		}
 		this.createColorControl(formatting, 'color');
 		this.createColorControl(formatting, 'backgroundColor');
-		const exportButton = this.createIconButton(formatting, 'file-output', '내보내기', () => {
+		const exportButton = this.createIconButton(formatting, 'file-output', wmT("내보내기"), () => {
 			this.sheet.commitEditing();
 			this.openPopover(exportButton, 'wm-writing-action-popover', popover => {
-				createToolbarActionOption(popover, 'file-text', 'Markdown으로 내보내기', () => {
+				createToolbarActionOption(popover, 'file-text', wmT("Markdown으로 내보내기"), () => {
 					this.closePopover();
 					const project = this.projects.find(item => item.id === this.projectId);
 					new PlotWorkbookMarkdownExportModal(this.plugin.app, this.session, project?.rootFolder ?? '').open();
@@ -186,38 +187,38 @@ export class PlotWorkbookToolbar {
 			});
 		});
 		exportButton.setAttribute('aria-haspopup', 'menu');
-		const snapshots = this.createIconButton(formatting, 'camera', '플롯 스냅샷', () => {
+		const snapshots = this.createIconButton(formatting, 'camera', wmT("플롯 스냅샷"), () => {
 			this.sheet.commitEditing();
 			this.closePopover();
 			const project = this.projects.find(item => item.id === this.projectId);
 			if (project) void openPlotSnapshots(this.plugin, project);
 		});
 		snapshots.disabled = !this.projects.some(item => item.id === this.projectId);
-		this.createIconButton(formatting, 'panel-right', '플롯 매니저 사이드바', () => {
+		this.createIconButton(formatting, 'panel-right', wmT("플롯 매니저 사이드바"), () => {
 			void this.plugin.openPlotWorkbookSidebar({ projectId:this.projectId ?? undefined, ...this.sheet.getSelectedLocation() });
 		});
 
 		this.toolbarEl.createDiv({ cls: 'wm-paged-toolbar-spacer', attr: { 'aria-hidden': 'true' } });
 		const settings = this.toolbarEl.createDiv({ cls: 'wm-paged-toolbar-group is-settings' });
-		this.createIconButton(settings, 'settings', '플롯 매니저 설정', () => {
+		this.createIconButton(settings, 'settings', wmT("플롯 매니저 설정"), () => {
 			this.plugin.openSettings();
 			this.plugin.settingTab?.renderPage('plot');
 		});
 		const zoom = this.toolbarEl.createDiv({ cls: 'wm-paged-toolbar-group is-zoom' });
-		this.createIconButton(zoom, 'zoom-out', '축소', () => {
+		this.createIconButton(zoom, 'zoom-out', wmT("축소"), () => {
 			this.sheet.setZoom(this.sheet.getZoom() - 0.1);
 			this.refresh();
 		});
 		const zoomReset = zoom.createEl('button', {
 			cls: 'wm-paged-zoom-reset',
-			attr: { type: 'button', 'aria-label': '배율을 100%로 초기화' },
+			attr: { type: 'button', 'aria-label': wmT("배율을 100%로 초기화") },
 		});
 		this.zoomValueEl = zoomReset.createSpan({ cls: 'wm-paged-zoom-value', text: '100%' });
 		zoomReset.addEventListener('click', () => {
 			this.sheet.setZoom(1);
 			this.refresh();
 		});
-		this.createIconButton(zoom, 'zoom-in', '확대', () => {
+		this.createIconButton(zoom, 'zoom-in', wmT("확대"), () => {
 			this.sheet.setZoom(this.sheet.getZoom() + 0.1);
 			this.refresh();
 		});
@@ -227,7 +228,7 @@ export class PlotWorkbookToolbar {
 		const current = this.session.getDefaultDimensions();
 		this.openPopover(anchor, 'wm-paged-layout-popover wm-plotbook-dimensions-popover', popover => {
 			const header = popover.createDiv({ cls: 'wm-paged-layout-header' });
-			header.createSpan({ cls: 'wm-paged-layout-title', text: '기본 셀 크기' });
+			header.createSpan({ cls: 'wm-paged-layout-title', text: wmT("기본 셀 크기") });
 			const body = popover.createDiv({ cls: 'wm-paged-layout-body wm-plotbook-dimension-body' });
 			const previewWrap = body.createDiv({ cls: 'wm-paged-layout-preview wm-plotbook-dimension-preview-wrap' });
 			const preview = previewWrap.createDiv({ cls: 'wm-plotbook-dimension-preview' });
@@ -251,8 +252,8 @@ export class PlotWorkbookToolbar {
 				row.createSpan({ cls: 'wm-plotbook-dimension-unit', text: 'px' });
 				return input;
 			};
-			const rowHeight = createField('행 높이', current.rowHeight, MIN_PLOTBOOK_ROW_HEIGHT, MAX_PLOTBOOK_ROW_HEIGHT);
-			const columnWidth = createField('열 너비', current.columnWidth, MIN_PLOTBOOK_COLUMN_WIDTH, MAX_PLOTBOOK_COLUMN_WIDTH);
+			const rowHeight = createField(wmT("행 높이"), current.rowHeight, MIN_PLOTBOOK_ROW_HEIGHT, MAX_PLOTBOOK_ROW_HEIGHT);
+			const columnWidth = createField(wmT("열 너비"), current.columnWidth, MIN_PLOTBOOK_COLUMN_WIDTH, MAX_PLOTBOOK_COLUMN_WIDTH);
 			const updatePreview = () => {
 				const height = Math.max(MIN_PLOTBOOK_ROW_HEIGHT, Math.min(MAX_PLOTBOOK_ROW_HEIGHT, Number(rowHeight.value) || current.rowHeight));
 				const width = Math.max(MIN_PLOTBOOK_COLUMN_WIDTH, Math.min(MAX_PLOTBOOK_COLUMN_WIDTH, Number(columnWidth.value) || current.columnWidth));
@@ -263,9 +264,9 @@ export class PlotWorkbookToolbar {
 			columnWidth.addEventListener('input', updatePreview);
 			updatePreview();
 			const actions = popover.createDiv({ cls: 'wm-paged-layout-actions wm-plotbook-dimension-actions' });
-			actions.createEl('button', { cls: 'wm-paged-layout-cancel', text: '취소' })
+			actions.createEl('button', { cls: 'wm-paged-layout-cancel', text: wmT("취소") })
 				.addEventListener('click', () => this.closePopover());
-			const apply = actions.createEl('button', { cls: 'wm-paged-layout-apply', text: '적용' });
+			const apply = actions.createEl('button', { cls: 'wm-paged-layout-apply', text: wmT("적용") });
 			const commit = () => {
 				this.session.setDefaultDimensions(Number(rowHeight.value), Number(columnWidth.value));
 				this.closePopover();
@@ -292,35 +293,35 @@ export class PlotWorkbookToolbar {
 				cls: 'wm-plotbook-search-input',
 				attr: {
 					type: 'search',
-					placeholder: '검색...',
+					placeholder: wmT("검색..."),
 					spellcheck: 'false',
-					'aria-label': '플롯 검색',
+					'aria-label': wmT("플롯 검색"),
 				},
 			});
 			input.value = this.sheet.getSearchQuery();
 			const info = searchBox.createEl('button', {
 				cls: 'wm-plotbook-search-info',
-				attr: { type: 'button', 'aria-label': '필터 사용법' },
+				attr: { type: 'button', 'aria-label': wmT("필터 사용법") },
 			});
 			setIcon(info, 'info');
 			const help = popover.createDiv({ cls: 'wm-search-help' });
 			const coverageRow = help.createDiv({ cls: 'wm-search-help-row' });
-			coverageRow.createEl('strong', { text: '검색 대상' });
-			coverageRow.createSpan({ text: '본문, 인물 이름, 등장인물, 복선 제목·메모, 상태, 날짜를 검색합니다. 바꾸기는 직접 입력한 본문에만 적용됩니다.' });
+			coverageRow.createEl('strong', { text: wmT("검색 대상") });
+			coverageRow.createSpan({ text: wmT("본문, 인물 이름, 등장인물, 복선 제목·메모, 상태, 날짜를 검색합니다. 바꾸기는 직접 입력한 본문에만 적용됩니다.") });
 			const helpRow = help.createDiv({ cls: 'wm-search-help-row' });
-			helpRow.createEl('strong', { text: '범위 조합' });
-			helpRow.createSpan({ text: '@B #2-3 검색어 — @는 열 문자·제목·종류, #는 행 번호입니다. @"메인 플롯", @cast, @foreshadow도 사용할 수 있습니다.' });
+			helpRow.createEl('strong', { text: wmT("범위 조합") });
+			helpRow.createSpan({ text: wmT("@B #2-3 검색어 — @는 열 문자·제목·종류, #는 행 번호입니다. @\"메인 플롯\", @cast, @foreshadow도 사용할 수 있습니다.") });
 			const details = searchFrame.createDiv({ cls: 'wm-plotbook-search-details' });
 			const navigation = details.createDiv({ cls: 'wm-plotbook-search-navigation' });
 			const result = navigation.createDiv({ cls: 'wm-plotbook-filter-result' });
 			const previous = navigation.createEl('button', {
 				cls: 'clickable-icon',
-				attr: { type: 'button', 'aria-label': '이전 검색 결과' },
+				attr: { type: 'button', 'aria-label': wmT("이전 검색 결과") },
 			});
 			setIcon(previous, 'chevron-up');
 			const next = navigation.createEl('button', {
 				cls: 'clickable-icon',
-				attr: { type: 'button', 'aria-label': '다음 검색 결과' },
+				attr: { type: 'button', 'aria-label': wmT("다음 검색 결과") },
 			});
 			setIcon(next, 'chevron-down');
 			const replaceRow = details.createDiv({ cls: 'wm-plotbook-search-replace-row' });
@@ -329,17 +330,17 @@ export class PlotWorkbookToolbar {
 			const replaceInput = replaceRow.createEl('input', {
 				cls: 'wm-plotbook-search-replace-input',
 				type: 'text',
-				placeholder: '바꿀 내용',
+				placeholder: wmT("바꿀 내용"),
 				attr: { autocomplete: 'off', spellcheck: 'false' },
 			});
-			const replaceOne = replaceRow.createEl('button', { text: '바꾸기', attr: { type: 'button' } });
-			const replaceAll = replaceRow.createEl('button', { text: '모두', attr: { type: 'button', 'aria-label': '모두 바꾸기' } });
+			const replaceOne = replaceRow.createEl('button', { text: wmT("바꾸기"), attr: { type: 'button' } });
+			const replaceAll = replaceRow.createEl('button', { text: wmT("모두"), attr: { type: 'button', 'aria-label': wmT("모두 바꾸기") } });
 			const updateResult = () => {
 				const summary = this.sheet.getSearchSummary();
 				const hasQuery = input.value.trim().length > 0;
 				searchFrame.toggleClass('is-expanded', hasQuery || focusReplace);
 				result.setText(hasQuery
-					? (summary.matches === 0 ? '일치 없음' : `${summary.matches}개 중 ${summary.current}번째`)
+					? (summary.matches === 0 ? wmT("일치 없음") : wmT("{0}개 중 {1}번째", summary.matches, summary.current))
 					: '');
 			};
 			info.addEventListener('click', event => {
@@ -392,9 +393,9 @@ export class PlotWorkbookToolbar {
 		const current = this.sheet.getSelectionStyle().alignment ?? 'left';
 		this.openPopover(anchor, 'wm-paged-compact-popover wm-plotbook-alignment-popover', popover => {
 			for (const option of [
-				{ value: 'left', label: '왼쪽 정렬', icon: 'align-left' },
-				{ value: 'center', label: '가운데 정렬', icon: 'align-center' },
-				{ value: 'right', label: '오른쪽 정렬', icon: 'align-right' },
+				{ value: 'left', label: wmT("왼쪽 정렬"), icon: 'align-left' },
+				{ value: 'center', label: wmT("가운데 정렬"), icon: 'align-center' },
+				{ value: 'right', label: wmT("오른쪽 정렬"), icon: 'align-right' },
 			] as const) {
 				const button = this.createOption(popover, option.label, current === option.value, () => {
 					this.sheet.applySelectionStyle({ alignment: option.value });
@@ -423,7 +424,7 @@ export class PlotWorkbookToolbar {
 			const searchRow = popover.createDiv({ cls: 'wm-paged-popover-search' });
 			const icon = searchRow.createSpan({ attr: { 'aria-hidden': 'true' } });
 			setIcon(icon, 'search');
-			const search = searchRow.createEl('input', { type: 'text', placeholder: '시스템 글꼴 검색' });
+			const search = searchRow.createEl('input', { type: 'text', placeholder: wmT("시스템 글꼴 검색") });
 			const list = popover.createDiv({ cls: 'wm-paged-popover-list' });
 			const registeredFonts = () => Array.from(new Set([
 				'inherit',
@@ -441,7 +442,7 @@ export class PlotWorkbookToolbar {
 				if (query && fonts.length === 0) fonts = [raw];
 				const current = this.sheet.getSelectionStyle().fontFamily ?? 'inherit';
 				for (const font of fonts.slice(0, 80)) {
-					const item = this.createOption(list, font === 'inherit' ? '시스템 폰트' : font, font === current, () => {
+					const item = this.createOption(list, font === 'inherit' ? wmT("시스템 폰트") : font, font === current, () => {
 						if (font !== 'inherit' && !(this.plugin.settings.customFonts ?? []).includes(font)) {
 							this.plugin.settings.customFonts = [...(this.plugin.settings.customFonts ?? []), font];
 							void this.plugin.saveSettings();
@@ -472,7 +473,7 @@ export class PlotWorkbookToolbar {
 			const input = direct.createEl('input', {
 				type: 'number',
 				value: this.formatNumber(current),
-				attr: { min: '1', max: '300', step: '1', 'aria-label': '글자 크기 직접 입력' },
+				attr: { min: '1', max: '300', step: '1', 'aria-label': wmT("글자 크기 직접 입력") },
 			});
 			direct.createSpan({ cls: 'wm-paged-size-input-unit', text: 'pt' });
 			const apply = () => {
@@ -508,13 +509,13 @@ export class PlotWorkbookToolbar {
 
 	private createColorControl(container: HTMLElement, target: PlotWorkbookColorTarget): void {
 		const textTarget = target === 'color';
-		const label = textTarget ? '글자색' : '배경색';
+		const label = textTarget ? wmT("글자색") : wmT("배경색");
 		const control = container.createDiv({
 			cls: `wm-paged-text-color-control wm-plotbook-color-control is-${textTarget ? 'text' : 'background'}`,
 		});
 		const button = control.createEl('button', {
 			cls: 'wm-paged-toolbar-button wm-paged-text-color-button clickable-icon',
-			attr: { type: 'button', 'aria-label': `최근 ${label} 적용` },
+			attr: { type: 'button', 'aria-label': wmT("최근 {0} 적용", label) },
 		});
 		if (textTarget) {
 			const svg = button.createSvg('svg');
@@ -535,7 +536,7 @@ export class PlotWorkbookToolbar {
 		});
 		const chevron = control.createEl('button', {
 			cls: 'wm-paged-text-color-chevron clickable-icon',
-			attr: { type: 'button', 'aria-label': `${label} 메뉴 열기`, 'aria-haspopup': 'menu' },
+			attr: { type: 'button', 'aria-label': wmT("{0} 메뉴 열기", label), 'aria-haspopup': 'menu' },
 		});
 		setIcon(chevron, 'chevron-down');
 		chevron.addEventListener('click', event => {
@@ -546,7 +547,7 @@ export class PlotWorkbookToolbar {
 
 	private openColorPopover(anchor: HTMLElement, target: PlotWorkbookColorTarget): void {
 		const textTarget = target === 'color';
-		const label = textTarget ? '글자색' : '배경색';
+		const label = textTarget ? wmT("글자색") : wmT("배경색");
 		const colors = textTarget ? TEXT_COLOR_PALETTE : BACKGROUND_COLOR_PALETTE;
 		const fallback = textTarget ? DEFAULT_TEXT_COLORS : DEFAULT_BACKGROUND_COLORS;
 		let mode: ColorThemeMode = themeModeFromDocument(this.ownerDocument);
@@ -579,7 +580,7 @@ export class PlotWorkbookToolbar {
 				for (const color of colors) {
 					const swatch = palette.createEl('button', {
 						cls: 'wm-paged-color-swatch wm-writing-color-swatch',
-						attr: { type: 'button', 'aria-label': `${editingMode === 'light' ? '라이트' : '다크'} ${label} ${color[editingMode]}` },
+						attr: { type: 'button', 'aria-label': `${editingMode === 'light' ? wmT("라이트") : wmT("다크")} ${label} ${color[editingMode]}` },
 					});
 					swatch.style.backgroundColor = color[editingMode];
 					swatch.addEventListener('click', () => {
@@ -589,11 +590,11 @@ export class PlotWorkbookToolbar {
 					});
 				}
 				const custom = popover.createDiv({ cls: 'wm-paged-color-custom' });
-				custom.createSpan({ text: '사용자 색상' });
+				custom.createSpan({ text: wmT("사용자 색상") });
 				const actions = custom.createDiv({ cls: 'wm-paged-color-custom-actions' });
 				const reset = actions.createEl('button', {
 					cls: 'wm-paged-color-reset clickable-icon',
-					attr: { type: 'button', 'aria-label': `${label} 지우기` },
+					attr: { type: 'button', 'aria-label': wmT("{0} 지우기", label) },
 				});
 				setIcon(reset, 'rotate-ccw');
 				reset.addEventListener('click', () => {
@@ -604,7 +605,7 @@ export class PlotWorkbookToolbar {
 				const input = actions.createEl('input', {
 					cls: 'wm-compact-color-input wm-paged-color-custom-input',
 					type: 'color',
-					attr: { 'aria-label': `사용자 ${label} 선택` },
+					attr: { 'aria-label': wmT("사용자 {0} 선택", label) },
 				});
 				input.value = currentPair()[editingMode];
 				this.trackColorInput(input, applyModeColor);
@@ -620,11 +621,11 @@ export class PlotWorkbookToolbar {
 	): void {
 		const segmented = container.createDiv({
 			cls: 'wm-dash-char-range-seg wm-writing-layout-segmented wm-writing-color-mode-segmented',
-			attr: { role: 'group', 'aria-label': '색상 테마' },
+			attr: { role: 'group', 'aria-label': wmT("색상 테마") },
 		});
 		const thumb = segmented.createSpan({ cls: 'wm-dash-char-range-thumb' });
 		const buttons = new Map<ColorThemeMode, HTMLButtonElement>();
-		for (const [key, label] of [['light', '라이트'], ['dark', '다크']] as const) {
+		for (const [key, label] of [['light', wmT("라이트")], ['dark', wmT("다크")]] as const) {
 			const button = segmented.createEl('button', {
 				text: label,
 				attr: { type: 'button', 'aria-pressed': String(mode === key) },

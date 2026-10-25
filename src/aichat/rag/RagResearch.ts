@@ -1,3 +1,4 @@
+import { wmT } from '../../i18n/index';
 import type { CorpusDocument } from './ChatCorpusProvider';
 import type { ChatResearchCoverage } from '../AiChatTypes';
 
@@ -38,7 +39,7 @@ export function resolveResearchEntities(entities: ResearchEntity[], question: st
 	const exact = matches.filter(match => !matches.some(other => other.from <= match.from && other.to >= match.to && other.alias.length > match.alias.length));
 	for (const match of exact) {
 		const ambiguous = entities.filter(entity => entity.aliases.some(alias => alias.toLocaleLowerCase() === match.alias.toLocaleLowerCase()));
-		if (ambiguous.length > 1) throw new Error(`인물 이름 '${match.alias}'이 여러 노트에 있습니다: ${ambiguous.map(entity => entity.path).join(', ')}. 고유한 별칭을 지정해 주세요.`);
+		if (ambiguous.length > 1) throw new Error(wmT("인물 이름 '{0}'이 여러 노트에 있습니다: {1}. 고유한 별칭을 지정해 주세요.", match.alias, ambiguous.map(entity => entity.path).join(', ')));
 	}
 	return [...new Map(exact.map(match => [match.entity.id, match.entity])).values()];
 }

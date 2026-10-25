@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { requestUrl } from 'obsidian';
 import type { AiChatMessage } from './AiChatTypes';
 import { RATE_LIMIT_MSG, SERVER_ERROR_MSG, isTransientServerError } from './AiApiCommon';
@@ -18,9 +19,9 @@ export interface AiChatApiKeys {
 export const AI_CHAT_MODELS: Array<{ id: string; label: string; provider: AiChatProvider }> = [
 	{ id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash', provider: 'gemini' },
 	{ id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite', provider: 'gemini' },
-	{ id: 'gemma-4-31b-it', label: 'Gemma 4 31B IT (창작 · 오픈 모델)', provider: 'gemini' },
+	{ id: 'gemma-4-31b-it', label: wmT("Gemma 4 31B IT (창작 · 오픈 모델)"), provider: 'gemini' },
 	{ id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash-Lite', provider: 'gemini' },
-	{ id: 'google/diffusiongemma-26b-a4b-it', label: 'DiffusionGemma 26B (NVIDIA · 실험적)', provider: 'nvidia' },
+	{ id: 'google/diffusiongemma-26b-a4b-it', label: wmT("DiffusionGemma 26B (NVIDIA · 실험적)"), provider: 'nvidia' },
 	{ id: 'claude-cli', label: 'Claude Code (CLI)', provider: 'cli' },
 	{ id: 'codex-cli', label: 'Codex (CLI)', provider: 'cli' },
 ];
@@ -105,7 +106,7 @@ async function callNvidiaChat(apiKey: string, systemPrompt: string, history: AiC
 
 	const data = res.json as NvidiaChatResponse;
 	const content = data.choices?.[0]?.message?.content;
-	if (!content) throw new Error('빈 응답');
+	if (!content) throw new Error(wmT("빈 응답"));
 	return content.trim();
 }
 
@@ -165,7 +166,7 @@ async function callGeminiChat(apiKey: string, systemPrompt: string, history: AiC
 
 	const data = res.json as GeminiChatResponse;
 	const content = data.candidates?.[0]?.content?.parts?.filter(p => !p.thought).map(p => p.text ?? '').join('');
-	if (!content) throw new Error('빈 응답');
+	if (!content) throw new Error(wmT("빈 응답"));
 	return content.trim();
 }
 
@@ -173,7 +174,7 @@ export interface AiChatRequestOptions { signal?: AbortSignal; stream?: boolean; 
 
 export async function callAiChat(apiKeys: AiChatApiKeys, systemPrompt: string, history: AiChatMessage[], temperature = 1.0, model = DEFAULT_AI_CHAT_MODEL, maxTokens = 8192, options: AiChatRequestOptions = {}): Promise<string> {
 	checkChatAbort(options.signal);
-	if (cliChatProvider(model)) throw new Error('CLI 모델은 프로젝트 문맥을 포함하는 Deus 요청으로 실행해 주세요.');
+	if (cliChatProvider(model)) throw new Error(wmT("CLI 모델은 프로젝트 문맥을 포함하는 Deus 요청으로 실행해 주세요."));
 	if (getModelProvider(model) === 'gemini' && options.stream) {
 		let response: Response;
 		try {
@@ -185,9 +186,9 @@ export async function callAiChat(apiKeys: AiChatApiKeys, systemPrompt: string, h
 				}), options.signal);
 		} catch {
 			checkChatAbort(options.signal);
-			throw new Error('스트리밍에 연결하지 못했습니다. AI 챗 설정에서 스트리밍을 끄고 다시 시도해 주세요.');
+			throw new Error(wmT("스트리밍에 연결하지 못했습니다. AI 챗 설정에서 스트리밍을 끄고 다시 시도해 주세요."));
 		}
-		if (!response.ok || !response.body) throw new Error(`AI 연결 오류 (HTTP ${response.status})`);
+		if (!response.ok || !response.body) throw new Error(wmT("AI 연결 오류 (HTTP {0})", response.status));
 		return readGeminiStream(response.body, options.signal, options.onText);
 	}
 	const task = getModelProvider(model) === 'gemini'

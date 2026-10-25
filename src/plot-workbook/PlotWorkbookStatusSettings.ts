@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { Notice, Setting, setIcon } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { WritingProject } from '../types';
@@ -6,7 +7,7 @@ import { PLOT_WORKBOOK_VIEW_TYPE } from './PlotWorkbookTypes';
 import { PlotWorkbookRepository } from './PlotWorkbookRepository';
 import { PlotWorkbookSession } from './PlotWorkbookSession';
 import { PlotWorkbookStatusDeleteModal, PlotWorkbookStatusModal } from './PlotWorkbookStatusModal';
-import { plotWorkbookStatusColor, plotWorkbookStatusDefaultColor, plotWorkbookStatusIcon } from './PlotWorkbookStatus';
+import { plotWorkbookStatusName, plotWorkbookStatusColor, plotWorkbookStatusDefaultColor, plotWorkbookStatusIcon } from './PlotWorkbookStatus';
 import { plotWorkbookSessions } from './PlotWorkbookSessionStore';
 
 function liveStatusSession(plugin: WritingMenuPlugin, project: WritingProject): PlotWorkbookSession | null {
@@ -25,7 +26,7 @@ async function withStatusSession<T>(plugin: WritingMenuPlugin, project: WritingP
 	const repository = new PlotWorkbookRepository(plugin, project.rootFolder);
 	try {
 		const manifest = await repository.loadExistingManifest();
-		if (!manifest) throw new Error('이 프로젝트를 플롯 매니저에서 먼저 열어주세요.');
+		if (!manifest) throw new Error(wmT("이 프로젝트를 플롯 매니저에서 먼저 열어주세요."));
 		// Recheck after the read so a newly opened view remains the sole writer.
 		return await action(liveStatusSession(plugin, project) ?? new PlotWorkbookSession(repository, manifest, new Map(), [], []));
 	} finally { repository.dispose(); }
@@ -33,12 +34,12 @@ async function withStatusSession<T>(plugin: WritingMenuPlugin, project: WritingP
 
 export function renderPlotWorkbookStatusSettings(box: HTMLElement, plugin: WritingMenuPlugin): void {
 	const projects = plugin.projectContext.getProjects();
-	if (!projects.length) { new Setting(box).setDesc('프로젝트를 등록한 뒤 상태 항목을 관리할 수 있습니다.'); return; }
+	if (!projects.length) { new Setting(box).setDesc(wmT("프로젝트를 등록한 뒤 상태 항목을 관리할 수 있습니다.")); return; }
 	let project = projects[0];
 	let token = 0;
 	let addStatus: ((name: string) => Promise<void>) | null = null;
 	const headingControls = box.closest('.setting-group')?.querySelector<HTMLElement>(':scope > .setting-item-heading > .setting-item-control');
-	const add = headingControls?.createDiv({ cls: 'clickable-icon wm-muted-icon', attr: { role: 'button', tabindex: '0', 'aria-label': '상태 추가' } });
+	const add = headingControls?.createDiv({ cls: 'clickable-icon wm-muted-icon', attr: { role: 'button', tabindex: '0', 'aria-label': wmT("상태 추가") } });
 	if (add) {
 		setIcon(add, 'plus');
 		add.addEventListener('click', () => {
@@ -48,7 +49,7 @@ export function renderPlotWorkbookStatusSettings(box: HTMLElement, plugin: Writi
 			if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); add.click(); }
 		});
 	}
-	const picker = new Setting(box).setName('프로젝트').setDesc('프로젝트별 상태 이름을 수정하거나 선택 목록에서 삭제합니다.');
+	const picker = new Setting(box).setName(wmT("프로젝트")).setDesc(wmT("프로젝트별 상태 이름을 수정하거나 선택 목록에서 삭제합니다."));
 	const list = box.createDiv({ cls: 'wm-plotbook-status-settings-list' });
 	const render = async () => {
 		const request = ++token;
@@ -67,12 +68,12 @@ export function renderPlotWorkbookStatusSettings(box: HTMLElement, plugin: Writi
 						const saved = await withStatusSession(plugin, target, async session => ({
 							ok: await action(session), source: session, statuses: session.manifest.statuses,
 						}));
-						if (!saved.ok) new Notice('중복되지 않는 상태 이름을 입력해주세요.');
+						if (!saved.ok) new Notice(wmT("중복되지 않는 상태 이름을 입력해주세요."));
 						else for (const leaf of plugin.app.workspace.getLeavesOfType(PLOT_WORKBOOK_VIEW_TYPE)) {
 							const other = (leaf.view as PlotWorkbookView).getStatusSettingsSession?.(target.id);
 							if (other && other !== saved.source) other.refreshStatusSettings(saved.statuses);
 						}
-					} catch (error) { new Notice(`상태를 저장하지 못했습니다: ${error instanceof Error ? error.message : String(error)}`); }
+					} catch (error) { new Notice(wmT("상태를 저장하지 못했습니다: {0}", error instanceof Error ? error.message : String(error))); }
 					finally { if (redraw && project.id === target.id) void render(); }
 				});
 				return mutations;
@@ -80,22 +81,22 @@ export function renderPlotWorkbookStatusSettings(box: HTMLElement, plugin: Writi
 			addStatus = name => mutate(async session => Boolean(await session.addStatus(name)));
 			add?.setAttribute('aria-disabled', 'false');
 			for (const status of statuses) {
-				const setting = new Setting(list).setName(status.name).setClass('wm-plotbook-status-setting');
+				const setting = new Setting(list).setName(plotWorkbookStatusName(status)).setClass('wm-plotbook-status-setting');
 				setting.settingEl.style.setProperty('--wm-plotbook-status-color', plotWorkbookStatusColor(status.id, status.color));
 				const icon = setting.nameEl.createSpan({ cls: 'wm-plotbook-status-setting-icon', attr: { 'aria-hidden': 'true' } });
 				setting.nameEl.prepend(icon);
 				setIcon(icon, plotWorkbookStatusIcon(status.id));
-				setting.addExtraButton(button => button.setIcon('pencil').setTooltip('상태 수정').onClick(() => {
+				setting.addExtraButton(button => button.setIcon('pencil').setTooltip(wmT("상태 수정")).onClick(() => {
 					new PlotWorkbookStatusModal(plugin, name => mutate(session => session.renameStatus(status.id, name)), status.name).open();
 				}));
-				setting.addExtraButton(button => button.setIcon('trash-2').setTooltip('상태 삭제').onClick(() => {
+				setting.addExtraButton(button => button.setIcon('trash-2').setTooltip(wmT("상태 삭제")).onClick(() => {
 					new PlotWorkbookStatusDeleteModal(plugin, status.name, () => mutate(session => session.deleteStatus(status.id))).open();
 				}));
-				setting.addExtraButton(button => button.setIcon('reset').setTooltip('상태 색상 초기화')
+				setting.addExtraButton(button => button.setIcon('reset').setTooltip(wmT("상태 색상 초기화"))
 					.onClick(() => { void mutate(session => session.setStatusColor(status.id)); }));
 				setting.addColorPicker(picker => {
 					picker.setValue(status.color ?? plotWorkbookStatusDefaultColor(status.id, box.ownerDocument.body.classList.contains('theme-dark')));
-					setting.controlEl.querySelector('input[type="color"]')?.setAttribute('aria-label', `${status.name} 색상`);
+					setting.controlEl.querySelector('input[type="color"]')?.setAttribute('aria-label', wmT("{0} 색상", status.name));
 					picker.onChange(color => {
 						setting.settingEl.style.setProperty('--wm-plotbook-status-color', color);
 						// Keep the native picker mounted during a drag; serialize writes so
@@ -104,7 +105,7 @@ export function renderPlotWorkbookStatusSettings(box: HTMLElement, plugin: Writi
 					});
 				});
 			}
-			if (!statuses.length) new Setting(list).setDesc('등록된 상태가 없습니다. 시트의 상태 메뉴에서 추가할 수 있습니다.');
+			if (!statuses.length) new Setting(list).setDesc(wmT("등록된 상태가 없습니다. 시트의 상태 메뉴에서 추가할 수 있습니다."));
 		} catch (error) {
 			if (request === token && list.isConnected) new Setting(list).setDesc(error instanceof Error ? error.message : String(error));
 		}

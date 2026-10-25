@@ -39,6 +39,7 @@ export const SETTINGS_SEARCH_PAGES = [
 			"프로젝트 설정",
 			"이 프로젝트의 글자수와 작업시간을 집계합니다.",
 			"통계에 포함",
+			"볼트 기준 경로를 한 줄에 하나씩 입력합니다. 비워 두면 {0} 전체를 집계합니다.",
 			"집계 폴더",
 			"참고자료나 임시 폴더처럼 통계에서 제외할 경로를 한 줄에 하나씩 입력합니다.",
 			"제외 폴더"
@@ -119,20 +120,28 @@ export const SETTINGS_SEARCH_PAGES = [
 	{
 		"id": "misc",
 		"name": "기타",
-		"desc": "타이머와 맞춤법 검사 등 부가 기능을 관리합니다.",
+		"desc": "맞춤법 검사 등 부가 기능을 관리합니다.",
 		"parent": "main",
 		"group": "",
 		"visible": true,
 		"mobile": false,
 		"aliases": [
-			"타이머",
-			"스톱워치의 기본값을 설정하세요.",
-			"스톱워치",
-			"마감 효과음을 선택하세요.",
-			"알람 소리",
 			"맞춤법 검사",
 			"고유명사 관리",
 			"등록한 고유명사를 검사에서 제외합니다."
+		]
+	},
+	{
+		"id": "tools",
+		"name": "도구",
+		"desc": "에디터 툴바의 도구를 관리합니다.",
+		"parent": "main",
+		"group": "편집기",
+		"visible": true,
+		"mobile": false,
+		"aliases": [
+			"글꼴",
+			"툴바에 표시할 글꼴을 추가하거나 삭제하고 순서를 바꿉니다."
 		]
 	},
 	{
@@ -244,16 +253,16 @@ export const SETTINGS_SEARCH_PAGES = [
 	{
 		"id": "export",
 		"name": "내보내기",
-		"desc": "TXT · HWP 내보내기 기본값을 설정합니다.",
+		"desc": "TXT · HWPX 내보내기 기본값을 설정합니다.",
 		"parent": "main",
 		"group": "편집기",
 		"visible": true,
 		"mobile": false,
 		"aliases": [
-			"한컴오피스 한글, Python, pywin32 필요",
-			"비어 있으면 바탕화면에 저장됩니다.",
+			"일반 HWPX 내보내기는 한글 설치 없이 사용할 수 있습니다. 템플릿 적용은 Windows용 한컴오피스 한글이 필요합니다.",
+			"비어 있으면 내보낼 때 저장 폴더를 선택합니다.",
 			"저장 경로(기본값)",
-			"HWP 문서를 템플릿 파일로 지정해 원하는 양식을 적용할 수 있습니다.",
+			"외부 HWP 또는 HWPX 문서의 양식에 원고 텍스트만 넣고 새 HWPX 파일로 저장합니다.",
 			"템플릿",
 			"내보낼 때 문단 들여쓰기를 기본으로 활성화합니다.",
 			"들여쓰기",
@@ -292,6 +301,21 @@ export const SETTINGS_SEARCH_PAGES = [
 		]
 	},
 	{
+		"id": "stopwatch",
+		"name": "타이머",
+		"desc": "스톱워치의 기본값을 설정하세요.",
+		"parent": "main",
+		"group": "대시보드",
+		"visible": true,
+		"mobile": false,
+		"aliases": [
+			"스톱워치의 기본값을 설정하세요.",
+			"스톱워치",
+			"마감 효과음을 선택하세요.",
+			"알람 소리"
+		]
+	},
+	{
 		"id": "writing-time",
 		"name": "작업 시간",
 		"desc": "작업 분류와 누적 시간 기록 방식을 설정합니다.",
@@ -301,6 +325,7 @@ export const SETTINGS_SEARCH_PAGES = [
 		"mobile": false,
 		"aliases": [
 			"분류",
+			"분류 {0}",
 			"기록",
 			"작업 시간의 합계를 기록할 프론트매터 키를 입력해주세요.",
 			"누적 시간"
@@ -395,19 +420,14 @@ export const SETTINGS_SEARCH_PAGES = [
 		]
 	},
 	{
-		"id": "stopwatch",
-		"name": "타이머",
-		"desc": "",
-		"parent": "misc",
+		"id": "fonts",
+		"name": "글꼴",
+		"desc": "툴바에 표시할 글꼴을 추가하거나 삭제하고 순서를 바꿉니다.",
+		"parent": "tools",
 		"group": "",
-		"visible": false,
+		"visible": true,
 		"mobile": false,
-		"aliases": [
-			"스톱워치의 기본값을 설정하세요.",
-			"스톱워치",
-			"마감 효과음을 선택하세요.",
-			"알람 소리"
-		]
+		"aliases": []
 	},
 	{
 		"id": "special-chars",

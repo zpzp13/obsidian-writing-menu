@@ -1,7 +1,8 @@
+import { getLanguage, wmT } from '../i18n/index';
 import type { DeusParticipant, DeusSkill } from './AiChatTypes';
 
 export const DEUS_SKILLS: Array<{ id: DeusSkill; label: string; command: string; icon: string; description: string }> = [
-	{ id: 'character', label: 'Character', command: 'character', icon: 'messages-square', description: '상황에 맞는 인물 간 대화와 역할극' },
+	{ id: 'character', label: 'Character', command: 'character', icon: 'messages-square', description: wmT('상황에 맞는 인물 간 대화와 역할극') },
 ];
 export type DeusSkillChoice = DeusSkill | 'auto';
 export function parseDeusCommand(value: string): { skill: DeusSkill; question: string } | undefined {
@@ -12,6 +13,12 @@ export function parseDeusCommand(value: string): { skill: DeusSkill; question: s
 export const DEUS_REPLY_STYLE = '일반 답변은 담백한 존댓말로 질문의 내용부터 바로 답하세요. 호칭·인사·상투적인 맞장구를 앞에 붙이지 말고, 사용자를 작가님·주인님으로 부르지 마세요. 역할극의 대사는 극중 인물을 향하게 하고 인물의 말투를 따르세요. 각주 외의 노트 언급에는 Obsidian 내부 링크 [[노트 경로|표시 이름]]를 사용하세요. 제공된 실제 경로를 우선하고, 경로를 지어내지 마세요. 노트 링크와 출처 각주는 구분하세요.';
 export interface DeusIntent { skill: DeusSkill; scene: 'active' | 'explicit' | 'none'; participants: DeusParticipant[]; question: string }
 
+export function deusReplyLanguage(): string {
+	return getLanguage() === 'en'
+		? 'Write the answer, narration, and dialogue in English unless the user requests another language. Preserve source names, original quotations, and the internal [인물: name] and [지문] format markers.'
+		: '';
+}
+
 export function resolveDeusIntent(question: string, choice: DeusSkillChoice, candidates: DeusParticipant[], selected: DeusParticipant[] = []): DeusIntent {
 	const command = parseDeusCommand(question);
 	const text = command ? command.question : question.trim();
@@ -19,12 +26,12 @@ export function resolveDeusIntent(question: string, choice: DeusSkillChoice, can
 	// A newly named cast replaces an earlier roleplay's cast. Remembered names alone
 	// must not turn a request for the current scene into a hypothetical scene.
 	const participants = named.length ? named : [...selected];
-	const skill = command?.skill ?? (choice !== 'auto' ? choice : /역할극|티키타카|(?:상황|장면).*(?:대화|주고받|말할)|(?:대화|대사).*(?:써\s*줘|써줘|만들|추천|뭘까|어떨까|보여|제안)|서로.*(?:말|대화)/.test(text) ? 'character'
-		: /(?:묘사|지문).*(?:써|만들|추천|어떨|뭘|해\s*줘|해줘)|(?:감정|풍경|행동).*묘사/.test(text) ? 'description'
-		: /대사.*(?:좋을|어울|어떤)|뭐라고.*(?:말|답)/.test(text) ? 'dialogue'
-		: /(?:문장|선택문).*(?:다듬|고쳐|수정|퇴고|개선)/.test(text) ? 'rewrite' : 'research');
-	const active = /지금|현재|이\s*(?:상황|장면|회차|노트)|여기서|선택문|선택한|이어[서지는]/.test(text);
-	const explicit = !active && (named.length > 0 || /만약|가정|상황\s*[:：]|설정\s*[:：]|한다면|했을\s*때/.test(text));
+	const skill = command?.skill ?? (choice !== 'auto' ? choice : /역할극|티키타카|(?:상황|장면).*(?:대화|주고받|말할)|(?:대화|대사).*(?:써\s*줘|써줘|만들|추천|뭘까|어떨까|보여|제안)|서로.*(?:말|대화)|\brole[- ]?play\b|\b(?:write|create|continue|show)\b.*\b(?:conversation|dialogue scene)\b/i.test(text) ? 'character'
+		: /(?:묘사|지문).*(?:써|만들|추천|어떨|뭘|해\s*줘|해줘)|(?:감정|풍경|행동).*묘사|\b(?:describe|write a description|write narration)\b/i.test(text) ? 'description'
+		: /대사.*(?:좋을|어울|어떤)|뭐라고.*(?:말|답)|\b(?:suggest|write)\b.*\b(?:dialogue|a line)\b|\bwhat would\b.*\bsay\b/i.test(text) ? 'dialogue'
+		: /(?:문장|선택문).*(?:다듬|고쳐|수정|퇴고|개선)|\b(?:rewrite|polish|rephrase|revise)\b/i.test(text) ? 'rewrite' : 'research');
+	const active = /지금|현재|이\s*(?:상황|장면|회차|노트)|여기서|선택문|선택한|이어[서지는]|\b(?:current|this) (?:scene|chapter|note|selection)\b|\b(?:selected text|continue)\b/i.test(text);
+	const explicit = !active && (named.length > 0 || /만약|가정|상황\s*[:：]|설정\s*[:：]|한다면|했을\s*때|\b(?:what if|imagine|suppose)\b|\b(?:scenario|setting)\s*:/i.test(text));
 	return { skill, scene: explicit && skill !== 'research' ? 'explicit' : skill !== 'research' || active || !text ? 'active' : 'none', participants, question: text };
 }
 

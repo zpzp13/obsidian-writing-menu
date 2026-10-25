@@ -1,4 +1,5 @@
 import type WritingMenuPlugin from '../../main';
+import { extractAudioMetadata, type AudioMetadata } from './AudioMetadata';
 
 export type PlaybackMode = 'loop' | 'single' | 'shuffle';
 
@@ -8,7 +9,7 @@ export interface Track {
 	resourcePath: string;
 }
 
-const AUDIO_EXTS = ['mp3', 'flac', 'wav', 'm4a', 'ogg'];
+export const AUDIO_EXTS = ['mp3', 'flac', 'wav', 'm4a', 'ogg'];
 
 /** 트랙 경로에서 폴더 경로 추출 */
 function folderOf(path: string): string {
@@ -19,20 +20,23 @@ function folderOf(path: string): string {
 export class MusicPlayer {
 	readonly audio: HTMLAudioElement;
 	playlist: Track[] = [];       // 전체 등록 폴더의 모든 트랙
-	viewPlaylist: Track[] = [];   // 현재 재생 범위 (선택한 폴더 + 모드)
+	viewPlaylist: Track[] = [];   // 선택한 뷰의 결과 또는 폴더 범위 + 모드
 	currentIndex = -1;
 	isPlaying = false;
 	mode: PlaybackMode;
 	volume: number;
 	currentFolderPath: string | null = null; // 현재 재생 범위 폴더 (셔플 범위 유지용)
 	readonly coverCache = new Map<string, string | null>();
-	readonly waveformCache = new Map<string, Promise<number[]>>();
+	private readonly metadataCache = new Map<string, AudioMetadata>();
+	private readonly coverLoads = new Map<string, Promise<string | null>>();
+	private playbackScopePaths: string[] | null = null;
+	// Keep the audible track when a new filter excludes it; the next track comes from the new scope.
+	private detachedTrack: Track | null = null;
 
 	private callbacks = new Set<() => void>();
 	private boundEnded: () => void;
 	private boundTimeUpdate: () => void;
 	private viewScopeFingerprint: string = '';
-	private waveformAudioContext: AudioContext | null = null;
 
 	constructor(private plugin: WritingMenuPlugin) {
 		this.audio = new Audio();
@@ -44,6 +48,7 @@ export class MusicPlayer {
 		this.boundTimeUpdate = () => this.notifyCallbacks();
 		this.audio.addEventListener('ended', this.boundEnded);
 		this.audio.addEventListener('timeupdate', this.boundTimeUpdate);
+		this.audio.addEventListener('durationchange', this.boundTimeUpdate);
 	}
 
 	async loadPlaylist(): Promise<void> {
@@ -57,6 +62,10 @@ export class MusicPlayer {
 			this.playlist = [];
 			this.viewPlaylist = [];
 			this.currentIndex = -1;
+			this.detachedTrack = null;
+			this.audio.pause();
+			this.audio.src = '';
+			this.isPlaying = false;
 			this.notifyCallbacks();
 			return;
 		}
@@ -74,41 +83,14 @@ export class MusicPlayer {
 			resourcePath: this.plugin.app.vault.getResourcePath(f),
 		}));
 
-		// 현재 재생 범위 재빌드 (같은 폴더 유지)
-		if (wasTrack) {
-			const folder = folderOf(wasTrack.path);
-			const folderTracks = this.playlist.filter(t => folderOf(t.path) === folder);
-			if (folderTracks.length > 0) {
-				this.buildViewPlaylistFrom(folderTracks);
-				const newIdx = this.viewPlaylist.findIndex(t => t.path === wasTrack.path);
-				this.currentIndex = newIdx >= 0 ? newIdx : 0;
-				// 재생 중이었으면 src만 갱신, play() 다시 호출 안 함
-				const newTrack = this.currentTrack;
-				if (newTrack && this.audio.src !== newTrack.resourcePath) {
-					// 다른 파일이 됐을 때만 src 교체
-					this.loadCurrent(this.isPlaying);
-				}
-				this.notifyCallbacks();
-				return;
-			}
-		}
-
-		// 재생 중인 트랙이 없거나 폴더가 사라진 경우
-		// currentFolderPath → 없으면 playlist 첫 트랙의 폴더 → 그것도 없으면 전체
-		const fallbackFolder = this.currentFolderPath
-			?? (this.playlist[0] ? folderOf(this.playlist[0].path) : null);
-		const fallbackScope = fallbackFolder
-			? this.playlist.filter(t => folderOf(t.path) === fallbackFolder)
-			: this.playlist;
-		this.buildViewPlaylistFrom(fallbackScope.length > 0 ? fallbackScope : this.playlist);
-		this.currentIndex = this.viewPlaylist.length > 0 ? 0 : -1;
-		if (!wasTrack || !this.isPlaying) {
-			this.notifyCallbacks();
-		}
+		const retained = this.playlist.find(track => track.path === wasTrack?.path) ?? null;
+		this.rebuildPlaybackScope(retained);
+		if (wasTrack && !retained) this.loadCurrent(this.isPlaying);
+		else this.notifyCallbacks();
 	}
 
 	private computeFingerprint(tracks: Track[]): string {
-		return tracks.map(t => t.path).sort().join('|');
+		return JSON.stringify(tracks.map(t => t.path).sort());
 	}
 
 	private buildViewPlaylistFrom(tracks: Track[]) {
@@ -116,14 +98,50 @@ export class MusicPlayer {
 		if (this.mode === 'shuffle' && newFp === this.viewScopeFingerprint) return;
 		this.viewScopeFingerprint = newFp;
 		if (this.mode === 'shuffle') {
-			this.viewPlaylist = [...tracks].sort(() => Math.random() - 0.5);
+			this.viewPlaylist = [...tracks];
+			for (let i = this.viewPlaylist.length - 1; i > 0; i--) {
+				const j = Math.floor(Math.random() * (i + 1));
+				[this.viewPlaylist[i], this.viewPlaylist[j]] = [this.viewPlaylist[j], this.viewPlaylist[i]];
+			}
 		} else {
 			this.viewPlaylist = [...tracks];
 		}
 	}
 
+	private rebuildPlaybackScope(current: Track | null): void {
+		let tracks: Track[];
+		if (this.playbackScopePaths !== null) {
+			const available = new Map(this.playlist.map(track => [track.path, track]));
+			tracks = this.playbackScopePaths.flatMap(path => available.get(path) ?? []);
+		} else {
+			const folder = this.currentFolderPath ?? (this.playlist[0] ? folderOf(this.playlist[0].path) : null);
+			tracks = folder === null ? this.playlist : this.playlist.filter(track => folderOf(track.path) === folder);
+		}
+		this.buildViewPlaylistFrom(tracks);
+		this.currentIndex = current ? this.viewPlaylist.findIndex(track => track.path === current.path) : (this.viewPlaylist.length ? 0 : -1);
+		this.detachedTrack = this.currentIndex < 0 ? current : null;
+	}
+
+	/** The query's order is the source of truth when shuffle is disabled, including empty results. */
+	setPlaybackScope(tracks: Track[]): void {
+		const current = this.currentTrack;
+		this.playbackScopePaths = [...new Set(tracks.map(track => track.path))];
+		this.rebuildPlaybackScope(current);
+		this.notifyCallbacks();
+	}
+
+	playInScope(track: Track, tracks: Track[]): void {
+		if (!tracks.some(item => item.path === track.path)) return;
+		this.playbackScopePaths = [...new Set(tracks.map(item => item.path))];
+		this.rebuildPlaybackScope(track);
+		if (this.currentIndex < 0) return;
+		this.loadCurrent(true);
+	}
+
 	/** 트랙 선택 시 해당 폴더 범위로 재생목록 변경 후 재생 */
 	playInFolder(track: Track) {
+		this.playbackScopePaths = null;
+		this.detachedTrack = null;
 		const folder = folderOf(track.path);
 		this.currentFolderPath = folder;
 		const folderTracks = this.playlist.filter(t => folderOf(t.path) === folder);
@@ -134,7 +152,7 @@ export class MusicPlayer {
 	}
 
 	get currentTrack(): Track | null {
-		return this.viewPlaylist[this.currentIndex] ?? null;
+		return this.viewPlaylist[this.currentIndex] ?? this.detachedTrack;
 	}
 
 	loadCurrent(autoPlay: boolean) {
@@ -148,7 +166,7 @@ export class MusicPlayer {
 		if (this.audio.src !== track.resourcePath) {
 			this.audio.src = track.resourcePath;
 		}
-		// 곡이 바뀐 사실을 play() 완료보다 먼저 알려 앨범아트와 파형을 즉시 교체한다.
+		// 곡이 바뀐 사실을 play() 완료보다 먼저 알려 앨범아트와 곡 정보를 즉시 교체한다.
 		this.notifyCallbacks();
 		if (autoPlay) {
 			this.audio.play().then(() => {
@@ -184,13 +202,15 @@ export class MusicPlayer {
 	next() {
 		if (this.viewPlaylist.length === 0) return;
 		this.currentIndex = (this.currentIndex + 1) % this.viewPlaylist.length;
+		this.detachedTrack = null;
 		this.loadCurrent(this.isPlaying);
 	}
 
 	prev() {
 		if (this.viewPlaylist.length === 0) return;
 		if (this.audio.currentTime > 3) { this.audio.currentTime = 0; return; }
-		this.currentIndex = (this.currentIndex - 1 + this.viewPlaylist.length) % this.viewPlaylist.length;
+		this.currentIndex = this.currentIndex < 0 ? this.viewPlaylist.length - 1 : (this.currentIndex - 1 + this.viewPlaylist.length) % this.viewPlaylist.length;
+		this.detachedTrack = null;
 		this.loadCurrent(this.isPlaying);
 	}
 
@@ -198,7 +218,9 @@ export class MusicPlayer {
 	skip(offset: number) {
 		const vp = this.viewPlaylist;
 		if (vp.length === 0) return;
-		this.currentIndex = (this.currentIndex + offset + vp.length * 100) % vp.length;
+		const index = this.currentIndex < 0 ? (offset > 0 ? offset - 1 : offset) : this.currentIndex + offset;
+		this.currentIndex = ((index % vp.length) + vp.length) % vp.length;
+		this.detachedTrack = null;
 		this.loadCurrent(this.isPlaying);
 	}
 
@@ -222,18 +244,7 @@ export class MusicPlayer {
 		this.mode = m;
 		this.plugin.settings.musicPlaybackMode = m;
 		void this.plugin.saveSettings();
-		// 현재 폴더 범위 유지하며 재빌드
-		const currentFolder = wasTrack
-			? folderOf(wasTrack.path)
-			: (this.currentFolderPath ?? (this.playlist[0] ? folderOf(this.playlist[0].path) : null));
-		const scope = currentFolder
-			? this.playlist.filter(t => folderOf(t.path) === currentFolder)
-			: this.playlist;
-		this.buildViewPlaylistFrom(scope.length > 0 ? scope : this.playlist);
-		if (wasTrack) {
-			const newIdx = this.viewPlaylist.findIndex(t => t.path === wasTrack.path);
-			this.currentIndex = newIdx >= 0 ? newIdx : 0;
-		}
+		this.rebuildPlaybackScope(wasTrack);
 		this.notifyCallbacks();
 	}
 
@@ -261,135 +272,36 @@ export class MusicPlayer {
 		return favs.map(p => byPath.get(p)).filter((t): t is Track => !!t);
 	}
 
-	// ── 앨범아트 ──────────────────────────────────────────────────────────
+	// ── 앨범아트 · 메타데이터 ─────────────────────────────────────────────
 
-	async getCover(track: Track): Promise<string | null> {
-		if (this.coverCache.has(track.path)) return this.coverCache.get(track.path)!;
+	getCover(track: Track): Promise<string | null> {
+		if (this.coverCache.has(track.path)) return Promise.resolve(this.coverCache.get(track.path)!);
+		const pending = this.coverLoads.get(track.path);
+		if (pending) return pending;
+		const task = this.loadTrackInfo(track);
+		this.coverLoads.set(track.path, task);
+		return task;
+	}
+
+	async getMetadata(track: Track): Promise<AudioMetadata> {
+		if (!this.metadataCache.has(track.path)) await this.getCover(track);
+		return this.metadataCache.get(track.path) ?? { title: '', artist: '' };
+	}
+
+	private async loadTrackInfo(track: Track): Promise<string | null> {
 		try {
 			const buf = await this.plugin.app.vault.adapter.readBinary(track.path);
+			this.metadataCache.set(track.path, extractAudioMetadata(buf));
 			const url = extractID3Cover(buf);
 			this.coverCache.set(track.path, url);
 			return url;
 		} catch {
 			this.coverCache.set(track.path, null);
+			this.metadataCache.set(track.path, { title: '', artist: '' });
 			return null;
+		} finally {
+			this.coverLoads.delete(track.path);
 		}
-	}
-
-	async getWaveform(track: Track, length = 48): Promise<number[]> {
-		const barCount = Math.max(8, Math.min(256, Math.floor(length)));
-		const cacheKey = `${track.path}:${barCount}`;
-		const cached = this.waveformCache.get(cacheKey);
-		if (cached) return cached;
-		const task = (async () => {
-			try {
-				const encoded = await this.plugin.app.vault.adapter.readBinary(track.path);
-				this.waveformAudioContext ??= new AudioContext();
-				const isLargeMp3 = track.path.toLowerCase().endsWith('.mp3') && encoded.byteLength >= 40 * 1024 * 1024;
-				if (isLargeMp3) return await this.decodeSampledMp3Waveform(encoded, barCount);
-				const decoded = await this.waveformAudioContext.decodeAudioData(encoded);
-				return this.normalizeWaveform(this.measureAudioBuffer(decoded, barCount));
-			} catch {
-				return [];
-			}
-		})();
-		this.waveformCache.set(cacheKey, task);
-		return task;
-	}
-
-	private measureAudioBuffer(decoded: AudioBuffer, barCount: number): number[] {
-		const strengths = new Array<number>(barCount).fill(0);
-		const channelCount = Math.max(1, Math.min(2, decoded.numberOfChannels));
-		for (let channelIndex = 0; channelIndex < channelCount; channelIndex++) {
-			const channel = decoded.getChannelData(channelIndex);
-			for (let barIndex = 0; barIndex < barCount; barIndex++) {
-				const start = Math.floor(barIndex * channel.length / barCount);
-				const end = Math.max(start + 1, Math.floor((barIndex + 1) * channel.length / barCount));
-				const stride = Math.max(1, Math.floor((end - start) / 2048));
-				let peak = 0;
-				let squareSum = 0;
-				let sampleCount = 0;
-				for (let sampleIndex = start; sampleIndex < end; sampleIndex += stride) {
-					const sample = Math.abs(channel[sampleIndex] ?? 0);
-					peak = Math.max(peak, sample);
-					squareSum += sample * sample;
-					sampleCount++;
-				}
-				const rms = sampleCount > 0 ? Math.sqrt(squareSum / sampleCount) : 0;
-				// WaveSurfer exportPeaks와 같은 peak envelope를 중심으로 하되,
-				// RMS를 소량 섞어 지나치게 날카로운 단일 샘플 스파이크를 억제한다.
-				strengths[barIndex] += peak * .84 + rms * .16;
-			}
-		}
-		return strengths.map(value => value / channelCount);
-	}
-
-	private normalizeWaveform(strengths: number[]): number[] {
-		if (strengths.length === 0) return [];
-		const ordered = [...strengths].sort((a, b) => a - b);
-		const floor = ordered[Math.floor((ordered.length - 1) * .04)] ?? 0;
-		const ceiling = ordered[Math.floor((ordered.length - 1) * .96)] ?? 0;
-		const range = Math.max(.0001, ceiling - floor);
-		const normalized = strengths.map(strength => {
-			const normalized = Math.max(0, Math.min(1, (strength - floor) / range));
-			return .04 + .96 * Math.pow(normalized, 1.12);
-		});
-		return normalized.map((value, index) => {
-			const previous = normalized[Math.max(0, index - 1)] ?? value;
-			const next = normalized[Math.min(normalized.length - 1, index + 1)] ?? value;
-			return value * .7 + previous * .15 + next * .15;
-		});
-	}
-
-	/** 긴 MP3를 거대한 PCM 버퍼 하나로 만들지 않고 파일 전 구간을 분산 표본화한다. */
-	private async decodeSampledMp3Waveform(encoded: ArrayBuffer, barCount: number): Promise<number[]> {
-		if (!this.waveformAudioContext) return [];
-		const bytes = new Uint8Array(encoded);
-		const chunkCount = 14;
-		const barsPerChunk = Math.ceil(barCount / chunkCount);
-		const chunkSize = Math.max(192 * 1024, Math.min(1024 * 1024, Math.floor(encoded.byteLength / chunkCount / 2)));
-		const strengths = new Array<number | null>(barCount).fill(null);
-		let decodedChunks = 0;
-
-		for (let chunkIndex = 0; chunkIndex < chunkCount; chunkIndex++) {
-			const startBar = chunkIndex * barsPerChunk;
-			const barsHere = Math.min(barsPerChunk, barCount - startBar);
-			const centerRatio = (startBar + barsHere / 2) / barCount;
-			const approximateStart = Math.max(0, Math.floor(encoded.byteLength * centerRatio - chunkSize / 2));
-			const start = this.findMp3Frame(bytes, approximateStart, Math.min(bytes.length - 2, approximateStart + 64 * 1024));
-			const end = Math.min(encoded.byteLength, start + chunkSize);
-			try {
-				const decoded = await this.waveformAudioContext.decodeAudioData(encoded.slice(start, end));
-				const measured = this.measureAudioBuffer(decoded, barsHere);
-				measured.forEach((value, index) => { strengths[startBar + index] = value; });
-				decodedChunks++;
-			} catch {
-				// 일부 MP3 프레임이 독립 디코딩되지 않아도 나머지 구간으로 보간한다.
-			}
-			await new Promise<void>(resolve => window.setTimeout(resolve, 0));
-		}
-
-		if (decodedChunks < Math.max(2, Math.ceil(chunkCount * .3))) return [];
-		for (let index = 0; index < strengths.length; index++) {
-			if (strengths[index] !== null) continue;
-			let left = index - 1;
-			let right = index + 1;
-			while (left >= 0 && strengths[left] === null) left--;
-			while (right < strengths.length && strengths[right] === null) right++;
-			const leftValue = left >= 0 ? strengths[left] : null;
-			const rightValue = right < strengths.length ? strengths[right] : null;
-			strengths[index] = leftValue !== null && rightValue !== null
-				? leftValue + (rightValue - leftValue) * ((index - left) / (right - left))
-				: leftValue ?? rightValue ?? 0;
-		}
-		return this.normalizeWaveform(strengths.map(value => value ?? 0));
-	}
-
-	private findMp3Frame(bytes: Uint8Array, start: number, end: number): number {
-		for (let index = start; index < end; index++) {
-			if (bytes[index] === 0xff && (bytes[index + 1] & 0xe0) === 0xe0) return index;
-		}
-		return start;
 	}
 
 	// ── 이벤트 ──────────────────────────────────────────────────────────
@@ -399,7 +311,8 @@ export class MusicPlayer {
 			this.audio.currentTime = 0;
 			this.audio.play().catch(() => {});
 		} else {
-			this.next();
+			if (this.viewPlaylist.length) this.next();
+			else this.pause();
 		}
 	}
 
@@ -412,11 +325,11 @@ export class MusicPlayer {
 		this.audio.src = '';
 		this.audio.removeEventListener('ended', this.boundEnded);
 		this.audio.removeEventListener('timeupdate', this.boundTimeUpdate);
+		this.audio.removeEventListener('durationchange', this.boundTimeUpdate);
 		this.callbacks.clear();
 		this.coverCache.clear();
-		this.waveformCache.clear();
-		void this.waveformAudioContext?.close();
-		this.waveformAudioContext = null;
+		this.metadataCache.clear();
+		this.coverLoads.clear();
 	}
 }
 

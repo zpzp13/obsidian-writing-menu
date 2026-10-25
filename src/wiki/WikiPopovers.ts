@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { App, Menu, setIcon, ToggleComponent } from 'obsidian';
 import type { WikiSavedView, WikiGroupRule } from './WikiTypes';
 import { RenameModal } from './WikiModals';
@@ -81,7 +82,7 @@ export class PropertyPopover extends WikiPopover {
 		super(app, target);
 
 		const searchContainer = this.containerEl.createDiv({ cls: 'search-input-container wm-wiki-prop-search' });
-		const searchInput = searchContainer.createEl('input', { attr: { type: 'search', placeholder: '속성 검색...' } });
+		const searchInput = searchContainer.createEl('input', { attr: { type: 'search', placeholder: wmT("속성 검색...") } });
 
 		const scrollContainer = this.containerEl.createDiv({ cls: 'menu-scroll wm-wiki-prop-scroll' });
 
@@ -128,15 +129,15 @@ export class ConfigPopover extends WikiPopover {
 			return row.createDiv({ cls: 'wiki-config-control' });
 		};
 
-		const folderCont = createRow('폴더');
-		const fInput = folderCont.createEl('input', { attr: { value: currentFolder || '', placeholder: '폴더 선택...', readonly: true } });
+		const folderCont = createRow(wmT("폴더"));
+		const fInput = folderCont.createEl('input', { attr: { value: currentFolder || '', placeholder: wmT("폴더 선택..."), readonly: true } });
 		fInput.onclick = () => { this.close(); onFolder(); };
 
-		const subCont = createRow('하위 폴더 포함');
+		const subCont = createRow(wmT("하위 폴더 포함"));
 		new ToggleComponent(subCont).setValue(includeSub).onChange((val) => onToggleSub(val));
 
-		const groupCont = createRow('그룹 속성');
-		const gInput = groupCont.createEl('input', { attr: { value: currentGroup === 'None' ? '' : currentGroup, placeholder: '속성 검색...' } });
+		const groupCont = createRow(wmT("그룹 속성"));
+		const gInput = groupCont.createEl('input', { attr: { value: currentGroup === 'None' ? '' : currentGroup, placeholder: wmT("속성 검색...") } });
 		attachSuggestions(gInput, () => allFields, (item) => onGroupChange(item));
 		gInput.onchange = () => onGroupChange(gInput.value || 'None');
 	}
@@ -186,7 +187,7 @@ export class GroupPopover extends WikiPopover {
 				handle.onmousedown = () => { item.draggable = true; };
 				handle.onmouseup = () => { item.draggable = false; };
 
-				const nameIn = item.createEl('input', { cls: 'wm-group-name-input', attr: { placeholder: '그룹명', value: rule.groupName || '' } });
+				const nameIn = item.createEl('input', { cls: 'wm-group-name-input', attr: { placeholder: wmT("그룹명"), value: rule.groupName || '' } });
 				nameIn.onchange = () => { rule.groupName = nameIn.value; onUpdate(rules); };
 
 				const createInput = (val: string, placeholder: string, onChange: (v: string) => void) => {
@@ -195,10 +196,10 @@ export class GroupPopover extends WikiPopover {
 					return i;
 				};
 
-				const f1 = createInput(rule.field, '속성', (v) => { rule.field = v; onUpdate(rules); });
+				const f1 = createInput(rule.field, wmT("속성"), (v) => { rule.field = v; onUpdate(rules); });
 				attachSuggestions(f1, () => allFields, (v) => { rule.field = v; f1.value = v; onUpdate(rules); });
 
-				const v1 = createInput(rule.value, '값', (v) => { rule.value = v; onUpdate(rules); });
+				const v1 = createInput(rule.value, wmT("값"), (v) => { rule.value = v; onUpdate(rules); });
 				attachSuggestions(v1, () => getValues(rule.field), (v) => { rule.value = v; v1.value = v; onUpdate(rules); });
 
 				const cond = item.createEl('select', { cls: 'wiki-logic-select wm-group-cond-select' });
@@ -206,10 +207,10 @@ export class GroupPopover extends WikiPopover {
 				cond.createEl('option', { value: 'or', text: 'OR' }).selected = (rule.condition === 'or');
 				cond.onchange = () => { rule.condition = cond.value as 'and' | 'or'; onUpdate(rules); };
 
-				const f2 = createInput(rule.field2 || '', '속성2', (v) => { rule.field2 = v; onUpdate(rules); });
+				const f2 = createInput(rule.field2 || '', wmT("속성2"), (v) => { rule.field2 = v; onUpdate(rules); });
 				attachSuggestions(f2, () => allFields, (v) => { rule.field2 = v; f2.value = v; onUpdate(rules); });
 
-				const v2 = createInput(rule.value2 || '', '값2', (v) => { rule.value2 = v; onUpdate(rules); });
+				const v2 = createInput(rule.value2 || '', wmT("값2"), (v) => { rule.value2 = v; onUpdate(rules); });
 				attachSuggestions(v2, () => getValues(rule.field2 || ''), (v) => { rule.value2 = v; v2.value = v; onUpdate(rules); });
 
 				const pin = item.createDiv({ cls: 'menu-item-icon clickable-icon' });
@@ -228,7 +229,7 @@ export class GroupPopover extends WikiPopover {
 		const addBtn = this.containerEl.createDiv({ cls: 'menu-item' });
 		const addIcon = addBtn.createDiv({ cls: 'menu-item-icon' });
 		setIcon(addIcon, 'plus');
-		addBtn.createDiv({ cls: 'menu-item-title', text: '새 그룹 규칙 추가' });
+		addBtn.createDiv({ cls: 'menu-item-title', text: wmT("새 그룹 규칙 추가") });
 		addBtn.onclick = () => {
 			rules.push({ id: Date.now().toString(), field: '', operator: 'contains', value: '', condition: 'or', isPinned: false });
 			onUpdate(rules);
@@ -254,14 +255,14 @@ export class SavedViewPopover extends WikiPopover {
 		const saveItem = this.containerEl.createDiv({ cls: 'menu-item' });
 		const saveIcon = saveItem.createDiv({ cls: 'menu-item-icon' });
 		setIcon(saveIcon, 'save');
-		saveItem.createDiv({ cls: 'menu-item-title', text: '현재 뷰 저장하기' });
+		saveItem.createDiv({ cls: 'menu-item-title', text: wmT("현재 뷰 저장하기") });
 		saveItem.onclick = () => { this.close(); onSave(); };
 
 		this.containerEl.createDiv({ cls: 'menu-separator' });
 
 		if (views.length === 0) {
 			const empty = this.containerEl.createDiv({ cls: 'menu-item is-disabled' });
-			empty.createDiv({ cls: 'menu-item-title wm-text-muted', text: '저장된 뷰가 없습니다.' });
+			empty.createDiv({ cls: 'menu-item-title wm-text-muted', text: wmT("저장된 뷰가 없습니다.") });
 		} else {
 			views.forEach((view, idx) => {
 				const item = this.containerEl.createDiv({ cls: 'menu-item' });
@@ -298,16 +299,16 @@ export function showPaletteMenu(
 ): Menu {
 	const menu = new Menu();
 
-	menu.addItem(i => i.setTitle('모드: 없음').setChecked(currentMode === 'none').onClick(async () => { plugin.settings.wikiPaletteMode = 'none'; await plugin.saveSettings(); onRender(); }));
-	menu.addItem(i => i.setTitle('모드: 배경').setChecked(currentMode === 'background' || currentMode === 'bg').onClick(async () => { plugin.settings.wikiPaletteMode = 'background'; await plugin.saveSettings(); onRender(); }));
-	menu.addItem(i => i.setTitle('모드: 텍스트').setChecked(currentMode === 'text').onClick(async () => { plugin.settings.wikiPaletteMode = 'text'; await plugin.saveSettings(); onRender(); }));
-	menu.addItem(i => i.setTitle('모드: 기둥').setChecked(currentMode === 'pillars').onClick(async () => { plugin.settings.wikiPaletteMode = 'pillars'; await plugin.saveSettings(); onRender(); }));
+	menu.addItem(i => i.setTitle(wmT("모드: 없음")).setChecked(currentMode === 'none').onClick(async () => { plugin.settings.wikiPaletteMode = 'none'; await plugin.saveSettings(); onRender(); }));
+	menu.addItem(i => i.setTitle(wmT("모드: 배경")).setChecked(currentMode === 'background' || currentMode === 'bg').onClick(async () => { plugin.settings.wikiPaletteMode = 'background'; await plugin.saveSettings(); onRender(); }));
+	menu.addItem(i => i.setTitle(wmT("모드: 텍스트")).setChecked(currentMode === 'text').onClick(async () => { plugin.settings.wikiPaletteMode = 'text'; await plugin.saveSettings(); onRender(); }));
+	menu.addItem(i => i.setTitle(wmT("모드: 기둥")).setChecked(currentMode === 'pillars').onClick(async () => { plugin.settings.wikiPaletteMode = 'pillars'; await plugin.saveSettings(); onRender(); }));
 
 	menu.addSeparator();
 
 	const paletteNames = ['None', 'TierList', 'Pastel Rainbow', 'Monochrome', 'Vivid'];
 	paletteNames.forEach(pName => {
-		menu.addItem(item => item.setTitle(`팔레트: ${pName}`).onClick(async () => {
+		menu.addItem(item => item.setTitle(wmT("팔레트: {0}", pName)).onClick(async () => {
 			const target = await getTargetSettingsFile();
 			if (target) {
 				await plugin.app.fileManager.processFrontMatter(target, (fm: Record<string, unknown>) => { fm['wikiPalette'] = pName; });

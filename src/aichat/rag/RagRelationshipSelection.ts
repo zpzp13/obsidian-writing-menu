@@ -1,3 +1,4 @@
+import { wmT } from '../../i18n/index';
 import type { CorpusDocument } from './ChatCorpusProvider';
 import type { ChatResearchCoverage } from '../AiChatTypes';
 import { researchEvidenceText } from '../AiChatPrompt';
@@ -120,7 +121,7 @@ export async function collectRelationshipEvidence(documents: CorpusDocument[], t
 	for (const [id, group] of groups) {
 		checkChatAbort(signal);
 		const { document, hash } = originals.get(id)!, text = await document.read();
-		if (await ragHash(text) !== hash) throw new Error('관계 조사 중 원문이 변경되었습니다. 최신 자료로 다시 조사해 주세요.');
+		if (await ragHash(text) !== hash) throw new Error(wmT("관계 조사 중 원문이 변경되었습니다. 최신 자료로 다시 조사해 주세요."));
 		for (const range of mergeRanges(group.map(candidate => candidate.range))) {
 			const excerpt = text.slice(range.from, range.to), source: RagChunk = { id: `${id}#relationship:${hash}:${range.from}:${range.to}`, group: id, title: document.title, path: document.path, kind: document.kind, ...range,
 				text: excerpt, location: `${text.slice(0, range.from).split('\n').length}–${text.slice(0, range.to).split('\n').length}행`, contentHash: await ragHash(`${document.title}\n${excerpt}`), links: document.links, automatic: true };
@@ -133,7 +134,7 @@ export async function collectRelationshipEvidence(documents: CorpusDocument[], t
 	const covered = (candidate: Candidate) => sources.some(source => source.group === candidate.document.id && source.from <= candidate.range.from && source.to >= candidate.range.to);
 	const coverage: ChatResearchCoverage = { purpose: 'relationship', characters: targets.map(({ id, name }) => ({ id, name })), inspectedDocuments: documents.length,
 		matchedDocuments: originals.size, matchedPassages: candidates.length, includedDocuments: new Set(sources.map(source => source.group)).size, includedPassages: sources.length, shortenedPassages: 0, partial: candidates.some(candidate => !covered(candidate)) };
-	if (candidates.length && !sources.length) throw new Error('지정된 발췌 범위에 관계 근거를 담지 못했습니다.');
+	if (candidates.length && !sources.length) throw new Error(wmT("지정된 발췌 범위에 관계 근거를 담지 못했습니다."));
 	const warnings = [`인물 관계 조사: ${targets.map(entity => entity.name).join(', ')} · 프로젝트 ${documents.length}개 자료 검사 · 공동 등장·관계 설정 후보 ${coverage.matchedDocuments}개 자료/${coverage.matchedPassages}구간에서 ${coverage.includedDocuments}개 자료/${sources.length}구간 제공. ${exhaustive ? '요청한 전체 범위의 명시적 공동 등장·연결 구간을 수집했습니다.' : '관계의 출발점·주요 관계 유형·최근 상태를 설명할 대표 근거를 선별했습니다. 모든 관계 사건을 전송한 것은 아닙니다.'} ${coverage.partial ? '후보 일부만 제공했습니다.' : '선정 범위의 겹치는 원문을 병합했습니다.'} 함께 등장하거나 플롯에 연결된 사실만으로 친밀도·갈등·공동 행동을 단정하지 마세요. 본문·인물 설정·플롯 계획을 구별하세요. 한 사람과 제삼자의 관계를 두 사람 사이의 관계로 바꾸지 마세요. 출발점·공동 사건·현재 관계를 근거가 있는 범위에서 종합하세요. 필요한 사건이나 관계의 원인이 비어 있으면 search_sources에 두 인물과 사건·상대 인물·관계 표현을 지정하고, read_source로 해당 장면 앞뒤를 더 읽으세요. 이미 받은 원문을 반복 검색하지 마세요. 대명사·간접 서술로만 이어지는 장면은 누락될 수 있습니다.`];
 	checkChatAbort(signal); return { sources, warnings, coverage };
 }

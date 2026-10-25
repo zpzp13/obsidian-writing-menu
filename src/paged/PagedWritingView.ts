@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { caretRangeAtPoint, isComposingKey } from '../utils/inputCompatibility';
 import { detachedEl, detachedFragment } from '../utils/dom';
 import {
@@ -208,7 +209,7 @@ export class PagedWritingView extends FileView {
 	}
 
 	getDisplayText(): string {
-		return this.file?.basename ?? '여러 쪽 보기';
+		return this.file?.basename ?? wmT("여러 쪽 보기");
 	}
 
 	getIcon(): string {
@@ -262,16 +263,16 @@ export class PagedWritingView extends FileView {
 	}
 	private reportSaveError(error: unknown): void {
 		console.error('[Writing Menu] Paged document save failed', error);
-		new Notice(`문서를 저장하지 못했습니다. 편집창을 닫지 말고 다시 시도해주세요.\n${error instanceof Error ? error.message : String(error)}`, 0);
+		new Notice(wmT("문서를 저장하지 못했습니다. 편집창을 닫지 말고 다시 시도해주세요.\n{0}", error instanceof Error ? error.message : String(error)), 0);
 	}
 	private showFileConflict(store: PagedFileStore, conflict: PagedFileConflict): void {
-		new Notice(`자동 병합을 멈추고 양쪽 내용을 보존했습니다. 내 편집본: ${conflict.localPath}`, 0);
+		new Notice(wmT("자동 병합을 멈추고 양쪽 내용을 보존했습니다. 내 편집본: {0}", conflict.localPath), 0);
 		const open = () => {
 			if (this.conflictModal?.containerEl.isConnected) return;
 			this.conflictModal = new PagedFileConflictModal(this.app, () => store.review, async choice => {
 				await store.resolve(choice).then(() => {
 					if (!store.hasConflict) { this.conflictBanner?.remove(); this.conflictBanner = null; }
-					else throw new Error('외부 변경이 추가되었습니다. 최신 내용으로 다시 검토해 주세요.');
+					else throw new Error(wmT("외부 변경이 추가되었습니다. 최신 내용으로 다시 검토해 주세요."));
 					this.requestSave();
 				});
 			}); this.conflictModal.open();
@@ -280,8 +281,8 @@ export class PagedWritingView extends FileView {
 			this.conflictBanner ??= this.rootEl.createDiv({ cls: 'wm-paged-conflict-banner', attr: { role: 'status' } });
 			this.rootEl.insertBefore(this.conflictBanner, this.findBarEl ?? this.viewportEl);
 			this.conflictBanner.empty();
-			this.conflictBanner.createSpan({ text: '외부 변경과 충돌했습니다. 원본 자동저장은 멈추고 편집본을 별도 보존합니다.' });
-			this.conflictBanner.createEl('button', { text: '변경본 선택' }).addEventListener('click', open);
+			this.conflictBanner.createSpan({ text: wmT("외부 변경과 충돌했습니다. 원본 자동저장은 멈추고 편집본을 별도 보존합니다.") });
+			this.conflictBanner.createEl('button', { text: wmT("변경본 선택") }).addEventListener('click', open);
 		}
 		open();
 	}
@@ -739,7 +740,7 @@ export class PagedWritingView extends FileView {
 	private renderFindBar(container: HTMLElement): void {
 		const bar = container.createDiv({
 			cls: 'wm-paged-findbar',
-			attr: { role: 'search', 'aria-label': '문서에서 찾기 및 바꾸기' },
+			attr: { role: 'search', 'aria-label': wmT("문서에서 찾기 및 바꾸기") },
 		});
 		bar.hidden = true;
 		const findRow = bar.createDiv({ cls: 'wm-paged-find-row is-find' });
@@ -747,23 +748,23 @@ export class PagedWritingView extends FileView {
 		setIcon(searchIcon, 'search');
 		const input = findRow.createEl('input', {
 			type: 'search',
-			placeholder: '문서에서 찾기',
+			placeholder: wmT("문서에서 찾기"),
 			attr: { autocomplete: 'off', spellcheck: 'false' },
 		});
 		const count = findRow.createSpan({ cls: 'wm-paged-find-count', text: '0/0', attr: { 'aria-live': 'polite' } });
 		const previous = findRow.createEl('button', {
 			cls: 'wm-paged-find-action clickable-icon',
-			attr: { type: 'button', 'aria-label': '이전 검색 결과' },
+			attr: { type: 'button', 'aria-label': wmT("이전 검색 결과") },
 		});
 		setIcon(previous, 'chevron-up');
 		const next = findRow.createEl('button', {
 			cls: 'wm-paged-find-action clickable-icon',
-			attr: { type: 'button', 'aria-label': '다음 검색 결과' },
+			attr: { type: 'button', 'aria-label': wmT("다음 검색 결과") },
 		});
 		setIcon(next, 'chevron-down');
 		const close = findRow.createEl('button', {
 			cls: 'wm-paged-find-action clickable-icon',
-			attr: { type: 'button', 'aria-label': '검색 닫기' },
+			attr: { type: 'button', 'aria-label': wmT("검색 닫기") },
 		});
 		setIcon(close, 'x');
 
@@ -772,18 +773,18 @@ export class PagedWritingView extends FileView {
 		setIcon(replaceIcon, 'replace');
 		const replaceInput = replaceRow.createEl('input', {
 			type: 'text',
-			placeholder: '바꿀 내용',
+			placeholder: wmT("바꿀 내용"),
 			attr: { autocomplete: 'off', spellcheck: 'false' },
 		});
 		const replaceOne = replaceRow.createEl('button', {
 			cls: 'wm-paged-find-replace-button',
-			text: '바꾸기',
+			text: wmT("바꾸기"),
 			attr: { type: 'button' },
 		});
 		const replaceAll = replaceRow.createEl('button', {
 			cls: 'wm-paged-find-replace-button',
-			text: '모두',
-			attr: { type: 'button', 'aria-label': '모두 바꾸기' },
+			text: wmT("모두"),
+			attr: { type: 'button', 'aria-label': wmT("모두 바꾸기") },
 		});
 
 		input.addEventListener('input', () => this.refreshFindMatches(true));
@@ -1007,7 +1008,7 @@ export class PagedWritingView extends FileView {
 				this.editRootEl?.focus({ preventScroll: true });
 				this.restoreSelection(selection, true);
 			} else {
-				new Notice('배경색을 적용할 텍스트를 선택해 주세요.');
+				new Notice(wmT("배경색을 적용할 텍스트를 선택해 주세요."));
 			}
 			return;
 		}
@@ -2008,7 +2009,7 @@ export class PagedWritingView extends FileView {
 		const editor = this.getEditorAdapter();
 		const restore = (): boolean => {
 			if (this.file !== file || this.getEditableData() !== source || !this.editRootEl?.isConnected) {
-				new Notice('문서가 변경되었습니다. 편집할 위치를 다시 선택해 주세요.');
+				new Notice(wmT("문서가 변경되었습니다. 편집할 위치를 다시 선택해 주세요."));
 				return false;
 			}
 			this.cachedSelection = { ...selection };
@@ -2026,14 +2027,14 @@ export class PagedWritingView extends FileView {
 					const from = Math.min(selection.anchor, selection.head), to = Math.max(selection.anchor, selection.head);
 					await clipboard.writeText(source.slice(from, to));
 					if (cut && restore()) this.applyEdit(from, to, '', 'cut');
-				} catch { new Notice('클립보드에 복사하지 못했습니다.'); }
+				} catch { new Notice(wmT("클립보드에 복사하지 못했습니다.")); }
 			},
 			paste: async () => {
 				try {
 					if (!clipboard) throw new Error('Clipboard unavailable');
 					const text = await clipboard.readText();
 					if (restore()) this.applyEdit(Math.min(selection.anchor, selection.head), Math.max(selection.anchor, selection.head), text.replace(/\r\n?/g, '\n'), 'paste');
-				} catch { new Notice('클립보드를 읽지 못했습니다. Ctrl/Cmd+V로 붙여넣어 주세요.'); }
+				} catch { new Notice(wmT("클립보드를 읽지 못했습니다. Ctrl/Cmd+V로 붙여넣어 주세요.")); }
 			},
 			toggleFormat: kind => { if (restore()) this.toggleFormatFromToolbar(kind); },
 			selectAll: () => { if (restore()) editor.setSelection({ line:0, ch:0 }, editor.offsetToPos(source.length)); },
@@ -2331,7 +2332,7 @@ export class PagedWritingView extends FileView {
 
 	/** Full source includes properties; body edits preserve unaffected formatting. */
 	replaceSourceSnapshot(expected: string, next: string): void {
-		if (this.getViewData() !== expected) throw new Error('원고가 변경되었습니다. 다시 비교해 주세요.');
+		if (this.getViewData() !== expected) throw new Error(wmT("원고가 변경되었습니다. 다시 비교해 주세요."));
 		if (next === expected) return;
 		const { prefix, body } = splitFrontmatter(next);
 		const edits = textEdits(this.getEditableData(), body);
@@ -3933,14 +3934,14 @@ export class PagedWritingView extends FileView {
 		try {
 			await this.save();
 			if (this.fileStore?.hasConflict) { this.conflictBanner?.querySelector('button')?.click(); return; }
-			await this.leaf.setViewState({
+			await this.plugin.toolbarManager.switchWritingView(this.leaf, {
 				type: 'markdown',
 				state: { file: this.file.path, mode: 'source' },
 				active: true,
 			});
 		} catch (error) {
 			console.error('[Writing Menu] Failed to return to source view', error);
-			new Notice('기본 편집기로 전환하지 못했습니다.');
+			new Notice(wmT("기본 편집기로 전환하지 못했습니다."));
 		}
 	}
 }

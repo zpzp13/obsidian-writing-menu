@@ -7,37 +7,41 @@ import { Platform } from 'obsidian';
 
 const PATH_SEP = Platform.isWin ? '\\' : '/';
 export function joinPath(...segments: string[]): string {
-	return segments
+	const joined = segments
 		.filter(s => s.length > 0)
 		.map((s, i) => {
-			let seg = s.replace(/[\\/]+$/, '');
+			let seg = s.replace(/[\\/]+$/, '') || (i === 0 ? PATH_SEP : '');
 			if (i !== 0) seg = seg.replace(/^[\\/]+/, '');
 			return seg;
 		})
 		.join(PATH_SEP);
+	return PATH_SEP === '/' ? joined.replace(/^\/{2,}/, '/') : joined;
 }
 
 export interface FsLike {
 	existsSync(path: string): boolean;
 	mkdirSync(path: string, options?: { recursive?: boolean }): void;
 	writeFileSync(path: string, data: string | Uint8Array, encoding?: string): void;
+	realpathSync(path: string): string;
 }
 
 interface DataEventEmitterLike {
+	setEncoding(encoding: string): void;
 	on(event: 'data', listener: (chunk: { toString(encoding?: string): string }) => void): void;
 }
 
 export interface ChildProcessLike {
 	stdout: DataEventEmitterLike;
 	stderr: DataEventEmitterLike;
+	stdin: { end(text: string): void; on(event: 'error', listener: (err: Error) => void): void };
 	on(event: 'error', listener: (err: Error) => void): void;
-	on(event: 'close', listener: (code: number) => void): void;
+	on(event: 'close', listener: (code: number | null) => void): void;
 }
 
 export type SpawnLike = (
 	command: string,
 	args: string[],
-	options?: { cwd?: string; env?: Record<string, string> },
+	options?: { cwd?: string; env?: Record<string, string>; shell?: false; windowsHide?: boolean; stdio?: string[] },
 ) => ChildProcessLike;
 
 declare const require: (id: string) => unknown;

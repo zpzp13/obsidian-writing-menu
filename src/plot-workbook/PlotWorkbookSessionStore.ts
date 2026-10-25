@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { Notice, normalizePath } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { WritingProject } from '../types';
@@ -24,7 +25,7 @@ export class PlotWorkbookSessionStore {
 	}
 
 	async acquire(project: WritingProject): Promise<PlotWorkbookSessionLease> {
-		if (this.disposed) throw new Error('플롯 매니저가 종료되었습니다.');
+		if (this.disposed) throw new Error(wmT("플롯 매니저가 종료되었습니다."));
 		const key = this.key(project);
 		let entry = this.entries.get(key);
 		if (!entry) {
@@ -42,7 +43,7 @@ export class PlotWorkbookSessionStore {
 		}
 		if (this.disposed) {
 			current.users--;
-			throw new Error('플롯 매니저가 종료되었습니다.');
+			throw new Error(wmT("플롯 매니저가 종료되었습니다."));
 		}
 		let released = false;
 		return { session, release: async () => {
@@ -69,7 +70,7 @@ export class PlotWorkbookSessionStore {
 				const session = await entry.ready;
 				try { await session.flush(); } finally { session.dispose(); }
 			}
-			catch (error) { new Notice(`플롯 저장을 완료하지 못했습니다: ${String(error)}`); }
+			catch (error) { new Notice(wmT("플롯 저장을 완료하지 못했습니다: {0}", String(error))); }
 		}));
 	}
 
@@ -86,13 +87,13 @@ export function plotWorkbookSessions(plugin: WritingMenuPlugin): PlotWorkbookSes
 			if (importer.matchesProject(project) && await importer.hasSourceData()) {
 				try {
 					const result = await importer.importInto(project);
-					if (result.imported) new Notice('기존 플롯을 “기존 플롯” 시트로 가져왔습니다. 원본 파일은 그대로 보존됩니다.');
-				} catch (error) { new Notice(`기존 플롯 가져오기를 건너뛰었습니다: ${String(error)}`); }
+					if (result.imported) new Notice(wmT("기존 플롯을 “기존 플롯” 시트로 가져왔습니다. 원본 파일은 그대로 보존됩니다."));
+				} catch (error) { new Notice(wmT("기존 플롯 가져오기를 건너뛰었습니다: {0}", String(error))); }
 			}
 			const repository = new PlotWorkbookRepository(plugin, project.rootFolder);
 			try {
 				const loaded = await repository.loadOrCreate(project.id, project.name);
-				if (loaded.warnings.length) new Notice(`플롯 시트를 복구해 열었습니다.\n${loaded.warnings[0]}`);
+				if (loaded.warnings.length) new Notice(wmT("플롯 시트를 복구해 열었습니다.\n{0}", loaded.warnings[0]));
 				return new PlotWorkbookSession(repository, loaded.manifest, loaded.sheets, loaded.foreshadows, loaded.warnings);
 			} catch (error) { repository.dispose(); throw error; }
 		});

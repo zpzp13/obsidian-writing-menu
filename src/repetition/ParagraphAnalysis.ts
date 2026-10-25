@@ -1,8 +1,9 @@
+import { wmT } from '../i18n/index';
 import type { WritingMenuSettings } from '../types';
 
 export type ParagraphKind = 'narration' | 'dialogue' | 'monologue' | 'special';
 export const PARAGRAPH_KINDS: ParagraphKind[] = ['narration', 'dialogue', 'monologue', 'special'];
-export const PARAGRAPH_LABELS: Record<ParagraphKind, string> = { narration: '서술', dialogue: '대사', monologue: '독백', special: '특수 대사' };
+export const PARAGRAPH_LABELS: Record<ParagraphKind, string> = { narration: wmT('서술'), dialogue: wmT('대사'), monologue: wmT('독백'), special: wmT('특수 대사') };
 export interface ParagraphUnit { from: number; to: number; text: string; kind: ParagraphKind; chars: number; lines: number }
 export interface ParagraphResult { units: ParagraphUnit[]; empty: number; chars: number; average: number; mobileLines: number; counts: Record<ParagraphKind, number>; characters: Record<ParagraphKind, number>; analysisText: string }
 export type ParagraphOptions = WritingMenuSettings['paragraphAnalysis'];

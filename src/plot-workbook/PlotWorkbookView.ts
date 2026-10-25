@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { ItemView, Menu, Notice, Scope, WorkspaceLeaf, setIcon, type ViewStateResult } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { WritingProject } from '../types';
@@ -41,7 +42,7 @@ export class PlotWorkbookView extends ItemView {
 	}
 
 	getViewType(): string { return PLOT_WORKBOOK_VIEW_TYPE; }
-	getDisplayText(): string { return '플롯 매니저'; }
+	getDisplayText(): string { return wmT("플롯 매니저"); }
 	getIcon(): string { return 'table-2'; }
 	getStatusSettingsSession(projectId: string): PlotWorkbookSession | null {
 		return this.projectId === projectId ? this.session : null;
@@ -88,7 +89,7 @@ export class PlotWorkbookView extends ItemView {
 			try {
 				await lease.release();
 			} catch (error) {
-				new Notice(`플롯 시트를 저장하지 못했습니다: ${this.errorMessage(error)}`);
+				new Notice(wmT("플롯 시트를 저장하지 못했습니다: {0}", this.errorMessage(error)));
 			}
 		}
 	}
@@ -103,7 +104,7 @@ export class PlotWorkbookView extends ItemView {
 			try {
 				await previous.release();
 			} catch (error) {
-				new Notice(`이전 프로젝트를 저장하지 못했습니다: ${this.errorMessage(error)}`);
+				new Notice(wmT("이전 프로젝트를 저장하지 못했습니다: {0}", this.errorMessage(error)));
 			}
 		}
 
@@ -189,7 +190,7 @@ export class PlotWorkbookView extends ItemView {
 	private async revealForeshadowLocation(location: PlotWorkbookForeshadowLocation): Promise<boolean> {
 		const session = this.session;
 		if (!session || !session.sheets.has(location.sheetId)) {
-			new Notice('복선이 연결된 시트를 찾을 수 없습니다.');
+			new Notice(wmT("복선이 연결된 시트를 찾을 수 없습니다."));
 			return false;
 		}
 		if (session.manifest.activeSheetId !== location.sheetId) await session.selectSheet(location.sheetId);
@@ -197,7 +198,7 @@ export class PlotWorkbookView extends ItemView {
 		const rowIndex = sheet.rowOrder.indexOf(location.rowId);
 		const columnIndex = sheet.columnOrder.indexOf(location.columnId);
 		if (rowIndex < 0 || columnIndex < 0) {
-			new Notice('복선이 연결된 셀을 찾을 수 없습니다.');
+			new Notice(wmT("복선이 연결된 셀을 찾을 수 없습니다."));
 			return false;
 		}
 		if (sheet.rows[location.rowId]?.collapsed) session.setRowCollapsed(location.rowId, false);
@@ -261,18 +262,18 @@ export class PlotWorkbookView extends ItemView {
 				}
 				activeTab = tab;
 				placeThumb(tab);
-			})().catch(error => new Notice(`시트를 열지 못했습니다: ${error instanceof Error ? error.message : String(error)}`)));
+			})().catch(error => new Notice(wmT("시트를 열지 못했습니다: {0}", error instanceof Error ? error.message : String(error)))));
 			tab.addEventListener('dblclick', () => this.beginSheetRename(tab, ref.id, ref.name));
 			tab.addEventListener('contextmenu', event => {
 				event.preventDefault();
 				const menu = new Menu();
 				menu.addItem(item => item
-					.setTitle('이름 변경')
+					.setTitle(wmT("이름 변경"))
 					.setIcon('pencil')
 					.onClick(() => this.beginSheetRename(tab, ref.id, ref.name)));
 				menu.addSeparator();
 				menu.addItem(item => item
-					.setTitle('시트 삭제')
+					.setTitle(wmT("시트 삭제"))
 					.setIcon('trash-2')
 					.setDisabled((this.session?.manifest.sheets.length ?? 0) <= 1)
 					.onClick(() => void this.deleteSheet(ref.id)));
@@ -286,7 +287,7 @@ export class PlotWorkbookView extends ItemView {
 			await this.session?.addSheet();
 			this.lastSelection = { rowIndex: 0, columnIndex: 0 };
 			this.render();
-		})().catch(error => new Notice(`시트를 추가하지 못했습니다: ${error instanceof Error ? error.message : String(error)}`)));
+		})().catch(error => new Notice(wmT("시트를 추가하지 못했습니다: {0}", error instanceof Error ? error.message : String(error)))));
 		const deleted = this.session.manifest.deletedSheets ?? [];
 		const trash = actions.createEl('button', {
 			cls: 'clickable-icon wm-plotbook-sheet-trash',
@@ -356,7 +357,7 @@ export class PlotWorkbookView extends ItemView {
 	private async deleteSheet(sheetId: string): Promise<void> {
 		if (!this.session) return;
 		if (!(await this.session.deleteSheet(sheetId))) {
-			new Notice('마지막 시트는 삭제할 수 없습니다.');
+			new Notice(wmT("마지막 시트는 삭제할 수 없습니다."));
 			return;
 		}
 		this.lastSelection = { rowIndex: 0, columnIndex: 0 };
@@ -376,20 +377,20 @@ export class PlotWorkbookView extends ItemView {
 		this.contentEl.empty();
 		this.contentEl.addClass('wm-plotbook-view');
 		const loading = this.contentEl.createDiv({ cls: 'wm-plotbook-state' });
-		loading.createDiv({ cls: 'wm-plotbook-state-title', text: `${projectName} 플롯을 불러오는 중…` });
+		loading.createDiv({ cls: 'wm-plotbook-state-title', text: wmT("{0} 플롯을 불러오는 중…", projectName) });
 	}
 
 	private renderNoProject(content: HTMLElement, noProjects: boolean): void {
 		const state = content.createDiv({ cls: 'wm-plotbook-state' });
-		state.createDiv({ cls: 'wm-plotbook-state-title', text: noProjects ? '등록된 프로젝트가 없습니다' : '플롯 시트를 열 수 없습니다' });
+		state.createDiv({ cls: 'wm-plotbook-state-title', text: noProjects ? wmT("등록된 프로젝트가 없습니다") : wmT("플롯 시트를 열 수 없습니다") });
 		state.createDiv({
 			cls: 'wm-plotbook-state-description',
 			text: noProjects
-				? '플러그인 설정에서 플롯을 저장할 프로젝트 폴더를 먼저 등록해 주세요.'
-				: '프로젝트를 다시 선택해 주세요.',
+				? wmT("플러그인 설정에서 플롯을 저장할 프로젝트 폴더를 먼저 등록해 주세요.")
+				: wmT("프로젝트를 다시 선택해 주세요."),
 		});
 		if (noProjects) {
-			const button = state.createEl('button', { cls: 'mod-cta', text: '플러그인 설정 열기' });
+			const button = state.createEl('button', { cls: 'mod-cta', text: wmT("플러그인 설정 열기") });
 			button.addEventListener('click', () => this.plugin.openSettings());
 		}
 	}
@@ -398,10 +399,10 @@ export class PlotWorkbookView extends ItemView {
 		this.contentEl.empty();
 		this.contentEl.addClass('wm-plotbook-view');
 		const state = this.contentEl.createDiv({ cls: 'wm-plotbook-state is-error' });
-		state.createDiv({ cls: 'wm-plotbook-state-title', text: '플롯 시트를 열 수 없습니다' });
+		state.createDiv({ cls: 'wm-plotbook-state-title', text: wmT("플롯 시트를 열 수 없습니다") });
 		state.createDiv({ cls: 'wm-plotbook-state-description', text: this.errorMessage(error) });
 		state.createDiv({ cls: 'wm-plotbook-state-path', text: `${project.rootFolder || '/'} /.writing-menu/plot` });
-		const button = state.createEl('button', { cls: 'mod-cta', text: '다시 불러오기' });
+		const button = state.createEl('button', { cls: 'mod-cta', text: wmT("다시 불러오기") });
 		button.addEventListener('click', () => void this.loadProject());
 	}
 

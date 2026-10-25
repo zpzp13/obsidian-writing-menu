@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import {
 	DEFAULT_PLOTBOOK_COLUMN_WIDTH,
 	DEFAULT_PLOTBOOK_ROW_HEIGHT,
@@ -30,7 +31,7 @@ import {
 	type PlotWorkbookColumnDimensionChange,
 	type PlotWorkbookSnapshotData,
 } from './PlotWorkbookTypes';
-import { plotWorkbookStatuses, plotWorkbookStatusColor } from './PlotWorkbookStatus';
+import { plotWorkbookStatusName, plotWorkbookStatuses, plotWorkbookStatusColor } from './PlotWorkbookStatus';
 import { PlotWorkbookRepository } from './PlotWorkbookRepository';
 import { isThemeAwareColor } from '../utils/themeColor';
 import { appendChecklistTask, changeChecklistTask, normalizeChecklistValue, type ChecklistTask, type ChecklistChange } from './PlotWorkbookChecklist';
@@ -68,7 +69,7 @@ export class PlotWorkbookSession {
 
 	get activeSheet(): PlotWorkbookSheet {
 		const sheet = this.sheets.get(this.manifest.activeSheetId);
-		if (!sheet) throw new Error('활성 시트를 찾을 수 없습니다.');
+		if (!sheet) throw new Error(wmT("활성 시트를 찾을 수 없습니다."));
 		return sheet;
 	}
 
@@ -89,8 +90,8 @@ export class PlotWorkbookSession {
 		this.assertEditable();
 		const used = new Set(this.manifest.sheets.map(sheet => sheet.name));
 		let index = this.manifest.sheets.length + 1;
-		while (used.has(`시트 ${index}`)) index++;
-		const sheet = await this.repository.createSheet(`시트 ${index}`);
+		while (used.has(wmT('시트 {0}', index))) index++;
+		const sheet = await this.repository.createSheet(wmT('시트 {0}', index));
 		this.sheets.set(sheet.sheetId, sheet);
 		this.manifest.activeSheetId = sheet.sheetId;
 		this.emit();
@@ -681,7 +682,7 @@ export class PlotWorkbookSession {
 					before: column.role ?? 'text',
 					after: role,
 					beforeTitle: column.title,
-					afterTitle: role === 'status' ? '상태' : role === 'foreshadow' ? '복선' : role === 'checklist' ? (column.title || '체크리스트') : (column.title || '날짜'),
+					afterTitle: role === 'status' ? wmT('상태') : role === 'foreshadow' ? wmT('복선') : role === 'checklist' ? (column.title || wmT('체크리스트')) : (column.title || wmT('날짜')),
 					beforeCharacterNotePath: column.characterNotePath,
 					afterCharacterNotePath: undefined,
 					beforeLabelId: column.labelId,
@@ -791,6 +792,11 @@ export class PlotWorkbookSession {
 		this.assertEditable();
 		this.manifest.statuses = statuses?.map(status => ({ ...status }));
 		this.emit();
+	}
+
+	statusDisplayName(statusId: string): string {
+		const status = plotWorkbookStatuses(this.manifest.statuses, true).find(item => item.id === statusId);
+		return status ? plotWorkbookStatusName(status) : statusId;
 	}
 
 	statusName(statusId: string): string {
@@ -1539,7 +1545,7 @@ export class PlotWorkbookSession {
 			return {
 				...source,
 				id: remap.get(id)!,
-				title: source.title ? `${source.title} 복사본` : undefined,
+				title: source.title ? wmT('{0} 복사본', source.title) : undefined,
 			};
 		});
 		const cells: Record<string, Record<string, PlotWorkbookCell>> = {};
@@ -1707,7 +1713,7 @@ export class PlotWorkbookSession {
 			delete data.manifest.storageGeneration;
 			for (const ref of data.manifest.snapshots ?? []) {
 				const snapshot = await this.repository.readCellSnapshot(ref.id);
-				if (!snapshot) throw new Error(`셀 스냅샷이 누락되어 저장을 중단했습니다: ${ref.title}`);
+				if (!snapshot) throw new Error(wmT("셀 스냅샷이 누락되어 저장을 중단했습니다: {0}", ref.title));
 				data.cellSnapshots.push(snapshot);
 			}
 			this.repository.validateSnapshotData(data);
@@ -1717,7 +1723,7 @@ export class PlotWorkbookSession {
 
 	/** Must be called only inside withSnapshot, after the caller's backup succeeds. */
 	async restoreSnapshot(data: PlotWorkbookSnapshotData): Promise<void> {
-		if (!this.snapshotBusy) throw new Error('스냅샷 작업 잠금이 필요합니다.');
+		if (!this.snapshotBusy) throw new Error(wmT("스냅샷 작업 잠금이 필요합니다."));
 		await this.repository.restoreSnapshot(data);
 		for (const key of Object.keys(this.manifest)) delete (this.manifest as unknown as Record<string, unknown>)[key];
 		Object.assign(this.manifest, data.manifest);
@@ -1733,8 +1739,8 @@ export class PlotWorkbookSession {
 	}
 
 	private assertEditable(): void {
-		if (this.repository.isRecoveryRequired) throw new Error('저장 목록을 확인할 수 없습니다. 플롯을 다시 열어 복구해주세요. 교체 전 백업은 보존되어 있습니다.');
-		if (this.snapshotBusy) throw new Error('스냅샷을 처리하고 있습니다. 완료 후 다시 시도해주세요.');
+		if (this.repository.isRecoveryRequired) throw new Error(wmT("저장 목록을 확인할 수 없습니다. 플롯을 다시 열어 복구해주세요. 교체 전 백업은 보존되어 있습니다."));
+		if (this.snapshotBusy) throw new Error(wmT("스냅샷을 처리하고 있습니다. 완료 후 다시 시도해주세요."));
 	}
 
 	dispose(): void {

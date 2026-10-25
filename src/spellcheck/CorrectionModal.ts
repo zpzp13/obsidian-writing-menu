@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { App, Editor, EventRef, Modal, Notice, Platform, Scope, setIcon } from 'obsidian';
 import type { EditorView } from '@codemirror/view';
 import { clearEditorSpellcheckHighlights, setEditorSpellcheckHighlights } from '../editor/spellcheckHighlight';
@@ -33,15 +34,15 @@ class SpellcheckApplyConfirmModal extends Modal {
 	onOpen() {
 		this.modalEl.addClass('wm-spell-apply-confirm-modal');
 		this.contentEl.empty();
-		this.contentEl.createEl('h3', { text: '남은 오류를 모두 교정할까요?' });
+		this.contentEl.createEl('h3', { text: wmT("남은 오류를 모두 교정할까요?") });
 		this.contentEl.createDiv({
 			cls: 'wm-spell-apply-confirm-description',
-			text: `${this.errorCount}개 오류에 첫 번째 제안을 적용합니다.`,
+			text: wmT("{0}개 오류에 첫 번째 제안을 적용합니다.", this.errorCount),
 		});
 		const actions = this.contentEl.createDiv({ cls: 'wm-spell-apply-confirm-actions' });
-		const cancel = actions.createEl('button', { text: '취소' });
+		const cancel = actions.createEl('button', { text: wmT("취소") });
 		cancel.addEventListener('click', () => this.close());
-		const confirm = actions.createEl('button', { cls: 'mod-cta', text: '일괄 적용' });
+		const confirm = actions.createEl('button', { cls: 'mod-cta', text: wmT("일괄 적용") });
 		confirm.addEventListener('click', () => {
 			this.close();
 			this.onConfirm();
@@ -57,12 +58,12 @@ class SpellcheckMobileGuideModal extends Modal {
 	onOpen() {
 		this.modalEl.addClass('wm-spell-mobile-guide-modal');
 		this.contentEl.empty();
-		this.contentEl.createEl('h3', { text: '모바일 맞춤법 검사' });
+		this.contentEl.createEl('h3', { text: wmT("모바일 맞춤법 검사") });
 		const guide = this.contentEl.createDiv({ cls: 'wm-spell-mobile-guide-copy' });
-		guide.createEl('p', { text: '오류 목록에서 항목을 선택하면 해당 문장으로 이동하고 교정 상세가 열립니다.' });
-		guide.createEl('p', { text: '유지는 원문을 그대로 두고, 수정은 제안된 표현을 문서에 바로 반영합니다.' });
-		guide.createEl('p', { text: '상단 도구에서 직접 수정, 사전 제외, 남은 오류 일괄 적용을 사용할 수 있습니다.' });
-		const close = this.contentEl.createEl('button', { cls: 'mod-cta', text: '확인' });
+		guide.createEl('p', { text: wmT("오류 목록에서 항목을 선택하면 해당 문장으로 이동하고 교정 상세가 열립니다.") });
+		guide.createEl('p', { text: wmT("유지는 원문을 그대로 두고, 수정은 제안된 표현을 문서에 바로 반영합니다.") });
+		guide.createEl('p', { text: wmT("상단 도구에서 직접 수정, 사전 제외, 남은 오류 일괄 적용을 사용할 수 있습니다.") });
+		const close = this.contentEl.createEl('button', { cls: 'mod-cta', text: wmT("확인") });
 		close.addEventListener('click', () => this.close());
 	}
 
@@ -80,29 +81,29 @@ const STATE_COLORS: Record<CorrectionState, string> = {
 
 const TYPE_BADGE_MAP: Record<string, { label: string; color: string }> = {
 	// Daum 영문 타입
-	'space': { label: '띄어쓰기', color: 'var(--color-orange)' },
-	'spell': { label: '문법', color: 'var(--color-red)' },
-	'red': { label: '맞춤법', color: 'var(--color-red)' },
-	'green': { label: '띄어쓰기', color: 'var(--color-orange)' },
-	'blue': { label: '의심', color: 'var(--color-purple)' },
-	'violet': { label: '통계', color: 'var(--color-purple)' },
+	'space': { label: wmT("띄어쓰기"), color: 'var(--color-orange)' },
+	'spell': { label: wmT("문법"), color: 'var(--color-red)' },
+	'red': { label: wmT("맞춤법"), color: 'var(--color-red)' },
+	'green': { label: wmT("띄어쓰기"), color: 'var(--color-orange)' },
+	'blue': { label: wmT("의심"), color: 'var(--color-purple)' },
+	'violet': { label: wmT("통계"), color: 'var(--color-purple)' },
 	// Daum 한글 타입
-	'교체': { label: '교체', color: 'var(--color-red)' },
-	'의심': { label: '의심', color: 'var(--color-purple)' },
-	'삽입': { label: '삽입', color: 'var(--color-orange)' },
-	'삭제': { label: '삭제', color: 'var(--color-red)' },
-	'맞춤법': { label: '맞춤법', color: 'var(--color-red)' },
-	'표준어 의심': { label: '의심', color: 'var(--color-purple)' },
-	'비표준어': { label: '비표준', color: 'var(--color-yellow)' },
-	'띄어쓰기': { label: '띄어쓰기', color: 'var(--color-orange)' },
-	'통계적 교정': { label: '통계', color: 'var(--color-purple)' },
-	'doubt': { label: '의심', color: 'var(--color-purple)' },
+	'교체': { label: wmT("교체"), color: 'var(--color-red)' },
+	'의심': { label: wmT("의심"), color: 'var(--color-purple)' },
+	'삽입': { label: wmT("삽입"), color: 'var(--color-orange)' },
+	'삭제': { label: wmT("삭제"), color: 'var(--color-red)' },
+	'맞춤법': { label: wmT("맞춤법"), color: 'var(--color-red)' },
+	'표준어 의심': { label: wmT("의심"), color: 'var(--color-purple)' },
+	'비표준어': { label: wmT("비표준"), color: 'var(--color-yellow)' },
+	'띄어쓰기': { label: wmT("띄어쓰기"), color: 'var(--color-orange)' },
+	'통계적 교정': { label: wmT("통계"), color: 'var(--color-purple)' },
+	'doubt': { label: wmT("의심"), color: 'var(--color-purple)' },
 };
 
 const STATE_BADGE_LABELS: Partial<Record<CorrectionState, string>> = {
-	'corrected': '수정',
-	'original-kept': '유지',
-	'user-edited': '직접',
+	'corrected': wmT("수정"),
+	'original-kept': wmT("유지"),
+	'user-edited': wmT("직접"),
 };
 
 // 한국어 조사 제거 (긴 것부터 시도, 어근 2자 이상 보장)
@@ -285,17 +286,17 @@ export class CorrectionModal extends Modal {
 		}
 
 		const header = contentEl.createDiv({ cls: 'wm-spell-header' });
-		header.createSpan({ cls: 'wm-spell-header-title', text: '맞춤법 검사' });
+		header.createSpan({ cls: 'wm-spell-header-title', text: wmT("맞춤법 검사") });
 		this.headerCountsEl = header.createDiv({ cls: 'wm-spell-header-counts' });
 
 		const split = contentEl.createDiv({ cls: 'wm-spell-split' });
 
 		const listPanel = split.createDiv({ cls: 'wm-spell-list-panel' });
-		listPanel.createDiv({ cls: 'wm-spell-panel-title', text: '오류 목록' });
+		listPanel.createDiv({ cls: 'wm-spell-panel-title', text: wmT("오류 목록") });
 		this.listEl = listPanel.createDiv({ cls: 'wm-spell-list' });
 
 		const previewPanel = split.createDiv({ cls: 'wm-spell-preview-panel' });
-		previewPanel.createDiv({ cls: 'wm-spell-panel-title', text: '미리보기' });
+		previewPanel.createDiv({ cls: 'wm-spell-panel-title', text: wmT("미리보기") });
 		this.previewEl = previewPanel.createDiv({ cls: 'wm-spell-preview-content' });
 
 		this.detailEl = split.createDiv({ cls: 'wm-spell-detail' });
@@ -388,9 +389,9 @@ export class CorrectionModal extends Modal {
 			if (info.state === 'error') errorCount++;
 			else if (info.state !== 'original-kept') correctedCount++;
 		});
-		this.headerCountsEl.createSpan({ cls: 'wm-spell-header-count', text: `오류 ${errorCount}개` });
+		this.headerCountsEl.createSpan({ cls: 'wm-spell-header-count', text: wmT("오류 {0}개", errorCount) });
 		if (correctedCount > 0) {
-			this.headerCountsEl.createSpan({ cls: 'wm-spell-header-count', text: `수정 ${correctedCount}개` });
+			this.headerCountsEl.createSpan({ cls: 'wm-spell-header-count', text: wmT("수정 {0}개", correctedCount) });
 		}
 	}
 
@@ -407,7 +408,7 @@ export class CorrectionModal extends Modal {
 		const c = this.config.corrections[occ?.corrIdx ?? 0];
 		const info = this.occStates.get(this.focusedOccIdx);
 		if (!occ || !c || !info) {
-			this.detailEl.createDiv({ cls: 'wm-spell-mobile-empty', text: '확인할 오류가 없습니다.' });
+			this.detailEl.createDiv({ cls: 'wm-spell-mobile-empty', text: wmT("확인할 오류가 없습니다.") });
 			return;
 		}
 		this.renderMobileNavigator();
@@ -423,7 +424,7 @@ export class CorrectionModal extends Modal {
 	private renderMobileNavigator() {
 		const row = this.detailEl.createDiv({ cls: 'wm-spell-mobile-navigator-row' });
 		const nav = row.createDiv({ cls: 'wm-spell-mobile-navigator' });
-		const previous = nav.createEl('button', { attr: { 'aria-label': '이전 오류' } });
+		const previous = nav.createEl('button', { attr: { 'aria-label': wmT("이전 오류") } });
 		setIcon(previous, 'chevron-left');
 		previous.addEventListener('click', () => this.moveFocus(-1));
 		const digits = Math.max(2, String(this.occurrences.length).length);
@@ -431,7 +432,7 @@ export class CorrectionModal extends Modal {
 			cls: 'wm-spell-mobile-navigator-count',
 			text: `${String(this.focusedOccIdx + 1).padStart(digits, '0')} / ${this.occurrences.length}`,
 		});
-		const next = nav.createEl('button', { attr: { 'aria-label': '다음 오류' } });
+		const next = nav.createEl('button', { attr: { 'aria-label': wmT("다음 오류") } });
 		setIcon(next, 'chevron-right');
 		next.addEventListener('click', () => this.moveFocus(1));
 	}
@@ -455,15 +456,15 @@ export class CorrectionModal extends Modal {
 		};
 
 		const hasSelection = this.occurrences.length > 0;
-		addAction('pencil', '직접 수정', () => this.showEditPopup(this.focusedOccIdx), { disabled: !hasSelection });
-		addAction('book-plus', '고유명사 사전에 추가', () => {
+		addAction('pencil', wmT("직접 수정"), () => this.showEditPopup(this.focusedOccIdx), { disabled: !hasSelection });
+		addAction('book-plus', wmT("고유명사 사전에 추가"), () => {
 			if (!hasSelection) return;
 			this.mobilePanel = 'list';
 			this.ignoreWord(this.focusedOccIdx);
 		}, { disabled: !hasSelection });
-		addAction('check-check', '남은 오류 일괄 적용', () => this.confirmApplyRemainingMobile(), { disabled: !hasSelection });
-		addAction('circle-help', '사용 방법', () => new SpellcheckMobileGuideModal(this.app).open());
-		addAction('log-out', '맞춤법 검사 나가기', () => this.close());
+		addAction('check-check', wmT("남은 오류 일괄 적용"), () => this.confirmApplyRemainingMobile(), { disabled: !hasSelection });
+		addAction('circle-help', wmT("사용 방법"), () => new SpellcheckMobileGuideModal(this.app).open());
+		addAction('log-out', wmT("맞춤법 검사 나가기"), () => this.close());
 	}
 
 	private renderMobileList() {
@@ -475,7 +476,7 @@ export class CorrectionModal extends Modal {
 			const stateInfo = this.occStates.get(oi)!;
 			const item = list.createDiv({
 				cls: 'wm-spell-list-item wm-spell-mobile-list-item',
-				attr: { tabindex: '0', role: 'button', 'aria-label': `${oi + 1}번 오류 상세 열기` },
+				attr: { tabindex: '0', role: 'button', 'aria-label': wmT("{0}번 오류 상세 열기", oi + 1) },
 			});
 			if (oi === this.focusedOccIdx) item.addClass('is-focused');
 			item.createSpan({ cls: 'wm-spell-num-tag', text: String(oi + 1) });
@@ -568,9 +569,9 @@ export class CorrectionModal extends Modal {
 		const card = panel.createDiv({ cls: 'wm-spell-orig-card wm-spell-mobile-orig-card' });
 		const originalRow = card.createDiv({
 			cls: 'wm-spell-orig-card-row',
-			attr: { tabindex: '0', role: 'button', 'aria-label': '원문 유지' },
+			attr: { tabindex: '0', role: 'button', 'aria-label': wmT("원문 유지") },
 		});
-		originalRow.createSpan({ cls: 'wm-spell-orig-card-label wm-spell-mobile-keep-label', text: '유지' });
+		originalRow.createSpan({ cls: 'wm-spell-orig-card-label wm-spell-mobile-keep-label', text: wmT("유지") });
 		originalRow.createSpan({ cls: 'wm-spell-orig-card-value wm-spell-orig-card-value--error', text: c.original });
 		appendTypeBadge(originalRow, c.type, 'wm-spell-orig-type-tag');
 		if (info.state === 'original-kept') originalRow.addClass('is-active');
@@ -582,9 +583,9 @@ export class CorrectionModal extends Modal {
 		const helpText = (c.help || '').replace(/^도움말\s*[:-]?\s*/i, '').trim();
 		const correctionRow = card.createDiv({
 			cls: 'wm-spell-orig-card-row',
-			attr: { tabindex: '0', role: 'button', 'aria-label': '제안된 표현으로 수정' },
+			attr: { tabindex: '0', role: 'button', 'aria-label': wmT("제안된 표현으로 수정") },
 		});
-		correctionRow.createSpan({ cls: 'wm-spell-orig-card-label wm-spell-mobile-correct-label', text: '수정' });
+		correctionRow.createSpan({ cls: 'wm-spell-orig-card-label wm-spell-mobile-correct-label', text: wmT("수정") });
 		const correctionValue = correctionRow.createSpan({ cls: 'wm-spell-orig-card-value' });
 		appendMarkedDisplayText(correctionValue, c.original, primarySuggestion);
 		if ((info.state === 'corrected' || info.state === 'user-edited') && info.value === primarySuggestion) {
@@ -603,7 +604,7 @@ export class CorrectionModal extends Modal {
 			c.corrected.forEach((suggestion, index) => {
 				const button = suggestions.createDiv({
 					cls: 'wm-spell-sug-item',
-					attr: { tabindex: '0', role: 'button', 'aria-label': `${index + 1}번 제안 적용` },
+					attr: { tabindex: '0', role: 'button', 'aria-label': wmT("{0}번 제안 적용", index + 1) },
 				});
 				button.createSpan({ cls: 'wm-spell-sug-num', text: String(index + 1) });
 				button.createSpan({ text: displayText(c.original, suggestion) });
@@ -695,7 +696,7 @@ export class CorrectionModal extends Modal {
 		const mobileNav = this.detailEl.createDiv({ cls: 'wm-spell-mobile-nav' });
 		const previousBtn = mobileNav.createEl('button', {
 			cls: 'wm-spell-mobile-nav-btn',
-			attr: { 'aria-label': '이전 오류' },
+			attr: { 'aria-label': wmT("이전 오류") },
 		});
 		setIcon(previousBtn, 'chevron-left');
 		mobileNav.createSpan({
@@ -704,7 +705,7 @@ export class CorrectionModal extends Modal {
 		});
 		const nextBtn = mobileNav.createEl('button', {
 			cls: 'wm-spell-mobile-nav-btn',
-			attr: { 'aria-label': '다음 오류' },
+			attr: { 'aria-label': wmT("다음 오류") },
 		});
 		setIcon(nextBtn, 'chevron-right');
 		previousBtn.addEventListener('click', () => this.moveFocus(-1));
@@ -712,7 +713,7 @@ export class CorrectionModal extends Modal {
 
 		// 고정 영역: 타이틀 + 카드 + 제안
 		const fixed = this.detailEl.createDiv({ cls: 'wm-spell-detail-fixed' });
-		fixed.createDiv({ cls: 'wm-spell-panel-title', text: '상세' });
+		fixed.createDiv({ cls: 'wm-spell-panel-title', text: wmT("상세") });
 
 		if (!c || !info) return;
 
@@ -722,13 +723,13 @@ export class CorrectionModal extends Modal {
 		const card = fixed.createDiv({ cls: 'wm-spell-orig-card' });
 
 		const origRow = card.createDiv({ cls: 'wm-spell-orig-card-row' });
-		origRow.createSpan({ cls: 'wm-spell-orig-card-label', text: '원문' });
+		origRow.createSpan({ cls: 'wm-spell-orig-card-label', text: wmT("원문") });
 		origRow.createSpan({ cls: 'wm-spell-orig-card-value wm-spell-orig-card-value--error', text: c.original });
 		appendTypeBadge(origRow, c.type, 'wm-spell-orig-type-tag');
 		origRow.addEventListener('click', () => this.applyState(this.focusedOccIdx, 'original-kept', c.original));
 
 		const corrRow = card.createDiv({ cls: 'wm-spell-orig-card-row' });
-		corrRow.createSpan({ cls: 'wm-spell-orig-card-label', text: '제안' });
+		corrRow.createSpan({ cls: 'wm-spell-orig-card-label', text: wmT("제안") });
 		const corrSpan = corrRow.createSpan({ cls: 'wm-spell-orig-card-value' });
 		corrSpan.style.color = isCorrActive ? STATE_COLORS[info.state] : 'var(--color-green)';
 		corrSpan.setText(displayText(c.original, corrDisplay));
@@ -749,7 +750,7 @@ export class CorrectionModal extends Modal {
 		const helpText = (c.help || '').replace(/^도움말\s*[:-]?\s*/i, '').trim();
 		if (helpText) {
 			const scroll = this.detailEl.createDiv({ cls: 'wm-spell-detail-scroll' });
-			scroll.createDiv({ cls: 'wm-spell-labeled-divider', text: '도움말' });
+			scroll.createDiv({ cls: 'wm-spell-labeled-divider', text: wmT("도움말") });
 			scroll.createDiv({ cls: 'wm-spell-section wm-spell-help-section' }).createDiv({ cls: 'wm-spell-help', text: helpText });
 		}
 	}
@@ -767,15 +768,15 @@ export class CorrectionModal extends Modal {
 			});
 			group.appendText(' ' + desc);
 		};
-		addKey('↑↓', '이동');
-		addKey('1-9', '제안');
-		addKey('Tab', '상태');
-		addKey('Del', '무시');
-		addKey('Alt+↵', '적용');
+		addKey('↑↓', wmT("이동"));
+		addKey('1-9', wmT("제안"));
+		addKey('Tab', wmT("상태"));
+		addKey('Del', wmT("무시"));
+		addKey('Alt+↵', wmT("적용"));
 
 		const applyBtn = this.footerEl.createDiv({ cls: 'wm-spell-apply-btn' });
 		setIcon(applyBtn.createSpan(), 'check');
-		applyBtn.createSpan({ text: '전체 적용' });
+		applyBtn.createSpan({ text: wmT("전체 적용") });
 		applyBtn.addEventListener('click', () => this.applyAll());
 	}
 
@@ -862,7 +863,7 @@ export class CorrectionModal extends Modal {
 	private confirmApplyRemainingMobile() {
 		const errorCount = Array.from(this.occStates.values()).filter(info => info.state === 'error').length;
 		if (errorCount === 0) {
-			new Notice('남은 오류가 없습니다.');
+			new Notice(wmT("남은 오류가 없습니다."));
 			return;
 		}
 		new SpellcheckApplyConfirmModal(this.app, errorCount, () => this.applyRemainingMobile()).open();
@@ -875,7 +876,7 @@ export class CorrectionModal extends Modal {
 			.filter(({ oi }) => this.occStates.get(oi)?.state === 'error')
 			.sort((a, b) => b.occ.pos - a.occ.pos);
 		if (pending.length === 0) {
-			new Notice('남은 오류가 없습니다.');
+			new Notice(wmT("남은 오류가 없습니다."));
 			return;
 		}
 
@@ -908,7 +909,7 @@ export class CorrectionModal extends Modal {
 		this.mobilePanel = 'list';
 		this.refresh();
 		window.requestAnimationFrame(() => this.scrollEditorToOccurrence(this.focusedOccIdx));
-		new Notice(`${applied}개 오류를 일괄 적용했습니다.`);
+		new Notice(wmT("{0}개 오류를 일괄 적용했습니다.", applied));
 	}
 
 	private handleMobileEditorErrorClick(event: MouseEvent) {
@@ -1009,7 +1010,7 @@ export class CorrectionModal extends Modal {
 		this.occStates = newStates;
 
 		this.config.onIgnoredWordAdded?.([stem]);
-		new Notice('고유명사 사전에 추가되었습니다.');
+		new Notice(wmT("고유명사 사전에 추가되었습니다."));
 
 		if (this.occurrences.length === 0) { this.close(); return; }
 
@@ -1066,13 +1067,13 @@ export class CorrectionModal extends Modal {
 		}
 
 		const popup = overlay.createDiv({ cls: 'wm-spell-edit-popup' });
-		popup.createDiv({ cls: 'wm-spell-edit-label', text: '직접 수정' });
+		popup.createDiv({ cls: 'wm-spell-edit-label', text: wmT("직접 수정") });
 
 		const input = popup.createEl('input', { cls: 'wm-spell-edit-input', type: 'text' });
 		input.value = info.state === 'user-edited' ? info.value : c.original;
 
 		const btnRow = popup.createDiv({ cls: 'wm-spell-edit-btns' });
-		btnRow.createDiv({ cls: 'wm-spell-edit-cancel', text: '취소' }).addEventListener('click', () => this.closeEditPopup());
+		btnRow.createDiv({ cls: 'wm-spell-edit-cancel', text: wmT("취소") }).addEventListener('click', () => this.closeEditPopup());
 
 		const confirm = () => {
 			const val = input.value.trim();
@@ -1082,7 +1083,7 @@ export class CorrectionModal extends Modal {
 			else this.applyState(oi, 'user-edited', val);
 		};
 		this.editConfirmFn = confirm;
-		btnRow.createDiv({ cls: 'wm-spell-edit-confirm', text: '적용' }).addEventListener('click', confirm);
+		btnRow.createDiv({ cls: 'wm-spell-edit-confirm', text: wmT("적용") }).addEventListener('click', confirm);
 		input.addEventListener('keydown', e => {
 			if (e.key === 'Escape') { e.preventDefault(); this.closeEditPopup(); }
 		});
@@ -1114,7 +1115,7 @@ export class CorrectionModal extends Modal {
 		}
 
 		this.config.editor.setValue(text);
-		new Notice(`${changes.length}개 교정 적용 완료`);
+		new Notice(wmT("{0}개 교정 적용 완료", changes.length));
 		this.close();
 	}
 

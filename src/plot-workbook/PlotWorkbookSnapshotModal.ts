@@ -1,3 +1,4 @@
+import { wmT, getLocale } from '../i18n/index';
 import { ButtonComponent, Modal, Notice, SearchComponent, Setting, ToggleComponent, setIcon } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { renderSnapshotDiff } from '../snapshots/SnapshotDiffView';
@@ -30,7 +31,7 @@ export class PlotWorkbookSnapshotModal extends Modal {
 	}
 
 	onOpen(): void {
-		this.setTitle('스냅샷');
+		this.setTitle(wmT("스냅샷"));
 		// Obsidian File Recovery와 같은 모달 레이아웃 및 순정 스타일을 사용한다.
 		this.modalEl.addClass('mod-sync-history', 'mod-sidebar-layout', 'wm-plotbook-snapshot-modal', 'wm-snapshot-manager');
 		this.render();
@@ -66,7 +67,7 @@ export class PlotWorkbookSnapshotModal extends Modal {
 		const sidebar = this.contentEl.createDiv({ cls: 'modal-sidebar mod-history' });
 		const sidebarInner = sidebar.createDiv({ cls: 'modal-sidebar-inner' });
 		const search = new SearchComponent(sidebarInner)
-			.setPlaceholder('스냅샷 검색...')
+			.setPlaceholder(wmT("스냅샷 검색..."))
 			.setValue(this.sidebarQuery);
 		const list = sidebarInner.createDiv({ cls: 'modal-sidebar-list' });
 		list.tabIndex = -1;
@@ -82,11 +83,11 @@ export class PlotWorkbookSnapshotModal extends Modal {
 			});
 			details.createDiv({
 				cls: 'u-small u-muted',
-				text: new Date(item.snapshot.createdAt).toLocaleString('ko-KR'),
+				text: new Date(item.snapshot.createdAt).toLocaleString(getLocale()),
 			});
 			searchableRows.push({
 				row,
-				text: `${this.displayTitle(item)}\n${item.target.label}\n${new Date(item.snapshot.createdAt).toLocaleString('ko-KR')}`
+				text: `${this.displayTitle(item)}\n${item.target.label}\n${new Date(item.snapshot.createdAt).toLocaleString(getLocale())}`
 					.toLocaleLowerCase('ko-KR'),
 			});
 			row.addEventListener('click', () => {
@@ -104,13 +105,13 @@ export class PlotWorkbookSnapshotModal extends Modal {
 		const listActions = sidebarInner.createDiv({ cls: 'wm-plotbook-snapshot-list-actions' });
 		const add = listActions.createEl('button', {
 			cls: 'clickable-icon',
-			attr: { type: 'button', 'aria-label': '스냅샷 추가' },
+			attr: { type: 'button', 'aria-label': wmT("스냅샷 추가") },
 		});
 		setIcon(add, 'plus');
 		add.addEventListener('click', () => void this.create());
 		const rename = listActions.createEl('button', {
 			cls: 'clickable-icon',
-			attr: { type: 'button', 'aria-label': '스냅샷 제목 수정' },
+			attr: { type: 'button', 'aria-label': wmT("스냅샷 제목 수정") },
 		});
 		setIcon(rename, 'pencil');
 		rename.disabled = !selected;
@@ -124,7 +125,7 @@ export class PlotWorkbookSnapshotModal extends Modal {
 		});
 		const remove = listActions.createEl('button', {
 			cls: 'clickable-icon',
-			attr: { type: 'button', 'aria-label': '스냅샷 삭제' },
+			attr: { type: 'button', 'aria-label': wmT("스냅샷 삭제") },
 		});
 		setIcon(remove, 'trash-2');
 		remove.disabled = !selected;
@@ -137,18 +138,18 @@ export class PlotWorkbookSnapshotModal extends Modal {
 		});
 		contentContainer.createEl('p', {
 			cls: 'sync-history-content-empty',
-			text: items.length === 0 ? '저장된 스냅샷이 없습니다.' : '스냅샷을 선택하세요.',
+			text: items.length === 0 ? wmT("저장된 스냅샷이 없습니다.") : wmT("스냅샷을 선택하세요."),
 		});
 		const historyContent = contentContainer.createDiv({ cls: 'sync-history-content' });
 		const titlebar = historyContent.createDiv({ cls: 'modal-setting-titlebar' });
 		titlebar.createDiv({
 			cls: 'modal-setting-title',
-			text: selected ? this.displayTitle(selected) : '스냅샷',
+			text: selected ? this.displayTitle(selected) : wmT("스냅샷"),
 		});
 		const actions = titlebar.createDiv({ cls: 'modal-setting-titlebar-actions' });
 		const toggleLabel = actions.createSpan({
 			cls: 'modal-setting-titlebar-toggle',
-			text: '변경 사항 표시',
+			text: wmT("변경 사항 표시"),
 		});
 		new ToggleComponent(toggleLabel)
 			.setValue(this.compareMode)
@@ -158,13 +159,13 @@ export class PlotWorkbookSnapshotModal extends Modal {
 				this.render();
 			});
 		new ButtonComponent(actions)
-			.setButtonText('복사')
+			.setButtonText(wmT("복사"))
 			.setDisabled(!selected)
 			.onClick(() => {
 				if (selected) void this.copy(selected.snapshot.id);
 			});
 		new ButtonComponent(actions)
-			.setButtonText('이 버전 복원')
+			.setButtonText(wmT("이 버전 복원"))
 			.setDisabled(!selected)
 			.onClick(() => {
 				if (selected) void this.restore(selected.snapshot.id, selected.target);
@@ -172,7 +173,7 @@ export class PlotWorkbookSnapshotModal extends Modal {
 
 		const textarea = historyContent.createEl('textarea', {
 			cls: 'file-recovery-text',
-			attr: { spellcheck: 'false', 'aria-label': '스냅샷 내용' },
+			attr: { spellcheck: 'false', 'aria-label': wmT("스냅샷 내용") },
 		});
 		textarea.readOnly = true;
 		textarea.dataset.ext = 'md';
@@ -191,8 +192,8 @@ export class PlotWorkbookSnapshotModal extends Modal {
 		const snapshot = await this.session.readCellSnapshot(item.snapshot.id);
 		if (request !== this.previewRequest || !textarea.isConnected || !diff.isConnected) return;
 		if (!snapshot) {
-			textarea.value = '스냅샷 파일을 찾을 수 없습니다.';
-			diff.setText('스냅샷 파일을 찾을 수 없습니다.');
+			textarea.value = wmT("스냅샷 파일을 찾을 수 없습니다.");
+			diff.setText(wmT("스냅샷 파일을 찾을 수 없습니다."));
 			return;
 		}
 		textarea.value = snapshot.value;
@@ -203,8 +204,8 @@ export class PlotWorkbookSnapshotModal extends Modal {
 
 	private async create(): Promise<void> {
 		const count = await this.session.createCellSnapshots(this.targets, '');
-		if (count === 0) new Notice('내용이 있는 셀을 선택해 주세요.');
-		else new Notice(`${count}개의 셀 스냅샷을 만들었습니다.`);
+		if (count === 0) new Notice(wmT("내용이 있는 셀을 선택해 주세요."));
+		else new Notice(wmT("{0}개의 셀 스냅샷을 만들었습니다.", count));
 		this.selectedSnapshotId = null;
 		this.render();
 	}
@@ -212,25 +213,25 @@ export class PlotWorkbookSnapshotModal extends Modal {
 	private async copy(snapshotId: string): Promise<void> {
 		const snapshot = await this.session.readCellSnapshot(snapshotId);
 		if (!snapshot) {
-			new Notice('스냅샷 파일을 찾을 수 없습니다.');
+			new Notice(wmT("스냅샷 파일을 찾을 수 없습니다."));
 			return;
 		}
 		try {
 			await navigator.clipboard.writeText(snapshot.value);
-			new Notice('스냅샷 내용을 클립보드에 복사했습니다.');
+			new Notice(wmT("스냅샷 내용을 클립보드에 복사했습니다."));
 		} catch (error) {
-			new Notice(`스냅샷을 복사하지 못했습니다: ${error instanceof Error ? error.message : String(error)}`);
+			new Notice(wmT("스냅샷을 복사하지 못했습니다: {0}", error instanceof Error ? error.message : String(error)));
 		}
 	}
 
 	private async restore(snapshotId: string, target: PlotWorkbookSnapshotTarget): Promise<void> {
 		const snapshot = await this.session.readCellSnapshot(snapshotId);
 		if (!snapshot) {
-			new Notice('스냅샷 파일을 찾을 수 없습니다.');
+			new Notice(wmT("스냅샷 파일을 찾을 수 없습니다."));
 			return;
 		}
 		this.session.setCell(target.rowId, target.columnId, snapshot.value);
-		new Notice('스냅샷을 복원했습니다. 현재 내용은 실행 취소로 되돌릴 수 있습니다.');
+		new Notice(wmT("스냅샷을 복원했습니다. 현재 내용은 실행 취소로 되돌릴 수 있습니다."));
 		this.close();
 	}
 
@@ -256,10 +257,10 @@ export class PlotWorkbookSnapshotTitleModal extends Modal {
 	}
 
 	onOpen(): void {
-		this.setTitle('스냅샷 제목 수정');
+		this.setTitle(wmT("스냅샷 제목 수정"));
 		let value = this.initialTitle;
 		const setting = new Setting(this.contentEl)
-			.setName('제목')
+			.setName(wmT("제목"))
 			.addText(text => {
 				text.setValue(value).onChange(next => { value = next; });
 				text.inputEl.addEventListener('keydown', event => {
@@ -273,7 +274,7 @@ export class PlotWorkbookSnapshotTitleModal extends Modal {
 				}, 0);
 			})
 			.addButton(button => button
-				.setButtonText('저장')
+				.setButtonText(wmT("저장"))
 				.setCta()
 				.onClick(() => this.submit(value)));
 		setting.settingEl.addClass('wm-plotbook-snapshot-title-setting');

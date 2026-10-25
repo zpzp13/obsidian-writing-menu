@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { ItemView, Notice, Scope, WorkspaceLeaf, setIcon, type EventRef, type TFile, type ViewStateResult } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { DEFAULT_PLOTBOOK_FONT_SIZE, PLOT_WORKBOOK_SIDEBAR_TYPE, type PlotWorkbookSheet, type PlotWorkbookColumnRole, type PlotWorkbookForeshadowLocation } from './PlotWorkbookTypes';
@@ -46,7 +47,7 @@ export class PlotWorkbookSidebarView extends ItemView {
 	}
 
 	getViewType(): string { return PLOT_WORKBOOK_SIDEBAR_TYPE; }
-	getDisplayText(): string { return '플롯 사이드바'; }
+	getDisplayText(): string { return wmT("플롯 사이드바"); }
 	getIcon(): string { return 'panel-right'; }
 	getState(): Record<string, unknown> { return { ...this.state }; }
 	getDeusSceneSelection(): { projectRoot: string; sheetId: string; rowIds: string[] } | null {
@@ -94,7 +95,7 @@ export class PlotWorkbookSidebarView extends ItemView {
 		if (this.frame !== null) window.cancelAnimationFrame(this.frame);
 		this.clearCards(); this.axisPicker?.destroy(); this.clearScopePickers();
 		const lease = this.lease; this.lease = null;
-		try { await lease?.release(); } catch (error) { new Notice(`플롯을 저장하지 못했습니다: ${String(error)}`); }
+		try { await lease?.release(); } catch (error) { new Notice(wmT("플롯을 저장하지 못했습니다: {0}", String(error))); }
 	}
 
 	private async loadProject(): Promise<void> {
@@ -102,7 +103,7 @@ export class PlotWorkbookSidebarView extends ItemView {
 		this.unsubscribe?.(); this.unsubscribe = null;
 		this.clearCards(); this.clearScopePickers(); this.axisPicker?.destroy(); this.axisPicker = null; this.expandedCard = null;
 		const previous = this.lease; this.lease = null;
-		try { await previous?.release(); } catch (error) { new Notice(`플롯을 저장하지 못했습니다: ${String(error)}`); }
+		try { await previous?.release(); } catch (error) { new Notice(wmT("플롯을 저장하지 못했습니다: {0}", String(error))); }
 		if (token !== this.loadToken || !this.opened) return;
 		const projects = this.plugin.projectContext.getProjects();
 		const project = projects.find(item => item.id === this.state.projectId)
@@ -110,13 +111,13 @@ export class PlotWorkbookSidebarView extends ItemView {
 		this.contentEl.empty(); this.contentEl.addClass('wm-plotbook-sidebar');
 		this.header = null; this.list = null;
 		if (!project) {
-			this.contentEl.createDiv({ cls: 'wm-plotbook-sidebar-empty', text: '프로젝트를 먼저 등록해 주세요.' });
-			const settings = this.contentEl.createEl('button', { text: '플러그인 설정' });
+			this.contentEl.createDiv({ cls: 'wm-plotbook-sidebar-empty', text: wmT("프로젝트를 먼저 등록해 주세요.") });
+			const settings = this.contentEl.createEl('button', { text: wmT("플러그인 설정") });
 			settings.addEventListener('click', () => this.plugin.openSettings());
 			return;
 		}
 		this.state.projectId = project.id;
-		this.contentEl.createDiv({ cls: 'wm-plotbook-sidebar-empty', text: '플롯을 불러오는 중…' });
+		this.contentEl.createDiv({ cls: 'wm-plotbook-sidebar-empty', text: wmT("플롯을 불러오는 중…") });
 		try {
 			const lease = await plotWorkbookSessions(this.plugin).acquire(project);
 			if (token !== this.loadToken || !this.opened) { await lease.release(); return; }
@@ -127,18 +128,17 @@ export class PlotWorkbookSidebarView extends ItemView {
 		} catch (error) {
 			if (token !== this.loadToken) return;
 			this.contentEl.empty();
-			this.contentEl.createDiv({ cls: 'wm-plotbook-sidebar-empty', text: `플롯을 열 수 없습니다. ${String(error)}` });
+			this.contentEl.createDiv({ cls: 'wm-plotbook-sidebar-empty', text: wmT("플롯을 열 수 없습니다. {0}", String(error)) });
 		}
 	}
 
 	private buildLayout(): void {
 		this.contentEl.empty();
-		const chrome = this.contentEl.createDiv({ cls: 'wm-plotbook-sidebar-chrome' });
-		const heading = chrome.createDiv({ cls: 'wm-plotbook-sidebar-heading', attr: { role: 'toolbar', 'aria-label': '플롯 사이드바 도구' } });
+		const heading = this.contentEl.createDiv({ cls: 'wm-plotbook-sidebar-heading', attr: { role: 'toolbar', 'aria-label': wmT("플롯 사이드바 도구") } });
 		const navigation = heading.createDiv({ cls:'wm-plotbook-sidebar-axis-navigation' });
 		for (const [step, icon] of [[-1,'chevron-left'],[1,'chevron-right']] as const) {
 			if (step > 0) navigation.createSpan({cls:'wm-plotbook-sidebar-axis-label',attr:{'data-sidebar-axis-label':'true','aria-live':'polite'}});
-			const button = navigation.createEl('button',{cls:'clickable-icon wm-plotbook-sidebar-step',attr:{type:'button','data-sidebar-step':String(step),'aria-label':step < 0 ? '이전 열' : '다음 열'}});
+			const button = navigation.createEl('button',{cls:'clickable-icon wm-plotbook-sidebar-step',attr:{type:'button','data-sidebar-step':String(step),'aria-label':step < 0 ? wmT("이전 열") : wmT("다음 열")}});
 			setIcon(button,icon);
 			button.addEventListener('click',()=>{
 				const sheet = this.lease?.session.activeSheet;
@@ -150,31 +150,30 @@ export class PlotWorkbookSidebarView extends ItemView {
 				if (next) this.selectAxis(next);
 			});
 		}
-		for (const [mode, icon, label] of [['column','columns-3','열 모드'],['row','rows-3','행 모드']] as const) {
-			const button = heading.createEl('button', { cls: 'clickable-icon', attr: { type: 'button', 'aria-label': label, 'data-sidebar-mode': mode } });
+		const actions = heading.createDiv({ cls: 'wm-plotbook-sidebar-actions' });
+		for (const [mode, icon, label] of [['column','columns-3',wmT("열 모드")],['row','rows-3',wmT("행 모드")]] as const) {
+			const button = actions.createEl('button', { cls: 'clickable-icon', attr: { type: 'button', 'aria-label': label, 'data-sidebar-mode': mode } });
 			setIcon(button, icon);
 			button.addEventListener('click', () => { this.state.mode = mode; this.limit = PAGE_SIZE; this.render(); });
 		}
-		const empty = heading.createEl('button', { cls: 'clickable-icon', attr: { type: 'button', 'aria-label': '빈 셀 표시', 'data-sidebar-empty': 'true' } });
+		const empty = actions.createEl('button', { cls: 'clickable-icon', attr: { type: 'button', 'aria-label': wmT("빈 셀 표시"), 'data-sidebar-empty': 'true' } });
 		setIcon(empty, 'square-dashed');
 		empty.addEventListener('click', () => { this.showEmpty = !this.showEmpty; this.render(); });
-		const hidePickers = heading.createEl('button',{cls:'clickable-icon',attr:{type:'button','aria-label':'선택 영역 숨기기','data-sidebar-hide-pickers':'true'}});
+		const hidePickers = actions.createEl('button',{cls:'clickable-icon',attr:{type:'button','aria-label':wmT("선택 영역 숨기기"),'data-sidebar-hide-pickers':'true'}});
 		setIcon(hidePickers,'panel-top');
 		hidePickers.addEventListener('click',()=>{
 			this.pickersHidden = !this.pickersHidden;
 			if(this.pickersHidden) { this.scopePickers.forEach(picker=>picker.close(false)); this.axisPicker?.destroy(); }
 			this.render();
 		});
-		heading.createSpan({ cls: 'wm-plotbook-sidebar-toolbar-spacer' });
-		const open = heading.createEl('button', { cls: 'clickable-icon', attr: { type: 'button', 'aria-label': '표로 열기' } });
-		setIcon(open, 'table-2'); open.addEventListener('click', () => void this.openCell());
-		const settings = heading.createEl('button', { cls: 'clickable-icon', attr: { type: 'button', 'aria-label': '플롯 매니저 설정' } });
+		const settings = actions.createEl('button', { cls: 'clickable-icon', attr: { type: 'button', 'aria-label': wmT("플롯 매니저 설정") } });
 		setIcon(settings, 'settings'); settings.addEventListener('click', () => this.plugin.openSettings('plot'));
+		const chrome = this.contentEl.createDiv({ cls: 'wm-plotbook-sidebar-chrome' });
 		this.header = chrome.createDiv({ cls: 'wm-plotbook-sidebar-pickers' });
 		this.headerSignature = '';
 		const search = chrome.createDiv({ cls: 'wm-search-field wm-plotbook-sidebar-search' });
 		setIcon(search.createSpan({ attr: { 'aria-hidden': 'true' } }), 'search');
-		const input = search.createEl('input', { type: 'search', placeholder: '이 열에서 검색', attr: { 'aria-label': '플롯 사이드바 검색' } });
+		const input = search.createEl('input', { type: 'search', placeholder: wmT("이 열에서 검색"), attr: { 'aria-label': wmT("플롯 사이드바 검색") } });
 		input.value = this.query;
 		input.addEventListener('input', () => { this.query = input.value; this.limit = PAGE_SIZE; this.scheduleRender(); });
 		this.list = this.contentEl.createDiv({ cls: 'wm-plotbook-sidebar-list' });
@@ -220,10 +219,10 @@ export class PlotWorkbookSidebarView extends ItemView {
 		const axisLabel = this.contentEl.querySelector<HTMLElement>('[data-sidebar-axis-label]');
 		axisLabel?.setText(axisText);
 		axisLabel?.setAttribute('title',axisText);
-		axisLabel?.setAttribute('aria-label',`현재 ${rowMode ? '행' : '열'}: ${axisText}`);
+		axisLabel?.setAttribute('aria-label',wmT("현재 {0}: {1}", rowMode ? wmT("행") : wmT("열"), axisText));
 		this.contentEl.querySelectorAll<HTMLButtonElement>('[data-sidebar-step]').forEach(button => {
 			const step = Number(button.dataset.sidebarStep);
-			const label = `${step < 0 ? '이전' : '다음'} ${rowMode ? '행' : '열'}`;
+			const label = `${step < 0 ? wmT("이전") : wmT("다음")} ${rowMode ? wmT("행") : wmT("열")}`;
 			button.disabled = axisIndex < 0 || !order[axisIndex + step];
 			button.setAttribute('aria-label',label);
 		});
@@ -234,10 +233,10 @@ export class PlotWorkbookSidebarView extends ItemView {
 		this.contentEl.querySelectorAll<HTMLButtonElement>('[data-sidebar-mode]').forEach(button => button.setAttribute('aria-pressed', String((button.dataset.sidebarMode === 'row') === rowMode)));
 		this.contentEl.querySelector('[data-sidebar-empty]')?.setAttribute('aria-pressed', String(this.showEmpty));
 		this.contentEl.querySelector('[data-sidebar-hide-pickers]')?.setAttribute('aria-pressed',String(this.pickersHidden));
-		this.contentEl.querySelector('[data-sidebar-hide-pickers]')?.setAttribute('aria-label',this.pickersHidden ? '선택 영역 표시' : '선택 영역 숨기기');
+		this.contentEl.querySelector('[data-sidebar-hide-pickers]')?.setAttribute('aria-label',this.pickersHidden ? wmT("선택 영역 표시") : wmT("선택 영역 숨기기"));
 		this.header.hidden = this.pickersHidden;
 		const search = this.contentEl.querySelector<HTMLInputElement>('.wm-plotbook-sidebar-search input');
-		if (search) search.placeholder = rowMode ? '이 행에서 검색' : '이 열에서 검색';
+		if (search) search.placeholder = rowMode ? wmT("이 행에서 검색") : wmT("이 열에서 검색");
 		const signature = JSON.stringify([this.state.projectId, sheet.sheetId, session.manifest.sheets, sheet.columnOrder.map(id => [id, this.columnTitle(sheet,id), sheet.columns[id].role]), columnId, sheet.rowOrder, rowMode, rowMode ? this.state.rowId : '']);
 		if (signature !== this.headerSignature) {
 			this.headerSignature = signature;
@@ -249,7 +248,7 @@ export class PlotWorkbookSidebarView extends ItemView {
 			const text = this.displayValue(sheet, cell.rowId, cell.columnId);
 			const current = cell.rowId === this.state.rowId && cell.columnId === this.state.columnId;
 			if (!text.trim() && !this.showEmpty && !current) return false;
-			const title = rowMode ? this.columnTitle(sheet, cell.columnId) : `${labels.get(cell.rowId)}행`;
+			const title = rowMode ? this.columnTitle(sheet, cell.columnId) : wmT("{0}행", labels.get(cell.rowId));
 			return !needle || `${title} ${text}`.toLocaleLowerCase('ko-KR').includes(needle);
 		});
 		const visible = cells.slice(0, this.limit);
@@ -280,11 +279,11 @@ export class PlotWorkbookSidebarView extends ItemView {
 				const title = heading.createEl('button',{cls:'wm-plotbook-sidebar-card-title',attr:{type:'button'}});
 				title.addEventListener('click',()=>{this.expandedCard = this.expandedCard === key ? null : key;this.render();});
 				if(role === 'foreshadow') {
-					const manage = heading.createEl('button',{cls:'clickable-icon',attr:{type:'button','aria-label':'복선 관리하기'}});
+					const manage = heading.createEl('button',{cls:'clickable-icon',attr:{type:'button','aria-label':wmT("복선 관리하기")}});
 					setIcon(manage,'sprout');
 					manage.addEventListener('click',()=>this.openForeshadow({sheetId:sheet.sheetId,rowId,columnId:cellColumn}));
 				}
-				const reveal = heading.createEl('button', { cls:'clickable-icon', attr:{type:'button', 'aria-label':'이 셀을 표에서 열기'} });
+				const reveal = heading.createEl('button', { cls:'clickable-icon', attr:{type:'button', 'aria-label':wmT("이 셀을 표에서 열기")} });
 				setIcon(reveal, 'arrow-up-right'); reveal.addEventListener('click', () => void this.openCell(rowId,cellColumn));
 				const body = element.createDiv({ cls: 'wm-plotbook-timeline-card-body' });
 				card = { element, heading, title, icon, body, signature:'', role };
@@ -294,7 +293,7 @@ export class PlotWorkbookSidebarView extends ItemView {
 				});
 				this.cards.set(key, card);
 			}
-			card.title.setText(rowMode ? this.columnTitle(sheet,cellColumn) : `${labels.get(rowId) ?? ''}행`);
+			card.title.setText(rowMode ? this.columnTitle(sheet,cellColumn) : wmT("{0}행", labels.get(rowId) ?? ''));
 			const cellStyle = session.getCellStyle(sheet,rowId,cellColumn);
 			const headerStyle = rowMode ? session.getColumnHeaderStyle(cellColumn) : session.getRowHeaderStyle(rowId);
 			const profile = rowMode && role === 'character' ? sidebarCharacterColumn(this.plugin,sheet.columns[cellColumn]) : null;
@@ -318,9 +317,9 @@ export class PlotWorkbookSidebarView extends ItemView {
 			}
 			if (this.list!.children[index] !== card.element) this.list!.insertBefore(card.element, this.list!.children[index] ?? null);
 		});
-		if (!cells.length) this.list.createDiv({ cls:'wm-plotbook-sidebar-empty', text:needle ? '검색 결과가 없습니다.' : checklist ? '아직 확인할 목록이 없습니다.' : '표시할 내용이 없습니다.' });
+		if (!cells.length) this.list.createDiv({ cls:'wm-plotbook-sidebar-empty', text:needle ? wmT("검색 결과가 없습니다.") : checklist ? wmT("아직 확인할 목록이 없습니다.") : wmT("표시할 내용이 없습니다.") });
 		if (cells.length > this.limit) {
-			const more = this.list.createEl('button', { cls:'wm-plotbook-sidebar-more', text:`더 보기 · ${Math.min(this.limit, cells.length)}/${cells.length}`, attr:{type:'button'} });
+			const more = this.list.createEl('button', { cls:'wm-plotbook-sidebar-more', text:wmT("더 보기 · {0}/{1}", Math.min(this.limit, cells.length), cells.length), attr:{type:'button'} });
 			more.addEventListener('click', () => { this.limit += PAGE_SIZE; this.render(); });
 		}
 	}
@@ -330,26 +329,25 @@ export class PlotWorkbookSidebarView extends ItemView {
 		this.axisPicker?.destroy(); this.axisPicker = null;
 		this.clearScopePickers(); this.header!.empty();
 		const context = this.header!.createDiv({ cls:'wm-plotbook-sidebar-context' });
-		const picker = (parent: HTMLElement, label: string, icon: string, options: Array<[string,string]>, value: string, change: (value:string)=>void) => {
-			const axis = label === '열' || label === '행';
+		const picker = (parent: HTMLElement, label: string, icon: string, options: Array<[string,string]>, value: string, change: (value:string)=>void, axis?: 'row' | 'column') => {
 			const wrap = parent.createDiv({ cls:`wm-plotbook-sidebar-select ${axis ? 'wm-plotbook-axis-picker is-column' : 'wm-project-select-field is-context'}` });
 			if (icon) setIcon(wrap.createSpan({ attr: { 'aria-hidden': 'true' } }), icon);
 			const select = wrap.createEl('select', { attr:{'aria-label':label} });
 			for (const [value, text] of options) select.createEl('option', {value, text});
 			select.value = value; select.addEventListener('change', () => change(select.value));
-			if (axis) this.axisPicker = new PlotWorkbookRowPicker(select, label === '열' ? 'column' : 'row');
+			if (axis) this.axisPicker = new PlotWorkbookRowPicker(select, axis);
 			else this.scopePickers.push(new ToolbarSelect(select, 'is-sidebar-context'));
 		};
-		picker(context, '프로젝트', 'folder', this.plugin.projectContext.getProjects().map(item => [item.id,item.name]), this.state.projectId!, value => {
+		picker(context, wmT("프로젝트"), 'folder', this.plugin.projectContext.getProjects().map(item => [item.id,item.name]), this.state.projectId!, value => {
 			this.state = {projectId:value,mode:this.state.mode}; void this.loadProject();
 		});
-		picker(context, '시트', 'table-2', session.manifest.sheets.map(item => [item.id,item.name]), sheet.sheetId, value => {
+		picker(context, wmT("시트"), 'table-2', session.manifest.sheets.map(item => [item.id,item.name]), sheet.sheetId, value => {
 			this.state.rowId = undefined; this.limit = PAGE_SIZE; void session.selectSheet(value);
 		});
 		if (this.state.mode === 'row') {
 			const labels = session.rowLabels(sheet);
-			picker(this.header!, '행', 'rows-3', sheet.rowOrder.map(id=>[id,`${labels.get(id)}행`]), this.state.rowId!, value=>this.selectAxis(value));
-		} else picker(this.header!, '열', 'columns-3', sheet.columnOrder.map(id=>[id,this.columnTitle(sheet,id)]), columnId, value=>this.selectAxis(value));
+			picker(this.header!, wmT("행"), 'rows-3', sheet.rowOrder.map(id=>[id,wmT("{0}행", labels.get(id))]), this.state.rowId!, value=>this.selectAxis(value), 'row');
+		} else picker(this.header!, wmT("열"), 'columns-3', sheet.columnOrder.map(id=>[id,this.columnTitle(sheet,id)]), columnId, value=>this.selectAxis(value), 'column');
 	}
 
 	private selectAxis(value: string): void {
@@ -365,7 +363,7 @@ export class PlotWorkbookSidebarView extends ItemView {
 		const session = this.lease!.session;
 		const role = sheet.columns[columnId].role;
 		const value = session.getCell(sheet,rowId,columnId);
-		if (role === 'status') return value ? session.statusName(value) : '';
+		if (role === 'status') return value ? session.statusDisplayName(value) : '';
 		if (role === 'cast') return session.getAppearancePaths(sheet,rowId,columnId).map(path => sidebarCharacterName(this.plugin,path)).join(' · ');
 		if (role === 'foreshadow') return session.foreshadowsInRow(sheet.sheetId,rowId).map(item=>item.title).join('\n');
 		return value;

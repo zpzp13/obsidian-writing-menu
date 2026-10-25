@@ -62,6 +62,23 @@ export async function runPagedDocumentChecks() {
 		assert(view.getViewData()===changedProperties,'Full-source snapshot replacement lost properties or body');
 		view.undo();assert(view.getViewData()===batchResult,'Snapshot undo did not restore the old properties with the body');
 		view.redo();assert(view.getViewData()===changedProperties,'Snapshot redo did not restore the new properties with the body');
+		const savedSmartQuotes = plugin.settings.enableSmartQuotes;
+		plugin.settings.enableSmartQuotes = true;
+		for (const [straight, open, close] of [['"','“','”'], ["'",'‘','’']]) {
+			view.setViewData('',true);view.placeCaretInPage(0,0,false);
+			const input = text => view.editRootEl.dispatchEvent(new InputEvent('beforeinput',{inputType:'insertText',data:text,bubbles:true,cancelable:true}));
+			input(straight);assert(view.getEditableData()===open+close,'Paged smart quote did not create a curly pair');
+			input('한글');input(straight);
+			assert(view.getEditableData()===open+'한글'+close&&view.readSelection().head===4,'Paged closing quote duplicated its closer or lost the Korean text');
+			view.setViewData('선택',true);view.restoreSelection({anchor:0,head:2},true);input(straight);
+			assert(view.getEditableData()===open+'선택'+close,'Paged smart quote did not wrap selected text');
+		}
+		plugin.settings.enableSmartQuotes = false;
+		view.setViewData('',true);view.placeCaretInPage(0,0,false);
+		view.editRootEl.dispatchEvent(new InputEvent('beforeinput',{inputType:'insertText',data:'"',bubbles:true,cancelable:true}));
+		assert(view.getEditableData()==='"','Paged smart quote toggle did not disable replacement');
+		plugin.settings.enableSmartQuotes = savedSmartQuotes;
+		console.info('Paged double/single smart quotes, Korean text, closing traversal, selection wrapping and disabling passed');
 		view.setViewData(source,true);
 		let disk=source;const backups=new Map(),folders=new Set();
 		view.app.vault={async read(){return disk;},async process(file,action){disk=action(disk);return disk;},adapter:{

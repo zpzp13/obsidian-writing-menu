@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { AbstractInputSuggest, type App, type TFile, type SearchResult, parseFrontMatterAliases, prepareFuzzySearch, renderResults } from 'obsidian';
 
 export interface PlotLinkContext { from: number; to: number; query: string; suffix: string }
@@ -111,7 +112,7 @@ export class PlotWorkbookLinkSuggest extends AbstractInputSuggest<LinkSuggestion
 		const container = el.closest('.suggestion-container');
 		if (container && !container.querySelector('.prompt-instructions')) {
 			const footer = container.createDiv({ cls: 'prompt-instructions' });
-			for (const [key, text] of [['#', '제목에 연결'], ['^', '블록에 연결'], ['|', '표시되는 텍스트 변경']]) {
+			for (const [key, text] of [['#', wmT("제목에 연결")], ['^', wmT("블록에 연결")], ['|', wmT("표시되는 텍스트 변경")]]) {
 				const instruction = footer.createDiv({ cls: 'prompt-instruction' });
 				instruction.createSpan({ cls: 'prompt-instruction-command', text: key });
 				instruction.createSpan({ text });

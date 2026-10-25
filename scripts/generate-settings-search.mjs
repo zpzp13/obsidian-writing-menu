@@ -7,7 +7,10 @@ const ast = ts.createSourceFile('index.ts', source, ts.ScriptTarget.Latest, true
 const methods = new Map();
 const visit = (node, callback) => { callback(node); node.forEachChild(child => visit(child, callback)); };
 visit(ast, node => { if (ts.isMethodDeclaration(node)) methods.set(node.name.getText(ast), node); });
-const literal = node => node && ts.isStringLiteralLike(node) ? node.text : undefined;
+const literal = node => {
+	if (node && ts.isCallExpression(node) && node.expression.getText() === 'wmT') return literal(node.arguments[0]);
+	return node && ts.isStringLiteralLike(node) ? node.text : undefined;
+};
 const calls = node => { const found = []; visit(node, child => { if (ts.isCallExpression(child) && ts.isPropertyAccessExpression(child.expression)) found.push(child); }); return found; };
 const pages = [];
 for (const clause of methods.get('renderPageContent').body.statements.find(ts.isSwitchStatement).caseBlock.clauses) {

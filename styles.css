@@ -678,6 +678,26 @@ body.theme-dark .wm-styled-document[data-writing-menu-id] .cm-activeLine .cm-hea
    Calendar View  (wm-cal-*)
    ============================================================ */
 
+/* Keep the top controls aligned across the writing workspace. */
+.wm-dash-tab-row,
+.wm-paged-toolbar,
+.wm-plotbook-sidebar-heading {
+	--wm-toolbar-height: 44px;
+	--wm-toolbar-control-size: 30px;
+	--wm-toolbar-icon-size: 16px;
+	box-sizing: border-box;
+	min-height: var(--wm-toolbar-height);
+	margin: 0;
+	padding: 6px 10px;
+	border-bottom: 1px solid transparent;
+	font-family: var(--font-interface);
+}
+
+/* These views own their toolbar spacing; theme content padding must not add to it. */
+body:not(.is-mobile) .workspace-leaf-content > :is(.wm-cal-content, .wm-plotbook-sidebar, .wm-paged-view-content, .wm-markdown-toolbar-content) {
+	padding: 0;
+}
+
 .wm-cal-content {
 	--wm-dash-page: var(--background-primary);
 	--wm-dash-ink-1: var(--text-normal);
@@ -1011,7 +1031,6 @@ body.theme-dark .wm-styled-document[data-writing-menu-id] .cm-activeLine .cm-hea
     box-sizing: border-box;
     align-items: center;
     justify-content: center;
-    padding: 12px 10px 8px;
     background: var(--wm-dash-page);
 }
 .wm-dash-tab-bar {
@@ -1022,7 +1041,9 @@ body.theme-dark .wm-styled-document[data-writing-menu-id] .cm-activeLine .cm-hea
     flex-wrap: nowrap;
     justify-content: space-evenly;
     gap: 28px;
-    padding: 3px;
+    align-items: center;
+    height: var(--wm-toolbar-control-size);
+    padding: 0;
     overflow-x: auto;
     border-radius: 999px;
     background: transparent;
@@ -1036,7 +1057,9 @@ body.theme-dark .wm-styled-document[data-writing-menu-id] .cm-activeLine .cm-hea
     align-items: center;
     justify-content: center;
     gap: 0;
-    height: auto;
+    box-sizing: border-box;
+    height: var(--wm-toolbar-control-size);
+    min-height: var(--wm-toolbar-control-size);
     min-width: 36px;
     padding: 5px 10px;
     border: 0;
@@ -1062,13 +1085,13 @@ button.wm-dash-tab-btn {
 .wm-dash-tab-icon {
     display: inline-flex;
     flex: none;
-    width: 16px;
-    height: 16px;
+    width: var(--wm-toolbar-icon-size);
+    height: var(--wm-toolbar-icon-size);
     align-items: center;
     justify-content: center;
     transition: transform 500ms cubic-bezier(.16, 1, .3, 1);
 }
-.wm-dash-tab-btn svg { width: 16px; height: 16px; }
+.wm-dash-tab-btn svg { width: var(--wm-toolbar-icon-size); height: var(--wm-toolbar-icon-size); }
 .wm-dash-tab-btn:hover {
     color: var(--wm-dash-ink-1);
 }
@@ -5490,6 +5513,10 @@ button.wiki-graph-style-action:active {
 
 
 /* ── Per-leaf typography (CSS custom properties via setCssProps) ── */
+.wm-styled-document[data-writing-menu-id] .markdown-source-view.mod-cm6,
+.wm-styled-document[data-writing-menu-id] .markdown-preview-view {
+    --file-line-width: var(--wm-line-width, 700px);
+}
 .wm-styled-document[data-writing-menu-id] .cm-scroller,
 .wm-styled-document[data-writing-menu-id] .cm-content,
 .wm-styled-document[data-writing-menu-id] .markdown-reading-view {
@@ -5517,6 +5544,10 @@ button.wiki-graph-style-action:active {
     background-color: var(--wm-bg-color, transparent);
     padding: 20px var(--wm-inline-padding, 40px);
     transition: max-width 0.3s ease;
+}
+.wm-styled-document[data-writing-menu-id] .markdown-reading-view .markdown-preview-sizer {
+    max-width: var(--wm-line-width, 700px);
+    margin-inline: auto;
 }
 /* Mobile paper color fills the viewport; text width/padding remain unchanged. */
 .is-mobile .wm-styled-document[data-writing-menu-id] > .view-content,
@@ -7212,7 +7243,7 @@ button.wm-archive-mini-control {
     place-items: center;
     border: 0;
     border-radius: 50%;
-    background: var(--background-modifier-hover);
+    background: transparent;
     box-shadow: none;
     color: var(--text-normal);
 }
@@ -7259,82 +7290,6 @@ button.wm-archive-mini-control.is-primary {
     background: var(--background-primary);
 }
 
-.wm-music-library-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 4px 12px;
-}
-
-.wm-music-library-heading {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-}
-
-.wm-music-library-kicker {
-    color: var(--text-normal);
-    font-size: var(--font-ui-medium);
-    font-weight: 750;
-    letter-spacing: .04em;
-}
-
-.wm-music-library-count {
-    margin-top: 2px;
-    color: var(--text-muted);
-    font-size: 10px;
-    font-weight: 650;
-    letter-spacing: .06em;
-}
-
-button.wm-music-library-action {
-    display: grid;
-    width: 34px;
-    height: 34px;
-    padding: 0;
-    place-items: center;
-    border: 0;
-    border-radius: 50%;
-    background: var(--background-secondary);
-    box-shadow: none;
-    color: var(--text-muted);
-}
-
-.wm-music-library-action svg { width: 16px; height: 16px; }
-
-.wm-music-library-search {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 38px;
-    grid-area: search;
-    margin: 26px 0 0;
-    padding: 0 11px;
-    border-radius: 14px;
-    background: var(--background-secondary);
-    color: var(--text-muted);
-}
-
-.wm-music-library-search > span {
-    display: grid;
-    flex: 0 0 15px;
-    place-items: center;
-    line-height: 0;
-}
-.wm-music-library-search svg { display: block; width: 15px; height: 15px; }
-.wm-music-library-search input[type='search'] {
-    min-width: 0;
-    height: 24px;
-    flex: 1;
-    padding: 0;
-    margin: 0;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-    color: var(--text-normal);
-    line-height: 24px;
-}
-
 .wm-music-library-now-playing {
     --wm-music-card-bg: var(--background-primary);
     --wm-music-card-ink: var(--text-normal);
@@ -7342,8 +7297,9 @@ button.wm-music-library-action {
     --wm-music-ui-accent: var(--text-normal);
     --wm-music-ui-surface: var(--text-normal);
     --wm-music-ui-on-surface: var(--background-primary);
-    --wm-music-wave-track: color-mix(in srgb, var(--text-muted) 34%, transparent);
+    --wm-music-progress-track: color-mix(in srgb, var(--text-muted) 34%, transparent);
     position: relative;
+    flex: none;
     margin: 0 2px 14px;
     overflow: hidden;
     border: 0;
@@ -7352,6 +7308,7 @@ button.wm-music-library-action {
 }
 
 .wm-music-library-audio {
+    --wm-music-control-size: clamp(22px, 10cqi, 34px);
     position: relative;
     container-type: inline-size;
     min-height: 208px;
@@ -7365,9 +7322,9 @@ button.wm-music-library-action {
 .wm-music-library-audio-backdrop-region {
     position: absolute;
     z-index: 0;
-    inset: 0 0 auto;
+    inset: 0;
     width: 100%;
-    height: 58%;
+    height: 100%;
     overflow: hidden;
     contain: strict;
     opacity: 0;
@@ -7375,8 +7332,6 @@ button.wm-music-library-action {
     background-position: center;
     background-size: 138% auto;
     background-repeat: no-repeat;
-    -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 54%, transparent 100%);
-    mask-image: linear-gradient(to bottom, #000 0%, #000 54%, transparent 100%);
     transition: opacity 300ms ease;
 }
 .wm-music-library-audio-backdrop-region.is-loaded { opacity: .78; }
@@ -7402,11 +7357,14 @@ button.wm-music-library-action {
     position: relative;
     isolation: isolate;
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     flex: none;
+    min-width: 0;
     min-height: clamp(156px, 70cqi, 230px);
     margin: -14px -14px 0;
-    padding: 18px 14px 8px;
+    padding: 18px 14px;
     overflow: clip;
+    border-radius: 18px 18px 0 0;
     place-items: center;
     contain: paint;
     background: var(--wm-music-card-bg);
@@ -7419,7 +7377,7 @@ button.wm-music-library-action {
     background: linear-gradient(180deg,
         transparent 0%,
         color-mix(in srgb, var(--wm-music-card-bg) 26%, transparent) 48%,
-        var(--wm-music-card-bg) 100%);
+        color-mix(in srgb, var(--wm-music-card-bg) 64%, transparent) 100%);
     pointer-events: none;
 }
 
@@ -7443,15 +7401,17 @@ button.wm-music-library-action {
     z-index: 3;
     display: grid;
     grid-template-areas:
-        "copy"
-        "wave"
         "footer"
-        "transport"
-        "search";
+        "copy"
+        "transport";
     grid-template-columns: minmax(0, 1fr);
     min-width: 0;
     align-items: center;
     background: var(--wm-music-card-bg);
+}
+
+.wm-music-library-audio-body.is-vol-open {
+    z-index: 5;
 }
 
 .wm-music-library-audio-cover {
@@ -7466,10 +7426,15 @@ button.wm-music-library-action {
 }
 
 .wm-music-library-audio-cover.is-loaded { opacity: 1; }
+.wm-music-library-audio-cover[hidden] { display: none; }
+.wm-music-library-audio-cover.is-loaded + .wm-music-library-audio-placeholder { visibility: hidden; }
 .wm-music-library-audio-placeholder,
 .wm-music-library-audio-placeholder svg { width: 60px; height: 60px; }
 
 .wm-music-library-audio-copy {
+    position: relative;
+    z-index: 2;
+    width: 100%;
     grid-area: copy;
     min-width: 0;
     margin-top: 14px;
@@ -7493,27 +7458,36 @@ button.wm-music-library-action {
     letter-spacing: -.025em;
     text-align: center;
 }
+.wm-music-library-audio-artist {
+    margin-top: 5px;
+    overflow: hidden;
+    color: var(--wm-music-card-muted);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 .wm-music-library-audio-transport {
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: clamp(3px, 1.5cqi, 6px);
+    gap: 9px;
     grid-area: transport;
     margin-top: 15px;
+    margin-inline: -14px;
 }
 button.wm-music-library-transport-button {
     display: grid;
-    width: 34px;
-    height: 34px;
-    min-width: 34px;
-    min-height: 34px;
-    flex: 0 0 34px;
+    width: var(--wm-music-control-size);
+    height: var(--wm-music-control-size);
+    min-width: var(--wm-music-control-size);
+    min-height: var(--wm-music-control-size);
+    flex: 0 0 var(--wm-music-control-size);
     padding: 0;
     place-items: center;
     border: 0;
     border-radius: 50%;
-    background: color-mix(in srgb, var(--text-normal) 10%, transparent);
+    background: transparent;
     box-shadow: none;
     color: var(--wm-music-card-ink);
 }
@@ -7536,82 +7510,97 @@ button.wm-music-library-transport-button.is-primary {
 .wm-music-library-transport-button svg { width: 18px; height: 18px; }
 .wm-music-library-transport-button.is-primary svg { width: 23px; height: 23px; }
 
-.wm-music-library-waveform {
+.wm-music-library-progress {
+    --wm-music-ui-accent: var(--interactive-accent);
+    --wm-music-progress: 0%;
     position: relative;
-    grid-area: wave;
-    height: 34px;
-    margin-top: 17px;
-    cursor: pointer;
-    touch-action: none;
+    z-index: 4;
+    flex: none;
+    height: 4px;
+    margin: 0 -14px;
+}
+
+.wm-music-library-liquid {
+    position: absolute;
+    inset: auto auto 0 0;
+    width: var(--wm-music-progress);
+    height: 16px;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+.wm-music-library-progress.has-progress .wm-music-library-liquid { opacity: 1; }
+.wm-music-library-liquid-wave {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    display: block;
+    width: 100%;
+    max-width: none;
+    height: 16px;
+    fill: var(--wm-music-ui-accent);
+    shape-rendering: geometricPrecision;
+}
+.wm-music-library-liquid-wave.is-back {
+    opacity: 0.42;
+}
+
+input[type='range'].wm-music-library-seek {
+    position: absolute;
+    inset: -8px 0;
+    width: 100%;
+    height: 20px;
+    margin: 0;
+    padding: 0;
+    appearance: none;
+    -webkit-appearance: none;
     border: 0;
+    border-radius: 0;
     background: transparent;
     box-shadow: none;
-    overflow: hidden;
-    contain: paint;
+    cursor: pointer;
 }
-
-.wm-music-library-wave-loading {
-    position: absolute;
-    z-index: 2;
-    inset: 50% auto auto 0;
-    width: 32%;
-    height: 2px;
-    border-radius: 999px;
-    opacity: 0;
-    background: var(--interactive-accent);
+input[type='range'].wm-music-library-seek::-webkit-slider-runnable-track {
+    height: 4px;
+    border: 0;
+    border-radius: 0;
+    background: linear-gradient(to right, var(--wm-music-ui-accent) var(--wm-music-progress), var(--wm-music-progress-track) var(--wm-music-progress));
+}
+input[type='range'].wm-music-library-seek::-moz-range-track {
+    height: 4px;
+    border: 0;
+    border-radius: 0;
+    background: linear-gradient(to right, var(--wm-music-ui-accent) var(--wm-music-progress), var(--wm-music-progress-track) var(--wm-music-progress));
+}
+input[type='range'].wm-music-library-seek::-webkit-slider-thumb {
+    top: 0;
+    width: 12px;
+    height: 12px;
+    margin-top: -4px;
+    appearance: none;
+    -webkit-appearance: none;
+    border: 0;
+    border-radius: 50%;
+    background: var(--wm-music-ui-accent);
     box-shadow: none;
-    filter: none;
-    transform: translate3d(-100%, -50%, 0);
-    will-change: transform;
-    pointer-events: none;
+    transform: none;
 }
-.wm-music-library-waveform.is-loading .wm-music-library-wave-loading {
-    opacity: 1;
-    animation: wm-music-wave-loading 1.1s ease-in-out infinite;
+input[type='range'].wm-music-library-seek::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border: 0;
+    border-radius: 50%;
+    background: var(--wm-music-ui-accent);
+    box-shadow: none;
+    transform: none;
 }
-.wm-music-library-waveform.is-loading::before,
-.wm-music-library-waveform.is-loading::after {
-    content: none;
-    display: none;
+input[type='range'].wm-music-library-seek:focus-visible {
+    outline: 2px solid var(--interactive-accent);
+    outline-offset: 2px;
 }
-.wm-music-library-waveform.is-loading .wm-music-library-wave-layer {
-    display: none;
-}
-.wm-music-library-waveform.is-unavailable:not(.is-loading)::after {
-    content: '';
-    position: absolute;
-    inset: 50% 0 auto;
-    width: 100%;
-    height: 1px;
-    opacity: .24;
-    background: var(--wm-music-card-muted);
-    transform: translateY(-50%);
-    pointer-events: none;
-}
-@keyframes wm-music-wave-loading {
-    from { transform: translate3d(-100%, -50%, 0); }
-    to { transform: translate3d(312.5%, -50%, 0); }
-}
-
-.wm-music-library-wave-layer {
-    position: absolute;
-    inset: 0;
-    display: block;
-    overflow: hidden;
-    pointer-events: none;
-}
-
-.wm-music-library-wave-canvas {
-    display: block;
-    width: 100%;
-    height: 100%;
-}
-
-.wm-music-library-wave-layer.is-track { color: var(--wm-music-wave-track); }
-.wm-music-library-wave-layer.is-fill {
-    color: var(--wm-music-ui-accent);
-    transition: clip-path 120ms linear;
-}
+input[type='range'].wm-music-library-seek:disabled { cursor: default; }
+input[type='range'].wm-music-library-seek:disabled::-webkit-slider-thumb { opacity: 0; }
+input[type='range'].wm-music-library-seek:disabled::-moz-range-thumb { opacity: 0; }
 
 .wm-music-library-audio-footer {
     display: grid;
@@ -7619,7 +7608,7 @@ button.wm-music-library-transport-button.is-primary {
     grid-template-columns: 1fr 1fr;
     align-items: center;
     gap: 4px;
-    margin: 4px 0 0;
+    margin: 8px -6px 0;
 }
 
 .wm-music-library-audio-time {
@@ -7630,57 +7619,48 @@ button.wm-music-library-transport-button.is-primary {
 .wm-music-library-audio-time:last-child { text-align: right; }
 
 .wm-music-library-volume {
-    position: absolute;
+    position: relative;
     z-index: 7;
-    left: 0;
     display: flex;
-    flex: none;
+    flex: 0 0 var(--wm-music-control-size);
+    width: var(--wm-music-control-size);
+    height: var(--wm-music-control-size);
     align-items: center;
     justify-content: center;
     overflow: visible;
-    border: 1px solid transparent;
-    border-radius: 999px;
     background: transparent;
-    pointer-events: none;
-    transition: background-color .16s ease, border-color .16s ease;
 }
 
 button.wm-music-library-volume-button {
-    display: grid;
-    width: 34px;
-    height: 34px;
-    min-width: 34px;
-    min-height: 34px;
-    flex: 0 0 34px;
-    padding: 0;
-    place-items: center;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
     color: var(--wm-music-card-muted);
-    pointer-events: auto;
 }
 .wm-music-library-volume-button svg { width: 18px; height: 18px; }
 .wm-music-library-volume-slider-outer {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
     display: flex;
-    width: 0;
+    width: 36px;
+    height: 132px;
     box-sizing: border-box;
-    padding: 0;
+    padding: 12px 0;
     align-items: center;
+    justify-content: center;
     overflow: visible;
+    visibility: hidden;
     opacity: 0;
+    border: 1px solid var(--wm-music-progress-track);
+    border-radius: 10px;
+    background: var(--wm-music-card-bg);
+    box-shadow: var(--shadow-s);
+    transform: translateX(-50%);
     pointer-events: none;
-    transition: width .18s ease, padding .18s ease, opacity .15s ease;
+    transition: opacity .15s ease, visibility .15s ease;
 }
 .wm-music-library-audio-transport.is-vol-open .wm-music-library-volume-slider-outer {
-    width: 106px;
-    padding: 0 9px 0 7px;
+    visibility: visible;
     opacity: 1;
     pointer-events: auto;
-}
-.wm-music-library-audio-transport.is-vol-open .wm-music-library-volume {
-    border-color: var(--wm-music-wave-track);
-    background: var(--wm-music-card-bg);
 }
 .wm-music-library-volume button.wm-music-library-volume-button {
     color: var(--wm-music-ui-accent);
@@ -7690,25 +7670,46 @@ button.wm-music-library-volume-button {
     --slider-thumb-height: 12px;
     --slider-thumb-width: 12px;
     --slider-thumb-y: -3px;
-    width: 90px;
+    --slider-thumb-height-active: 12px;
+    --slider-thumb-width-active: 12px;
+    --slider-thumb-y-active: -3px;
+    --slider-thumb-opacity-active: 1;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 106px;
+    height: 5px;
     margin: 0;
     overflow: visible;
     accent-color: var(--wm-music-ui-accent);
+    transform: translate(-50%, -50%) rotate(-90deg);
 }
-.wm-music-library-volume input.slider.wm-music-vol-slider::-webkit-slider-thumb {
+.wm-music-library-volume input.slider.wm-music-vol-slider::-webkit-slider-thumb,
+.wm-music-library-volume input.slider.wm-music-vol-slider:hover::-webkit-slider-thumb,
+.wm-music-library-volume input.slider.wm-music-vol-slider:active::-webkit-slider-thumb {
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--wm-music-card-bg);
+    border-radius: 50%;
     background: var(--wm-music-ui-accent);
-    border-color: var(--wm-music-card-bg);
     box-shadow: 0 0 0 2px var(--wm-music-ui-accent);
+    opacity: 1;
+    transform: none;
 }
-.wm-music-library-volume input.slider.wm-music-vol-slider::-moz-range-thumb {
+.wm-music-library-volume input.slider.wm-music-vol-slider::-moz-range-thumb,
+.wm-music-library-volume input.slider.wm-music-vol-slider:hover::-moz-range-thumb,
+.wm-music-library-volume input.slider.wm-music-vol-slider:active::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--wm-music-card-bg);
+    border-radius: 50%;
     background: var(--wm-music-ui-accent);
-    border-color: var(--wm-music-card-bg);
     box-shadow: 0 0 0 2px var(--wm-music-ui-accent);
+    opacity: 1;
+    transform: none;
 }
 
 button.wm-music-library-favorite-button {
-    position: absolute;
-    right: 0;
     color: var(--wm-music-card-muted);
     background: transparent;
 }
@@ -7722,38 +7723,85 @@ button.wm-music-library-favorite-button.is-favorite svg { fill: currentColor; }
     overscroll-behavior: contain;
 }
 
-.wm-music-library-folder + .wm-music-library-folder { margin-top: 16px; }
-.wm-music-library-favorites {
-    margin-bottom: 18px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--background-modifier-border);
+.wm-music-library-bases {
+    overflow: hidden;
 }
-.wm-music-library-favorites-empty {
-    padding: 9px 8px 6px;
-    color: var(--text-faint);
-    font-size: 11px;
+.wm-music-library-bases > div,
+.wm-music-library-bases > p,
+.wm-music-library-bases .bases-embed {
+    display: flex;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    flex-direction: column;
+    margin: 0;
 }
-.wm-music-library-folder-header {
+.wm-music-library-bases .bases-header {
+    --bases-header-padding-start: 2px;
+    --bases-header-padding-end: 2px;
+    flex: none;
+}
+.wm-music-library-base .bases-toolbar .bases-toolbar-properties-menu,
+.wm-music-library-base .bases-toolbar .bases-toolbar-new-item-menu {
+    display: none;
+}
+.wm-music-library-metadata-toggle button.text-icon-button {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    color: var(--text-muted);
+}
+.wm-music-library-metadata-toggle button.text-icon-button.is-active { color: var(--interactive-accent); }
+.wm-music-library-metadata-toggle .text-button-icon { display: flex; align-items: center; justify-content: center; }
+.wm-music-library-bases .bases-view[data-view-type='writing-menu-music-tracks'] {
+    min-height: 0;
+    padding: 8px 0;
+    border: 0;
+    overscroll-behavior: contain;
+}
+.wm-music-library-base-tracks { min-width: 0; }
+.wm-music-library-filter-status {
+    padding: 6px 8px 12px;
+    color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
+}
+.wm-music-library-folder-header.is-hidden { display: none; }
+
+.wm-music-library-folder + .wm-music-library-folder { margin-top: 16px; }
+.wm-music-library-folder > button.wm-music-library-folder-header {
+    display: flex;
+    width: 100%;
+    height: auto;
+    min-height: 24px;
+    align-items: center;
+    gap: 6px;
     padding: 0 8px 6px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
     color: var(--text-muted);
     font-size: 13px;
+    line-height: 1;
     font-weight: 700;
     letter-spacing: .06em;
     text-transform: uppercase;
+    text-align: start;
+    cursor: pointer;
 }
-.wm-music-library-folder-title {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-}
-.wm-music-library-folder-title svg { width: 12px; height: 12px; }
-
+.wm-music-library-folder > button.wm-music-library-folder-header.is-hidden { display: none; }
+.wm-music-library-folder.is-collapsed > button.wm-music-library-folder-header { color: var(--text-faint); }
+.wm-music-library-folder-label { display: block; line-height: 1; }
+.wm-music-library-folder-count { margin-inline-start: auto; line-height: 1; }
+.wm-music-library-folder-chevron { display: grid; width: 1em; height: 1em; flex: 0 0 1em; place-items: center; line-height: 1; }
+.wm-music-library-folder-chevron svg { display: block; width: 1em; height: 1em; }
+.wm-music-library-folder.is-collapsed .wm-music-library-folder-chevron { transform: rotate(-90deg); }
 .wm-music-library-track {
     display: grid;
-    grid-template-columns: 38px minmax(0, 1fr) 28px 28px;
+    grid-template-columns: 38px minmax(0, 1fr) 32px;
     align-items: center;
     width: 100%;
     min-height: 48px;
@@ -7788,17 +7836,17 @@ button.wm-music-library-favorite-button.is-favorite svg { fill: currentColor; }
 }
 .wm-music-library-track.is-current .wm-music-library-track-art { color: var(--text-normal); }
 .wm-music-library-track-art svg { width: 17px; height: 17px; }
-.wm-music-library-track-copy { display: flex; min-width: 0; flex-direction: column; }
+.wm-music-library-track-copy { display: flex; min-width: 0; flex-direction: column; justify-content: center; }
 .wm-music-library-track-title,
 .wm-music-library-track-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wm-music-library-track-title { font-size: var(--font-ui-small); font-weight: 620; }
 .wm-music-library-track-meta { margin-top: 2px; color: var(--text-muted); font-size: 10px; }
-.wm-music-library-track-action,
-.wm-music-library-track-favorite {
+.wm-music-library-track-meta[hidden] { display: none; }
+.wm-music-library-track button.wm-music-library-track-favorite {
     display: grid;
-    width: 28px;
-    height: 28px;
-    padding: 0;
+    width: 32px;
+    height: 32px;
+    padding: 0 0 0 12px;
     place-items: center;
     border: 0;
     border-radius: 50%;
@@ -7806,12 +7854,10 @@ button.wm-music-library-favorite-button.is-favorite svg { fill: currentColor; }
     box-shadow: none;
     color: var(--text-muted);
 }
-.wm-music-library-track-action svg,
-.wm-music-library-track-favorite svg { width: 15px; height: 15px; }
-.wm-music-library-track-action:hover,
-.wm-music-library-track-favorite:hover { background: transparent; color: var(--text-normal); }
-.wm-music-library-track.is-current .wm-music-library-track-action { color: var(--text-normal); }
-.wm-music-library-track-favorite.is-favorite { color: #f05d7b; }
+.wm-music-library-track-favorite svg { width: 18px; height: 18px; }
+.wm-music-library-track button.wm-music-library-track-favorite:hover,
+.wm-music-library-track button.wm-music-library-track-favorite:active { background: transparent; box-shadow: none; color: var(--text-normal); }
+.wm-music-library-track button.wm-music-library-track-favorite.is-favorite { color: #f05d7b; }
 .wm-music-library-track-favorite.is-favorite svg { fill: currentColor; }
 .wm-music-library-empty {
     display: flex;
@@ -7854,8 +7900,6 @@ button.wm-music-library-favorite-button.is-favorite svg { fill: currentColor; }
 	justify-content: flex-start;
 	gap: 6px;
 	flex: 0 0 auto;
-	min-height: 44px;
-	padding: 0 12px;
 	overflow-x: auto;
 	overflow-y: hidden;
 	border-bottom: 1px solid var(--background-modifier-border);
@@ -7863,7 +7907,8 @@ button.wm-music-library-favorite-button.is-favorite svg { fill: currentColor; }
 	scrollbar-width: none;
 }
 
-.wm-paged-toolbar::-webkit-scrollbar {
+.wm-paged-toolbar::-webkit-scrollbar,
+.wm-plotbook-sidebar-heading::-webkit-scrollbar {
 	display: none;
 }
 
@@ -7993,8 +8038,8 @@ button.wm-paged-find-replace-button:hover {
 	align-items: center;
 	justify-content: center;
 	box-sizing: border-box;
-	height: 30px;
-	min-height: 30px;
+	height: var(--wm-toolbar-control-size, 30px);
+	min-height: var(--wm-toolbar-control-size, 30px);
 	padding: 0;
 	border: 1px solid transparent;
 	border-radius: var(--radius-s);
@@ -8003,9 +8048,9 @@ button.wm-paged-find-replace-button:hover {
 	color: var(--text-muted);
 }
 
-.wm-paged-toolbar .wm-paged-toolbar-button { width: 30px; }
+.wm-paged-toolbar .wm-paged-toolbar-button { width: var(--wm-toolbar-control-size); }
 .wm-paged-toolbar .wm-paged-toolbar-button.has-chevron { width: 38px; gap: 1px; }
-.wm-paged-toolbar .wm-paged-toolbar-button > svg { width: 16px; height: 16px; }
+.wm-paged-toolbar .wm-paged-toolbar-button > svg { width: var(--wm-toolbar-icon-size); height: var(--wm-toolbar-icon-size); }
 
 .wm-paged-button-chevron,
 .wm-paged-select-chevron {
@@ -8610,6 +8655,16 @@ button.wm-paged-layout-apply {
 }
 
 /* Shared writing toolbar: MarkdownView + paged ItemView */
+.wm-writing-view-switching > .workspace-leaf-content {
+	visibility: hidden;
+}
+
+.wm-writing-view-switching .cm-sizer,
+.wm-writing-view-switching .wm-writing-toolbar,
+.wm-writing-view-switching .wm-writing-toolbar > * {
+	transition: none;
+}
+
 .wm-markdown-toolbar-content {
 	display: flex;
 	flex-direction: column;
@@ -8674,7 +8729,7 @@ body:not(.is-mobile) .wm-markdown-toolbar-content { padding: 0; }
 
 /* 편집 통합 툴바 자동 숨김 — 다른 패널과 동일하게 14px 진입 영역을 남긴다. */
 .wm-writing-toolbar.is-auto-hide {
-	max-height: 44px;
+	max-height: var(--wm-toolbar-height);
 	transition: min-height 0.25s cubic-bezier(0.4, 0, 0.2, 1),
 		max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -8834,15 +8889,15 @@ button.wm-writing-widget-card.is-running {
 .wm-writing-toolbar .wm-paged-toolbar-group.is-formatting > .wm-paged-toolbar-button,
 .wm-writing-toolbar .wm-paged-toolbar-group.is-document > .wm-paged-toolbar-button {
 	box-sizing: border-box;
-	width: 30px;
-	height: 30px;
-	min-width: 30px;
-	min-height: 30px;
+	width: var(--wm-toolbar-control-size);
+	height: var(--wm-toolbar-control-size);
+	min-width: var(--wm-toolbar-control-size);
+	min-height: var(--wm-toolbar-control-size);
 	padding: 0;
 }
 .wm-writing-toolbar-switch > svg {
-	width: 16px;
-	height: 16px;
+	width: var(--wm-toolbar-icon-size, 16px);
+	height: var(--wm-toolbar-icon-size, 16px);
 	color: inherit;
 	fill: none;
 }
@@ -11629,15 +11684,69 @@ input.wm-plotbook-date-picker {
 	gap: 6px;
 }
 
-.wm-plotbook-sidebar-axis-navigation { display: flex; flex: 1 1 84px; min-width: 58px; max-width: 140px; align-items: center; }
-.wm-plotbook-sidebar-axis-label { display: flex; flex: 1; min-width: 0; height: 26px; align-items: center; justify-content: center; overflow: hidden; color: var(--text-normal); font-size: 13px; line-height: 1; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
-.wm-plotbook-sidebar-toolbar-spacer { flex: 0 1 12px; width: 12px; min-width: 0; }
-.wm-plotbook-sidebar .wm-plotbook-sidebar-heading button.clickable-icon { background: transparent; }
+.wm-plotbook-sidebar-axis-navigation {
+	display: grid;
+	grid-template-columns: var(--wm-toolbar-control-size) minmax(0, 1fr) var(--wm-toolbar-control-size);
+	flex: 1 1 104px;
+	min-width: calc(2 * var(--wm-toolbar-control-size) + 20px);
+	max-width: 168px;
+	height: var(--wm-toolbar-control-size);
+	align-self: center;
+	align-items: center;
+}
+.wm-plotbook-sidebar-axis-label {
+	min-width: 0;
+	overflow: hidden;
+	color: var(--text-normal);
+	font-size: 13px;
+	text-align: center;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.wm-plotbook-sidebar-actions { display: flex; flex: 0 0 auto; height: var(--wm-toolbar-control-size); align-self: center; align-items: center; justify-content: flex-end; gap: 2px; margin-inline-start: auto; }
+/* Text and icon buttons share one centering rule, without baseline offsets. */
+.wm-plotbook-sidebar .wm-plotbook-sidebar-heading .wm-plotbook-sidebar-axis-label,
+.wm-plotbook-sidebar .wm-plotbook-sidebar-heading button.clickable-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	height: var(--wm-toolbar-control-size);
+	min-height: var(--wm-toolbar-control-size);
+	margin: 0;
+	padding: 0;
+	line-height: normal;
+}
+.wm-plotbook-sidebar .wm-plotbook-sidebar-heading button.clickable-icon {
+	width: var(--wm-toolbar-control-size);
+	min-width: var(--wm-toolbar-control-size);
+	background: transparent;
+}
 .wm-plotbook-sidebar .wm-plotbook-sidebar-heading button.clickable-icon[aria-pressed="true"] { background: transparent; color: var(--text-accent); }
 .wm-plotbook-sidebar .wm-plotbook-sidebar-heading button.clickable-icon:hover { background: transparent; color: var(--text-normal); }
-.wm-plotbook-sidebar .wm-plotbook-sidebar-heading button.wm-plotbook-sidebar-step svg { width: 16px; height: 16px; }
+.wm-plotbook-sidebar .wm-plotbook-sidebar-heading button.clickable-icon svg {
+	display: block;
+	flex-shrink: 0;
+	width: var(--wm-toolbar-icon-size);
+	height: var(--wm-toolbar-icon-size);
+}
 
-.wm-plotbook-sidebar-heading { min-width: 0; gap: 2px; font-size: 11px; }
+/* Center the smaller chevrons in the same control cells as the action icons. */
+.wm-plotbook-sidebar .wm-plotbook-sidebar-heading button.wm-plotbook-sidebar-step svg {
+	width: calc(var(--wm-toolbar-icon-size) * 1.375);
+	height: calc(var(--wm-toolbar-icon-size) * 1.375);
+	stroke-width: calc(var(--icon-stroke, 1.75) / 1.375);
+}
+
+.wm-plotbook-sidebar-heading {
+	flex: 0 0 auto;
+	min-width: 0;
+	gap: 2px;
+	overflow-x: auto;
+	overflow-y: hidden;
+	font-size: 13px;
+	scrollbar-width: none;
+}
 .wm-plotbook-sidebar-pickers { display: flex; flex-direction: column; gap: 6px; }
 .wm-plotbook-sidebar-pickers[hidden] { display: none; }
 .wm-plotbook-sidebar-context { display: flex; min-width: 0; align-items: center; gap: 8px; }
@@ -11743,7 +11852,7 @@ input.wm-plotbook-date-picker {
 .wm-plotbook-checklist-editor { min-width: 0; white-space: normal; }
 .wm-plotbook-checklist-empty { padding: 10px 0; color: var(--text-muted); font-size: 12px; line-height: 1.6; }
 .wm-plotbook-checklist-items { display: flex; flex-direction: column; gap: 2px; }
-.wm-plotbook-checklist-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto 24px; min-width: 0; align-items: center; gap: 8px; padding: 3px 4px; border-radius: 6px; }
+.wm-plotbook-checklist-item { display: grid; grid-template-columns: auto minmax(0, 1fr); min-width: 0; align-items: center; gap: 2px 8px; padding: 3px 4px; border-radius: 6px; }
 .wm-plotbook-checklist-item:hover,
 .wm-plotbook-checklist-item:focus-within { background: var(--wm-plot-ui-surface); }
 .wm-plotbook-checklist-toggle.task-list-item-checkbox { flex: 0 0 auto; align-self: center; }
@@ -11755,14 +11864,9 @@ input.wm-plotbook-date-picker {
 }
 .wm-plotbook-checklist-item.is-complete .wm-plotbook-checklist-title,
 .wm-plotbook-checklist-cell-item.is-complete > .wm-plotbook-checklist-task-text { color: var(--text-muted); text-decoration: line-through; }
-.wm-plotbook-checklist-completion-date { color: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; text-decoration: none; }
-.wm-plotbook-checklist-item > .wm-plotbook-checklist-completion-date { grid-column: 3; }
+.wm-plotbook-checklist-completion-date { color: var(--color-green); font-size: inherit; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; text-decoration: none; }
+.wm-plotbook-checklist-item > .wm-plotbook-checklist-completion-date { grid-column: 2; grid-row: 2; padding-bottom: 3px; line-height: 1.4; }
 .wm-plotbook-checklist-editor .wm-plotbook-checklist-title-input { min-width: 0; width: 100%; }
-.wm-plotbook-checklist-actions { grid-column: 4; display: flex; align-items: center; padding-top: 1px; opacity: 0; }
-.wm-plotbook-checklist-item:hover .wm-plotbook-checklist-actions,
-.wm-plotbook-checklist-item:focus-within .wm-plotbook-checklist-actions { opacity: 1; }
-.wm-plotbook-checklist-actions .clickable-icon { padding: 3px; }
-.wm-plotbook-checklist-actions svg { width: 12px; height: 12px; }
 .wm-plotbook-checklist-add { display: flex; align-items: center; gap: 6px; padding: 3px 6px; margin-top: 10px; border: 1px solid var(--wm-plot-ui-line); border-radius: 8px; background: var(--wm-plot-ui-surface); }
 .wm-plotbook-checklist-add:focus-within { border-color: var(--wm-plot-ui-focus); background: var(--background-primary); }
 .wm-plotbook-checklist-add > input { flex: 1; width: 100%; min-width: 0; }
@@ -11783,9 +11887,9 @@ input.wm-plotbook-date-picker {
 .wm-plotbook-checklist-popover .wm-plotbook-checklist-add > input { flex: 1; min-width: 0; width: 100%; height: 28px; padding: 0; margin: 0; border: 0; outline: 0; background: transparent; box-shadow: none; color: var(--text-normal); font: inherit; font-size: 12px; }
 .wm-plotbook-cell.is-checklist { display: flex; flex-direction: column; justify-content: center; gap: 2px; }
 .wm-plotbook-checklist-cell-items { min-height: 0; overflow: hidden; }
-.wm-plotbook-checklist-cell-item { display: flex; min-width: 0; align-items: center; gap: 6px; line-height: 1.6; }
+.wm-plotbook-checklist-cell-item { display: grid; grid-template-columns: auto minmax(0, 1fr); min-width: 0; align-items: center; gap: 0 6px; line-height: 1.6; }
 .wm-plotbook-checklist-cell-item > .wm-plotbook-checklist-task-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wm-plotbook-checklist-cell-item > .wm-plotbook-checklist-completion-date { flex: 0 0 auto; margin-left: auto; font-size: .9em; }
+.wm-plotbook-checklist-cell-item > .wm-plotbook-checklist-completion-date { grid-column: 2; grid-row: 2; line-height: 1.4; }
 .wm-plotbook-sidebar button.clickable-icon,
 .wm-plotbook-checklist-popover button.clickable-icon {
 	border: 0; box-shadow: none; background: transparent; color: var(--text-muted);
@@ -11801,7 +11905,6 @@ input.wm-plotbook-date-picker {
 }
 .wm-plotbook-sidebar .clickable-icon svg,
 .wm-plotbook-checklist-popover .clickable-icon svg { width: 14px; height: 14px; }
-.wm-plotbook-checklist-editor .wm-plotbook-checklist-actions .clickable-icon { width: 24px; height: 24px; padding: 4px; }
 .wm-plotbook-checklist-editor .wm-plotbook-checklist-add > input {
 	width: 100%; min-width: 0; height: 30px; margin: 0; padding: 4px 0;
 	border: 0; outline: 0; border-radius: 0;
@@ -11810,7 +11913,6 @@ input.wm-plotbook-date-picker {
 .wm-plotbook-checklist-editor .wm-plotbook-checklist-title-input { height: 28px; padding: 3px 5px; border: 1px solid var(--wm-plot-ui-focus); border-radius: 5px; background: var(--background-primary); color: var(--text-normal); box-shadow: none; font: inherit; }
 .wm-plotbook-sidebar .wm-plotbook-checklist-add { margin-top: 8px; border-color: transparent; background: transparent; }
 .wm-plotbook-sidebar .wm-plotbook-checklist-item { align-items: center; }
-.wm-plotbook-sidebar .wm-plotbook-checklist-actions { padding-top: 0; }
 .wm-plotbook-sidebar .wm-plotbook-checklist-editor button.wm-plotbook-checklist-title { color: inherit; }
 .wm-plotbook-sidebar .wm-plotbook-checklist-add:hover { background: var(--wm-plot-ui-surface); }
 .wm-plotbook-sidebar .wm-plotbook-checklist-add:focus-within { border-color: var(--wm-plot-ui-focus); background: var(--background-primary); }
@@ -11825,7 +11927,6 @@ input.wm-plotbook-date-picker {
 }
 
 @media (hover: none) {
-	.wm-plotbook-checklist-actions,
 	.wm-plotbook-timeline-card-heading > button.clickable-icon { opacity: 1; }
 }
 
@@ -12109,6 +12210,7 @@ button.wm-chat-speaker { overflow: hidden; text-overflow: ellipsis; white-space:
 .wm-chat-composer textarea.wm-chat-input { width: 100%; min-height: 64px; max-height: 160px; margin: 0; padding: 2px 0; border: 0; box-shadow: none; background: transparent; resize: vertical; font-size: 14px; line-height: 1.6; }
 .wm-chat-status { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; font-size: 13px; }
 button.wm-chat-text-button { padding: 2px 4px; height: auto; border: 0; box-shadow: none; background: transparent; font-size: 13px; color: var(--text-muted); }
+.wm-chat-rename-modal input[type="text"] { box-sizing: border-box; width: 100%; }
 .wm-chat-text-modal textarea { width: 100%; min-height: min(180px, 30dvh); max-height: 45dvh; font-size: 13px; line-height: 1.6; }
 .wm-chat-suggest-item { display: flex; align-items: center; gap: 10px; }
 .wm-chat-suggest-avatar { position: relative; display: inline-grid; place-items: center; flex: 0 0 30px; width: 30px; height: 30px; border-radius: 50%; overflow: hidden; background: var(--background-secondary); color: var(--text-muted); font: 600 13px/1 var(--font-interface); }

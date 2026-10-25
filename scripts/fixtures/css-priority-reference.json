@@ -1250,30 +1250,6 @@
     "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
   },
   {
-    "selector": ".wm-music-library-waveform.is-loading::before, .wm-music-library-waveform.is-loading::after",
-    "declarations": [
-      {
-        "property": "content",
-        "value": "none"
-      },
-      {
-        "property": "display",
-        "value": "none"
-      }
-    ],
-    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
-  },
-  {
-    "selector": ".wm-music-library-waveform.is-loading .wm-music-library-wave-layer",
-    "declarations": [
-      {
-        "property": "display",
-        "value": "none"
-      }
-    ],
-    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
-  },
-  {
     "selector": ".wm-music-library-volume .wm-music-vol-slider",
     "declarations": [
       {

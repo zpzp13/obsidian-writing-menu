@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { setIcon } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { MusicPlayer, Track } from './MusicPlayer';
@@ -43,13 +44,13 @@ export class ArchiveMusicPlayerSection {
 		const root = container.createDiv({ cls: 'wm-dash-music-player wm-archive-mini-player' });
 
 		if (!player) {
-			root.createDiv({ cls: 'wm-dash-music-empty', text: '플레이어를 불러오는 중입니다.' });
+			root.createDiv({ cls: 'wm-dash-music-empty', text: wmT("플레이어를 불러오는 중입니다.") });
 			return;
 		}
 		if (player.playlist.length === 0) {
 			const empty = root.createDiv({ cls: 'wm-archive-mini-empty' });
 			setIcon(empty.createSpan(), 'disc-3');
-			empty.createSpan({ text: '설정에서 음악 폴더를 지정해 주세요.' });
+			empty.createSpan({ text: wmT("설정에서 음악 폴더를 지정해 주세요.") });
 			const renderWhenPlaylistIsReady = () => {
 				if (!root.isConnected) {
 					player.unsubscribe(renderWhenPlaylistIsReady);
@@ -75,19 +76,19 @@ export class ArchiveMusicPlayerSection {
 		const progressCircle = progressSvg.createSvg('rect', { cls: 'wm-archive-mini-progress-value', attr: { x: '2', y: '2', width: '48', height: '48', rx: '12', pathLength: '100' } });
 		const art = artRing.createEl('button', {
 			cls: 'wm-archive-mini-art',
-			attr: { type: 'button', 'aria-label': '재생 또는 일시정지' },
+			attr: { type: 'button', 'aria-label': wmT("재생 또는 일시정지") },
 		});
 
 		const info = shell.createDiv({
 			cls: 'wm-archive-mini-info',
-			attr: { role: 'button', tabindex: '0', title: '음악 라이브러리 열기' },
+			attr: { role: 'button', tabindex: '0', title: wmT("음악 라이브러리 열기") },
 		});
 		const title = info.createDiv({ cls: 'wm-archive-mini-title' });
 		const artist = info.createDiv({ cls: 'wm-archive-mini-artist' });
 		const controls = shell.createDiv({ cls: 'wm-archive-mini-controls' });
-		const previous = control(controls, 'skip-back', '이전 곡');
-		const play = control(controls, player.isPlaying ? 'pause' : 'play', '재생 또는 일시정지', true);
-		const next = control(controls, 'skip-forward', '다음 곡');
+		const previous = control(controls, 'skip-back', wmT("이전 곡"));
+		const play = control(controls, player.isPlaying ? 'pause' : 'play', wmT("재생 또는 일시정지"), true);
+		const next = control(controls, 'skip-forward', wmT("다음 곡"));
 
 		previous.addEventListener('click', () => player.prev());
 		play.addEventListener('click', () => player.togglePlay());
@@ -137,7 +138,7 @@ export class ArchiveMusicPlayerSection {
 			setIcon(play, player.isPlaying ? 'pause' : 'play');
 			if (track?.path !== lastPath) {
 				lastPath = track?.path ?? '';
-				refreshOverflowMarquee(title, track?.name ?? '재생할 곡을 선택하세요');
+				refreshOverflowMarquee(title, track?.name ?? wmT("재생할 곡을 선택하세요"));
 				artist.textContent = folderName(track);
 				if (compactTrack) refreshOverflowMarquee(compactTrack, track?.name ?? '—');
 				const revision = ++artRevision;

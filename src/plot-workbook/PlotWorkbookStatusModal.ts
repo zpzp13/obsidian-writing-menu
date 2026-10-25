@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { Modal } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 
@@ -11,18 +12,18 @@ export class PlotWorkbookStatusModal extends Modal {
 	}
 
 	onOpen(): void {
-		this.setTitle(this.initialName === undefined ? '새 상태' : '상태 수정');
+		this.setTitle(this.initialName === undefined ? wmT("새 상태") : wmT("상태 수정"));
 		this.contentEl.addClass('wm-plotbook-status-modal');
 		const input = this.contentEl.createEl('input', {
 			type: 'text',
-			placeholder: '상태 이름',
-			attr: { 'aria-label': this.initialName === undefined ? '새 상태 이름' : '상태 이름 수정' },
+			placeholder: wmT("상태 이름"),
+			attr: { 'aria-label': this.initialName === undefined ? wmT("새 상태 이름") : wmT("상태 이름 수정") },
 		});
 		input.value = this.initialName ?? '';
 		const actions = this.contentEl.createDiv({ cls: 'modal-button-container' });
-		const cancel = actions.createEl('button', { text: '취소' });
+		const cancel = actions.createEl('button', { text: wmT("취소") });
 		cancel.addEventListener('click', () => this.close());
-		const add = actions.createEl('button', { cls: 'mod-cta', text: this.initialName === undefined ? '추가' : '수정' });
+		const add = actions.createEl('button', { cls: 'mod-cta', text: this.initialName === undefined ? wmT("추가") : wmT("수정") });
 		const submit = () => {
 			const name = input.value.trim();
 			if (!name) return;
@@ -46,11 +47,11 @@ export class PlotWorkbookStatusModal extends Modal {
 export class PlotWorkbookStatusDeleteModal extends Modal {
 	constructor(plugin: WritingMenuPlugin, private readonly name: string, private readonly onConfirm: () => Promise<void>) { super(plugin.app); }
 	onOpen(): void {
-		this.setTitle('상태 삭제');
-		this.contentEl.createEl('p', { text: `“${this.name}” 상태를 선택 목록에서 삭제합니다. 이미 사용 중인 셀의 상태 기록은 유지됩니다.` });
+		this.setTitle(wmT("상태 삭제"));
+		this.contentEl.createEl('p', { text: wmT("“{0}” 상태를 선택 목록에서 삭제합니다. 이미 사용 중인 셀의 상태 기록은 유지됩니다.", this.name) });
 		const actions = this.contentEl.createDiv({ cls: 'modal-button-container' });
-		actions.createEl('button', { text: '취소' }).addEventListener('click', () => this.close());
-		actions.createEl('button', { cls: 'mod-warning', text: '삭제' }).addEventListener('click', () => { this.close(); void this.onConfirm(); });
+		actions.createEl('button', { text: wmT("취소") }).addEventListener('click', () => this.close());
+		actions.createEl('button', { cls: 'mod-warning', text: wmT("삭제") }).addEventListener('click', () => { this.close(); void this.onConfirm(); });
 	}
 	onClose(): void { this.contentEl.empty(); }
 }

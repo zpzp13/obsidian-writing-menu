@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { markdownFilesInFolder } from '../utils/vaultFiles';
 import { Component, Notice } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
@@ -53,12 +54,12 @@ export class RevisionPanel extends Component {
 		const document = getWritingDocument(this.plugin), project = document ? this.plugin.projectContext.getProjectForFile(document.file) : null;
 		const result = this.result?.context === this.context(document) ? this.result : null;
 		this.dashboard.update({ files: result?.files ?? [], morph: result?.morph ?? false, busy: this.busy, scope: this.scope,
-			title: this.scope === 'project' ? project?.name || project?.rootFolder?.split('/').pop() || '프로젝트를 선택해 주세요.' : document?.file.basename ?? '원고를 열어 주세요.' });
+			title: this.scope === 'project' ? project?.name || project?.rootFolder?.split('/').pop() || wmT("프로젝트를 선택해 주세요.") : document?.file.basename ?? wmT("원고를 열어 주세요.") });
 	}
 	private async sources(document: WritingDocument): Promise<Array<{ path: string; source: string }>> {
 		if (this.scope === 'document') return [{ path: document.path, source: document.read() }];
 		const project = this.plugin.projectContext.getProjectForFile(document.file);
-		if (!project?.manuscriptFolder) throw new Error('프로젝트 설정에서 본문 폴더를 지정해 주세요.');
+		if (!project?.manuscriptFolder) throw new Error(wmT("프로젝트 설정에서 본문 폴더를 지정해 주세요."));
 		const files = markdownFilesInFolder(this.plugin.app.vault, project.manuscriptFolder).filter(file => this.plugin.projectContext.getProjectForFile(file)?.rootFolder === project.rootFolder
 			&& !file.path.startsWith(`${this.plugin.settings.snapshotStoragePath}/`));
 		const order = (file: typeof files[number]) => { const value: unknown = this.plugin.app.metadataCache.getFileCache(file)?.frontmatter?.sort_index; return typeof value === 'number' && Number.isFinite(value) ? value : Infinity; };
@@ -87,7 +88,7 @@ export class RevisionPanel extends Component {
 				const sentences = previous?.sentences ?? analyzeSentences(source.source, paragraphs, options.countSpaces);
 				const repetition = morph ? classifyTokens(await analyzeText(paragraphs.analysisText, this.plugin), source.source, scope === 'project' ? { minCount: 1, limit: 50000 } : {}) : previous?.repetition;
 				files.push({ ...source, paragraphs, sentences, repetition });
-				if (morph) this.dashboard.progress(`분석 중 ${files.length} / ${sources.length}`);
+				if (morph) this.dashboard.progress(wmT("분석 중 {0} / {1}", files.length, sources.length));
 			}
 			if (this.disposed || request !== this.request || this.scope !== scope) return;
 			if (this.context() !== context) { this.dirty = true; return; }
@@ -100,7 +101,7 @@ export class RevisionPanel extends Component {
 		try {
 			let document = getWritingDocument(this.plugin);
 			if (document?.path !== file.path) { await this.plugin.app.workspace.openLinkText(file.path, '', false); document = getWritingDocument(this.plugin); }
-			if (!document || document.path !== file.path) throw new Error('대상 원고를 열지 못했습니다.');
+			if (!document || document.path !== file.path) throw new Error(wmT("대상 원고를 열지 못했습니다."));
 			document.select(file.source, from, to);
 		} catch (error) { new Notice(error instanceof Error ? error.message : String(error)); }
 	}

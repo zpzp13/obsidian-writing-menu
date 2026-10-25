@@ -1,3 +1,4 @@
+import { wmT, getLocale } from '../i18n/index';
 import { ButtonComponent, Modal, Notice, SearchComponent, Setting, ToggleComponent, setIcon } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { getWritingDocument, type WritingDocument } from '../writing/WritingDocument';
@@ -6,7 +7,7 @@ import type { ManuscriptSnapshot } from './ManuscriptSnapshotTypes';
 import { compareSnapshot, restoreSnapshotHunks, type SnapshotComparison } from './PartialRestore';
 import { renderSnapshotDiff, renderSnapshotText } from './SnapshotDiffView';
 import { readProjectStatuses } from '../plot-workbook/PlotWorkbookStatusSource';
-import { plotWorkbookStatusDefaultColor, plotWorkbookStatuses } from '../plot-workbook/PlotWorkbookStatus';
+import { plotWorkbookStatusName, plotWorkbookStatusDefaultColor, plotWorkbookStatuses } from '../plot-workbook/PlotWorkbookStatus';
 import type { PlotWorkbookStatus } from '../plot-workbook/PlotWorkbookTypes';
 
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : String(error);
@@ -21,14 +22,14 @@ class MetadataModal extends Modal {
 	constructor(plugin: WritingMenuPlugin, private entry: ManuscriptSnapshot, private statuses: PlotWorkbookStatus[], private submit: (changes: Pick<ManuscriptSnapshot, 'name' | 'description' | 'stage' | 'statusId'>) => Promise<void>) { super(plugin.app); }
 	onOpen(): void {
 		this.modalEl.addClass('wm-snapshot-metadata-modal');
-		this.contentEl.setAttribute('aria-label', '스냅샷 정보');
+		this.contentEl.setAttribute('aria-label', wmT("스냅샷 정보"));
 		let name = this.entry.name, description = this.entry.description ?? '', stage = this.entry.stage ?? '';
 		let statusId = this.entry.statusId || linkedStatus(this.entry, this.statuses)?.id || '';
-		new Setting(this.contentEl).setName('제목').addText(text => text.setValue(name).onChange(value => name = value));
-		new Setting(this.contentEl).setName('메모').addTextArea(text => text.setValue(description).onChange(value => description = value));
-		new Setting(this.contentEl).setName('상태').addDropdown(select => {
-			select.addOption('', '없음');
-			for (const item of this.statuses) if (!item.hidden || item.id === statusId) select.addOption(item.id, item.name);
+		new Setting(this.contentEl).setName(wmT("제목")).addText(text => text.setValue(name).onChange(value => name = value));
+		new Setting(this.contentEl).setName(wmT("메모")).addTextArea(text => text.setValue(description).onChange(value => description = value));
+		new Setting(this.contentEl).setName(wmT("상태")).addDropdown(select => {
+			select.addOption('', wmT("없음"));
+			for (const item of this.statuses) if (!item.hidden || item.id === statusId) select.addOption(item.id, plotWorkbookStatusName(item));
 			if (stage && !this.statuses.some(item => item.id === statusId)) {
 				statusId ||= `legacy:${stage}`;
 				select.addOption(statusId, stage);
@@ -38,7 +39,7 @@ class MetadataModal extends Modal {
 				stage = this.statuses.find(item => item.id === value)?.name ?? (value ? stage : '');
 			});
 		});
-		new Setting(this.contentEl).addButton(button => button.setButtonText('저장').setCta().onClick(async () => {
+		new Setting(this.contentEl).addButton(button => button.setButtonText(wmT("저장")).setCta().onClick(async () => {
 			button.setDisabled(true);
 			try { await this.submit({ name: name.trim() || this.entry.name, description, stage, statusId: this.statuses.some(item => item.id === statusId) ? statusId : this.entry.statusId && statusId ? this.entry.statusId : '' }); this.close(); }
 			catch (error) { new Notice(errorMessage(error)); button.setDisabled(false); }
@@ -50,8 +51,8 @@ class SnapshotConfirm extends Modal {
 	constructor(plugin: WritingMenuPlugin, private text: string, private action: () => Promise<void>) { super(plugin.app); }
 	onOpen(): void {
 		this.setTitle(this.text);
-		new Setting(this.contentEl).addButton(button => button.setButtonText('취소').onClick(() => this.close()))
-			.addButton(button => button.setButtonText('확인').setClass('mod-warning').onClick(async () => {
+		new Setting(this.contentEl).addButton(button => button.setButtonText(wmT("취소")).onClick(() => this.close()))
+			.addButton(button => button.setButtonText(wmT("확인")).setClass('mod-warning').onClick(async () => {
 				button.setDisabled(true);
 				try { await this.action(); this.close(); } catch (error) { new Notice(errorMessage(error)); button.setDisabled(false); }
 			}));
@@ -60,7 +61,7 @@ class SnapshotConfirm extends Modal {
 
 export function openManuscriptSnapshots(plugin: WritingMenuPlugin): void {
 	const document = getWritingDocument(plugin);
-	if (!document) { new Notice('원고를 먼저 열어 주세요.'); return; }
+	if (!document) { new Notice(wmT("원고를 먼저 열어 주세요.")); return; }
 	new ManuscriptSnapshotModal(plugin, document).open();
 }
 
@@ -85,21 +86,21 @@ export class ManuscriptSnapshotModal extends Modal {
 	close(): void { if (!this.busy) super.close(); }
 	onClose(): void { this.disposed = true; this.request++; this.contentEl.empty(); }
 	onOpen(): void {
-		this.setTitle('원고 스냅샷');
+		this.setTitle(wmT("원고 스냅샷"));
 		this.modalEl.addClass('mod-sync-history', 'mod-sidebar-layout', 'wm-manuscript-snapshot-modal');
 		const sidebar = this.contentEl.createDiv({ cls: 'modal-sidebar mod-history' }).createDiv({ cls: 'modal-sidebar-inner' });
-		const search = new SearchComponent(sidebar).setPlaceholder('스냅샷 검색…').onChange(value => { this.query = value; this.renderList(); });
+		const search = new SearchComponent(sidebar).setPlaceholder(wmT("스냅샷 검색…")).onChange(value => { this.query = value; this.renderList(); });
 		search.inputEl.parentElement?.addClass('mod-raised');
 		this.listEl = sidebar.createDiv({ cls: 'modal-sidebar-list' });
 		const actions = sidebar.createDiv({ cls: 'wm-manuscript-snapshot-actions' });
-		this.icon(actions, 'plus', '현재 원고 저장', () => void this.save());
-		this.icon(actions, 'pencil', '제목·메모·상태 수정', () => void this.rename());
-		this.pinButton = this.icon(actions, 'pin', '스냅샷 고정 전환', () => void this.run(async () => {
+		this.icon(actions, 'plus', wmT("현재 원고 저장"), () => void this.save());
+		this.icon(actions, 'pencil', wmT("제목·메모·상태 수정"), () => void this.rename());
+		this.pinButton = this.icon(actions, 'pin', wmT("스냅샷 고정 전환"), () => void this.run(async () => {
 			if (!this.selected) return;
 			await this.repository.update(this.selected.id, { pinned: !this.selected.pinned }); await this.reload();
 		}));
-		this.icon(actions, 'trash-2', '스냅샷 삭제', () => this.remove());
-		const archive = this.icon(actions, 'archive', '이전 스냅샷 모두 표시', () => { this.all = !this.all; archive.setAttribute('aria-pressed', String(this.all)); this.renderList(); });
+		this.icon(actions, 'trash-2', wmT("스냅샷 삭제"), () => this.remove());
+		const archive = this.icon(actions, 'archive', wmT("이전 스냅샷 모두 표시"), () => { this.all = !this.all; archive.setAttribute('aria-pressed', String(this.all)); this.renderList(); });
 		archive.setAttribute('aria-pressed', 'false');
 		this.detailEl = this.contentEl.createDiv({ cls: 'sync-history-content-container' }).createDiv({ cls: 'sync-history-content' });
 		void this.reload();
@@ -120,11 +121,11 @@ export class ManuscriptSnapshotModal extends Modal {
 	}
 	private async loadStatuses(): Promise<void> {
 		try { this.statuses = await readProjectStatuses(this.plugin, this.plugin.projectContext?.getProjectForFile(this.document.file) ?? null); }
-		catch (error) { new Notice(`상태 목록을 읽지 못했습니다: ${errorMessage(error)}`); }
+		catch (error) { new Notice(wmT("상태 목록을 읽지 못했습니다: {0}", errorMessage(error))); }
 	}
 	private status(entry: ManuscriptSnapshot): { name: string; color?: string } | undefined {
 		const status = linkedStatus(entry, this.statuses);
-		if (status) return { name: status.name, color: status.color ?? plotWorkbookStatusDefaultColor(status.id, this.modalEl.ownerDocument.body.classList.contains('theme-dark')) };
+		if (status) return { name: plotWorkbookStatusName(status), color: status.color ?? plotWorkbookStatusDefaultColor(status.id, this.modalEl.ownerDocument.body.classList.contains('theme-dark')) };
 		return entry.stage ? { name: entry.stage } : undefined;
 	}
 	private renderList(): void {
@@ -140,14 +141,14 @@ export class ManuscriptSnapshotModal extends Modal {
 			const row = this.listEl.createEl('button', { cls: `modal-sidebar-list-item file-recovery-list-item-header tappable${entry.id === this.selected?.id ? ' is-active' : ''}` });
 			const info = row.createDiv({ cls: 'modal-sidebar-list-item-details file-recovery-list-item-details', text: `${entry.pinned ? '★ ' : ''}${entry.name}` });
 			const meta = info.createDiv({ cls: 'wm-snapshot-entry-meta u-small u-muted' });
-			meta.createSpan({ cls: 'wm-snapshot-entry-date', text: new Date(entry.timestamp).toLocaleString('ko-KR') });
+			meta.createSpan({ cls: 'wm-snapshot-entry-date', text: new Date(entry.timestamp).toLocaleString(getLocale()) });
 			if (status) {
 				const badge = meta.createSpan({ cls: 'wm-snapshot-entry-status', text: status.name });
 				if (status.color) badge.style.setProperty('--wm-snapshot-status-color', status.color);
 			}
 			row.addEventListener('click', () => { if (!this.busy) void this.select(entry); });
 		}
-		if (!visible.length) this.listEl.createDiv({ cls: 'u-muted', text: '저장된 스냅샷이 없습니다.' });
+		if (!visible.length) this.listEl.createDiv({ cls: 'u-muted', text: wmT("저장된 스냅샷이 없습니다.") });
 	}
 	private async select(entry: ManuscriptSnapshot): Promise<void> {
 		const request = ++this.request;
@@ -165,29 +166,29 @@ export class ManuscriptSnapshotModal extends Modal {
 		const header = this.detailEl.createDiv({ cls: 'modal-setting-titlebar' });
 		header.createDiv({ cls: 'modal-setting-title', text: this.selected?.name ?? this.document.file.basename });
 		const actions = header.createDiv({ cls: 'modal-setting-titlebar-actions' });
-		const label = actions.createSpan({ cls: 'modal-setting-titlebar-toggle wm-snapshot-compare-label', text: '변경사항 표시' });
+		const label = actions.createSpan({ cls: 'modal-setting-titlebar-toggle wm-snapshot-compare-label', text: wmT("변경사항 표시") });
 		const toggle = new ToggleComponent(label).setValue(this.compare).onChange(value => { this.compare = value; this.selectedHunks.clear(); this.renderDetail(); });
 		toggle.toggleEl.addClass('mod-small');
-		new ButtonComponent(actions).setButtonText('복사').setDisabled(!this.comparison).onClick(() => {
+		new ButtonComponent(actions).setButtonText(wmT("복사")).setDisabled(!this.comparison).onClick(() => {
 			if (this.comparison) void navigator.clipboard.writeText(this.comparison.before).catch(error => new Notice(errorMessage(error)));
 		});
-		const restoreSelected = new ButtonComponent(actions).setButtonText('선택한 부분 복원').buttonEl;
+		const restoreSelected = new ButtonComponent(actions).setButtonText(wmT("선택한 부분 복원")).buttonEl;
 		restoreSelected.addClass('wm-snapshot-restore-selected');
 		restoreSelected.hidden = !this.compare;
 		restoreSelected.disabled = this.selectedHunks.size === 0;
 		restoreSelected.onclick = () => { const indexes = new Set(this.selectedHunks); void this.run(() => this.apply(indexes)); };
-		new ButtonComponent(actions).setButtonText('이 버전 복원').setDisabled(!this.comparison).onClick(() => {
-			if (!this.busy && this.comparison) new SnapshotConfirm(this.plugin, '현재 원고를 이 스냅샷으로 복원할까요?', () => this.run(() => this.apply(), true)).open();
+		new ButtonComponent(actions).setButtonText(wmT("이 버전 복원")).setDisabled(!this.comparison).onClick(() => {
+			if (!this.busy && this.comparison) new SnapshotConfirm(this.plugin, wmT("현재 원고를 이 스냅샷으로 복원할까요?"), () => this.run(() => this.apply(), true)).open();
 		});
 		this.errorEl = this.detailEl.createDiv({ cls: 'wm-snapshot-error', attr: { role: 'status' } });
-		if (!this.comparison) { this.detailEl.createDiv({ cls: 'u-muted wm-snapshot-empty', text: '왼쪽의 +로 현재 원고를 저장하세요.' }); return; }
+		if (!this.comparison) { this.detailEl.createDiv({ cls: 'u-muted wm-snapshot-empty', text: wmT("왼쪽의 +로 현재 원고를 저장하세요.") }); return; }
 		if (this.compare) {
 			const body = this.detailEl.createDiv({ cls: 'file-recovery-diff wm-manuscript-snapshot-text' });
 			renderSnapshotDiff(body, this.comparison.before, this.comparison.current, { hunkActions: (parent, index) => {
 				const controls = parent.createDiv({ cls: 'wm-snapshot-change-actions' });
-				const checkbox = controls.createEl('input', { type: 'checkbox', cls: 'task-list-item-checkbox', attr: { 'aria-label': '이 변경 구간 선택' } });
+				const checkbox = controls.createEl('input', { type: 'checkbox', cls: 'task-list-item-checkbox', attr: { 'aria-label': wmT("이 변경 구간 선택") } });
 				checkbox.checked = this.selectedHunks.has(index);
-				checkbox.onchange = () => { if (checkbox.checked) this.selectedHunks.add(index); else this.selectedHunks.delete(index); restoreSelected.disabled = this.selectedHunks.size === 0; restoreSelected.setAttribute('aria-label', `선택한 ${this.selectedHunks.size}곳 복원`); };
+				checkbox.onchange = () => { if (checkbox.checked) this.selectedHunks.add(index); else this.selectedHunks.delete(index); restoreSelected.disabled = this.selectedHunks.size === 0; restoreSelected.setAttribute('aria-label', wmT("선택한 {0}곳 복원", this.selectedHunks.size)); };
 			} });
 		} else renderSnapshotText(this.detailEl.createDiv({ cls: 'file-recovery-diff wm-manuscript-snapshot-text' }), this.comparison.before);
 	}
@@ -200,7 +201,7 @@ export class ManuscriptSnapshotModal extends Modal {
 	private async save(): Promise<void> {
 		try { await this.run(async () => {
 			const source = this.document.read();
-			if (!this.document.isCurrent(source)) throw new Error('대상 원고를 다시 열어 주세요.');
+			if (!this.document.isCurrent(source)) throw new Error(wmT("대상 원고를 다시 열어 주세요."));
 			const entry = await this.repository.save(this.document.file.basename, source);
 			this.selected = entry; await this.reload();
 		}); } catch { /* Error is displayed in the modal. */ }
@@ -215,20 +216,20 @@ export class ManuscriptSnapshotModal extends Modal {
 	private remove(): void {
 		if (!this.selected) return;
 		const entry = this.selected;
-		new SnapshotConfirm(this.plugin, '이 스냅샷을 목록에서 삭제할까요? 보관 사본은 남습니다.', () => this.run(async () => {
+		new SnapshotConfirm(this.plugin, wmT("이 스냅샷을 목록에서 삭제할까요? 보관 사본은 남습니다."), () => this.run(async () => {
 			await this.repository.remove(entry); this.selected = null; this.comparison = null; await this.reload();
 		})).open();
 	}
 	private async apply(indexes?: ReadonlySet<number>): Promise<void> {
 		const comparison = this.comparison;
-		if (!comparison || !this.document.isCurrent(comparison.current)) throw new Error('원고가 변경되었습니다. 목록에서 스냅샷을 다시 선택해 주세요.');
+		if (!comparison || !this.document.isCurrent(comparison.current)) throw new Error(wmT("원고가 변경되었습니다. 목록에서 스냅샷을 다시 선택해 주세요."));
 		const next = indexes ? restoreSnapshotHunks(comparison, indexes) : comparison.before;
 		if (next === comparison.current) return;
-		await this.repository.save('복원 전 백업', comparison.current, true);
-		if (this.disposed || !this.document.isCurrent(comparison.current)) throw new Error('원고가 변경되었습니다. 적용하지 않았습니다. 목록에서 스냅샷을 다시 선택해 주세요.');
+		await this.repository.save(wmT("복원 전 백업"), comparison.current, true);
+		if (this.disposed || !this.document.isCurrent(comparison.current)) throw new Error(wmT("원고가 변경되었습니다. 적용하지 않았습니다. 목록에서 스냅샷을 다시 선택해 주세요."));
 		this.document.replace(comparison.current, next);
 		this.selectedHunks.clear(); this.comparison = compareSnapshot(comparison.before, this.document.read());
 		this.entries = await this.repository.list(); this.renderList(); this.renderDetail();
-		new Notice(indexes ? '선택한 부분을 복원했습니다.' : '원고를 복원했습니다.');
+		new Notice(indexes ? wmT("선택한 부분을 복원했습니다.") : wmT("원고를 복원했습니다."));
 	}
 }

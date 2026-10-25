@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { replaceControlCharacters } from '../utils/typeGuards';
 import { normalizePath, type TFile, type Vault } from 'obsidian';
 import { mergePagedLines } from './PagedThreeWayMerge';
@@ -5,7 +6,7 @@ import { mergePagedLines } from './PagedThreeWayMerge';
 export interface PagedFileConflict { localPath: string; remotePath: string }
 export interface PagedConflictReview extends PagedFileConflict { base: string; local: string; remote: string }
 export type PagedConflictChoice = 'local' | 'remote' | { content: string; local: string; remote: string };
-class ChangedOnDisk extends Error { constructor(readonly content: string) { super('파일이 다른 곳에서 변경되었습니다.'); } }
+class ChangedOnDisk extends Error { constructor(readonly content: string) { super(wmT("파일이 다른 곳에서 변경되었습니다.")); } }
 
 export function splitPagedFrontmatter(source: string): { prefix: string; body: string } {
 	const firstLineEnd = source.indexOf('\n');
@@ -114,7 +115,7 @@ export class PagedFileStore {
 			const revision = this.revision;
 			const disk = await this.vault.read(this.file);
 			if (typeof choice === 'object' && (choice.local !== local || choice.remote !== disk)) {
-				await this.preserveConflict(disk); throw new Error('비교 중 문서가 변경되었습니다. 최신 내용으로 다시 검토해 주세요.');
+				await this.preserveConflict(disk); throw new Error(wmT("비교 중 문서가 변경되었습니다. 최신 내용으로 다시 검토해 주세요."));
 			}
 			// Another Sync update arrived while the choice dialog was open.
 			if (disk !== this.remote) { await this.preserveConflict(disk); return; }
@@ -175,7 +176,7 @@ export class PagedFileStore {
 		const local = this.current();
 		const localPath = this.backedLocal === local ? this.conflict?.localPath : await this.backup('local', local);
 		const remotePath = this.backedRemote === disk ? this.conflict?.remotePath : await this.backup('remote', disk);
-		if (!localPath || !remotePath) throw new Error('충돌 복구 파일을 보존하지 못했습니다. 원본에는 저장하지 않았습니다.');
+		if (!localPath || !remotePath) throw new Error(wmT("충돌 복구 파일을 보존하지 못했습니다. 원본에는 저장하지 않았습니다."));
 		const announce = !this.conflict || this.backedRemote !== disk;
 		this.backedLocal = local; this.backedRemote = disk; this.conflict = { localPath, remotePath };
 		if (notify && announce && !this.disposed) this.conflicted(this.conflict);
@@ -184,7 +185,7 @@ export class PagedFileStore {
 	private async backup(kind: string, data: string): Promise<string> {
 		const directory = normalizePath(this.recoveryFolder);
 		const parts = directory.split('/');
-		if (!directory || parts.some(part => !part || part === '..' || part === '.') || /^[a-z]:|^[/\\]/i.test(directory)) throw new Error('복구 폴더 경로가 올바르지 않습니다.');
+		if (!directory || parts.some(part => !part || part === '..' || part === '.') || /^[a-z]:|^[/\\]/i.test(directory)) throw new Error(wmT("복구 폴더 경로가 올바르지 않습니다."));
 		for (let index = 1; index <= parts.length; index++) {
 			const path = parts.slice(0, index).join('/');
 			if (!await this.vault.adapter.exists(path)) {
@@ -195,7 +196,7 @@ export class PagedFileStore {
 		const name = replaceControlCharacters(this.file.basename, '_').replace(/[<>:"/\\|?*]/g, '_').slice(0, 80) || 'note';
 		const path = `${directory}/${name}-${kind}-${Date.now()}-${crypto.randomUUID()}.md`;
 		await this.vault.adapter.write(path, data);
-		if (await this.vault.adapter.read(path) !== data) throw new Error('충돌 복구 파일 검증에 실패했습니다.');
+		if (await this.vault.adapter.read(path) !== data) throw new Error(wmT("충돌 복구 파일 검증에 실패했습니다."));
 		return path;
 	}
 }

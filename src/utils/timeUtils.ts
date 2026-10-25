@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { scalarText } from './typeGuards';
 
 /** seconds → "HH:MM:SS" (프론트매터 저장용) */
@@ -56,9 +57,9 @@ export function fmtTimeFull(sec: number): string {
 	const h = Math.floor(sec / 3600);
 	const m = Math.floor((sec % 3600) / 60);
 	const s = sec % 60;
-	if (h > 0) return `${h}시 ${String(m).padStart(2, '0')}분 ${String(s).padStart(2, '0')}초`;
-	if (m > 0) return `${m}분 ${String(s).padStart(2, '0')}초`;
-	return `${s}초`;
+	if (h > 0) return wmT("{0}시 {1}분 {2}초", h, String(m).padStart(2, '0'), String(s).padStart(2, '0'));
+	if (m > 0) return wmT("{0}분 {1}초", m, String(s).padStart(2, '0'));
+	return wmT("{0}초", s);
 }
 
 /** seconds → 콜론 표기 ("H:MM:SS" 또는 "M:SS"). 0이면 "—" */

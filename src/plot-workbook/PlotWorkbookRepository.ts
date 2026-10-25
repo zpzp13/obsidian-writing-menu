@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { hasControlCharacters } from '../utils/typeGuards';
 import { normalizePath } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
@@ -65,7 +66,7 @@ export class PlotWorkbookRepository {
 		const foreshadows = await this.readForeshadows(warnings);
 
 		if (!manifest) {
-			const first = createPlotWorkbookSheet('시트 1');
+			const first = createPlotWorkbookSheet();
 			manifest = {
 				formatVersion: PLOT_WORKBOOK_FORMAT_VERSION,
 				projectId,
@@ -81,7 +82,7 @@ export class PlotWorkbookRepository {
 		}
 
 		if (manifest.formatVersion > PLOT_WORKBOOK_MANIFEST_VERSION) {
-			throw new Error(`이 플롯 워크북은 더 새로운 형식(${manifest.formatVersion})으로 저장되어 있습니다.`);
+			throw new Error(wmT("이 플롯 워크북은 더 새로운 형식({0})으로 저장되어 있습니다.", manifest.formatVersion));
 		}
 
 		this.manifest = manifest;
@@ -93,7 +94,7 @@ export class PlotWorkbookRepository {
 		}
 
 		if (manifest.sheets.length === 0) {
-			const first = createPlotWorkbookSheet('시트 1');
+			const first = createPlotWorkbookSheet();
 			manifest.sheets = [{ id: first.sheetId, name: first.name }];
 			manifest.activeSheetId = first.sheetId;
 			sheets.set(first.sheetId, first);
@@ -115,7 +116,7 @@ export class PlotWorkbookRepository {
 	}
 
 	private async createSheetData(name: string): Promise<PlotWorkbookSheet> {
-		if (!this.manifest) throw new Error('플롯 워크북이 아직 열리지 않았습니다.');
+		if (!this.manifest) throw new Error(wmT("플롯 워크북이 아직 열리지 않았습니다."));
 		const sheet = createPlotWorkbookSheet(name);
 		this.manifest.sheets.push({ id: sheet.sheetId, name: sheet.name });
 		this.manifest.activeSheetId = sheet.sheetId;
@@ -129,7 +130,7 @@ export class PlotWorkbookRepository {
 		sheet: PlotWorkbookSheet,
 		sourcePath: string,
 	): Promise<{ imported: boolean; sheetId: string }> {
-		if (!this.manifest) throw new Error('플롯 워크북이 아직 열리지 않았습니다.');
+		if (!this.manifest) throw new Error(wmT("플롯 워크북이 아직 열리지 않았습니다."));
 		const normalizedSource = normalizePath(sourcePath).replace(/\/$/, '');
 		const previous = this.manifest.legacyImports?.find(item => item.sourcePath === normalizedSource);
 		if (previous && this.manifest.sheets.some(item => item.id === previous.sheetId)) {
@@ -137,7 +138,7 @@ export class PlotWorkbookRepository {
 		}
 
 		const usedNames = new Set(this.manifest.sheets.map(item => item.name));
-		const baseName = sheet.name.trim() || '기존 플롯';
+		const baseName = sheet.name.trim() || wmT('기존 플롯');
 		let name = baseName;
 		let suffix = 2;
 		while (usedNames.has(name)) name = `${baseName} ${suffix++}`;
@@ -170,48 +171,48 @@ export class PlotWorkbookRepository {
 	adoptManifest(manifest: PlotWorkbookManifest): void { this.manifest = manifest; }
 
 	async saveTransferBackup(id: string, markdown: string): Promise<string> {
-		if (!/^[a-zA-Z0-9_-]{1,160}$/.test(id)) throw new Error('백업 ID가 올바르지 않습니다.');
+		if (!/^[a-zA-Z0-9_-]{1,160}$/.test(id)) throw new Error(wmT("백업 ID가 올바르지 않습니다."));
 		const directory = `${this.rootPath}/transfer-backups`;
 		await this.ensureDirectory(directory);
 		const path = `${directory}/${id}.md`;
-		if (await this.plugin.app.vault.adapter.exists(path)) throw new Error('백업 파일이 이미 있습니다.');
+		if (await this.plugin.app.vault.adapter.exists(path)) throw new Error(wmT("백업 파일이 이미 있습니다."));
 		await this.plugin.app.vault.adapter.write(path, markdown);
-		if (await this.plugin.app.vault.adapter.read(path) !== markdown) throw new Error('교체 전 백업 검증에 실패하여 가져오기를 중단했습니다.');
+		if (await this.plugin.app.vault.adapter.read(path) !== markdown) throw new Error(wmT("교체 전 백업 검증에 실패하여 가져오기를 중단했습니다."));
 		return path;
 	}
 
 	validateSnapshotData(data: PlotWorkbookSnapshotData): void {
-		if (!data || typeof data !== 'object') throw new Error('스냅샷 데이터가 없습니다.');
+		if (!data || typeof data !== 'object') throw new Error(wmT("스냅샷 데이터가 없습니다."));
 		this.validateManifest(data.manifest);
-		if (typeof data.manifest.projectId !== 'string' || !data.manifest.projectId || typeof data.manifest.projectName !== 'string') throw new Error('프로젝트 정보가 올바르지 않습니다.');
-		if (data.manifest.formatVersion > PLOT_WORKBOOK_MANIFEST_VERSION || !data.manifest.sheets.length) throw new Error('지원하지 않거나 비어 있는 워크북입니다.');
+		if (typeof data.manifest.projectId !== 'string' || !data.manifest.projectId || typeof data.manifest.projectName !== 'string') throw new Error(wmT("프로젝트 정보가 올바르지 않습니다."));
+		if (data.manifest.formatVersion > PLOT_WORKBOOK_MANIFEST_VERSION || !data.manifest.sheets.length) throw new Error(wmT("지원하지 않거나 비어 있는 워크북입니다."));
 		const refs = [...data.manifest.sheets, ...(data.manifest.deletedSheets ?? [])];
-		if (!Array.isArray(data.sheets) || data.sheets.length !== refs.length) throw new Error('스냅샷의 시트 수가 목록과 다릅니다.');
+		if (!Array.isArray(data.sheets) || data.sheets.length !== refs.length) throw new Error(wmT("스냅샷의 시트 수가 목록과 다릅니다."));
 		const safeId = (id: string) => typeof id === 'string' && /^[a-zA-Z0-9_-]{1,160}$/.test(id) && !['__proto__', 'constructor', 'prototype'].includes(id);
 		const safeNotePath = (path: string | undefined) => path === undefined || (typeof path === 'string'
 			&& !/^[\\/]|^[a-z]:/i.test(path) && !hasControlCharacters(path) && !path.replace(/\\/g, '/').split('/').some(part => part === '..' || part === '.'));
 		const seen = new Set<string>();
 		for (const sheet of data.sheets) {
-			if (!safeId(sheet?.sheetId) || seen.has(sheet.sheetId) || !refs.some(ref => ref.id === sheet.sheetId && ref.name === sheet.name)) throw new Error('시트 ID 또는 이름이 올바르지 않습니다.');
+			if (!safeId(sheet?.sheetId) || seen.has(sheet.sheetId) || !refs.some(ref => ref.id === sheet.sheetId && ref.name === sheet.name)) throw new Error(wmT("시트 ID 또는 이름이 올바르지 않습니다."));
 			seen.add(sheet.sheetId);
 			this.validateSheet(sheet, sheet.sheetId);
 			if (sheet.formatVersion !== PLOT_WORKBOOK_FORMAT_VERSION || !Number.isInteger(sheet.lastSeq) || sheet.lastSeq < 0
-				|| !Number.isInteger(sheet.revision) || sheet.revision < 0 || typeof sheet.name !== 'string') throw new Error('시트 형식 정보가 올바르지 않습니다.');
+				|| !Number.isInteger(sheet.revision) || sheet.revision < 0 || typeof sheet.name !== 'string') throw new Error(wmT("시트 형식 정보가 올바르지 않습니다."));
 			if (sheet.rowOrder.some(id => !safeId(id) || sheet.rows[id].id !== id)
-				|| sheet.columnOrder.some(id => !safeId(id) || sheet.columns[id].id !== id)) throw new Error('행·열 ID가 올바르지 않습니다.');
-			if (Array.isArray(sheet.rows) || Array.isArray(sheet.columns) || Array.isArray(sheet.cells)) throw new Error('행·열·셀 목록 형식이 올바르지 않습니다.');
+				|| sheet.columnOrder.some(id => !safeId(id) || sheet.columns[id].id !== id)) throw new Error(wmT("행·열 ID가 올바르지 않습니다."));
+			if (Array.isArray(sheet.rows) || Array.isArray(sheet.columns) || Array.isArray(sheet.cells)) throw new Error(wmT("행·열·셀 목록 형식이 올바르지 않습니다."));
 			for (const row of Object.values(sheet.rows)) {
 				if (!safeNotePath(row.linkedNotePath) || (row.height !== undefined && (!Number.isFinite(row.height) || row.height <= 0))
 					|| (row.depth !== undefined && (!Number.isInteger(row.depth) || row.depth < 0))
 					|| (row.collapsed !== undefined && typeof row.collapsed !== 'boolean')
-					|| (row.parentRowId !== undefined && (!safeId(row.parentRowId) || !sheet.rows[row.parentRowId]))) throw new Error('행 정보 또는 본문 경로가 올바르지 않습니다.');
+					|| (row.parentRowId !== undefined && (!safeId(row.parentRowId) || !sheet.rows[row.parentRowId]))) throw new Error(wmT("행 정보 또는 본문 경로가 올바르지 않습니다."));
 			}
 			const visited = new Set<string>();
 			for (const id of sheet.rowOrder) {
 				const chain = new Set<string>();
 				let current: string | undefined = id;
 				while (current && !visited.has(current)) {
-					if (chain.has(current)) throw new Error('세부행의 부모 관계가 순환합니다.');
+					if (chain.has(current)) throw new Error(wmT("세부행의 부모 관계가 순환합니다."));
 					chain.add(current); current = sheet.rows[current]?.parentRowId;
 				}
 				for (const rowId of chain) visited.add(rowId);
@@ -219,22 +220,22 @@ export class PlotWorkbookRepository {
 			for (const column of Object.values(sheet.columns)) {
 				if (!safeNotePath(column.characterNotePath) || (column.title !== undefined && typeof column.title !== 'string')
 					|| (column.width !== undefined && (!Number.isFinite(column.width) || column.width <= 0))
-					|| (column.collapsed !== undefined && typeof column.collapsed !== 'boolean')) throw new Error('열 정보 또는 인물 경로가 올바르지 않습니다.');
+					|| (column.collapsed !== undefined && typeof column.collapsed !== 'boolean')) throw new Error(wmT("열 정보 또는 인물 경로가 올바르지 않습니다."));
 			}
 		}
-		if (!data.manifest.sheets.some(ref => ref.id === data.manifest.activeSheetId)) throw new Error('활성 시트가 목록에 없습니다.');
+		if (!data.manifest.sheets.some(ref => ref.id === data.manifest.activeSheetId)) throw new Error(wmT("활성 시트가 목록에 없습니다."));
 		this.validateForeshadowRegistry({ formatVersion: 1, items: data.foreshadows });
-		if (!Array.isArray(data.cellSnapshots)) throw new Error('셀 스냅샷 목록이 없습니다.');
+		if (!Array.isArray(data.cellSnapshots)) throw new Error(wmT("셀 스냅샷 목록이 없습니다."));
 		const snapshotIds = new Set<string>();
 		for (const snapshot of data.cellSnapshots) {
 			this.validateCellSnapshot(snapshot);
-			if (!safeId(snapshot.id) || snapshotIds.has(snapshot.id)) throw new Error('셀 스냅샷 ID가 올바르지 않습니다.');
+			if (!safeId(snapshot.id) || snapshotIds.has(snapshot.id)) throw new Error(wmT("셀 스냅샷 ID가 올바르지 않습니다."));
 			snapshotIds.add(snapshot.id);
 			const ref = data.manifest.snapshots?.find(item => item.id === snapshot.id);
 			if (!ref || ref.sheetId !== snapshot.sheetId || ref.rowId !== snapshot.rowId || ref.columnId !== snapshot.columnId
-				|| ref.createdAt !== snapshot.createdAt || ref.title !== snapshot.title) throw new Error('셀 스냅샷의 참조 정보가 다릅니다.');
+				|| ref.createdAt !== snapshot.createdAt || ref.title !== snapshot.title) throw new Error(wmT("셀 스냅샷의 참조 정보가 다릅니다."));
 		}
-		if (snapshotIds.size !== (data.manifest.snapshots?.length ?? 0)) throw new Error('셀 스냅샷이 누락되었습니다.');
+		if (snapshotIds.size !== (data.manifest.snapshots?.length ?? 0)) throw new Error(wmT("셀 스냅샷이 누락되었습니다."));
 	}
 
 	/** The caller owns an exclusive session lock. Existing generations are never removed. */
@@ -245,11 +246,11 @@ export class PlotWorkbookRepository {
 		manifest.formatVersion = PLOT_WORKBOOK_MANIFEST_VERSION;
 		manifest.storageGeneration = newPlotWorkbookId('restore');
 		const path = `${this.rootPath}/generations/${manifest.storageGeneration}`;
-		if (await this.plugin.app.vault.adapter.exists(path)) throw new Error('이미 사용 중인 저장 세대입니다. 다시 시도해주세요.');
+		if (await this.plugin.app.vault.adapter.exists(path)) throw new Error(wmT("이미 사용 중인 저장 세대입니다. 다시 시도해주세요."));
 		const writeVerified = async (file: string, value: unknown) => {
 			const serialized = `${JSON.stringify(value, null, 2)}\n`;
 			await this.plugin.app.vault.adapter.write(file, serialized);
-			if (await this.plugin.app.vault.adapter.read(file) !== serialized) throw new Error('스냅샷 저장 검증에 실패했습니다. 기존 플롯은 유지합니다.');
+			if (await this.plugin.app.vault.adapter.read(file) !== serialized) throw new Error(wmT("스냅샷 저장 검증에 실패했습니다. 기존 플롯은 유지합니다."));
 		};
 		await this.ensureDirectory(`${path}/sheets`);
 		await this.ensureDirectory(`${path}/snapshots`);
@@ -270,7 +271,7 @@ export class PlotWorkbookRepository {
 				if (current !== `${JSON.stringify(manifest, null, 2)}\n`) {
 					if (previous !== null && current !== previous) {
 						await adapter.write(this.manifestPath(), previous);
-						if (await adapter.read(this.manifestPath()) !== previous) throw new Error('이전 목록 복구 검증에 실패했습니다.');
+						if (await adapter.read(this.manifestPath()) !== previous) throw new Error(wmT("이전 목록 복구 검증에 실패했습니다."));
 					}
 					throw error;
 				}
@@ -294,7 +295,7 @@ export class PlotWorkbookRepository {
 		const warnings: string[] = [];
 		const manifest = await this.readManifest(warnings);
 		if (warnings.length) throw new Error(warnings.join('\n'));
-		if (manifest && manifest.formatVersion > PLOT_WORKBOOK_MANIFEST_VERSION) throw new Error('더 새로운 워크북 형식입니다.');
+		if (manifest && manifest.formatVersion > PLOT_WORKBOOK_MANIFEST_VERSION) throw new Error(wmT("더 새로운 워크북 형식입니다."));
 		this.manifest = manifest;
 		return manifest;
 	}
@@ -305,13 +306,13 @@ export class PlotWorkbookRepository {
 		if (!manifest) return null;
 		const warnings: string[] = [], sheets = new Map<string, PlotWorkbookSheet>();
 		for (const ref of manifest.sheets) {
-			if (!/^[a-zA-Z0-9_-]{1,160}$/.test(ref.id) || ['__proto__', 'constructor', 'prototype'].includes(ref.id)) throw new Error('조회할 플롯 시트 ID가 올바르지 않습니다.');
+			if (!/^[a-zA-Z0-9_-]{1,160}$/.test(ref.id) || ['__proto__', 'constructor', 'prototype'].includes(ref.id)) throw new Error(wmT("조회할 플롯 시트 ID가 올바르지 않습니다."));
 			sheets.set(ref.id, await this.loadSheet(ref, warnings, true));
 		}
 		const foreshadows = await this.readForeshadows(warnings);
 		if (warnings.length) throw new Error(warnings.join('\n'));
 		const latest = await this.loadExistingManifest();
-		if (JSON.stringify(latest) !== JSON.stringify(manifest)) throw new Error('조회 중 플롯 목록이 바뀌었습니다. 다시 질문해 주세요.');
+		if (JSON.stringify(latest) !== JSON.stringify(manifest)) throw new Error(wmT("조회 중 플롯 목록이 바뀌었습니다. 다시 질문해 주세요."));
 		return { manifest, sheets, foreshadows, warnings };
 	}
 
@@ -346,7 +347,7 @@ export class PlotWorkbookRepository {
 	}
 
 	private async createCellSnapshotData(snapshot: PlotWorkbookCellSnapshot): Promise<void> {
-		if (!this.manifest) throw new Error('플롯 워크북이 아직 열리지 않았습니다.');
+		if (!this.manifest) throw new Error(wmT("플롯 워크북이 아직 열리지 않았습니다."));
 		await this.ensureDirectory(this.userSnapshotsPath);
 		const path = this.userSnapshotPath(snapshot.id);
 		const serialized = `${JSON.stringify(snapshot, null, 2)}\n`;
@@ -469,10 +470,10 @@ export class PlotWorkbookRepository {
 			try {
 				const registry = JSON.parse(await this.plugin.app.vault.adapter.read(path)) as PlotWorkbookForeshadowRegistry;
 				this.validateForeshadowRegistry(registry);
-				if (path === this.foreshadowsBackupPath()) warnings.push('복선 목록의 이전 백업본을 복구해 열었습니다.');
+				if (path === this.foreshadowsBackupPath()) warnings.push(wmT("복선 목록의 이전 백업본을 복구해 열었습니다."));
 				return registry.items;
 			} catch (error) {
-				warnings.push(`${path}을(를) 읽지 못했습니다: ${this.errorMessage(error)}`);
+				warnings.push(wmT("{0}을(를) 읽지 못했습니다: {1}", path, this.errorMessage(error)));
 			}
 		}
 		return [];
@@ -484,10 +485,10 @@ export class PlotWorkbookRepository {
 			try {
 				const parsed = JSON.parse(await this.plugin.app.vault.adapter.read(path)) as PlotWorkbookManifest;
 				this.validateManifest(parsed);
-				if (path === this.manifestBackupPath()) warnings.push('워크북 목록의 이전 백업본을 복구해 열었습니다.');
+				if (path === this.manifestBackupPath()) warnings.push(wmT("워크북 목록의 이전 백업본을 복구해 열었습니다."));
 				return parsed;
 			} catch (error) {
-				warnings.push(`${path}을(를) 읽지 못했습니다: ${this.errorMessage(error)}`);
+				warnings.push(wmT("{0}을(를) 읽지 못했습니다: {1}", path, this.errorMessage(error)));
 			}
 		}
 		return null;
@@ -509,15 +510,15 @@ export class PlotWorkbookRepository {
 				sheet = parsed;
 				break;
 			} catch (error) {
-				warnings.push(`${candidate.path}을(를) 건너뛰었습니다: ${this.errorMessage(error)}`);
+				warnings.push(wmT("{0}을(를) 건너뛰었습니다: {1}", candidate.path, this.errorMessage(error)));
 			}
 		}
 
 		if (!sheet) {
-			if (readOnly) throw new Error(`“${ref.name}”의 유효한 플롯 데이터를 읽지 못했습니다. 원본은 변경하지 않았습니다.`);
+			if (readOnly) throw new Error(wmT("“{0}”의 유효한 플롯 데이터를 읽지 못했습니다. 원본은 변경하지 않았습니다.", ref.name));
 			sheet = createPlotWorkbookSheet(ref.name);
 			sheet.sheetId = ref.id;
-			warnings.push(`“${ref.name}”의 유효한 스냅샷이 없어 빈 시트로 복구했습니다.`);
+			warnings.push(wmT("“{0}”의 유효한 스냅샷이 없어 빈 시트로 복구했습니다.", ref.name));
 		}
 		sheet.name = ref.name;
 		this.snapshotSeqs.set(ref.id, sheet.lastSeq);
@@ -533,11 +534,11 @@ export class PlotWorkbookRepository {
 					this.validateOperation(operation, ref.id);
 					if (operation.seq <= sheet.lastSeq) continue;
 					if (operation.seq !== sheet.lastSeq + 1) {
-						throw new Error(`변경 순번 ${sheet.lastSeq + 1}이(가) 누락되었습니다.`);
+						throw new Error(wmT("변경 순번 {0}이(가) 누락되었습니다.", sheet.lastSeq + 1));
 					}
 					applyPlotWorkbookOperation(sheet, operation);
 				} catch (error) {
-					warnings.push(`${journalPath} ${index + 1}번째 변경부터 복구를 중단했습니다: ${this.errorMessage(error)}`);
+					warnings.push(wmT("{0} {1}번째 변경부터 복구를 중단했습니다: {2}", journalPath, index + 1, this.errorMessage(error)));
 					break;
 				}
 			}
@@ -591,7 +592,7 @@ export class PlotWorkbookRepository {
 		const verified = JSON.parse(await this.plugin.app.vault.adapter.read(path)) as PlotWorkbookSheet;
 		this.validateSheet(verified, sheet.sheetId);
 		if (verified.revision !== revision || verified.lastSeq !== copy.lastSeq) {
-			throw new Error('작성한 스냅샷의 리비전 검증에 실패했습니다.');
+			throw new Error(wmT("작성한 스냅샷의 리비전 검증에 실패했습니다."));
 		}
 		sheet.revision = revision;
 		this.snapshotSeqs.set(sheet.sheetId, copy.lastSeq);
@@ -671,45 +672,45 @@ export class PlotWorkbookRepository {
 	}
 
 	private validateManifest(manifest: PlotWorkbookManifest): void {
-		if (!manifest || typeof manifest !== 'object') throw new Error('워크북 목록이 객체가 아닙니다.');
-		if (manifest.storageGeneration !== undefined && !/^[a-zA-Z0-9_-]{1,160}$/.test(manifest.storageGeneration)) throw new Error('저장 세대 경로가 올바르지 않습니다.');
-		if (!Number.isInteger(manifest.formatVersion) || manifest.formatVersion < 1) throw new Error('워크북 형식 버전이 없습니다.');
-		if (!Array.isArray(manifest.sheets)) throw new Error('시트 목록이 없습니다.');
+		if (!manifest || typeof manifest !== 'object') throw new Error(wmT("워크북 목록이 객체가 아닙니다."));
+		if (manifest.storageGeneration !== undefined && !/^[a-zA-Z0-9_-]{1,160}$/.test(manifest.storageGeneration)) throw new Error(wmT("저장 세대 경로가 올바르지 않습니다."));
+		if (!Number.isInteger(manifest.formatVersion) || manifest.formatVersion < 1) throw new Error(wmT("워크북 형식 버전이 없습니다."));
+		if (!Array.isArray(manifest.sheets)) throw new Error(wmT("시트 목록이 없습니다."));
 		const ids = new Set<string>();
 		for (const sheet of [...manifest.sheets, ...(manifest.deletedSheets ?? [])]) {
-			if (!sheet || typeof sheet.id !== 'string' || !sheet.id || typeof sheet.name !== 'string') throw new Error('잘못된 시트 항목이 있습니다.');
-			if (ids.has(sheet.id)) throw new Error(`시트 ID가 중복되었습니다: ${sheet.id}`);
+			if (!sheet || typeof sheet.id !== 'string' || !sheet.id || typeof sheet.name !== 'string') throw new Error(wmT("잘못된 시트 항목이 있습니다."));
+			if (ids.has(sheet.id)) throw new Error(wmT("시트 ID가 중복되었습니다: {0}", sheet.id));
 			ids.add(sheet.id);
 		}
 		if (manifest.labels !== undefined) {
-			if (!Array.isArray(manifest.labels)) throw new Error('라벨 목록이 올바르지 않습니다.');
+			if (!Array.isArray(manifest.labels)) throw new Error(wmT("라벨 목록이 올바르지 않습니다."));
 			const labelIds = new Set<string>();
 			for (const label of manifest.labels) {
 				if (!label || typeof label.id !== 'string' || !label.id
 					|| typeof label.name !== 'string' || !label.name.trim()
 					|| typeof label.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(label.color)) {
-					throw new Error('라벨 정보가 올바르지 않습니다.');
+					throw new Error(wmT("라벨 정보가 올바르지 않습니다."));
 				}
-				if (labelIds.has(label.id)) throw new Error(`라벨 ID가 중복되었습니다: ${label.id}`);
+				if (labelIds.has(label.id)) throw new Error(wmT("라벨 ID가 중복되었습니다: {0}", label.id));
 				labelIds.add(label.id);
 			}
 		}
 		if (manifest.statuses !== undefined) {
-			if (!Array.isArray(manifest.statuses)) throw new Error('상태 목록이 올바르지 않습니다.');
+			if (!Array.isArray(manifest.statuses)) throw new Error(wmT("상태 목록이 올바르지 않습니다."));
 			const statusIds = new Set<string>();
 			for (const status of manifest.statuses) {
 				if (!status || typeof status.id !== 'string' || !status.id
 					|| typeof status.name !== 'string' || !status.name.trim()
 					|| (status.color !== undefined && (typeof status.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(status.color)))
 					|| (status.hidden !== undefined && typeof status.hidden !== 'boolean')) {
-					throw new Error('상태 정보가 올바르지 않습니다.');
+					throw new Error(wmT("상태 정보가 올바르지 않습니다."));
 				}
-				if (statusIds.has(status.id)) throw new Error(`상태 ID가 중복되었습니다: ${status.id}`);
+				if (statusIds.has(status.id)) throw new Error(wmT("상태 ID가 중복되었습니다: {0}", status.id));
 				statusIds.add(status.id);
 			}
 		}
 		if (manifest.snapshots !== undefined) {
-			if (!Array.isArray(manifest.snapshots)) throw new Error('사용자 스냅샷 목록이 올바르지 않습니다.');
+			if (!Array.isArray(manifest.snapshots)) throw new Error(wmT("사용자 스냅샷 목록이 올바르지 않습니다."));
 			const snapshotIds = new Set<string>();
 			for (const snapshot of manifest.snapshots) {
 				if (!snapshot || typeof snapshot.id !== 'string' || !snapshot.id
@@ -717,19 +718,19 @@ export class PlotWorkbookRepository {
 					|| typeof snapshot.rowId !== 'string' || !snapshot.rowId
 					|| typeof snapshot.columnId !== 'string' || !snapshot.columnId
 					|| typeof snapshot.title !== 'string' || !Number.isFinite(snapshot.createdAt)) {
-					throw new Error('사용자 스냅샷 정보가 올바르지 않습니다.');
+					throw new Error(wmT("사용자 스냅샷 정보가 올바르지 않습니다."));
 				}
-				if (snapshotIds.has(snapshot.id)) throw new Error(`스냅샷 ID가 중복되었습니다: ${snapshot.id}`);
+				if (snapshotIds.has(snapshot.id)) throw new Error(wmT("스냅샷 ID가 중복되었습니다: {0}", snapshot.id));
 				snapshotIds.add(snapshot.id);
 			}
 		}
 		if (manifest.legacyImports !== undefined) {
-			if (!Array.isArray(manifest.legacyImports)) throw new Error('기존 플롯 가져오기 기록이 올바르지 않습니다.');
+			if (!Array.isArray(manifest.legacyImports)) throw new Error(wmT("기존 플롯 가져오기 기록이 올바르지 않습니다."));
 			for (const item of manifest.legacyImports) {
 				if (!item || typeof item.sourcePath !== 'string' || !item.sourcePath
 					|| typeof item.sheetId !== 'string' || !item.sheetId
 					|| !Number.isFinite(item.importedAt)) {
-					throw new Error('기존 플롯 가져오기 기록이 올바르지 않습니다.');
+					throw new Error(wmT("기존 플롯 가져오기 기록이 올바르지 않습니다."));
 				}
 			}
 		}
@@ -737,7 +738,7 @@ export class PlotWorkbookRepository {
 
 	private validateForeshadowRegistry(registry: PlotWorkbookForeshadowRegistry): void {
 		if (!registry || typeof registry !== 'object' || registry.formatVersion !== 1 || !Array.isArray(registry.items)) {
-			throw new Error('복선 목록이 올바르지 않습니다.');
+			throw new Error(wmT("복선 목록이 올바르지 않습니다."));
 		}
 		const foreshadowIds = new Set<string>();
 		for (const foreshadow of registry.items) {
@@ -747,75 +748,75 @@ export class PlotWorkbookRepository {
 				|| !['open', 'resolved'].includes(foreshadow.status)
 				|| !Array.isArray(foreshadow.plantedAt) || !Array.isArray(foreshadow.resolvedAt)
 				|| !Number.isFinite(foreshadow.createdAt) || !Number.isFinite(foreshadow.updatedAt)) {
-				throw new Error('복선 정보가 올바르지 않습니다.');
+				throw new Error(wmT("복선 정보가 올바르지 않습니다."));
 			}
 			for (const location of [...foreshadow.plantedAt, ...foreshadow.resolvedAt]) {
 				if (!location || typeof location.sheetId !== 'string' || !location.sheetId
 					|| typeof location.rowId !== 'string' || !location.rowId
 					|| typeof location.columnId !== 'string' || !location.columnId) {
-					throw new Error('복선 위치 정보가 올바르지 않습니다.');
+					throw new Error(wmT("복선 위치 정보가 올바르지 않습니다."));
 				}
 			}
-			if (foreshadowIds.has(foreshadow.id)) throw new Error(`복선 ID가 중복되었습니다: ${foreshadow.id}`);
+			if (foreshadowIds.has(foreshadow.id)) throw new Error(wmT("복선 ID가 중복되었습니다: {0}", foreshadow.id));
 			foreshadowIds.add(foreshadow.id);
 		}
 	}
 
 	private validateSheet(sheet: PlotWorkbookSheet, expectedId: string): void {
-		if (!sheet || typeof sheet !== 'object') throw new Error('시트가 객체가 아닙니다.');
-		if (sheet.formatVersion > PLOT_WORKBOOK_FORMAT_VERSION) throw new Error(`더 새로운 시트 형식입니다: ${sheet.formatVersion}`);
-		if (sheet.sheetId !== expectedId) throw new Error('시트 ID가 목록과 일치하지 않습니다.');
-		if (!Array.isArray(sheet.rowOrder) || !Array.isArray(sheet.columnOrder)) throw new Error('행 또는 열 목록이 없습니다.');
-		if (!sheet.rows || !sheet.columns || !sheet.cells) throw new Error('시트 데이터가 완전하지 않습니다.');
-		if (new Set(sheet.rowOrder).size !== sheet.rowOrder.length) throw new Error('행 ID가 중복되었습니다.');
-		if (new Set(sheet.columnOrder).size !== sheet.columnOrder.length) throw new Error('열 ID가 중복되었습니다.');
+		if (!sheet || typeof sheet !== 'object') throw new Error(wmT("시트가 객체가 아닙니다."));
+		if (sheet.formatVersion > PLOT_WORKBOOK_FORMAT_VERSION) throw new Error(wmT("더 새로운 시트 형식입니다: {0}", sheet.formatVersion));
+		if (sheet.sheetId !== expectedId) throw new Error(wmT("시트 ID가 목록과 일치하지 않습니다."));
+		if (!Array.isArray(sheet.rowOrder) || !Array.isArray(sheet.columnOrder)) throw new Error(wmT("행 또는 열 목록이 없습니다."));
+		if (!sheet.rows || !sheet.columns || !sheet.cells) throw new Error(wmT("시트 데이터가 완전하지 않습니다."));
+		if (new Set(sheet.rowOrder).size !== sheet.rowOrder.length) throw new Error(wmT("행 ID가 중복되었습니다."));
+		if (new Set(sheet.columnOrder).size !== sheet.columnOrder.length) throw new Error(wmT("열 ID가 중복되었습니다."));
 		for (const id of sheet.rowOrder) {
-			if (!sheet.rows[id]) throw new Error(`행 정보가 없습니다: ${id}`);
+			if (!sheet.rows[id]) throw new Error(wmT("행 정보가 없습니다: {0}", id));
 			if (sheet.rows[id].linkedNotePath !== undefined && typeof sheet.rows[id].linkedNotePath !== 'string') {
-				throw new Error(`본문 노트 경로가 올바르지 않습니다: ${id}`);
+				throw new Error(wmT("본문 노트 경로가 올바르지 않습니다: {0}", id));
 			}
 			this.validateCellStyle(sheet.rows[id].style);
 			this.validateCellStyle(sheet.rows[id].cellStyle);
 		}
 		for (const id of sheet.columnOrder) {
 			const column = sheet.columns[id];
-			if (!column) throw new Error(`열 정보가 없습니다: ${id}`);
+			if (!column) throw new Error(wmT("열 정보가 없습니다: {0}", id));
 			if (column.role !== undefined && !['text', 'plot', 'character', 'cast', 'status', 'date', 'foreshadow', 'checklist'].includes(column.role)) {
-				throw new Error(`열 역할이 올바르지 않습니다: ${id}`);
+				throw new Error(wmT("열 역할이 올바르지 않습니다: {0}", id));
 			}
 			if (column.characterNotePath !== undefined && typeof column.characterNotePath !== 'string') {
-				throw new Error(`인물 노트 경로가 올바르지 않습니다: ${id}`);
+				throw new Error(wmT("인물 노트 경로가 올바르지 않습니다: {0}", id));
 			}
 			if (column.labelId !== undefined && typeof column.labelId !== 'string') {
-				throw new Error(`열 라벨이 올바르지 않습니다: ${id}`);
+				throw new Error(wmT("열 라벨이 올바르지 않습니다: {0}", id));
 			}
 			if (column.trackingEnabled !== undefined && typeof column.trackingEnabled !== 'boolean') {
-				throw new Error(`열 추적 정보가 올바르지 않습니다: ${id}`);
+				throw new Error(wmT("열 추적 정보가 올바르지 않습니다: {0}", id));
 			}
 			this.validateCellStyle(column.style);
 			this.validateCellStyle(column.cellStyle);
 		}
 		if (sheet.view !== undefined) {
-			if (!sheet.view || typeof sheet.view !== 'object') throw new Error('시트 보기 정보가 올바르지 않습니다.');
+			if (!sheet.view || typeof sheet.view !== 'object') throw new Error(wmT("시트 보기 정보가 올바르지 않습니다."));
 			for (const value of [sheet.view.frozenRowCount, sheet.view.frozenColumnCount]) {
-				if (value !== undefined && (!Number.isInteger(value) || value < 0)) throw new Error('틀 고정 정보가 올바르지 않습니다.');
+				if (value !== undefined && (!Number.isInteger(value) || value < 0)) throw new Error(wmT("틀 고정 정보가 올바르지 않습니다."));
 			}
 			for (const value of [sheet.view.rowHeaderWidth, sheet.view.columnHeaderHeight]) {
-				if (value !== undefined && (!Number.isFinite(value) || value <= 0)) throw new Error('제목 행열 크기가 올바르지 않습니다.');
+				if (value !== undefined && (!Number.isFinite(value) || value <= 0)) throw new Error(wmT("제목 행열 크기가 올바르지 않습니다."));
 			}
 			for (const value of [sheet.view.defaultRowHeight, sheet.view.defaultColumnWidth]) {
-				if (value !== undefined && (!Number.isFinite(value) || value <= 0)) throw new Error('기본 셀 크기가 올바르지 않습니다.');
+				if (value !== undefined && (!Number.isFinite(value) || value <= 0)) throw new Error(wmT("기본 셀 크기가 올바르지 않습니다."));
 			}
 			if (sheet.view.rowNumberStart !== undefined
 				&& (!Number.isInteger(sheet.view.rowNumberStart) || sheet.view.rowNumberStart < 0)) {
-				throw new Error('행 번호 시작값이 올바르지 않습니다.');
+				throw new Error(wmT("행 번호 시작값이 올바르지 않습니다."));
 			}
 		}
 		for (const [rowId, row] of Object.entries(sheet.cells)) {
-			if (!sheet.rows[rowId] || !row || typeof row !== 'object') throw new Error(`잘못된 셀 행입니다: ${rowId}`);
+			if (!sheet.rows[rowId] || !row || typeof row !== 'object') throw new Error(wmT("잘못된 셀 행입니다: {0}", rowId));
 			for (const [columnId, cell] of Object.entries(row)) {
 				if (!sheet.columns[columnId] || !cell || cell.type !== 'text' || typeof cell.value !== 'string') {
-					throw new Error(`잘못된 셀 정보입니다: ${rowId}/${columnId}`);
+					throw new Error(wmT("잘못된 셀 정보입니다: {0}/{1}", rowId, columnId));
 				}
 				this.validateCellStyle(cell.style);
 			}
@@ -823,35 +824,35 @@ export class PlotWorkbookRepository {
 	}
 
 	private validateOperation(operation: PlotWorkbookOperation, expectedSheetId: string): void {
-		if (!operation || typeof operation !== 'object') throw new Error('변경 기록이 객체가 아닙니다.');
-		if (operation.sheetId !== expectedSheetId) throw new Error('변경 기록의 시트 ID가 다릅니다.');
-		if (!Number.isInteger(operation.seq) || operation.seq < 1) throw new Error('변경 순번이 잘못되었습니다.');
+		if (!operation || typeof operation !== 'object') throw new Error(wmT("변경 기록이 객체가 아닙니다."));
+		if (operation.sheetId !== expectedSheetId) throw new Error(wmT("변경 기록의 시트 ID가 다릅니다."));
+		if (!Number.isInteger(operation.seq) || operation.seq < 1) throw new Error(wmT("변경 순번이 잘못되었습니다."));
 		if (![
 			'setCell', 'setCells', 'setCellStyles', 'setHeaderStyles', 'setAxisCellStyles', 'resizeRow', 'resizeColumn', 'renameColumn', 'setColumnRoles', 'setColumnStates',
 			'setRowDepth', 'setRowCollapsed', 'setRowLinkedNote', 'setColumnCollapsed', 'appendRows', 'insertRows', 'removeRows', 'swapRowBlocks',
 			'appendColumns', 'insertColumns', 'removeColumns', 'swapColumnBlocks', 'setFrozenPanes', 'resizeHeaders', 'setDefaultDimensions',
 			'setRowNumberStart',
 		].includes(operation.op)) {
-			throw new Error(`알 수 없는 변경 기록입니다: ${typeof operation.op === 'string' ? operation.op : '(형식 오류)'}`);
+			throw new Error(wmT("알 수 없는 변경 기록입니다: {0}", typeof operation.op === 'string' ? operation.op : wmT("(형식 오류)")));
 		}
 		switch (operation.op) {
 			case 'setCell':
 				if (typeof operation.rowId !== 'string' || typeof operation.columnId !== 'string'
 					|| typeof operation.before !== 'string' || typeof operation.after !== 'string') {
-					throw new Error('셀 변경 기록이 올바르지 않습니다.');
+					throw new Error(wmT("셀 변경 기록이 올바르지 않습니다."));
 				}
 				break;
 			case 'setCells':
 				if (!Array.isArray(operation.changes) || operation.changes.some(change =>
 					!change || typeof change.rowId !== 'string' || typeof change.columnId !== 'string'
 					|| typeof change.before !== 'string' || typeof change.after !== 'string')) {
-					throw new Error('다중 셀 변경 기록이 올바르지 않습니다.');
+					throw new Error(wmT("다중 셀 변경 기록이 올바르지 않습니다."));
 				}
 				break;
 			case 'setCellStyles':
 				if (!Array.isArray(operation.changes) || operation.changes.some(change =>
 					!change || typeof change.rowId !== 'string' || typeof change.columnId !== 'string')) {
-					throw new Error('셀 서식 변경 기록이 올바르지 않습니다.');
+					throw new Error(wmT("셀 서식 변경 기록이 올바르지 않습니다."));
 				}
 				for (const change of operation.changes) {
 					this.validateCellStyle(change.before);
@@ -863,7 +864,7 @@ export class PlotWorkbookRepository {
 				if (!Array.isArray(operation.rowChanges) || !Array.isArray(operation.columnChanges)
 					|| operation.rowChanges.some(change => !change || typeof change.rowId !== 'string')
 					|| operation.columnChanges.some(change => !change || typeof change.columnId !== 'string')) {
-					throw new Error('제목 서식 변경 기록이 올바르지 않습니다.');
+					throw new Error(wmT("제목 서식 변경 기록이 올바르지 않습니다."));
 				}
 				for (const change of [...operation.rowChanges, ...operation.columnChanges]) {
 					this.validateCellStyle(change.before);
@@ -881,22 +882,22 @@ export class PlotWorkbookRepository {
 					|| operation.columnChanges.some(change => !change || typeof change.columnId !== 'string'
 						|| (change.before !== undefined && !Number.isFinite(change.before))
 						|| (change.after !== undefined && !Number.isFinite(change.after)))) {
-					throw new Error('기본 셀 크기 변경 기록이 올바르지 않습니다.');
+					throw new Error(wmT("기본 셀 크기 변경 기록이 올바르지 않습니다."));
 				}
 				break;
 			case 'resizeRow':
 				if (typeof operation.rowId !== 'string' || (operation.after !== undefined && !Number.isFinite(operation.after))) {
-					throw new Error('행 크기 변경 기록이 올바르지 않습니다.');
+					throw new Error(wmT("행 크기 변경 기록이 올바르지 않습니다."));
 				}
 				break;
 			case 'resizeColumn':
 				if (typeof operation.columnId !== 'string' || (operation.after !== undefined && !Number.isFinite(operation.after))) {
-					throw new Error('열 크기 변경 기록이 올바르지 않습니다.');
+					throw new Error(wmT("열 크기 변경 기록이 올바르지 않습니다."));
 				}
 				break;
 			case 'renameColumn':
 				if (typeof operation.columnId !== 'string' || typeof operation.before !== 'string' || typeof operation.after !== 'string') {
-					throw new Error('열 제목 변경 기록이 올바르지 않습니다.');
+					throw new Error(wmT("열 제목 변경 기록이 올바르지 않습니다."));
 				}
 				break;
 			case 'setColumnRoles':
@@ -904,7 +905,7 @@ export class PlotWorkbookRepository {
 					!change || typeof change.columnId !== 'string'
 					|| (change.before !== undefined && !['text', 'plot', 'character', 'cast', 'status', 'date', 'foreshadow'].includes(change.before))
 					|| (change.after !== undefined && !['text', 'plot', 'character', 'cast', 'status', 'date', 'foreshadow'].includes(change.after)))) {
-					throw new Error('열 역할 변경 기록이 올바르지 않습니다.');
+					throw new Error(wmT("열 역할 변경 기록이 올바르지 않습니다."));
 				}
 				break;
 			case 'setColumnStates':
@@ -920,33 +921,33 @@ export class PlotWorkbookRepository {
 					|| (change.afterLabelId !== undefined && typeof change.afterLabelId !== 'string')
 					|| (change.beforeTrackingEnabled !== undefined && typeof change.beforeTrackingEnabled !== 'boolean')
 					|| (change.afterTrackingEnabled !== undefined && typeof change.afterTrackingEnabled !== 'boolean'))) {
-					throw new Error('열 상태 변경 기록이 올바르지 않습니다.');
+					throw new Error(wmT("열 상태 변경 기록이 올바르지 않습니다."));
 				}
 				if (operation.cellChanges !== undefined && (!Array.isArray(operation.cellChanges)
 					|| operation.cellChanges.some(change => !change || typeof change.rowId !== 'string'
 						|| typeof change.columnId !== 'string' || typeof change.before !== 'string' || typeof change.after !== 'string'))) {
-					throw new Error('열 상태의 셀 변경 기록이 올바르지 않습니다.');
+					throw new Error(wmT("열 상태의 셀 변경 기록이 올바르지 않습니다."));
 				}
 				break;
 			case 'setRowDepth':
-				if (typeof operation.rowId !== 'string' || !Number.isFinite(operation.after)) throw new Error('행 깊이 기록이 올바르지 않습니다.');
+				if (typeof operation.rowId !== 'string' || !Number.isFinite(operation.after)) throw new Error(wmT("행 깊이 기록이 올바르지 않습니다."));
 				break;
 			case 'setRowCollapsed':
-				if (typeof operation.rowId !== 'string' || typeof operation.after !== 'boolean') throw new Error('행 접기 기록이 올바르지 않습니다.');
+				if (typeof operation.rowId !== 'string' || typeof operation.after !== 'boolean') throw new Error(wmT("행 접기 기록이 올바르지 않습니다."));
 				break;
 			case 'setRowLinkedNote':
 				if (typeof operation.rowId !== 'string'
 					|| (operation.before !== undefined && typeof operation.before !== 'string')
 					|| (operation.after !== undefined && typeof operation.after !== 'string')) {
-					throw new Error('본문 노트 연결 기록이 올바르지 않습니다.');
+					throw new Error(wmT("본문 노트 연결 기록이 올바르지 않습니다."));
 				}
 				break;
 			case 'setColumnCollapsed':
-				if (typeof operation.columnId !== 'string' || typeof operation.after !== 'boolean') throw new Error('열 접기 기록이 올바르지 않습니다.');
+				if (typeof operation.columnId !== 'string' || typeof operation.after !== 'boolean') throw new Error(wmT("열 접기 기록이 올바르지 않습니다."));
 				break;
 			case 'appendRows':
 				if (!Array.isArray(operation.rows) || operation.rows.some(row => !row || typeof row.id !== 'string')) {
-					throw new Error('추가 행 기록이 올바르지 않습니다.');
+					throw new Error(wmT("추가 행 기록이 올바르지 않습니다."));
 				}
 				break;
 			case 'insertRows':
@@ -954,19 +955,19 @@ export class PlotWorkbookRepository {
 				if (!Number.isInteger(operation.index) || !Array.isArray(operation.rows)
 					|| operation.rows.some(row => !row || typeof row.id !== 'string')
 					|| !operation.cells || typeof operation.cells !== 'object') {
-					throw new Error('행 삽입·삭제 기록이 올바르지 않습니다.');
+					throw new Error(wmT("행 삽입·삭제 기록이 올바르지 않습니다."));
 				}
 				break;
 			case 'swapRowBlocks':
 				if (!Array.isArray(operation.firstIds) || !Array.isArray(operation.secondIds)
 					|| operation.firstIds.some(id => typeof id !== 'string')
 					|| operation.secondIds.some(id => typeof id !== 'string')) {
-					throw new Error('행 이동 기록이 올바르지 않습니다.');
+					throw new Error(wmT("행 이동 기록이 올바르지 않습니다."));
 				}
 				break;
 			case 'appendColumns':
 				if (!Array.isArray(operation.columns) || operation.columns.some(column => !column || typeof column.id !== 'string')) {
-					throw new Error('추가 열 기록이 올바르지 않습니다.');
+					throw new Error(wmT("추가 열 기록이 올바르지 않습니다."));
 				}
 				break;
 			case 'insertColumns':
@@ -974,31 +975,31 @@ export class PlotWorkbookRepository {
 				if (!Number.isInteger(operation.index) || !Array.isArray(operation.columns)
 					|| operation.columns.some(column => !column || typeof column.id !== 'string')
 					|| !operation.cells || typeof operation.cells !== 'object') {
-					throw new Error('열 삽입·삭제 기록이 올바르지 않습니다.');
+					throw new Error(wmT("열 삽입·삭제 기록이 올바르지 않습니다."));
 				}
 				break;
 			case 'swapColumnBlocks':
 				if (!Array.isArray(operation.firstIds) || !Array.isArray(operation.secondIds)
 					|| operation.firstIds.some(id => typeof id !== 'string')
 					|| operation.secondIds.some(id => typeof id !== 'string')) {
-					throw new Error('열 이동 기록이 올바르지 않습니다.');
+					throw new Error(wmT("열 이동 기록이 올바르지 않습니다."));
 				}
 				break;
 			case 'setFrozenPanes':
 				if (![operation.beforeRows, operation.afterRows, operation.beforeColumns, operation.afterColumns]
 					.every(value => Number.isInteger(value) && value >= 0)) {
-					throw new Error('틀 고정 기록이 올바르지 않습니다.');
+					throw new Error(wmT("틀 고정 기록이 올바르지 않습니다."));
 				}
 				break;
 			case 'resizeHeaders':
 				if (![operation.beforeWidth, operation.afterWidth, operation.beforeHeight, operation.afterHeight]
 					.every(value => Number.isFinite(value) && value > 0)) {
-					throw new Error('제목 행열 크기 기록이 올바르지 않습니다.');
+					throw new Error(wmT("제목 행열 크기 기록이 올바르지 않습니다."));
 				}
 				break;
 			case 'setRowNumberStart':
 				if (![operation.before, operation.after].every(value => Number.isInteger(value) && value >= 0)) {
-					throw new Error('행 번호 시작값 변경 기록이 올바르지 않습니다.');
+					throw new Error(wmT("행 번호 시작값 변경 기록이 올바르지 않습니다."));
 				}
 				break;
 		}
@@ -1006,27 +1007,27 @@ export class PlotWorkbookRepository {
 
 	private validateCellStyle(style: unknown): void {
 		if (style === undefined) return;
-		if (!style || typeof style !== 'object' || Array.isArray(style)) throw new Error('셀 서식이 객체가 아닙니다.');
+		if (!style || typeof style !== 'object' || Array.isArray(style)) throw new Error(wmT("셀 서식이 객체가 아닙니다."));
 		const value = style as Record<string, unknown>;
 		const allowed = new Set([
 			'fontFamily', 'fontSize', 'color', 'backgroundColor',
 			'bold', 'italic', 'underline', 'strikethrough', 'alignment',
 		]);
-		if (Object.keys(value).some(key => !allowed.has(key))) throw new Error('알 수 없는 셀 서식이 있습니다.');
+		if (Object.keys(value).some(key => !allowed.has(key))) throw new Error(wmT("알 수 없는 셀 서식이 있습니다."));
 		if (value.fontFamily !== undefined && typeof value.fontFamily !== 'string') {
-			throw new Error('셀 글꼴 서식이 올바르지 않습니다.');
+			throw new Error(wmT("셀 글꼴 서식이 올바르지 않습니다."));
 		}
 		for (const key of ['color', 'backgroundColor']) {
-			if (value[key] !== undefined && !isThemeAwareColor(value[key])) throw new Error('셀 색상 서식이 올바르지 않습니다.');
+			if (value[key] !== undefined && !isThemeAwareColor(value[key])) throw new Error(wmT("셀 색상 서식이 올바르지 않습니다."));
 		}
 		if (value.alignment !== undefined && (typeof value.alignment !== 'string' || !['left', 'center', 'right'].includes(value.alignment))) {
-			throw new Error('셀 정렬값이 올바르지 않습니다.');
+			throw new Error(wmT("셀 정렬값이 올바르지 않습니다."));
 		}
 		if (value.fontSize !== undefined && (typeof value.fontSize !== 'number' || !Number.isFinite(value.fontSize))) {
-			throw new Error('셀 글자 크기가 올바르지 않습니다.');
+			throw new Error(wmT("셀 글자 크기가 올바르지 않습니다."));
 		}
 		for (const key of ['bold', 'italic', 'underline', 'strikethrough']) {
-			if (value[key] !== undefined && typeof value[key] !== 'boolean') throw new Error('셀 서식 상태가 올바르지 않습니다.');
+			if (value[key] !== undefined && typeof value[key] !== 'boolean') throw new Error(wmT("셀 서식 상태가 올바르지 않습니다."));
 		}
 	}
 
@@ -1069,7 +1070,7 @@ export class PlotWorkbookRepository {
 			|| typeof snapshot.title !== 'string'
 			|| !Number.isFinite(snapshot.createdAt)
 			|| typeof snapshot.value !== 'string') {
-			throw new Error('셀 스냅샷이 올바르지 않습니다.');
+			throw new Error(wmT("셀 스냅샷이 올바르지 않습니다."));
 		}
 	}
 }

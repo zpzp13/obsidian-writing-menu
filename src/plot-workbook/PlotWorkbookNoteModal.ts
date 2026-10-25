@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { FuzzySuggestModal, Modal, Notice, Setting, TFile, normalizePath } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 
@@ -44,13 +45,13 @@ export class PlotWorkbookCreateNoteModal extends Modal {
 	}
 
 	onOpen(): void {
-		this.setTitle('본문 노트 생성');
+		this.setTitle(wmT("본문 노트 생성"));
 		new Setting(this.contentEl)
-			.setName('이름')
-			.setDesc(`저장 위치: ${this.folder || '볼트 루트'}`)
+			.setName(wmT("이름"))
+			.setDesc(wmT("저장 위치: {0}", this.folder || wmT("볼트 루트")))
 			.addText(text => {
 				text.setValue(this.noteName)
-					.setPlaceholder('본문 노트 이름')
+					.setPlaceholder(wmT("본문 노트 이름"))
 					.onChange(value => { this.noteName = value; });
 				window.setTimeout(() => {
 					text.inputEl.focus();
@@ -63,8 +64,8 @@ export class PlotWorkbookCreateNoteModal extends Modal {
 				});
 			});
 		const actions = this.contentEl.createDiv({ cls: 'modal-button-container' });
-		actions.createEl('button', { text: '취소' }).addEventListener('click', () => this.close());
-		actions.createEl('button', { cls: 'mod-cta', text: '생성' }).addEventListener('click', () => void this.create());
+		actions.createEl('button', { text: wmT("취소") }).addEventListener('click', () => this.close());
+		actions.createEl('button', { cls: 'mod-cta', text: wmT("생성") }).addEventListener('click', () => void this.create());
 	}
 
 	onClose(): void {
@@ -74,7 +75,7 @@ export class PlotWorkbookCreateNoteModal extends Modal {
 	private async create(): Promise<void> {
 		const clean = this.noteName.trim().replace(/\.md$/i, '');
 		if (!clean || clean.split(/[\\/]/).some(part => part === '..')) {
-			new Notice('올바른 노트 이름을 입력해주세요.');
+			new Notice(wmT("올바른 노트 이름을 입력해주세요."));
 			return;
 		}
 		const folder = normalizePath(this.folder.trim()).replace(/^\/+|\/+$/g, '');
@@ -86,7 +87,7 @@ export class PlotWorkbookCreateNoteModal extends Modal {
 			return;
 		}
 		if (existing) {
-			new Notice('같은 경로에 폴더가 있습니다.');
+			new Notice(wmT("같은 경로에 폴더가 있습니다."));
 			return;
 		}
 		try {
@@ -95,7 +96,7 @@ export class PlotWorkbookCreateNoteModal extends Modal {
 			this.onCreate(file);
 			this.close();
 		} catch (error) {
-			new Notice(`본문 노트를 만들지 못했습니다: ${error instanceof Error ? error.message : String(error)}`);
+			new Notice(wmT("본문 노트를 만들지 못했습니다: {0}", error instanceof Error ? error.message : String(error)));
 		}
 	}
 
@@ -123,12 +124,12 @@ export class PlotWorkbookNumberingModal extends Modal {
 	}
 
 	onOpen(): void {
-		this.setTitle('행 번호 시작값');
+		this.setTitle(wmT("행 번호 시작값"));
 		this.contentEl.createEl('p', {
-			text: '이 시트의 첫 정식 행에 표시할 번호를 지정합니다. 세부 행은 자동으로 하위 번호를 사용합니다.',
+			text: wmT("이 시트의 첫 정식 행에 표시할 번호를 지정합니다. 세부 행은 자동으로 하위 번호를 사용합니다."),
 		});
 		new Setting(this.contentEl)
-			.setName('시작 번호')
+			.setName(wmT("시작 번호"))
 			.addText(text => {
 				text.inputEl.type = 'number';
 				text.inputEl.min = '0';
@@ -138,10 +139,10 @@ export class PlotWorkbookNumberingModal extends Modal {
 				});
 			});
 		const actions = this.contentEl.createDiv({ cls: 'modal-button-container' });
-		actions.createEl('button', { text: '취소' }).addEventListener('click', () => this.close());
-		actions.createEl('button', { cls: 'mod-cta', text: '적용' }).addEventListener('click', () => {
+		actions.createEl('button', { text: wmT("취소") }).addEventListener('click', () => this.close());
+		actions.createEl('button', { cls: 'mod-cta', text: wmT("적용") }).addEventListener('click', () => {
 			if (!Number.isInteger(this.value) || this.value < 0) {
-				new Notice('0 이상의 정수를 입력해주세요.');
+				new Notice(wmT("0 이상의 정수를 입력해주세요."));
 				return;
 			}
 			this.onSubmit(this.value);

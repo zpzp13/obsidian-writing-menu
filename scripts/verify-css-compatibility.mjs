@@ -1,4 +1,4 @@
-// Render the CSS replacements against the previous release, including clipping and wrapping.
+// Preserve unchanged component pixels; validate redesigned music artwork separately.
 import assert from 'node:assert/strict';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -16,7 +16,6 @@ body.theme-dark{--background-primary:#222;--background-secondary:#333;--text-nor
 *,*::before,*::after{animation:none;transition:none}section{margin-bottom:25px;position:relative}button{font:inherit}
 </style><body><section class="wm-calendar-agenda"><div class="wm-cal-week-grid">${Array.from({length:14},(_,i)=>`<div class="wm-cal-week-cell">${i+1}</div>`).join('')}</div></section>
 <section class="wm-cal-task-dock"><div class="is-calendar-docked"><div class="wm-task-item"><div class="wm-task-item-content"><div class="wm-task-item-main"><div class="wm-task-item-title-row">Calendar task with wrapped text</div><div class="wm-task-item-meta">Date and project</div></div></div></div></div></section>
-<section style="padding:14px"><div class="wm-music-library-audio-art-stage"><div style="height:260px;width:350px;background:linear-gradient(45deg,#85a,#ce7)">Album artwork</div></div></section>
 <section class="wm-paged-editor-root" style="height:130px"><div class="wm-paged-page-content">${'<p class="wm-paged-paragraph starts-paragraph">Page clipping at the last line. 들여쓰기와 긴 문장.</p>'.repeat(15)}</div></section>
 <section><div class="wm-analysis-progress" role="status">Analysis progress must remain accessible without drawing pixels.</div><span>Analysis panel</span></section>
 <section class="wm-chat-root"><div class="wm-chat-toolbar"><span>Session</span><button>Chat</button><button>Options</button></div></section>
@@ -37,6 +36,20 @@ try {
 		}
 		assert(screenshots[0].equals(screenshots[1]), `CSS pixels changed: ${theme} ${width}px. Inspect .codex-tmp/css-compatibility.`);
 		assert.equal(await page.locator('[role="status"]').textContent(), 'Analysis progress must remain accessible without drawing pixels.');
-		console.log(`PASS unchanged calendar/music/page/chat pixels: ${theme}, ${width}px`);
+		const music = await page.evaluate(() => {
+			const host = document.createElement('section'); host.style.padding = '14px';
+			host.innerHTML = '<div class="wm-music-library-audio-art-stage"><div style="height:260px;width:350px">Album artwork</div></div><div class="wm-music-library-audio-body"><div class="wm-music-library-audio-transport"></div></div>';
+			document.body.append(host);
+			const stage = host.querySelector('.wm-music-library-audio-art-stage'), rect = stage.getBoundingClientRect(), style = getComputedStyle(stage);
+			const body = host.querySelector('.wm-music-library-audio-body'), closed = getComputedStyle(body).zIndex;
+			body.classList.add('is-vol-open'); const open = getComputedStyle(body).zIndex;
+			body.classList.remove('is-vol-open'); const restored = getComputedStyle(body).zIndex;
+			const result = { insideViewport: rect.left >= 0 && rect.right <= innerWidth, height: rect.height, overflow: style.overflowX,
+				radius: Number.parseFloat(style.borderTopLeftRadius), containsPaint: style.contain.includes('paint'), raisedVolume: Number(open) > Number(closed) && restored === closed };
+			host.remove(); return result;
+		});
+		assert(music.insideViewport && music.height > 0 && music.overflow === 'clip' && music.radius > 0 && music.containsPaint, 'Redesigned artwork must stay rounded, clipped and within the viewport');
+		assert(music.raisedVolume, 'Volume popup must rise above the artwork and restore its stacking order when closed');
+		console.log(`PASS unchanged calendar/page/chat pixels and music artwork/volume layout: ${theme}, ${width}px`);
 	}
 } finally { await browser.close(); }

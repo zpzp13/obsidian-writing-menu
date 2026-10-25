@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { scalarText } from '../utils/typeGuards';
 import { Component, MarkdownRenderer, Menu, Notice, TFile, TFolder, setIcon, sanitizeHTMLToDom, App, type WorkspaceLeaf } from 'obsidian';
 import ForceGraph, { type GraphData, type LinkObject, type NodeObject } from 'force-graph';
@@ -194,9 +195,12 @@ export class WikiPanel {
 	openFolderPicker() {
 		new FolderOrNoteSuggestModal(this.app, (item) => {
 			if (item instanceof TFolder) {
-				this.targetFolder = item;
-				this.currentFile = null;
+				this.graphRootFolder = item;
+				this.graphActive = true;
+				this.graphSearchQuery = '';
+				this.graphSelectedNodePath = '';
 			} else {
+				this.graphActive = false;
 				this.recordNavigation(item);
 				this.currentFile = item;
 				this.targetFolder = item.parent ?? this.targetFolder;
@@ -231,7 +235,7 @@ export class WikiPanel {
 		this.renderBreadcrumb(
 			this.toolbarPathElement,
 			file?.path.replace(/\.md$/, '') ?? '',
-			'노트를 선택하십시오',
+			wmT("노트를 선택하십시오"),
 		);
 	}
 
@@ -415,17 +419,17 @@ export class WikiPanel {
 		const infoRow = scrollArea.createDiv({ cls: 'wiki-info-row' });
 		const body = scrollArea.createDiv({ cls: 'obsiwiki-rendered-body' });
 
-		navBtns.createDiv({ cls: 'wiki-nav-btn', attr: { 'aria-label': '최상단으로' } });
+		navBtns.createDiv({ cls: 'wiki-nav-btn', attr: { 'aria-label': wmT("최상단으로") } });
 		setIcon(navBtns.lastElementChild as HTMLElement, 'chevrons-up');
 		(navBtns.lastElementChild as HTMLElement).onclick = () => scrollArea.scrollTo({ top: 0, behavior: 'smooth' });
-		navBtns.createDiv({ cls: 'wiki-nav-btn', attr: { 'aria-label': '목차로' } });
+		navBtns.createDiv({ cls: 'wiki-nav-btn', attr: { 'aria-label': wmT("목차로") } });
 		setIcon(navBtns.lastElementChild as HTMLElement, 'list');
 		(navBtns.lastElementChild as HTMLElement).onclick = () => {
 			const toc = scrollArea.querySelector('.wiki-toc-container');
 			if (toc) toc.scrollIntoView({ behavior: 'smooth', block: 'start' });
 			else scrollArea.scrollTo({ top: 0, behavior: 'smooth' });
 		};
-		navBtns.createDiv({ cls: 'wiki-nav-btn', attr: { 'aria-label': '최하단으로' } });
+		navBtns.createDiv({ cls: 'wiki-nav-btn', attr: { 'aria-label': wmT("최하단으로") } });
 		setIcon(navBtns.lastElementChild as HTMLElement, 'chevrons-down');
 		(navBtns.lastElementChild as HTMLElement).onclick = () => scrollArea.scrollTo({ top: scrollArea.scrollHeight, behavior: 'smooth' });
 
@@ -518,14 +522,14 @@ export class WikiPanel {
 
 		this.historyBackButton = bar.createEl('button', {
 			cls: 'wm-cal-icon-btn wiki-history-btn',
-			attr: { type: 'button', 'aria-label': '이전 위키 노트' },
+			attr: { type: 'button', 'aria-label': wmT("이전 위키 노트") },
 		});
 		setIcon(this.historyBackButton, 'chevron-left');
 		this.historyBackButton.addEventListener('click', () => this.navigateHistory(-1));
 
 		this.historyForwardButton = bar.createEl('button', {
 			cls: 'wm-cal-icon-btn wiki-history-btn',
-			attr: { type: 'button', 'aria-label': '다음 위키 노트' },
+			attr: { type: 'button', 'aria-label': wmT("다음 위키 노트") },
 		});
 		setIcon(this.historyForwardButton, 'chevron-right');
 		this.historyForwardButton.addEventListener('click', () => this.navigateHistory(1));
@@ -535,7 +539,7 @@ export class WikiPanel {
 		const left = bar.createDiv({ cls: 'wiki-toolbar-left' });
 		const pathSpan = left.createSpan({ cls: 'wiki-bc-path' });
 		this.toolbarPathElement = pathSpan;
-		this.renderBreadcrumb(pathSpan, this.currentFile?.path.replace(/\.md$/, '') ?? '', '노트를 선택하십시오');
+		this.renderBreadcrumb(pathSpan, this.currentFile?.path.replace(/\.md$/, '') ?? '', wmT("노트를 선택하십시오"));
 		pathSpan.addEventListener('click', () => {
 			new NoteSuggestModal(this.app, (file) => {
 				this.graphActive = false;
@@ -551,7 +555,7 @@ export class WikiPanel {
 
 		const graphBtn = right.createDiv({
 			cls: 'wm-cal-icon-btn' + (this.graphActive ? ' is-active' : ''),
-			attr: { 'aria-label': this.graphActive ? '인물 관계도 닫기' : '인물 관계도' },
+			attr: { 'aria-label': this.graphActive ? wmT("인물 관계도 닫기") : wmT("인물 관계도") },
 		});
 		setIcon(graphBtn, 'git-fork');
 		graphBtn.onclick = () => {
@@ -582,7 +586,7 @@ export class WikiPanel {
 		// 컬러 팔레트
 		const paletteBtn = right.createDiv({
 			cls: 'wm-cal-icon-btn wiki-toolbar-palette' + (!this.currentFile ? ' wiki-btn-disabled' : ''),
-			attr: { 'aria-label': '위키 색상 변경' },
+			attr: { 'aria-label': wmT("위키 색상 변경") },
 		});
 		setIcon(paletteBtn, 'palette');
 		if (this.currentFile) {
@@ -601,12 +605,12 @@ export class WikiPanel {
 		}
 
 		// 새 탭에서 열기
-		const tabBtn = right.createDiv({ cls: 'wm-cal-icon-btn' + (!this.currentFile ? ' wiki-btn-disabled' : ''), attr: { 'aria-label': '새 탭에서 열기' } });
+		const tabBtn = right.createDiv({ cls: 'wm-cal-icon-btn' + (!this.currentFile ? ' wiki-btn-disabled' : ''), attr: { 'aria-label': wmT("새 탭에서 열기") } });
 		setIcon(tabBtn, 'external-link');
 		tabBtn.onclick = () => { if (this.currentFile) void this.app.workspace.getLeaf('tab').openFile(this.currentFile); };
 
 		// 위키 설정 (맨 우측)
-		const settingsBtn = right.createDiv({ cls: 'wm-cal-icon-btn', attr: { 'aria-label': '위키 설정' } });
+		const settingsBtn = right.createDiv({ cls: 'wm-cal-icon-btn', attr: { 'aria-label': wmT("위키 설정") } });
 		setIcon(settingsBtn, 'settings');
 		settingsBtn.onclick = () => {
 			(this.app as AppWithSettings).setting?.open();
@@ -816,15 +820,15 @@ export class WikiPanel {
 			attr: {
 				type: 'text',
 				placeholder: relation.key,
-				'aria-label': '표시할 관계명',
+				'aria-label': wmT("표시할 관계명"),
 			},
 		});
 		input.value = relation.text === relation.key ? '' : relation.text;
 		input.addEventListener('input', () => previewLabel.setText(input.value.trim() || relation.key));
 		createPreviewNode(target, targetNode);
 		const actions = popover.createDiv({ cls: 'wiki-graph-relation-editor-actions' });
-		const cancelButton = actions.createEl('button', { text: '닫기', attr: { type: 'button' } });
-		const saveButton = actions.createEl('button', { text: '적용', cls: 'mod-cta', attr: { type: 'button' } });
+		const cancelButton = actions.createEl('button', { text: wmT("닫기"), attr: { type: 'button' } });
+		const saveButton = actions.createEl('button', { text: wmT("적용"), cls: 'mod-cta', attr: { type: 'button' } });
 
 		const x = Math.max(8, Math.min(panelRect.width - 328, anchor.clientX - panelRect.left + 10));
 		const y = Math.max(52, Math.min(panelRect.height - 210, anchor.clientY - panelRect.top + 10));
@@ -931,7 +935,7 @@ export class WikiPanel {
 			});
 			if (!updated) {
 				this.graphMetadataRerenderSuppressedUntil.delete(source.path);
-				new Notice('원본 프론트매터에서 해당 관계 링크를 찾지 못했습니다.');
+				new Notice(wmT("원본 프론트매터에서 해당 관계 링크를 찾지 못했습니다."));
 				return;
 			}
 			const nextText = cleanValue || relation.key;
@@ -950,11 +954,11 @@ export class WikiPanel {
 				graph.linkCanvasObject(graph.linkCanvasObject());
 				graph.linkPointerAreaPaint(graph.linkPointerAreaPaint());
 			}
-			new Notice(cleanValue ? '그래프 관계명을 저장했습니다.' : '그래프 관계명을 기본값으로 되돌렸습니다.');
+			new Notice(cleanValue ? wmT("그래프 관계명을 저장했습니다.") : wmT("그래프 관계명을 기본값으로 되돌렸습니다."));
 		} catch (error) {
 			this.graphMetadataRerenderSuppressedUntil.delete(source.path);
 			console.error('[writing-menu] Failed to update graph relation label', error);
-			new Notice('그래프 관계명을 저장하지 못했습니다.');
+			new Notice(wmT("그래프 관계명을 저장하지 못했습니다."));
 		}
 	}
 
@@ -1140,7 +1144,7 @@ export class WikiPanel {
 		const panel = this.container?.querySelector<HTMLElement>('.wiki-relation-graph-panel');
 		panel?.querySelector('.wiki-graph-no-relations')?.remove();
 		if (panel && model.connections.length === 0) {
-			panel.createDiv({ cls: 'wiki-graph-no-relations', text: '등록된 관계가 없습니다.' });
+			panel.createDiv({ cls: 'wiki-graph-no-relations', text: wmT("등록된 관계가 없습니다.") });
 		}
 	}
 
@@ -1989,10 +1993,10 @@ export class WikiPanel {
 			}
 		};
 		for (const item of [
-			{ key: 'path' as const, label: '경로' },
-			{ key: 'search' as const, label: '검색' },
-			{ key: 'style' as const, label: '속성' },
-			{ key: 'settings' as const, label: '설정' },
+			{ key: 'path' as const, label: wmT("경로") },
+			{ key: 'search' as const, label: wmT("검색") },
+			{ key: 'style' as const, label: wmT("속성") },
+			{ key: 'settings' as const, label: wmT("설정") },
 		]) {
 			const button = segment.createEl('button', {
 				text: item.label,
@@ -2016,7 +2020,7 @@ export class WikiPanel {
 		this.renderBreadcrumb(
 			graphPath,
 			this.graphRootFolder ? (this.graphRootFolder.path || 'Vault') : '',
-			'경로를 지정해주십시오',
+			wmT("경로를 지정해주십시오"),
 		);
 		graphPath.addEventListener('click', event => {
 			event.stopPropagation();
@@ -2032,15 +2036,15 @@ export class WikiPanel {
 			cls: 'wiki-graph-filter-input',
 			attr: {
 				type: 'search',
-				placeholder: '검색...',
+				placeholder: wmT("검색..."),
 				spellcheck: 'false',
-				'aria-label': '위키 그래프 검색',
+				'aria-label': wmT("위키 그래프 검색"),
 			},
 		});
 		searchInput.value = this.graphSearchQuery;
 		const searchInfo = searchBox.createEl('button', {
 			cls: 'wiki-graph-filter-info',
-			attr: { type: 'button', 'aria-label': '검색 구문' },
+			attr: { type: 'button', 'aria-label': wmT("검색 구문") },
 		});
 		setIcon(searchInfo, 'info');
 		const searchHelp = searchPanel.createDiv({ cls: 'wiki-graph-search-help' });
@@ -2049,11 +2053,11 @@ export class WikiPanel {
 			row.createEl('strong', { text: syntax });
 			row.createSpan({ text: description });
 		};
-		addSearchHelp('word', '파일 이름 또는 별칭');
-		addSearchHelp('.key', '속성 키');
-		addSearchHelp('.key:value', '속성값');
-		addSearchHelp('#tag', '태그');
-		addSearchHelp('and / or', '태그·속성 조건 조합');
+		addSearchHelp('word', wmT("파일 이름 또는 별칭"));
+		addSearchHelp('.key', wmT("속성 키"));
+		addSearchHelp('.key:value', wmT("속성값"));
+		addSearchHelp('#tag', wmT("태그"));
+		addSearchHelp('and / or', wmT("태그·속성 조건 조합"));
 		searchInfo.addEventListener('click', event => {
 			event.stopPropagation();
 			searchHelp.toggleClass('is-open', !searchHelp.hasClass('is-open'));
@@ -2089,16 +2093,16 @@ export class WikiPanel {
 			if (before) stylePanel.insertBefore(row, before);
 			const colorInput = row.createEl('input', {
 				cls: 'wiki-graph-style-color',
-				attr: { type: 'color', value: storedColor, 'aria-label': `${storedKey} 색상` },
+				attr: { type: 'color', value: storedColor, 'aria-label': wmT("{0} 색상", storedKey) },
 			});
 			const keyInput = row.createEl('input', {
 				cls: 'wiki-graph-style-key',
-				attr: { type: 'text', value: storedKey, placeholder: '속성', 'aria-label': '관계 속성' },
+				attr: { type: 'text', value: storedKey, placeholder: wmT("속성"), 'aria-label': wmT("관계 속성") },
 			});
 			const deleteButton = row.createEl('button', {
 				cls: 'wiki-graph-style-action',
-				text: '삭제',
-				attr: { type: 'button', 'aria-label': '관계 속성 삭제' },
+				text: wmT("삭제"),
+				attr: { type: 'button', 'aria-label': wmT("관계 속성 삭제") },
 			});
 			keyInput.addEventListener('change', () => {
 				const nextKey = keyInput.value.trim();
@@ -2109,7 +2113,7 @@ export class WikiPanel {
 				if (nextKey === currentKey) return;
 				if (this.getRelationFields().some(field => field === nextKey && field !== currentKey)) {
 					keyInput.value = currentKey;
-					new Notice('이미 추가된 속성입니다.');
+					new Notice(wmT("이미 추가된 속성입니다."));
 					return;
 				}
 				const colors = { ...(this.plugin.settings.wikiGraphRelationLabelColors ?? {}) };
@@ -2119,7 +2123,7 @@ export class WikiPanel {
 				setRelationFields(this.getRelationFields().map(field => field === currentKey ? nextKey : field));
 				currentKey = nextKey;
 				this.plugin.settings.wikiGraphRelationLabelColors = colors;
-				colorInput.setAttribute('aria-label', `${nextKey} 색상`);
+				colorInput.setAttribute('aria-label', wmT("{0} 색상", nextKey));
 				queueSettingsSave();
 				notifyGraphStyleChange();
 				void this.refreshGraphRelations();
@@ -2149,16 +2153,16 @@ export class WikiPanel {
 		const addRow = stylePanel.createDiv({ cls: 'wiki-graph-style-row is-add' });
 		const addColorInput = addRow.createEl('input', {
 			cls: 'wiki-graph-style-color',
-			attr: { type: 'color', value: '#888888', 'aria-label': '추가할 속성 색상' },
+			attr: { type: 'color', value: '#888888', 'aria-label': wmT("추가할 속성 색상") },
 		});
 		const addKeyInput = addRow.createEl('input', {
 			cls: 'wiki-graph-style-key',
-			attr: { type: 'text', placeholder: '속성', 'aria-label': '추가할 관계 속성' },
+			attr: { type: 'text', placeholder: wmT("속성"), 'aria-label': wmT("추가할 관계 속성") },
 		});
 		const addButton = addRow.createEl('button', {
 			cls: 'wiki-graph-style-action',
-			text: '추가',
-			attr: { type: 'button', 'aria-label': '관계 속성 추가' },
+			text: wmT("추가"),
+			attr: { type: 'button', 'aria-label': wmT("관계 속성 추가") },
 		});
 		const addColorSetting = () => {
 			const key = addKeyInput.value.trim();
@@ -2167,7 +2171,7 @@ export class WikiPanel {
 				return;
 			}
 			if (this.getRelationFields().includes(key)) {
-				new Notice('이미 추가된 속성입니다.');
+				new Notice(wmT("이미 추가된 속성입니다."));
 				addKeyInput.select();
 				return;
 			}
@@ -2233,13 +2237,13 @@ export class WikiPanel {
 				queueSettingsSave();
 			});
 		};
-		createSlider('장력', this.plugin.settings.wikiGraphNodeDistance ?? 1.25, 0.6, 2.6, 0.05, value => {
+		createSlider(wmT("장력"), this.plugin.settings.wikiGraphNodeDistance ?? 1.25, 0.6, 2.6, 0.05, value => {
 			const previous = this.plugin.settings.wikiGraphNodeDistance ?? 1.25;
 			this.plugin.settings.wikiGraphNodeDistance = value;
 			this.applyGraphPhysics(value, false);
 			this.scaleGraphLayout(previous, value);
 		});
-		createSlider('텍스트 표시 시작점', this.getGraphRelationVisibilityScale(), 0.25, 2, 0.05, value => {
+		createSlider(wmT("텍스트 표시 시작점"), this.getGraphRelationVisibilityScale(), 0.25, 2, 0.05, value => {
 			this.plugin.settings.wikiGraphRelationVisibilityScale = value;
 			this.refreshGraphRelationVisibility();
 		});
@@ -2257,8 +2261,8 @@ export class WikiPanel {
 		if (!this.graphRootFolder) {
 			const empty = panel.createDiv({ cls: 'wiki-graph-empty' });
 			setIcon(empty.createSpan({ cls: 'wiki-graph-empty-icon' }), 'git-fork');
-			empty.createSpan({ text: '관계도를 만들 루트 폴더를 선택하세요.' });
-			const selectButton = empty.createEl('button', { cls: 'mod-cta', text: '폴더 선택', attr: { type: 'button' } });
+			empty.createSpan({ text: wmT("관계도를 만들 루트 폴더를 선택하세요.") });
+			const selectButton = empty.createEl('button', { cls: 'mod-cta', text: wmT("폴더 선택"), attr: { type: 'button' } });
 			selectButton.addEventListener('click', () => this.openGraphRootPicker());
 			return;
 		}
@@ -2266,16 +2270,16 @@ export class WikiPanel {
 		if (files.length === 0) {
 			const empty = panel.createDiv({ cls: 'wiki-graph-empty' });
 			setIcon(empty.createSpan({ cls: 'wiki-graph-empty-icon' }), 'users');
-			empty.createSpan({ text: '루트 폴더에 마크다운 노트가 없습니다.' });
+			empty.createSpan({ text: wmT("루트 폴더에 마크다운 노트가 없습니다.") });
 			return;
 		}
 		const source = this.getGraphAnchorFile(files);
 		const host = panel.createDiv({ cls: 'wiki-relation-graph' });
-		const loading = host.createDiv({ cls: 'wiki-graph-empty', text: '관계 정보를 불러오는 중…' });
+		const loading = host.createDiv({ cls: 'wiki-graph-empty', text: wmT("관계 정보를 불러오는 중…") });
 		const model = await this.buildRelationshipGraphModel(source);
 		if (this.renderSeq !== renderSeq || !host.isConnected) return;
 		loading.remove();
-		if (model.connections.length === 0) panel.createDiv({ cls: 'wiki-graph-no-relations', text: '등록된 관계가 없습니다.' });
+		if (model.connections.length === 0) panel.createDiv({ cls: 'wiki-graph-no-relations', text: wmT("등록된 관계가 없습니다.") });
 		void this.mountRelationshipGraph(host, source, model, renderSeq);
 	}
 
@@ -2415,7 +2419,7 @@ export class WikiPanel {
 		} catch (error) {
 			if (this.renderSeq !== renderSeq || !host.isConnected) return;
 			host.empty();
-			host.createDiv({ cls: 'wiki-graph-error', text: '관계 그래프를 불러오지 못했습니다.' });
+			host.createDiv({ cls: 'wiki-graph-error', text: wmT("관계 그래프를 불러오지 못했습니다.") });
 			console.error('[writing-menu] Failed to render relationship graph', error);
 		}
 	}
@@ -2472,7 +2476,7 @@ export class WikiPanel {
 
 		const tocContainer = container.createDiv({ cls: 'wiki-toc-container' });
 		const titleRow = tocContainer.createDiv({ cls: 'wiki-toc-title-row' });
-		titleRow.createSpan({ cls: 'wiki-toc-title', text: '목차' });
+		titleRow.createSpan({ cls: 'wiki-toc-title', text: wmT("목차") });
 		const tocChev = titleRow.createSpan({ cls: 'wiki-toc-chevron' });
 		setIcon(tocChev, this.tocCollapsed ? 'chevron-right' : 'chevron-down');
 		const list = tocContainer.createDiv({ cls: 'wiki-toc-list' + (this.tocCollapsed ? ' is-collapsed' : '') });
@@ -2597,8 +2601,8 @@ export class WikiPanel {
 			try {
 				await applyProfileImage(this.app, this.plugin, file, f, this.container);
 			} catch (e) {
-				console.error('[wiki] processFrontMatter 실패:', e);
-				new Notice('이미지 프론트매터 업데이트 실패. 콘솔을 확인하세요.');
+				console.error(wmT("[wiki] processFrontMatter 실패:"), e);
+				new Notice(wmT("이미지 프론트매터 업데이트 실패. 콘솔을 확인하세요."));
 			}
 		})(); }).open();
 	}

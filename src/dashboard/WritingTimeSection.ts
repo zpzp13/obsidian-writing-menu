@@ -1,4 +1,6 @@
-import { TFile, TextFileView, setIcon } from 'obsidian';
+import { wmT } from '../i18n/index';
+import { timeModeLabel } from '../i18n/labels';
+import { TFile, setIcon } from 'obsidian';
 
 declare const moment: (date?: unknown, fmt?: string) => { format(f: string): string };
 import type WritingMenuPlugin from '../../main';
@@ -9,6 +11,7 @@ import { watchDisconnect } from '../utils/domUtils';
 import { getDnConfig } from '../utils/dailyNoteUtils';
 import { toHMS } from '../utils/timeUtils';
 import { WritingTimeChart, type DailyModeTime } from './WritingTimeChart';
+import { processWritingFrontmatter } from '../writing/WritingFrontmatter';
 
 const getModeIcon = (mode: TimeModeConfig): string => {
 	if (mode.icon) return mode.icon;
@@ -33,9 +36,9 @@ export class WritingTimeSection {
 		const modes: TimeModeConfig[] = settings.timeModes?.length
 			? settings.timeModes
 			: [
-				{ id: 'draft',   label: '기획', icon: 'lightbulb',  frontmatterKey: '초고_시간', goalSeconds: 7200 },
-				{ id: 'writing', label: '초고', icon: 'pencil',      frontmatterKey: '집필_시간', goalSeconds: 7200 },
-				{ id: 'editing', label: '퇴고', icon: 'spell-check', frontmatterKey: '퇴고_시간', goalSeconds: 7200 },
+				{ id: 'draft',   label: wmT("기획"), icon: 'lightbulb',  frontmatterKey: '초고_시간', goalSeconds: 7200 },
+				{ id: 'writing', label: wmT("초고"), icon: 'pencil',      frontmatterKey: '집필_시간', goalSeconds: 7200 },
+				{ id: 'editing', label: wmT("퇴고"), icon: 'spell-check', frontmatterKey: '퇴고_시간', goalSeconds: 7200 },
 			];
 		const totalKey = settings.timeTotalKey ?? '총_시간';
 
@@ -133,7 +136,6 @@ export class WritingTimeSection {
 				const hasUpdates = modes.some(m => deltas[m.id] > 0) || totalDelta > 0;
 				if (!hasUpdates) return;
 
-				const isActiveFile = app.workspace.getActiveFile()?.path === file.path;
 				const proj = getProjectName(file);
 				if (proj) {
 					const dnDeltas: Record<string, number> = {};
@@ -156,33 +158,26 @@ export class WritingTimeSection {
 				}
 
 				isSaving = true;
-				// 활성 편집기의 메모리 내용을 먼저 디스크에 반영한 다음 frontmatter를
-				// 병합한다. 활성 파일을 통째로 건너뛰면 장시간 편집할 때 시간이
-				// 프론트매터에 한 번도 기록되지 않는다.
-				const activeView = app.workspace.getActiveViewOfType(TextFileView);
-				if (
-					isActiveFile
-					&& activeView instanceof TextFileView
-					&& activeView.file?.path === file.path
-				) {
-					await activeView.save();
-				}
-				await app.fileManager.processFrontMatter(file, (fm2: Record<string, unknown>) => {
+				// 속성과 본문을 같은 편집 버퍼에서 저장해야 연속 입력 중에도
+				// 자체 시간 기록이 외부 변경으로 감지되지 않는다.
+				await processWritingFrontmatter(app, file, (fm2: Record<string, unknown>) => {
 					for (const m of modes) {
 						if (deltas[m.id] === 0) continue;
 						fm2[m.frontmatterKey] = toHMS(WritingTimeStore.parseTime(fm2[m.frontmatterKey]) + deltas[m.id]);
 					}
 					if (totalDelta > 0)
 						fm2[totalKey] = toHMS(WritingTimeStore.parseTime(fm2[totalKey]) + totalDelta);
+				}, () => {
+					for (const m of [...modes.map(m => m.id), 'total']) {
+						const entry = plugin.pendingTimeUpdates.get(`${file.path}:${m}`);
+						if (!entry) continue;
+						const savedSeconds = m === 'total' ? totalDelta : (deltas[m] ?? 0);
+						// 버퍼에 반영한 시간은 저장 실패 후에도 다시 더하지 않는다.
+						// 기다리는 사이 새로 누적된 초는 다음 저장분으로 남긴다.
+						entry.seconds = Math.max(0, entry.seconds - savedSeconds);
+						entry.dailySavedSeconds = Math.max(0, entry.dailySavedSeconds - savedSeconds);
+					}
 				});
-				for (const m of [...modes.map(m => m.id), 'total']) {
-					const entry = plugin.pendingTimeUpdates.get(`${file.path}:${m}`);
-					if (!entry) continue;
-					const savedSeconds = m === 'total' ? totalDelta : (deltas[m] ?? 0);
-					// 저장을 기다리는 사이 새로 누적된 초는 다음 저장분으로 남긴다.
-					entry.seconds = Math.max(0, entry.seconds - savedSeconds);
-					entry.dailySavedSeconds = Math.max(0, entry.dailySavedSeconds - savedSeconds);
-				}
 			} finally {
 				plugin.pendingTimeSaveInFlight.delete(file.path);
 				window.setTimeout(() => { isSaving = false; }, 200);
@@ -197,7 +192,7 @@ export class WritingTimeSection {
 			const percent = goal > 0 ? Math.round(cur / goal * 100) : 0;
 			els.timeEl.textContent = formatCardTime(cur);
 			els.percentEl.textContent = goal > 0 ? `${percent}%` : '—';
-			els.goalEl.textContent = goal > 0 ? `of ${formatCardTime(goal)}` : '목표 없음';
+			els.goalEl.textContent = goal > 0 ? `of ${formatCardTime(goal)}` : wmT("목표 없음");
 			els.progressEl.setCssStyles({ width: `${goal > 0 ? Math.max(0, Math.min(100, percent)) : 0}%` });
 		};
 
@@ -298,7 +293,7 @@ export class WritingTimeSection {
 				const chipWrap = modeCard.createDiv({ cls: 'wm-wt-mc-chip-wrap' });
 				const iconEl   = chipWrap.createSpan({ cls: 'wm-wt-mc-chip-icon' });
 				setIcon(iconEl, getModeIcon(mode));
-				chipWrap.createSpan({ cls: 'wm-wt-mc-chip-label', text: mode.label });
+				chipWrap.createSpan({ cls: 'wm-wt-mc-chip-label', text: timeModeLabel(mode) });
 
 				const progressTrack = modeCard.createDiv({ cls: 'wm-wt-mc-progress-track' });
 				const progressEl = progressTrack.createDiv({ cls: 'wm-wt-mc-progress-fill' });
@@ -370,7 +365,7 @@ export class WritingTimeSection {
 				timeChart?.destroy();
 				timeChart = null;
 				card.empty(); modeCardEls.clear();
-				card.createDiv({ cls: 'wm-wt-empty', text: '열린 문서 없음' });
+				card.createDiv({ cls: 'wm-wt-empty', text: wmT("열린 문서 없음") });
 			}
 		};
 
@@ -380,7 +375,7 @@ export class WritingTimeSection {
 			loadPending(initialFile);
 			buildCard();
 		} else {
-			card.createDiv({ cls: 'wm-wt-empty', text: '열린 문서 없음' });
+			card.createDiv({ cls: 'wm-wt-empty', text: wmT("열린 문서 없음") });
 		}
 
 		// ── 1초 누적 ──

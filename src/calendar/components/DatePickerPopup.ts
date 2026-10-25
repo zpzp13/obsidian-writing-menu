@@ -1,6 +1,7 @@
+import { wmT } from '../../i18n/index';
 import { setIcon } from 'obsidian';
 
-const MONTH_KO = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+const MONTH_KO = [wmT("1월"),wmT("2월"),wmT("3월"),wmT("4월"),wmT("5월"),wmT("6월"),wmT("7월"),wmT("8월"),wmT("9월"),wmT("10월"),wmT("11월"),wmT("12월")];
 
 export function showDatePickerPopup(
 	anchor: HTMLElement,
@@ -23,9 +24,9 @@ export function showDatePickerPopup(
 	const grid = popup.createDiv({ cls: 'wm-cal-picker-grid' });
 
 	const renderMonth = () => {
-		title.textContent = `${py}년 ${MONTH_KO[pm]}`;
+		title.textContent = wmT("{0}년 {1}", py, MONTH_KO[pm]);
 		grid.empty();
-		for (const weekday of ['월','화','수','목','금','토','일']) {
+		for (const weekday of [wmT("월"),wmT("화"),wmT("수"),wmT("목"),wmT("금"),wmT("토"),wmT("일")]) {
 			grid.createDiv({ cls: 'wm-cal-picker-wd', text: weekday });
 		}
 		const today = new Date();

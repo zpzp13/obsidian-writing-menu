@@ -270,7 +270,9 @@
       "fingerprint": "ca01e700c013e484d91a263b042ea9c148f32036beeb3c34f9f4a91ac60eaae4",
       "count": 1,
       "reason": "The existing native plot link suggestions enumerate vault Markdown names and cached aliases to insert a selected internal link. They do not read or transmit note contents.",
-      "tests": ["scripts/verify-plot-link-suggest.mjs"]
+      "tests": [
+        "scripts/verify-plot-link-suggest.mjs"
+      ]
     },
     {
       "file": "src/aichat/CliChatProcess.ts",
@@ -279,7 +281,9 @@
       "fingerprint": "2fbcd86bc8bd5690991c18f316a130c0a1c99d0f94d3e8a8a611ee66a77ee1b2",
       "count": 1,
       "reason": "Desktop-only CLI inference and cancellation load the process API only behind Platform.isDesktop; mobile never loads Node modules.",
-      "tests": ["scripts/verify-deus-cli.mjs"]
+      "tests": [
+        "scripts/verify-deus-cli.mjs"
+      ]
     },
     {
       "file": "src/aichat/CliChatProcess.ts",
@@ -288,7 +292,9 @@
       "fingerprint": "4989c350b4f4d457f1f91d000d744b50db1e6e2065423fed20bc60cb45dd1311",
       "count": 1,
       "reason": "Desktop CLI discovery uses stat to validate executable and project paths; it does not read or write files outside the vault.",
-      "tests": ["scripts/verify-deus-cli.mjs"]
+      "tests": [
+        "scripts/verify-deus-cli.mjs"
+      ]
     },
     {
       "file": "src/aichat/CliChatProcess.ts",
@@ -297,7 +303,9 @@
       "fingerprint": "42b5e679390f22ab80706a57ac098dbb3d7ba66e65c5af213aba41f163de6a3b",
       "count": 1,
       "reason": "Launches the user's native CLI or a real Node runtime, never the Electron host, with an argument array, shell:false and windowsHide:true. Both inference and model-catalog initialization use stdin/stdout; Deus owns read-only retrieval.",
-      "tests": ["scripts/verify-deus-cli.mjs"]
+      "tests": [
+        "scripts/verify-deus-cli.mjs"
+      ]
     },
     {
       "file": "src/aichat/CliChatProcess.ts",
@@ -306,7 +314,9 @@
       "fingerprint": "73c7afa0ff80b2acb81804644eb547240b5ed50702517b755ceecf8b692cecd5",
       "count": 1,
       "reason": "Windows cancellation terminates only the PID and descendants of the CLI spawned for this request, using taskkill without a shell. Other platforms kill the child directly.",
-      "tests": ["scripts/verify-deus-cli.mjs"]
+      "tests": [
+        "scripts/verify-deus-cli.mjs"
+      ]
     },
     {
       "file": "src/aichat/AiChatPanel.ts",
@@ -394,162 +404,6 @@
       "count": 1,
       "reason": "The feature needs a vault-wide file catalog for global selectors/statistics, or filters project eligibility before reading note contents. Bounded character/manuscript reads use the folder tree.",
       "tests": [
-        "scripts/verify-input-boundaries.mjs"
-      ]
-    },
-    {
-      "file": "src/export/converterMethods.ts",
-      "kind": "process",
-      "call": "require(child_process)",
-      "fingerprint": "2fbcd86bc8bd5690991c18f316a130c0a1c99d0f94d3e8a8a611ee66a77ee1b2",
-      "count": 1,
-      "reason": "Explicit HWP conversion or native picker uses a fixed Python command with separate literal arguments and no shell option.",
-      "tests": [
-        "scripts/verify-export-boundaries.mjs",
-        "scripts/verify-input-boundaries.mjs"
-      ]
-    },
-    {
-      "file": "src/export/converterMethods.ts",
-      "kind": "process",
-      "call": "spawn",
-      "fingerprint": "bcd246667ee6559c05817a3ec693ebfc8990fe0b33de3aa0d4e0f6c4c6c2b0d7",
-      "count": 1,
-      "reason": "Explicit HWP conversion or native picker uses a fixed Python command with separate literal arguments and no shell option.",
-      "tests": [
-        "scripts/verify-export-boundaries.mjs",
-        "scripts/verify-input-boundaries.mjs"
-      ]
-    },
-    {
-      "file": "src/export/converterMethods.ts",
-      "kind": "process",
-      "call": "spawn",
-      "fingerprint": "637f4fa2e4b0dd84c6ba076346ffb128f5e974c0da774dde68d9f9da5dea9398",
-      "count": 1,
-      "reason": "Explicit HWP conversion or native picker uses a fixed Python command with separate literal arguments and no shell option.",
-      "tests": [
-        "scripts/verify-export-boundaries.mjs",
-        "scripts/verify-input-boundaries.mjs"
-      ]
-    },
-    {
-      "file": "src/export/converterMethods.ts",
-      "kind": "clipboard",
-      "call": "navigator.clipboard.writeText",
-      "fingerprint": "deef6a2b7d8d854ed846968d58435315ee94d8b7f60fbc93ec26fb570b8b7ecf",
-      "count": 1,
-      "reason": "Explicit copy/paste or export action; no background polling or automatic submission.",
-      "tests": [
-        "scripts/verify-paged-performance.mjs",
-        "scripts/verify-deus-ui.mjs"
-      ]
-    },
-    {
-      "file": "src/export/converterMethods.ts",
-      "kind": "filesystem",
-      "call": "getFs",
-      "fingerprint": "4a12d434879a5efe0ce06b0ee49260882b3bc14ef6d846fad84bf9d97c329c87",
-      "count": 4,
-      "reason": "Explicit desktop export, external source-folder conversion or HWP template access. Vault-internal scripts and temporary lists use the vault adapter.",
-      "tests": [
-        "scripts/verify-export-boundaries.mjs",
-        "scripts/verify-input-boundaries.mjs"
-      ]
-    },
-    {
-      "file": "src/export/converterMethods.ts",
-      "kind": "filesystem",
-      "call": "fs.existsSync",
-      "fingerprint": "be3d47448df8221041880351fe9f3f1dfbdb6748846f8e9d2caee0887758a826",
-      "count": 3,
-      "reason": "Explicit desktop export, external source-folder conversion or HWP template access. Vault-internal scripts and temporary lists use the vault adapter.",
-      "tests": [
-        "scripts/verify-export-boundaries.mjs",
-        "scripts/verify-input-boundaries.mjs"
-      ]
-    },
-    {
-      "file": "src/export/converterMethods.ts",
-      "kind": "filesystem",
-      "call": "fs.mkdirSync",
-      "fingerprint": "32c4b569c2ca796ff26598df2de6e0159239a314c1ebba563827314891720a91",
-      "count": 3,
-      "reason": "Explicit desktop export, external source-folder conversion or HWP template access. Vault-internal scripts and temporary lists use the vault adapter.",
-      "tests": [
-        "scripts/verify-export-boundaries.mjs",
-        "scripts/verify-input-boundaries.mjs"
-      ]
-    },
-    {
-      "file": "src/export/converterMethods.ts",
-      "kind": "filesystem",
-      "call": "fs.writeFileSync",
-      "fingerprint": "26d966feef3079396b0c00831b55e3af0c8723cecc29ba14a3a84ed73773f04d",
-      "count": 1,
-      "reason": "Explicit desktop export, external source-folder conversion or HWP template access. Vault-internal scripts and temporary lists use the vault adapter.",
-      "tests": [
-        "scripts/verify-export-boundaries.mjs",
-        "scripts/verify-input-boundaries.mjs"
-      ]
-    },
-    {
-      "file": "src/export/converterMethods.ts",
-      "kind": "filesystem",
-      "call": "fs.existsSync",
-      "fingerprint": "ae19f4cfaa3b54a9aff286f4ad55482cd4b01148f8c6162c096c9d70d376e68c",
-      "count": 1,
-      "reason": "Explicit desktop export, external source-folder conversion or HWP template access. Vault-internal scripts and temporary lists use the vault adapter.",
-      "tests": [
-        "scripts/verify-export-boundaries.mjs",
-        "scripts/verify-input-boundaries.mjs"
-      ]
-    },
-    {
-      "file": "src/export/converterMethods.ts",
-      "kind": "filesystem",
-      "call": "fs.mkdirSync",
-      "fingerprint": "3f70cc5964b60fd6ca2786d02a16fe2c2b568653f2c14b2688c69ab2cfa6b294",
-      "count": 1,
-      "reason": "Explicit desktop export, external source-folder conversion or HWP template access. Vault-internal scripts and temporary lists use the vault adapter.",
-      "tests": [
-        "scripts/verify-export-boundaries.mjs",
-        "scripts/verify-input-boundaries.mjs"
-      ]
-    },
-    {
-      "file": "src/export/converterMethods.ts",
-      "kind": "filesystem",
-      "call": "fs.writeFileSync",
-      "fingerprint": "5c0a8532492aedf45ef6cd79adfcc2c08d3a204f1aeb72749dc2ff0f03649884",
-      "count": 1,
-      "reason": "Explicit desktop export, external source-folder conversion or HWP template access. Vault-internal scripts and temporary lists use the vault adapter.",
-      "tests": [
-        "scripts/verify-export-boundaries.mjs",
-        "scripts/verify-input-boundaries.mjs"
-      ]
-    },
-    {
-      "file": "src/export/converterMethods.ts",
-      "kind": "process",
-      "call": "spawn",
-      "fingerprint": "623db3d582c3cc6ee0489b7ce6f655e5cd6dcfd8d5141ec2c4651955b025091a",
-      "count": 4,
-      "reason": "Explicit HWP conversion or native picker uses a fixed Python command with separate literal arguments and no shell option.",
-      "tests": [
-        "scripts/verify-export-boundaries.mjs",
-        "scripts/verify-input-boundaries.mjs"
-      ]
-    },
-    {
-      "file": "src/export/converterMethods.ts",
-      "kind": "filesystem",
-      "call": "fs.writeFileSync",
-      "fingerprint": "d95755234f17396e422a8d09fbe832620c715c08c6264271113b950f5f505f30",
-      "count": 2,
-      "reason": "Explicit desktop export, external source-folder conversion or HWP template access. Vault-internal scripts and temporary lists use the vault adapter.",
-      "tests": [
-        "scripts/verify-export-boundaries.mjs",
         "scripts/verify-input-boundaries.mjs"
       ]
     },
@@ -758,6 +612,174 @@
       "tests": [
         "scripts/verify-chat-stream.mjs",
         "scripts/verify-rag-api.mjs"
+      ]
+    },
+    {
+      "file": "src/export/converterMethods.ts",
+      "kind": "clipboard",
+      "call": "navigator.clipboard.writeText",
+      "fingerprint": "c78426f24a0ebaf30761e9d06cc3051fe52b31ceec2d9bf58ec397217ca135af",
+      "count": 1,
+      "reason": "User-invoked copy writes the prepared manuscript text to the clipboard.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-hwpx.mjs"
+      ]
+    },
+    {
+      "file": "src/export/converterMethods.ts",
+      "kind": "filesystem",
+      "call": "getFs",
+      "fingerprint": "4a12d434879a5efe0ce06b0ee49260882b3bc14ef6d846fad84bf9d97c329c87",
+      "count": 3,
+      "reason": "User-selected external TXT/HWPX destinations use fs for directory creation and output; template path existence and realpath checks protect the original. Manuscripts are read only through Obsidian Vault APIs.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-hwpx.mjs"
+      ]
+    },
+    {
+      "file": "src/export/converterMethods.ts",
+      "kind": "filesystem",
+      "call": "fs.existsSync",
+      "fingerprint": "eb7ce1c79f52ae2231023d6df1fa8567d33816edb1bae49fb137d6f139b02fb0",
+      "count": 1,
+      "reason": "User-selected external TXT/HWPX destinations use fs for directory creation and output; template path existence and realpath checks protect the original. Manuscripts are read only through Obsidian Vault APIs.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-hwpx.mjs"
+      ]
+    },
+    {
+      "file": "src/export/converterMethods.ts",
+      "kind": "filesystem",
+      "call": "fs.realpathSync(template).toLowerCase",
+      "fingerprint": "080c0705f6de1ad87af17f92299e5d1c40ac39b289fadf1a9c5d738677ed7ce6",
+      "count": 1,
+      "reason": "User-selected external TXT/HWPX destinations use fs for directory creation and output; template path existence and realpath checks protect the original. Manuscripts are read only through Obsidian Vault APIs.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-hwpx.mjs"
+      ]
+    },
+    {
+      "file": "src/export/converterMethods.ts",
+      "kind": "filesystem",
+      "call": "fs.realpathSync",
+      "fingerprint": "8c888a949bee9b6322b48a940875342e4f9ccdc149839e0d57c7a7de7eeab5f2",
+      "count": 1,
+      "reason": "User-selected external TXT/HWPX destinations use fs for directory creation and output; template path existence and realpath checks protect the original. Manuscripts are read only through Obsidian Vault APIs.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-hwpx.mjs"
+      ]
+    },
+    {
+      "file": "src/export/converterMethods.ts",
+      "kind": "filesystem",
+      "call": "fs.existsSync",
+      "fingerprint": "0177ab04d74248542fc7a0d5d5ba6fe0dbb6bcbe6a0f6be19c91605a06f3a70d",
+      "count": 1,
+      "reason": "User-selected external TXT/HWPX destinations use fs for directory creation and output; template path existence and realpath checks protect the original. Manuscripts are read only through Obsidian Vault APIs.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-hwpx.mjs"
+      ]
+    },
+    {
+      "file": "src/export/converterMethods.ts",
+      "kind": "filesystem",
+      "call": "fs.realpathSync(document.path).toLowerCase",
+      "fingerprint": "fcecb00084348275596a1d7071f894056a30751fb63854143b991fc6365f391d",
+      "count": 1,
+      "reason": "User-selected external TXT/HWPX destinations use fs for directory creation and output; template path existence and realpath checks protect the original. Manuscripts are read only through Obsidian Vault APIs.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-hwpx.mjs"
+      ]
+    },
+    {
+      "file": "src/export/converterMethods.ts",
+      "kind": "filesystem",
+      "call": "fs.realpathSync",
+      "fingerprint": "03fe01a02f382d664c10c5d9b858824dba41b31cd19ba116a188fbbe3461c9e3",
+      "count": 1,
+      "reason": "User-selected external TXT/HWPX destinations use fs for directory creation and output; template path existence and realpath checks protect the original. Manuscripts are read only through Obsidian Vault APIs.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-hwpx.mjs"
+      ]
+    },
+    {
+      "file": "src/export/converterMethods.ts",
+      "kind": "filesystem",
+      "call": "fs.writeFileSync",
+      "fingerprint": "e14ba120c1ea93f9a07e6fd26ddf8d7d3cd7272b9a5c7d5126a3c7012d5bd309",
+      "count": 1,
+      "reason": "User-selected external TXT/HWPX destinations use fs for directory creation and output; template path existence and realpath checks protect the original. Manuscripts are read only through Obsidian Vault APIs.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-hwpx.mjs"
+      ]
+    },
+    {
+      "file": "src/export/converterMethods.ts",
+      "kind": "filesystem",
+      "call": "fs.writeFileSync",
+      "fingerprint": "98bcc9b8d1aa0a6a74e219312903c8da50187a00934d49c9f0721b82af96295f",
+      "count": 1,
+      "reason": "User-selected external TXT/HWPX destinations use fs for directory creation and output; template path existence and realpath checks protect the original. Manuscripts are read only through Obsidian Vault APIs.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-hwpx.mjs"
+      ]
+    },
+    {
+      "file": "src/export/converterMethods.ts",
+      "kind": "filesystem",
+      "call": "fs.existsSync",
+      "fingerprint": "3b32455009a21624baff8dce091f1bbf1b16d58289720001d7811668dcfcec59",
+      "count": 1,
+      "reason": "User-selected external TXT/HWPX destinations use fs for directory creation and output; template path existence and realpath checks protect the original. Manuscripts are read only through Obsidian Vault APIs.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-hwpx.mjs"
+      ]
+    },
+    {
+      "file": "src/export/converterMethods.ts",
+      "kind": "filesystem",
+      "call": "fs.mkdirSync",
+      "fingerprint": "7f066082ffd47c3a7ed1daeba728219ad34583a5ced4f923d4441d5b75c8a5fe",
+      "count": 1,
+      "reason": "User-selected external TXT/HWPX destinations use fs for directory creation and output; template path existence and realpath checks protect the original. Manuscripts are read only through Obsidian Vault APIs.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-hwpx.mjs"
+      ]
+    },
+    {
+      "file": "src/export/DesktopExport.ts",
+      "kind": "process",
+      "call": "require(child_process)",
+      "fingerprint": "2fbcd86bc8bd5690991c18f316a130c0a1c99d0f94d3e8a8a611ee66a77ee1b2",
+      "count": 1,
+      "reason": "User-invoked Windows template automation and native path pickers use fixed PowerShell/osascript source, literal argument arrays, shell:false and JSON stdin for document data. Plain HWPX generation never launches a converter.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-hwpx.mjs"
+      ]
+    },
+    {
+      "file": "src/export/DesktopExport.ts",
+      "kind": "process",
+      "call": "spawn",
+      "fingerprint": "13cd8a27115c2c2f99295f9f5c1d1d6f2e77cfccc4af0c663a8bf856025e4b99",
+      "count": 1,
+      "reason": "User-invoked Windows template automation and native path pickers use fixed PowerShell/osascript source, literal argument arrays, shell:false and JSON stdin for document data. Plain HWPX generation never launches a converter.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-hwpx.mjs"
       ]
     }
   ]

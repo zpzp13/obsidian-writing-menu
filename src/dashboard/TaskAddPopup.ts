@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { setIcon } from 'obsidian';
 
 declare const moment: (date?: unknown, fmt?: string) => { format(f: string): string };
@@ -6,7 +7,7 @@ import { TaskParser } from './data/TaskParser';
 import { openPopupAutoClose } from './TaskItem';
 import { formatDateKey } from '../utils/dateUtils';
 
-const DOW_S = ['일','월','화','수','목','금','토'];
+const DOW_S = [wmT("일"),wmT("월"),wmT("화"),wmT("수"),wmT("목"),wmT("금"),wmT("토")];
 
 export function showTaskAddPopup(
 	anchor: HTMLElement,
@@ -60,7 +61,7 @@ export function showTaskAddPopup(
 		const dgrid = dpop.createDiv({ cls: 'wm-mini-picker-grid' });
 
 		const buildPicker = () => {
-			dtitle.textContent = `${py}년 ${pm + 1}월`;
+			dtitle.textContent = wmT("{0}년 {1}월", py, pm + 1);
 			dgrid.empty();
 			for (const d of DOW_S) dgrid.createDiv({ cls: 'wm-mini-picker-dow', text: d });
 			const dow = new Date(py, pm, 1).getDay();
@@ -106,19 +107,19 @@ export function showTaskAddPopup(
 	const contentRow = popup.createDiv({ cls: 'wm-task-add-field' });
 	const contentInput = contentRow.createEl('input', {
 		type: 'text', cls: 'wm-task-add-input',
-		attr: { placeholder: '할 일 제목' },
+		attr: { placeholder: wmT("할 일 제목") },
 	});
 
 	const tagRow = popup.createDiv({ cls: 'wm-task-add-field' });
 	const tagInput = tagRow.createEl('input', {
 		type: 'text', cls: 'wm-task-add-input',
-		attr: { placeholder: '#태그1 #태그2' },
+		attr: { placeholder: wmT("#태그1 #태그2") },
 	});
 
 	const subRow = popup.createDiv({ cls: 'wm-task-add-field' });
 	const subArea = subRow.createEl('textarea', {
 		cls: 'wm-task-add-textarea',
-		attr: { placeholder: '하위항목 (줄바꿈으로 구분)', rows: '3' },
+		attr: { placeholder: wmT("하위항목 (줄바꿈으로 구분)"), rows: '3' },
 	});
 
 	const close  = () => popup.remove();
@@ -155,8 +156,8 @@ export function showTaskAddPopup(
 	});
 
 	const footer = popup.createDiv({ cls: 'wm-task-add-footer' });
-	const cancelBtn = footer.createEl('button', { cls: 'wm-task-add-cancel-btn', text: '취소' });
-	const submitBtn = footer.createEl('button', { cls: 'wm-task-add-submit-btn', text: '추가' });
+	const cancelBtn = footer.createEl('button', { cls: 'wm-task-add-cancel-btn', text: wmT("취소") });
+	const submitBtn = footer.createEl('button', { cls: 'wm-task-add-submit-btn', text: wmT("추가") });
 	cancelBtn.addEventListener('click', (e) => { e.stopPropagation(); close(); });
 	submitBtn.addEventListener('click', (e) => { e.stopPropagation(); void submit(); });
 

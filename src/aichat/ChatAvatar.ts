@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { detachedEl } from '../utils/dom';
 import type { TFile } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
@@ -15,13 +16,13 @@ function portraitRaster(document: Document, src: string, pixels: number): Promis
 	const pending = new Promise<HTMLCanvasElement>((resolve, reject) => {
 		const image = detachedEl(document, 'img');
 		image.decoding = 'async';
-		image.onerror = () => reject(new Error('프로필 이미지를 불러오지 못했습니다.'));
+		image.onerror = () => reject(new Error(wmT("프로필 이미지를 불러오지 못했습니다.")));
 		image.onload = () => {
 			try {
-				if (!image.naturalWidth || !image.naturalHeight) throw new Error('비어 있는 프로필 이미지입니다.');
+				if (!image.naturalWidth || !image.naturalHeight) throw new Error(wmT("비어 있는 프로필 이미지입니다."));
 				const raster = detachedEl(document, 'canvas'); raster.width = pixels; raster.height = pixels;
 				const context = raster.getContext('2d');
-				if (!context) throw new Error('프로필 이미지를 그리지 못했습니다.');
+				if (!context) throw new Error(wmT("프로필 이미지를 그리지 못했습니다."));
 				context.imageSmoothingEnabled = true;
 				context.imageSmoothingQuality = 'high';
 				const side = Math.min(image.naturalWidth, image.naturalHeight);
@@ -40,7 +41,7 @@ function portraitRaster(document: Document, src: string, pixels: number): Promis
 /** Both chat surfaces use the same image load/fallback lifecycle. */
 export function renderChatAvatar(parent: HTMLElement, plugin: WritingMenuPlugin, file: TFile | null, className = 'wm-chat-avatar'): HTMLElement {
 	const avatar = parent.createSpan({ cls: className, attr: { 'aria-hidden': 'true' } });
-	const name = file ? getWikiDisplayName(plugin.app, plugin, file) : '작가';
+	const name = file ? getWikiDisplayName(plugin.app, plugin, file) : wmT("작가");
 	const initial = avatar.createSpan({ cls: 'wm-chat-avatar-initial', text: Array.from(name.trim())[0] ?? '' });
 	const src = file ? getWikiImgSrc(plugin.app, plugin, file) : '';
 	if (!src) return avatar;
@@ -51,7 +52,7 @@ export function renderChatAvatar(parent: HTMLElement, plugin: WritingMenuPlugin,
 	canvas.width = pixels; canvas.height = pixels;
 	void portraitRaster(avatar.ownerDocument, src, pixels).then(raster => {
 		const context = canvas.getContext('2d');
-		if (!context) throw new Error('프로필 이미지를 그리지 못했습니다.');
+		if (!context) throw new Error(wmT("프로필 이미지를 그리지 못했습니다."));
 		context.imageSmoothingEnabled = true; context.imageSmoothingQuality = 'high';
 		context.drawImage(raster, 0, 0);
 		initial.hidden = true; canvas.hidden = false;

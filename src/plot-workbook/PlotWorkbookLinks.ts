@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { Notice, type App } from 'obsidian';
 import { hasControlCharacters } from '../utils/typeGuards';
 
@@ -23,7 +24,7 @@ export function renderPlotWorkbookLinks(
 				if (event.button > 1) return;
 				event.preventDefault(); event.stopPropagation();
 				void app.workspace.openLinkText(target, sourcePath, event.ctrlKey || event.metaKey || event.button === 1)
-					.catch(() => new Notice('내부링크를 열지 못했습니다.'));
+					.catch(() => new Notice(wmT("내부링크를 열지 못했습니다.")));
 			};
 			link.addEventListener('click', open);
 			link.addEventListener('auxclick', open);

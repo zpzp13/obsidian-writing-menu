@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { columnLabel, type PlotWorkbookColumnRole, type PlotWorkbookSheet } from './PlotWorkbookTypes';
 
 export const PLOT_COLUMN_ICONS: Record<PlotWorkbookColumnRole,string> = {
@@ -6,7 +7,7 @@ export const PLOT_COLUMN_ICONS: Record<PlotWorkbookColumnRole,string> = {
 
 export function plotColumnTitle(sheet: PlotWorkbookSheet, id: string): string {
 	const column = sheet.columns[id];
-	if (column.role === 'cast') return '등장';
-	if (column.role === 'foreshadow') return '복선';
+	if (column.role === 'cast') return wmT("등장");
+	if (column.role === 'foreshadow') return wmT("복선");
 	return column.title || columnLabel(sheet.columnOrder.indexOf(id));
 }

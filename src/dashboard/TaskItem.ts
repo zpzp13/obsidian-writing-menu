@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { setIcon, TFile, MarkdownView } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { ParsedTask } from './data/TaskParser';
@@ -5,11 +6,11 @@ import { TaskParser } from './data/TaskParser';
 import { formatDateKey } from '../utils/dateUtils';
 
 export const PRIORITY_MAP = [
-	{ label: '없음', emoji: '',   color: 'var(--text-faint)' },
-	{ label: '낮음', emoji: '🔽', color: 'var(--color-blue)' },
-	{ label: '보통', emoji: '🔼', color: 'var(--color-yellow)' },
-	{ label: '높음', emoji: '🔺', color: 'var(--color-orange)' },
-	{ label: '최고', emoji: '⏫', color: 'var(--color-red)' },
+	{ label: wmT("없음"), emoji: '',   color: 'var(--text-faint)' },
+	{ label: wmT("낮음"), emoji: '🔽', color: 'var(--color-blue)' },
+	{ label: wmT("보통"), emoji: '🔼', color: 'var(--color-yellow)' },
+	{ label: wmT("높음"), emoji: '🔺', color: 'var(--color-orange)' },
+	{ label: wmT("최고"), emoji: '⏫', color: 'var(--color-red)' },
 ] as const;
 
 export const EMOJI_TO_PRIORITY: Record<string, string> = {
@@ -20,12 +21,12 @@ function formatTaskDate(date: Date): string {
 	const year = date.getFullYear();
 	const month = String(date.getMonth() + 1).padStart(2, '0');
 	const day = String(date.getDate()).padStart(2, '0');
-	return `${year}년 ${month}월 ${day}일`;
+	return wmT("{0}년 {1}월 {2}일", year, month, day);
 }
 
 function formatTaskDateKey(dateKey: string): string {
 	const match = dateKey.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-	return match ? `${match[1]}년 ${match[2]}월 ${match[3]}일` : dateKey;
+	return match ? wmT("{0}년 {1}월 {2}일", match[1], match[2], match[3]) : dateKey;
 }
 
 export function openPopupAutoClose(popup: HTMLElement) {

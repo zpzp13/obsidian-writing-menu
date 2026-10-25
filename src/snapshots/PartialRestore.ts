@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { computeLineDiff, type DiffHunk } from './diff';
 
 export interface SnapshotComparison { before: string; current: string; hunks: DiffHunk[] }
@@ -11,7 +12,7 @@ export function restoreSnapshotHunks(comparison: SnapshotComparison, selected: R
 	const indexes = [...selected].sort((a, b) => b - a);
 	for (const index of indexes) {
 		const hunk = comparison.hunks[index];
-		if (!hunk || hunk.type === 'equal') throw new Error('복원할 변경 구간을 다시 선택해 주세요.');
+		if (!hunk || hunk.type === 'equal') throw new Error(wmT("복원할 변경 구간을 다시 선택해 주세요."));
 		lines.splice(hunk.bStart, hunk.bLines.length, ...hunk.aLines);
 	}
 	return lines.join('\n');

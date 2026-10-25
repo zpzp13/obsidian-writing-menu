@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { App, Notice, TFile } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 
@@ -28,12 +29,12 @@ export function getWikiColor(app: App, plugin: WritingMenuPlugin, file: TFile): 
 export async function applyProfileImage(app: App, plugin: WritingMenuPlugin, noteFile: TFile, imgFile: TFile, container: HTMLElement | null): Promise<void> {
 	const key = plugin.settings.wikiImageFieldName;
 	if (!key) {
-		new Notice('플러그인 설정에서 이미지 필드를 먼저 지정하세요.');
+		new Notice(wmT("플러그인 설정에서 이미지 필드를 먼저 지정하세요."));
 		return;
 	}
 	const linktext = app.metadataCache.fileToLinktext(imgFile, noteFile.path, false);
 	await app.fileManager.processFrontMatter(noteFile, (fm: Record<string, unknown>) => { fm[key.trim()] = `[[${linktext}]]`; });
-	new Notice(`이미지 업데이트: ${key} = [[${imgFile.name}]]`);
+	new Notice(wmT("이미지 업데이트: {0} = [[{1}]]", key, imgFile.name));
 	// DOM 즉시 업데이트 (metadataCache 갱신 전에도 반영)
 	const imgSrc = app.vault.getResourcePath(imgFile);
 	if (container) {

@@ -1,28 +1,29 @@
+import { wmT } from '../i18n/index';
 import { Notice, normalizePath, requestUrl } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 
 export const MOBILE_WEB_FONTS = [
-	{ id: 'ridibatang', name: '리디바탕', source: 'https://ridicorp.com/ridibatang/',
+	{ id: 'ridibatang', name: wmT("리디바탕"), source: 'https://ridicorp.com/ridibatang/',
 		faces: [{ weight: 400, url: 'https://ridicorp.com/wp-content/themes/ridicorp/css/font/RIDIBatang.otf' }] },
-	{ id: 'maruburi', name: '마루 부리', source: 'https://hangeul.naver.com/font',
+	{ id: 'maruburi', name: wmT("마루 부리"), source: 'https://hangeul.naver.com/font',
 		faces: ([['ExtraLight', 200], ['Light', 300], ['Regular', 400], ['SemiBold', 600], ['Bold', 700]] as const)
 			.map(([name, weight]) => ({ weight, url: `https://hangeul.pstatic.net/hangeul_static/webfont/MaruBuri/MaruBuri-${name}.woff2` })) },
-	{ id: 'nanummyeongjo', name: '나눔명조', source: 'https://fonts.google.com/specimen/Nanum+Myeongjo',
+	{ id: 'nanummyeongjo', name: wmT("나눔명조"), source: 'https://fonts.google.com/specimen/Nanum+Myeongjo',
 		faces: ([['Regular', 400], ['Bold', 700], ['ExtraBold', 800]] as const)
 			.map(([name, weight]) => ({ weight, url: `https://raw.githubusercontent.com/google/fonts/main/ofl/nanummyeongjo/NanumMyeongjo-${name}.ttf` })) },
-	{ id: 'nanumgothic', name: '나눔고딕', source: 'https://fonts.google.com/specimen/Nanum+Gothic',
+	{ id: 'nanumgothic', name: wmT("나눔고딕"), source: 'https://fonts.google.com/specimen/Nanum+Gothic',
 		faces: ([['Regular', 400], ['Bold', 700], ['ExtraBold', 800]] as const)
 			.map(([name, weight]) => ({ weight, url: `https://raw.githubusercontent.com/google/fonts/main/ofl/nanumgothic/NanumGothic-${name}.ttf` })) },
-	{ id: 'pretendard', name: '프리텐다드', source: 'https://github.com/orioncactus/pretendard',
+	{ id: 'pretendard', name: wmT("프리텐다드"), source: 'https://github.com/orioncactus/pretendard',
 		faces: ([['Light', 300], ['Regular', 400], ['Medium', 500], ['SemiBold', 600], ['Bold', 700]] as const)
 			.map(([name, weight]) => ({ weight, url: `https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/packages/pretendard/dist/web/static/woff2/Pretendard-${name}.woff2` })) },
-	{ id: 'spoqahansansneo', name: '스포카 한 산스 네오', source: 'https://github.com/spoqa/spoqa-han-sans',
+	{ id: 'spoqahansansneo', name: wmT("스포카 한 산스 네오"), source: 'https://github.com/spoqa/spoqa-han-sans',
 		faces: ([['Light', 300], ['Regular', 400], ['Medium', 500], ['Bold', 700]] as const)
 			.map(([name, weight]) => ({ weight, url: `https://raw.githubusercontent.com/spoqa/spoqa-han-sans/master/Subset/SpoqaHanSansNeo/SpoqaHanSansNeo-${name}.woff2` })) },
 ] as const;
 
 export function mobileFontName(id: string): string {
-	return MOBILE_WEB_FONTS.find(font => font.id === id)?.name ?? '시스템 폰트';
+	return MOBILE_WEB_FONTS.find(font => font.id === id)?.name ?? wmT("시스템 폰트");
 }
 
 /** Only font bytes from the curated catalog are fetched; no remote CSS is executed. */
@@ -64,7 +65,7 @@ export class MobileFontManager {
 				this.onReady();
 			} catch (error) {
 				this.failures.add(selected.key);
-				if (!this.disposed) new Notice(`${selected.font.name}을 불러오지 못해 시스템 글꼴을 사용합니다. 모바일 글꼴 설정에서 다시 시도할 수 있습니다.\n${error instanceof Error ? error.message : String(error)}`);
+				if (!this.disposed) new Notice(wmT("{0}을 불러오지 못해 시스템 글꼴을 사용합니다. 모바일 글꼴 설정에서 다시 시도할 수 있습니다.\n{1}", selected.font.name, error instanceof Error ? error.message : String(error)));
 			} finally { jobs.delete(selected.key); }
 		})();
 		jobs.set(selected.key, job);
@@ -101,9 +102,9 @@ export class MobileFontManager {
 				} catch { /* An interrupted or stale cache must not prevent a fresh download. */ }
 			}
 			const response = await this.fetchFont({ url, throw: false });
-			if (response.status !== 200) throw new Error(`다운로드 실패 (HTTP ${response.status})`);
+			if (response.status !== 200) throw new Error(wmT("다운로드 실패 (HTTP {0})", response.status));
 			const bytes = response.arrayBuffer;
-			if (!bytes.byteLength || bytes.byteLength > 12 * 1024 * 1024) throw new Error('글꼴 파일 크기가 올바르지 않습니다.');
+			if (!bytes.byteLength || bytes.byteLength > 12 * 1024 * 1024) throw new Error(wmT("글꼴 파일 크기가 올바르지 않습니다."));
 			await new FontFace('wm-font-download-probe', bytes).load();
 			if (!this.disposed) {
 				// Cache failure must not prevent using a successfully loaded font.

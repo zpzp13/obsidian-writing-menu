@@ -1,9 +1,10 @@
+import { wmT, getLocale } from '../i18n/index';
 import { quotaError, responseRetryAt } from './ChatQuotaError';
 
 export class GeminiServiceError extends Error {
 	readonly name = 'GeminiServiceError';
 	constructor(readonly status: number, readonly retryAt?: number) {
-		super(`Gemini 서버가 혼잡하거나 일시적으로 응답하지 않습니다 (HTTP ${status}). ${retryAt ? `${new Date(retryAt).toLocaleTimeString('ko-KR')} 이후 재시도해 주세요.` : '잠시 후 재시도해 주세요.'}`);
+		super(wmT("Gemini 서버가 혼잡하거나 일시적으로 응답하지 않습니다 (HTTP {0}). {1}", status, retryAt ? wmT("{0} 이후 재시도해 주세요.", new Date(retryAt).toLocaleTimeString(getLocale())) : wmT("잠시 후 재시도해 주세요.")));
 	}
 }
 
@@ -18,5 +19,5 @@ export function geminiApiError(httpStatus: number, body?: unknown, retryAfter?: 
 	}
 	if (status === 429) return quotaError(body, retryAfter);
 	if ([500, 502, 503, 504].includes(status)) return new GeminiServiceError(status, responseRetryAt(body, retryAfter));
-	return new Error(`${status ? `Gemini 요청 오류 (HTTP ${status})` : 'Gemini 응답에 오류가 있습니다.'}${typeof error?.message === 'string' && error.message ? `: ${error.message}` : ''}`);
+	return new Error(`${status ? wmT("Gemini 요청 오류 (HTTP {0})", status) : wmT("Gemini 응답에 오류가 있습니다.")}${typeof error?.message === 'string' && error.message ? `: ${error.message}` : ''}`);
 }

@@ -1,3 +1,5 @@
+import { wmT } from '../../i18n/index';
+import { dashboardSectionLabel } from '../../i18n/labels';
 import { ItemView, WorkspaceLeaf, setIcon, TFile } from 'obsidian';
 
 import type WritingMenuPlugin from '../../../main';
@@ -57,7 +59,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 	}
 
 	getViewType()    { return VIEW_TYPE_CALENDAR; }
-	getDisplayText() { return '대시보드'; }
+	getDisplayText() { return wmT("대시보드"); }
 	getIcon()        { return 'layout-dashboard'; }
 
 	async onOpen() {
@@ -119,7 +121,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 
 		const pickerBtn = left.createEl('button', {
 			cls: 'wm-cal-icon-btn',
-			attr: { type: 'button', 'aria-label': '날짜 선택' },
+			attr: { type: 'button', 'aria-label': wmT("날짜 선택") },
 		});
 		setIcon(pickerBtn, 'calendar');
 		pickerBtn.addEventListener('click', e => {
@@ -138,7 +140,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 		const nav = bar.createDiv({ cls: 'wm-cal-agenda-nav' });
 		const prev = nav.createEl('button', {
 			cls: 'wm-cal-icon-btn',
-			attr: { type: 'button', 'aria-label': '이전 달' },
+			attr: { type: 'button', 'aria-label': wmT("이전 달") },
 		});
 		setIcon(prev, 'chevron-left');
 		const today = nav.createEl('button', {
@@ -146,10 +148,10 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 		});
 		const next = nav.createEl('button', {
 			cls: 'wm-cal-icon-btn',
-			attr: { type: 'button', 'aria-label': '다음 주' },
+			attr: { type: 'button', 'aria-label': wmT("다음 주") },
 		});
 		setIcon(next, 'chevron-right');
-		prev.setAttribute('aria-label', '이전 주');
+		prev.setAttribute('aria-label', wmT("이전 주"));
 		prev.addEventListener('click', () => this.shiftWeek(-1));
 		today.addEventListener('click', () => this.goToToday());
 		next.addEventListener('click', () => this.shiftWeek(1));
@@ -159,7 +161,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 		if (!this.dateDisplayEl) return;
 		const d  = this.selectedDate;
 		const y  = d.getFullYear();
-		this.dateDisplayEl.textContent = `${y}년 ${d.getMonth() + 1}월`;
+		this.dateDisplayEl.textContent = wmT("{0}년 {1}월", y, d.getMonth() + 1);
 	}
 
 	// ── Month navigation ─────────────────────────────────────────────
@@ -200,7 +202,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 
 			const cell = grid.createDiv({
 				cls: 'wm-cal-cell wm-cal-week-cell',
-				attr: { role: 'button', tabindex: '0', 'aria-label': `${d.getMonth() + 1}월 ${d.getDate()}일` },
+				attr: { role: 'button', tabindex: '0', 'aria-label': wmT("{0}월 {1}일", d.getMonth() + 1, d.getDate()) },
 			});
 			if (isWeekend) cell.addClass('wm-cal-weekend');
 			if (isToday)   cell.addClass('wm-cal-today');
@@ -245,7 +247,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 
 	private renderDashboardTabBar(container: HTMLElement) {
 		const row = container.createDiv({ cls: 'wm-dash-tab-row' });
-		const bar = row.createDiv({ cls: 'wm-dash-tab-bar', attr: { role: 'tablist', 'aria-label': '대시보드 메뉴' } });
+		const bar = row.createDiv({ cls: 'wm-dash-tab-bar', attr: { role: 'tablist', 'aria-label': wmT("대시보드 메뉴") } });
 		const buttons = new Map<DashTab, HTMLButtonElement>();
 		for (const tab of TABS) {
 			const btn = bar.createEl('button', {
@@ -309,11 +311,11 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 	private renderMainDashboard(panel: HTMLElement) {
 		panel.addClass('wm-dash-panel-main');
 		const fallback: DashSectionConfig[] = [
-			{ id: 'calendar', label: '일정', visible: true },
-			{ id: 'timer', label: '타이머', visible: true },
-			{ id: 'chars', label: '글자수', visible: true },
-			{ id: 'time', label: '작업 시간', visible: true },
-			{ id: 'music', label: '음악', visible: true },
+			{ id: 'calendar', label: wmT("일정"), visible: true },
+			{ id: 'timer', label: wmT("타이머"), visible: true },
+			{ id: 'chars', label: wmT("글자수"), visible: true },
+			{ id: 'time', label: wmT("작업 시간"), visible: true },
+			{ id: 'music', label: wmT("음악"), visible: true },
 		];
 		const sections = panel.createDiv({ cls: 'wm-dash wm-dash-main-sections' });
 		for (const configured of this.plugin.settings.dashboardSections ?? fallback) {
@@ -426,14 +428,14 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 		const backBtn = header.createDiv({ cls: 'wm-dash-sort-back' });
 		setIcon(backBtn, 'chevron-left');
 		backBtn.addEventListener('click', () => { this.dashSubView = 'content'; this.render(); });
-		header.createDiv({ cls: 'wm-dash-sort-title', text: '섹션 구성' });
+		header.createDiv({ cls: 'wm-dash-sort-title', text: wmT("섹션 구성") });
 
 		const cfg: DashSectionConfig[] = (this.plugin.settings.dashboardSections ?? [
-			{ id: 'calendar', label: '일정', visible: true },
-			{ id: 'timer', label: '타이머', visible: true },
-			{ id: 'chars', label: '글자수', visible: true },
-			{ id: 'time', label: '작업 시간', visible: true },
-			{ id: 'music', label: '음악', visible: true },
+			{ id: 'calendar', label: wmT("일정"), visible: true },
+			{ id: 'timer', label: wmT("타이머"), visible: true },
+			{ id: 'chars', label: wmT("글자수"), visible: true },
+			{ id: 'time', label: wmT("작업 시간"), visible: true },
+			{ id: 'music', label: wmT("음악"), visible: true },
 		]).filter(sec => ['calendar', 'chars', 'timer', 'time', 'music'].includes(sec.id));
 
 		const list = panel.createDiv({ cls: 'wm-dash-sort-list' });
@@ -471,7 +473,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 					save().catch(() => {});
 				});
 
-				row.createDiv({ cls: 'wm-dash-sort-label', text: sec.label });
+				row.createDiv({ cls: 'wm-dash-sort-label', text: dashboardSectionLabel(sec.id, sec.label) });
 
 				// 위/아래 버튼
 				const upBtn = row.createDiv({ cls: 'wm-dash-sort-arrow' + (idx === 0 ? ' is-disabled' : '') });

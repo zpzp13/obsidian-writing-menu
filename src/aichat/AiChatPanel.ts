@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { isComposingKey } from '../utils/inputCompatibility';
 import { Component, MarkdownRenderer, Menu, Modal, Notice, Setting, TFile, normalizePath, setIcon, type HoverParent } from 'obsidian';
 import { cliChatOptions } from './CliChatApi';
@@ -33,7 +34,7 @@ import { AiChatKnowledge } from './AiChatKnowledge';
 import { DEUS_CITATIONS, contextSourceText, prepareDeusMarkdown, locateChatQuote } from './AiChatPrompt';
 import { ragIndex } from './rag/RagIndexService';
 import { requestedEpisode, requestedEpisodeScope } from './rag/RagEpisodes';
-import { DEUS_SKILLS, DEUS_REPLY_STYLE, resolveDeusIntent, deusSkillInstructions, parseDeusDialogue, parseDeusCommand } from './DeusSkills';
+import { DEUS_SKILLS, DEUS_REPLY_STYLE, resolveDeusIntent, deusSkillInstructions, deusReplyLanguage, parseDeusDialogue, parseDeusCommand } from './DeusSkills';
 import { collectDeusScene, deusSourceAllowed } from './DeusSceneContext';
 import type { DeusSkill } from './AiChatTypes';
 
@@ -100,7 +101,7 @@ export class AiChatPanel {
 			if (!project) return;
 			this.deusProjectRoot = project.rootFolder;
 			const entry = (await this.storage.listSessions()).find(item => item.mode === 'deus' && item.projectRoot === project.rootFolder);
-			const session = entry ? await this.storage.loadById(entry.id) : await this.storage.createNewSession('', '새 대화');
+			const session = entry ? await this.storage.loadById(entry.id) : await this.storage.createNewSession('', wmT("새 대화"));
 			if (this.mode !== 'deus' || this.deusProjectRoot !== project.rootFolder || this.disposed || this.session) return;
 			this.session = session;
 			if (this.session) { this.session.mode = 'deus'; this.session.projectRoot = project.rootFolder; this.restoreSpeaker(this.session); }
@@ -127,11 +128,11 @@ export class AiChatPanel {
 		layout.root.addEventListener('keydown', escape);
 		this.layoutCleanup = () => { this.closeModelMenu(); resize.disconnect(); sidebarResize.dispose(); composerMenu.dispose(); this.scrollFollow?.dispose(); this.scrollFollow = undefined; this.refreshReferenceMenu = undefined; layout.root.removeEventListener('keydown', escape); this.syncNavigator = undefined; };
 		void this.renderNavigator(layout.sidebar, closeNavigator);
-		this.icon(layout.header, 'panel-left', '프로젝트와 세션 열기', () => { this.history = !this.history; this.syncNavigator?.(); }).addClass('deus-navigator-toggle');
-		this.icon(layout.header, 'square-pen', '새 대화', () => void this.newSession());
-		layout.header.createSpan({ cls: 'deus-session-name', text: this.session?.title || '새 대화' });
-		if (this.session?.parentId) this.icon(layout.header, 'corner-up-left', '분기 전 대화', () => void this.loadSession(this.session!.parentId!));
-		this.icon(layout.header, 'ellipsis', '대화 설정', event => this.menu(event)).addClass('deus-header-settings');
+		this.icon(layout.header, 'panel-left', wmT("프로젝트와 세션 열기"), () => { this.history = !this.history; this.syncNavigator?.(); }).addClass('deus-navigator-toggle');
+		this.icon(layout.header, 'square-pen', wmT("새 대화"), () => void this.newSession());
+		layout.header.createSpan({ cls: 'deus-session-name', text: this.session?.title || wmT("새 대화") });
+		if (this.session?.parentId) this.icon(layout.header, 'corner-up-left', wmT("분기 전 대화"), () => void this.loadSession(this.session!.parentId!));
+		this.icon(layout.header, 'ellipsis', wmT("대화 설정"), event => this.menu(event)).addClass('deus-header-settings');
 		this.messagesEl = layout.messages; this.scrollFollow = bindDeusScrollFollow(layout.messages); this.renderMessages(true);
 		this.renderContexts(layout.contextRow);
 		const input = layout.input;
@@ -141,7 +142,7 @@ export class AiChatPanel {
 			void this.plugin.app.workspace.openLinkText(link.dataset.deusMention!, '', event.ctrlKey || event.metaKey).catch(report);
 		});
 		const draftKey = this.session?.id ?? 'new'; input.value = this.drafts.get(draftKey) ?? '';
-		const suggestions = layout.inputWrapper.createDiv({ cls: 'deus-composer-dropdown', attr: { role: 'listbox', 'aria-label': '스킬·노트 제안' } }); suggestions.hidden = true;
+		const suggestions = layout.inputWrapper.createDiv({ cls: 'deus-composer-dropdown', attr: { role: 'listbox', 'aria-label': wmT("스킬·노트 제안") } }); suggestions.hidden = true;
 		let options: Array<{ label: string; detail: string; choose: () => void }> = [], selected = 0;
 		const updateSuggestions = () => {
 			const prefix = input.value.slice(0, input.selectionStart), match = /(?:^|\s)([@/])([^\s@/[\]]*)$/.exec(prefix);
@@ -175,17 +176,17 @@ export class AiChatPanel {
 			if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void this.send(input.value); }
 		};
 		const footer = layout.inputToolbar;
-		const plus = this.icon(footer, 'plus', '자료 추가', () => this.refreshContextPreview()); plus.addClass('deus-composer-plus');
+		const plus = this.icon(footer, 'plus', wmT("자료 추가"), () => this.refreshContextPreview()); plus.addClass('deus-composer-plus');
 		const composerMenu = createDeusComposerMenu(layout.popover, plus, {
 			references: () => this.referenceChoices(), toggle: (source, checked) => this.toggleReference(source, checked),
 		}); this.refreshReferenceMenu = composerMenu.refresh;
 		footer.createDiv({ cls: 'deus-toolbar-spacer' });
-		const model = footer.createEl('button', { cls: 'deus-toolbar-chip deus-model-selector', attr: { 'aria-label': '모델 선택', 'aria-haspopup': 'dialog', 'aria-expanded': 'false', type: 'button' } });
+		const model = footer.createEl('button', { cls: 'deus-toolbar-chip deus-model-selector', attr: { 'aria-label': wmT("모델 선택"), 'aria-haspopup': 'dialog', 'aria-expanded': 'false', type: 'button' } });
 		model.createSpan({ cls: 'deus-model-icon', attr: { 'aria-hidden': 'true' } });
 		this.statusEl = model.createSpan({ cls: 'deus-model-label' });
 		setIcon(model.createSpan({ cls: 'deus-model-chevron', attr: { 'aria-hidden': 'true' } }), 'chevron-down');
 		model.onclick = event => { event.stopPropagation(); this.modelMenu(); };
-		this.sendButton = this.icon(footer, 'arrow-up', '보내기', () => { if (this.session && this.requests.isSending(this.session.id)) this.requests.stop(this.session.id); else void this.send(input.value); });
+		this.sendButton = this.icon(footer, 'arrow-up', wmT("보내기"), () => { if (this.session && this.requests.isSending(this.session.id)) this.requests.stop(this.session.id); else void this.send(input.value); });
 		this.updateComposer(); this.refreshContextPreview();
 	}
 	private rerender(): void { if (this.container?.isConnected && !this.disposed) void this.render(this.container); }
@@ -208,13 +209,13 @@ export class AiChatPanel {
 		const brand = header.createSpan({ cls: 'deus-brand', text: 'DEUS' });
 		brand.id = `deus-navigator-heading-${this.generation}`; parent.setAttribute('aria-labelledby', brand.id);
 		const search = header.createDiv({ cls: 'wm-search-field wm-dict-search-box deus-session-search-field' });
-		const input = search.createEl('input', { cls: 'deus-session-search', type: 'search', attr: { placeholder: '대화 검색', 'aria-label': '대화 검색' } }); input.value = this.historyQuery;
+		const input = search.createEl('input', { cls: 'deus-session-search', type: 'search', attr: { placeholder: wmT("대화 검색"), 'aria-label': wmT("대화 검색") } }); input.value = this.historyQuery;
 		const sync = () => { search.hidden = !this.historySearchOpen; brand.hidden = this.historySearchOpen; };
 		input.oninput = () => { this.historyQuery = input.value; this.refreshSessionList(); };
-		this.icon(header, 'search', '대화 검색', () => { this.historySearchOpen = !this.historySearchOpen; if (!this.historySearchOpen) { this.historyQuery = ''; input.value = ''; } sync(); this.refreshSessionList(); if (this.historySearchOpen) input.focus(); }).addClass('deus-navigator-search'); sync();
-		this.icon(header, 'panel-left-close', '대화 목록 닫기', close).addClass('deus-navigator-close');
+		this.icon(header, 'search', wmT("대화 검색"), () => { this.historySearchOpen = !this.historySearchOpen; if (!this.historySearchOpen) { this.historyQuery = ''; input.value = ''; } sync(); this.refreshSessionList(); if (this.historySearchOpen) input.focus(); }).addClass('deus-navigator-search'); sync();
+		this.icon(header, 'panel-left-close', wmT("대화 목록 닫기"), close).addClass('deus-navigator-close');
 		const create = parent.createEl('button', { cls: 'deus-navigator-new', attr: { type: 'button' } });
-		setIcon(create.createSpan({ attr: { 'aria-hidden': 'true' } }), 'square-pen'); create.createSpan({ text: '새 채팅' }); create.onclick = () => void this.newSession();
+		setIcon(create.createSpan({ attr: { 'aria-hidden': 'true' } }), 'square-pen'); create.createSpan({ text: wmT("새 채팅") }); create.onclick = () => void this.newSession();
 		const sessions = parent.createDiv({ cls: 'deus-session-list' });
 		await this.renderHistory(sessions);
 	}
@@ -248,7 +249,7 @@ export class AiChatPanel {
 				const settings = this.plugin.settings, id = this.selectedDropdownModel(provider);
 				if (provider === 'gemini') {
 					const selected = resolveGeminiThinking(id, settings.aiChatGeminiThinking[id]);
-					return renderDeusEffortControl(host, { id, label: '', isDefault: false, defaultEffort: selected, efforts: geminiThinkingLevels(id).map(level => ({ id: level, label: cliEffortLabel(level) })) }, selected, value => { settings.aiChatGeminiThinking[id] = value; this.saveModelChoice(); }, 'Gemini 추론 강도');
+					return renderDeusEffortControl(host, { id, label: '', isDefault: false, defaultEffort: selected, efforts: geminiThinkingLevels(id).map(level => ({ id: level, label: cliEffortLabel(level) })) }, selected, value => { settings.aiChatGeminiThinking[id] = value; this.saveModelChoice(); }, wmT("Gemini 추론 강도"));
 				} else {
 					const key = provider === 'claude' ? 'aiChatClaudeCliEffort' : 'aiChatCodexCliEffort', model = selectedCliModel(models, id);
 					return renderDeusEffortControl(host, model, settings[key], value => { settings[key] = value; this.saveModelChoice(); });
@@ -278,7 +279,7 @@ export class AiChatPanel {
 		intent.participants = scene.participants.filter(person => deusSourceAllowed({ id: `deus-cast:${person.path}`, kind: 'character', path: person.path, title: person.name, text: '' }, excluded));
 		for (const match of value.matchAll(/@\[\[([^\]\n]+)\]\]/g)) {
 			const path = match[1], file = this.plugin.app.vault.getAbstractFileByPath(path);
-			if (!(file instanceof TFile) || this.plugin.projectContext.getProjectForFile(file)?.rootFolder !== session.projectRoot) throw new Error(`참고 노트를 현재 프로젝트에서 찾을 수 없습니다: ${path}`);
+			if (!(file instanceof TFile) || this.plugin.projectContext.getProjectForFile(file)?.rootFolder !== session.projectRoot) throw new Error(wmT("참고 노트를 현재 프로젝트에서 찾을 수 없습니다: {0}", path));
 			const id = `deus-mentioned:${path}`;
 			if (!excluded.has(id) && !excluded.has(`deus-cast:${path}`) && ![...attachments, ...scene.sources].some(item => item.path === path)) attachments.push({ id, kind: folder && path.startsWith(folder + '/') ? 'character' : 'reference', title: file.basename, path, text: open.find(document => document.path === path)?.read() ?? await this.plugin.app.vault.read(file) });
 		}
@@ -327,18 +328,18 @@ export class AiChatPanel {
 				const row = parent.createDiv({ cls: `deus-session-entry${this.session?.id === entry.id ? ' is-selected' : ''}`, attr: { 'data-session-id': entry.id } });
 				const open = row.createEl('button', { cls: 'deus-session-open', attr: { type: 'button', 'aria-current': String(this.session?.id === entry.id) } });
 				open.createSpan({ cls: 'deus-session-title', text: `${entry.pinned ? '★ ' : ''}${entry.title}` });
-				if (this.requests.isSending(entry.id)) open.createSpan({ cls: 'deus-session-status', text: '응답 중' });
+				if (this.requests.isSending(entry.id)) open.createSpan({ cls: 'deus-session-status', text: wmT("응답 중") });
 				open.onclick = () => void this.loadSession(entry.id);
 				row.oncontextmenu = event => { event.preventDefault(); event.stopPropagation(); void this.sessionMenu(entry.id, event); };
 				const actions = row.createDiv({ cls: 'deus-session-actions' });
-				for (const [icon, title, action] of [['pencil', '제목 수정', 'rename'], [entry.pinned ? 'pin-off' : 'pin', entry.pinned ? '고정 해제' : '대화 고정', 'pin'], ['file-output', 'Markdown 내보내기', 'export'], ['trash-2', '대화 삭제', 'delete']] as const) {
+				for (const [icon, title, action] of [['pencil', wmT("제목 수정"), 'rename'], [entry.pinned ? 'pin-off' : 'pin', entry.pinned ? wmT("고정 해제") : wmT("대화 고정"), 'pin'], ['file-output', wmT("Markdown 내보내기"), 'export'], ['trash-2', wmT("대화 삭제"), 'delete']] as const) {
 					const button = this.icon(actions, icon, title, event => { event.stopPropagation(); void this.sessionAction(entry.id, action); }); button.disabled = action !== 'export' && this.requests.isSending(entry.id);
 				}
 			};
 			const render = (query: string) => {
 				rows.empty();
 				const matching = entries.filter(entry => entry.title.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
-				rows.createDiv({ cls: 'deus-navigator-section', text: '프로젝트' });
+				rows.createDiv({ cls: 'deus-navigator-section', text: wmT("프로젝트") });
 				const projects = rows.createDiv({ cls: 'deus-project-list' });
 				for (const project of this.plugin.settings.projects) {
 					const root = project.rootFolder, expanded = query ? true : this.projectExpansion.get(root) ?? root === this.deusProjectRoot;
@@ -351,10 +352,10 @@ export class AiChatPanel {
 						for (const entry of matching.filter(entry => projectRoot(entry) === root)) sessionRow(sessions, entry);
 					}
 				}
-				rows.createDiv({ cls: 'deus-navigator-section', text: query ? '검색 결과' : '최근' });
+				rows.createDiv({ cls: 'deus-navigator-section', text: query ? wmT("검색 결과") : wmT("최근") });
 				const recent = rows.createDiv({ cls: 'deus-recent-sessions' });
 				for (const entry of matching) sessionRow(recent, entry);
-				if (!matching.length) recent.createDiv({ cls: 'deus-session-empty', text: query ? '일치하는 대화가 없습니다.' : '새 대화를 시작해 보세요.' });
+				if (!matching.length) recent.createDiv({ cls: 'deus-session-empty', text: query ? wmT("일치하는 대화가 없습니다.") : wmT("새 대화를 시작해 보세요.") });
 			};
 			render(this.historyQuery);
 		} catch (error) { if (parent.isConnected && generation === this.navigatorGeneration) parent.createDiv({ cls: 'wm-chat-error', text: error instanceof Error ? error.message : String(error) }); }
@@ -380,7 +381,7 @@ export class AiChatPanel {
 	}
 	private async newSession(): Promise<void> {
 		try {
-			this.session = await this.storage.createNewSession('', '새 대화');
+			this.session = await this.storage.createNewSession('', wmT("새 대화"));
 			this.mode = 'deus'; this.session.mode = 'deus';
 			this.session.projectRoot = this.deusProjectRoot;
 			this.history = false;
@@ -391,11 +392,11 @@ export class AiChatPanel {
 		const session = this.session;
 		const skill = session && this.selectedSkills.get(session.id);
 		const input = this.container?.querySelector<DeusComposerInput>('.deus-input');
-		if (input) input.placeholder = skill ? 'Character · Enter로 현재 장면 실행 · 다른 상황을 적어도 됩니다.' : '작품에 관해 물어보세요. @ 참고 자료 · / 스킬';
+		if (input) input.placeholder = skill ? wmT("Character · Enter로 현재 장면 실행 · 다른 상황을 적어도 됩니다.") : wmT("작품에 관해 물어보세요. @ 참고 자료 · / 스킬");
 		if (skill) {
 			const pill = parent.createDiv({ cls: 'deus-context-chip deus-active-skill' });
 			pill.createSpan({text: DEUS_SKILLS.find(item => item.id === skill)?.label ?? skill});
-			this.icon(pill, 'x', '스킬 해제', () => { this.selectedSkills.delete(session.id); this.refreshContextPreview(); }).className = 'deus-context-chip-remove';
+			this.icon(pill, 'x', wmT("스킬 해제"), () => { this.selectedSkills.delete(session.id); this.refreshContextPreview(); }).className = 'deus-context-chip-remove';
 		}
 		parent.classList.toggle('has-content', Boolean(parent.children.length));
 	}
@@ -430,7 +431,7 @@ export class AiChatPanel {
 		this.markdownComponent.unload(); this.markdownComponent.load();
 		const bottom = this.scrollFollow?.following ?? forceBottom, top = parent.scrollTop;
 		parent.empty(); const session = this.session;
-		if (!session?.messages.length) parent.createDiv({ cls: 'deus-welcome', text: '작품 자료를 묻거나, 지금 장면의 대화·묘사·문장을 함께 만들어 보세요.' });
+		if (!session?.messages.length) parent.createDiv({ cls: 'deus-welcome', text: wmT("작품 자료를 묻거나, 지금 장면의 대화·묘사·문장을 함께 만들어 보세요.") });
 		for (const [index, message] of session?.messages.entries() ?? []) {
 			const row = parent.createDiv({ cls: 'deus-message deus-message-' + message.role });
 			const body = row.createDiv({ cls: 'deus-message-content' });
@@ -438,39 +439,39 @@ export class AiChatPanel {
 				const question = session!.messages[index - 1];
 				const ordinary = !message.skill && question?.skill !== 'character' && question?.role === 'user' && /행적|요약|정리|분석|관계|설정|자료|조사|목록/.test(question.content) && resolveDeusIntent(question.content, 'auto', []).skill === 'research';
 				renders.push(this.renderDeusAnswer(body, ordinary ? { ...message, skill: 'research' } : message, question?.context?.sources ?? [], bottom, question?.context?.episodeRange));
-				if (message.status === 'interrupted') body.createDiv({ cls: 'u-muted deus-interrupted', text: '응답 중단됨' });
+				if (message.status === 'interrupted') body.createDiv({ cls: 'u-muted deus-interrupted', text: wmT("응답 중단됨") });
 			} else { body.addClass('deus-user-text'); renderDeusMentions(body, message.content); renderDeusNoteLinks(this.plugin.app, body, `${session?.projectRoot ?? ''}/__deus__.md`, this.hoverParent, report); }
 			const actions = row.createDiv({ cls: message.role === 'assistant' ? 'deus-message-actions' : 'deus-user-msg-actions' });
 			if (message.role === 'assistant') actions.createDiv({ cls: 'wm-chat-variants', attr: { 'data-response-index': String(index) } });
-			this.icon(actions, 'copy', '복사', () => void navigator.clipboard.writeText(message.content).catch(report));
-			this.icon(actions, 'git-branch', '여기서 새 대화로 분기', () => void this.branch(session!, index));
-			if (message.role === 'assistant') this.icon(actions, 'refresh-cw', '새 분기에서 다시 응답', () => void this.regenerate(session!, index));
-			else this.icon(actions, 'pencil', '메시지 수정 후 분기', () => new ChatTextModal(this.plugin, '메시지 수정 후 분기', message.content, async value => {
+			this.icon(actions, 'copy', wmT("복사"), () => void navigator.clipboard.writeText(message.content).catch(report));
+			this.icon(actions, 'git-branch', wmT("여기서 새 대화로 분기"), () => void this.branch(session!, index));
+			if (message.role === 'assistant') this.icon(actions, 'refresh-cw', wmT("새 분기에서 다시 응답"), () => void this.regenerate(session!, index));
+			else this.icon(actions, 'pencil', wmT("메시지 수정 후 분기"), () => new ChatTextModal(this.plugin, wmT("메시지 수정 후 분기"), message.content, async value => {
 				if (!value.trim()) return; const fork = await this.storage.fork(session!, index - 1); this.session = fork;
 				this.contexts.set(fork.id, message.context?.sources.filter(source => !source.automatic || source.kind === 'selection').map(source => ({ ...source })) ?? []);
 				this.rerender(); await this.send(value, { ...message, id: messageId(), content: value, context: undefined });
 			}).open());
 			const context = message.role === 'user' ? message.context : undefined;
-			if (context) this.icon(actions, 'files', '참고 자료', () => new ChatTextModal(this.plugin, '이 질문에 전송한 참고 자료', [
-				...context.sources.map(source => `${source.automatic ? '[자동 참고] ' : '[직접 첨부] '}${contextSourceText(source)}`),
-				context.warnings.length ? `확인 범위\n${context.warnings.join('\n')}` : '',
-				context.searches?.length ? `자료 조회 기록\n${context.searches.map(search => `${search.name === 'episode_range_read' ? '권·회차 범위 읽기' : search.name === 'episode_read' ? '회차 본문 전체 읽기' : search.name === 'character_history' ? '인물 행적 조사' : search.name === 'search_sources' ? '검색' : search.name === 'read_source' ? '원문 읽기' : '관련 자료'}${search.query ? `: ${search.query}` : ''} · ${search.sourceIds.length}구간${search.warning ? `\n${search.warning}` : ''}`).join('\n')}` : '',
+			if (context) this.icon(actions, 'files', wmT("참고 자료"), () => new ChatTextModal(this.plugin, wmT("이 질문에 전송한 참고 자료"), [
+				...context.sources.map(source => `${source.automatic ? wmT("[자동 참고] ") : wmT("[직접 첨부] ")}${contextSourceText(source)}`),
+				context.warnings.length ? wmT("확인 범위\n{0}", context.warnings.join('\n')) : '',
+				context.searches?.length ? wmT("자료 조회 기록\n{0}", context.searches.map(search => wmT("{0}{1} · {2}구간{3}", search.name === 'episode_range_read' ? wmT("권·회차 범위 읽기") : search.name === 'episode_read' ? wmT("회차 본문 전체 읽기") : search.name === 'character_history' ? wmT("인물 행적 조사") : search.name === 'search_sources' ? wmT("검색") : search.name === 'read_source' ? wmT("원문 읽기") : wmT("관련 자료"), search.query ? `: ${search.query}` : '', search.sourceIds.length, search.warning ? `\n${search.warning}` : '')).join('\n')) : '',
 			].filter(Boolean).join('\n\n')).open()).addClass('wm-chat-evidence');
 		}
 		const state = session ? this.states.get(session.id) : null;
 		if (state?.status === 'sending' || state?.status === 'streaming') {
 			const pending = parent.createDiv({ cls: 'deus-pending deus-message-content' });
 			if (this.mode === 'deus' && state.text) renders.push(this.renderDeusAnswer(pending, { role: 'assistant', skill: session?.messages.at(-1)?.skill, participants: session?.messages.at(-1)?.participants, content: state.text, timestamp: 0 }, session?.messages.at(-1)?.context?.sources ?? [], bottom, session?.messages.at(-1)?.context?.episodeRange));
-			else pending.setText(state.text || (state.phase === 'searching' ? '프로젝트 자료 찾는 중…' : state.phase === 'reading' ? '관련 원문 읽는 중…' : '응답 대기 중…'));
+			else pending.setText(state.text || (state.phase === 'searching' ? wmT("프로젝트 자료 찾는 중…") : state.phase === 'reading' ? wmT("관련 원문 읽는 중…") : wmT("응답 대기 중…")));
 		}
 		if (state?.status === 'error' || state?.status === 'stopped') {
-			const error = parent.createDiv({ cls: 'wm-chat-error', text: state.error ?? '응답을 받지 못했습니다.' });
+			const error = parent.createDiv({ cls: 'wm-chat-error', text: state.error ?? wmT("응답을 받지 못했습니다.") });
 			if (state.text) {
 				if (this.mode === 'deus') void this.renderDeusAnswer(parent.createDiv({ cls: 'deus-message-content' }), { role: 'assistant', content: state.text, timestamp: 0 }, session?.messages.at(-1)?.context?.sources ?? [], bottom, session?.messages.at(-1)?.context?.episodeRange);
 				else error.createDiv({ cls: 'wm-chat-unsaved-response', text: state.text });
 			}
 			const last = session!.messages[session!.messages.length - 1];
-			if (last?.role === 'user') { const retry = error.createEl('button', { text: '재시도' }); retry.onclick = () => void this.send(last.content, last, true); }
+			if (last?.role === 'user') { const retry = error.createEl('button', { text: wmT("재시도") }); retry.onclick = () => void this.send(last.content, last, true); }
 		}
 		parent.scrollTop = bottom ? parent.scrollHeight : top; this.updateComposer();
 		void Promise.all(renders).then(() => { if (generation !== this.messageGeneration || !parent.isConnected) return; if (scrollTicket !== undefined) this.scrollFollow?.endRender(scrollTicket, top); });
@@ -478,8 +479,8 @@ export class AiChatPanel {
 	}
 	private async renderDeusAnswer(parent: HTMLElement, message: AiChatMessage, sources: ChatContextItem[], _bottom: boolean, range?: ChatEpisodeRangeCoverage): Promise<void> {
 		const prepared = prepareDeusMarkdown(message, sources);
-		if (range) parent.createDiv({ cls: 'wm-chat-source-coverage', text: `${range.volume !== undefined ? `${range.volume}권 · ` : ''}${range.from}~${range.to}화 · ${range.includedEpisodes}개 회차 ${range.partial ? '발췌 기반' : '본문 전체'}`,
-			attr: { title: `원문 ${range.sourceCharacters.toLocaleString()}자 중 ${range.includedCharacters.toLocaleString()}자 제공` } });
+		if (range) parent.createDiv({ cls: 'wm-chat-source-coverage', text: wmT("{0}{1}~{2}화 · {3}개 회차 {4}", range.volume !== undefined ? wmT("{0}권 · ", range.volume) : '', range.from, range.to, range.includedEpisodes, range.partial ? wmT("발췌 기반") : wmT("본문 전체")),
+			attr: { title: wmT("원문 {0}자 중 {1}자 제공", range.sourceCharacters.toLocaleString(), range.includedCharacters.toLocaleString()) } });
 		const content = parent.createDiv({ cls: 'deus-text-block markdown-rendered' });
 		const component = this.markdownComponent.addChild(new Component());
 		let active = true; component.register(() => { active = false; });
@@ -535,9 +536,9 @@ export class AiChatPanel {
 				const active = variants.findIndex(entry => entry.id === session.id);
 				if (variants.length < 2 || active < 0) continue;
 				slot.empty();
-				this.icon(slot, 'chevron-left', '이전 응답 분기', () => void this.loadSession(variants[active - 1].id)).disabled = active === 0;
+				this.icon(slot, 'chevron-left', wmT("이전 응답 분기"), () => void this.loadSession(variants[active - 1].id)).disabled = active === 0;
 				slot.createSpan({ text: `${active + 1} / ${variants.length}` });
-				this.icon(slot, 'chevron-right', '다음 응답 분기', () => void this.loadSession(variants[active + 1].id)).disabled = active === variants.length - 1;
+				this.icon(slot, 'chevron-right', wmT("다음 응답 분기"), () => void this.loadSession(variants[active + 1].id)).disabled = active === variants.length - 1;
 			}
 		} catch { /* History errors remain visible in the history manager; never rewrite its index here. */ }
 	}
@@ -547,18 +548,18 @@ export class AiChatPanel {
 			const project = this.plugin.settings.projects.find(project => project.rootFolder === this.session?.projectRoot);
 			const location = deusPlotLocation(source, project?.rootFolder, quote);
 			if (project && location && await this.plugin.openPlotWorkbookCell(project.id, location.sheetId, location.rowId, undefined, this.plugin.settings.aiChatCitationOpenMode ?? 'current', location.columnRole)) return;
-			new Notice('연결된 플롯 행을 찾을 수 없습니다. 답변 당시의 근거를 표시합니다.');
-			new ChatTextModal(this.plugin, `${source.title} · 저장된 근거`, quote).open(); return;
+			new Notice(wmT("연결된 플롯 행을 찾을 수 없습니다. 답변 당시의 근거를 표시합니다."));
+			new ChatTextModal(this.plugin, wmT("{0} · 저장된 근거", source.title), quote).open(); return;
 		}
 		const file = source.path ? this.plugin.app.vault.getAbstractFileByPath(source.path) : null;
 		if (file instanceof TFile && this.plugin.projectContext.getProjectForFile(file)?.rootFolder !== this.session?.projectRoot) {
-			new ChatTextModal(this.plugin, `${source.title} · 현재 프로젝트 밖으로 이동한 근거`, quote).open(); return;
+			new ChatTextModal(this.plugin, wmT("{0} · 현재 프로젝트 밖으로 이동한 근거", source.title), quote).open(); return;
 		}
-		if (!(file instanceof TFile)) { new ChatTextModal(this.plugin, `${source.title} · 저장된 근거`, quote).open(); return; }
+		if (!(file instanceof TFile)) { new ChatTextModal(this.plugin, wmT("{0} · 저장된 근거", source.title), quote).open(); return; }
 		const content = getOpenWritingDocuments(this.plugin).find(document => document.path === file.path)?.read() ?? await this.plugin.app.vault.read(file);
 		const range = locateChatQuote(source, quote, content);
 		if (!range) {
-			new Notice('원문이 변경되었거나 위치를 확인할 수 없습니다. 답변 당시의 근거를 표시합니다.');
+			new Notice(wmT("원문이 변경되었거나 위치를 확인할 수 없습니다. 답변 당시의 근거를 표시합니다."));
 			new ChatTextModal(this.plugin, source.title, quote).open(); return;
 		}
 		const workspace = this.plugin.app.workspace;
@@ -567,14 +568,14 @@ export class AiChatPanel {
 		await workspace.revealLeaf(leaf);
 		const document = getWritingDocumentForView(leaf.view);
 		if (document?.path === file.path && document.isCurrent(content)) document.select(content, range.from, range.to);
-		else new Notice('원문이 열리는 동안 변경되었습니다. 잘못된 구간은 선택하지 않았습니다.');
+		else new Notice(wmT("원문이 열리는 동안 변경되었습니다. 잘못된 구간은 선택하지 않았습니다."));
 	}
 	private updateComposer(): void {
-		this.container?.querySelector<HTMLElement>('.deus-session-name')?.setText(this.session?.title || '새 대화');
+		this.container?.querySelector<HTMLElement>('.deus-session-name')?.setText(this.session?.title || wmT("새 대화"));
 		const sending = this.session ? this.requests.isSending(this.session.id) : false;
 		const speaker = this.container?.querySelector<HTMLButtonElement>('.wm-chat-speaker');
 		if (speaker) speaker.disabled = sending;
-		if (this.sendButton) { setIcon(this.sendButton, sending ? 'square' : 'arrow-up'); this.sendButton.setAttribute('aria-label', sending ? '응답 수신 중단' : '보내기'); }
+		if (this.sendButton) { setIcon(this.sendButton, sending ? 'square' : 'arrow-up'); this.sendButton.setAttribute('aria-label', sending ? wmT("응답 수신 중단") : wmT("보내기")); }
 		const model = effectiveChatModel(this.plugin.settings);
 		const provider = cliChatProvider(model) ?? 'gemini', label = provider === 'claude' ? 'Claude Code' : provider === 'codex' ? 'Codex' : 'Gemini';
 		const icon = this.container?.querySelector<HTMLElement>('.deus-model-icon'); if (icon) renderDeusProviderIcon(icon, provider);
@@ -585,30 +586,30 @@ export class AiChatPanel {
 	private async send(value: string, existing?: AiChatMessage, retry = false): Promise<void> {
 		const session = this.session;
 		if (!session) return;
-		if (!value.trim() && this.selectedSkills.get(session.id) === 'character') value = '현재 참고 중인 장면을 바탕으로 인물 간 대화를 작성해 주세요.';
+		if (!value.trim() && this.selectedSkills.get(session.id) === 'character') value = wmT("현재 참고 중인 장면을 바탕으로 인물 간 대화를 작성해 주세요.");
 		if (!value.trim()) return;
 		const command = parseDeusCommand(value);
 		if (command) {
 			this.selectedSkills.set(session.id, command.skill); value = command.question;
-			if (!value) { this.drafts.set(session.id, ''); const input = this.container?.querySelector<DeusComposerInput>('.deus-input'); if (input) { input.value = ''; input.placeholder = 'Character · Enter로 현재 장면 실행 · 다른 상황을 적어도 됩니다.'; } this.refreshContextPreview(); return; }
-		} else if (!existing && /^\//.test(value.trim())) { new Notice('지원하지 않는 스킬입니다. /를 입력해 명령을 선택하세요.'); return; }
+			if (!value) { this.drafts.set(session.id, ''); const input = this.container?.querySelector<DeusComposerInput>('.deus-input'); if (input) { input.value = ''; input.placeholder = wmT("Character · Enter로 현재 장면 실행 · 다른 상황을 적어도 됩니다."); } this.refreshContextPreview(); return; }
+		} else if (!existing && /^\//.test(value.trim())) { new Notice(wmT("지원하지 않는 스킬입니다. /를 입력해 명령을 선택하세요.")); return; }
 		if (this.requests.isSending(session.id)) return;
 		if (existing && command) { existing.content = value; existing.skill = command.skill; }
 		const selectedSkill = this.selectedSkills.get(session.id);
 		if (selectedSkill && !value.replace(/@\[\[[^\]\n]+\]\]/g, '').trim()) {
-			const tasks = { character: '지정한 인물들의 성격과 관계에 맞는 짧은 대화 장면을 작성해 주세요.', description: '지정한 자료에 어울리는 장면 묘사를 작성해 주세요.', dialogue: '지정한 인물의 말투에 맞는 대사를 제안해 주세요.', rewrite: '지정한 본문의 문장을 다듬어 주세요.', research: '지정한 자료의 핵심 내용을 정리해 주세요.' };
+			const tasks = { character: wmT("지정한 인물들의 성격과 관계에 맞는 짧은 대화 장면을 작성해 주세요."), description: wmT("지정한 자료에 어울리는 장면 묘사를 작성해 주세요."), dialogue: wmT("지정한 인물의 말투에 맞는 대사를 제안해 주세요."), rewrite: wmT("지정한 본문의 문장을 다듬어 주세요."), research: wmT("지정한 자료의 핵심 내용을 정리해 주세요.") };
 			value += '\n' + tasks[selectedSkill];
 		}
 		const settings = this.plugin.settings;
-		const cooldown = this.states.get(session.id); if (cooldown?.retryAt && cooldown.retryAt > Date.now()) { new Notice(cooldown.error ?? 'API 재시도 시간까지 기다려 주세요.'); return; }
+		const cooldown = this.states.get(session.id); if (cooldown?.retryAt && cooldown.retryAt > Date.now()) { new Notice(cooldown.error ?? wmT("API 재시도 시간까지 기다려 주세요.")); return; }
 		const options: ChatRequestOptions = { keys: { nvidia: settings.aiChatApiKey, gemini: settings.aiChatGeminiApiKey }, model: effectiveChatModel(settings), temperature: settings.aiChatTemperature, maxTokens: settings.aiChatMaxOutputTokens, historyTurns: settings.aiChatHistoryTurns, stream: settings.aiChatStreaming, freeOnly: settings.aiChatFreeOnly };
 		if (!cliChatProvider(options.model)) options.thinkingLevel = resolveGeminiThinking(options.model, settings.aiChatGeminiThinking[options.model]);
-		if (!hasApiKeyForModel(options.keys, options.model)) { new Notice('선택한 모델의 API 키를 설정해 주세요.'); return; }
+		if (!hasApiKeyForModel(options.keys, options.model)) { new Notice(wmT("선택한 모델의 API 키를 설정해 주세요.")); return; }
 		let prepared: Awaited<ReturnType<AiChatPanel['prepareDeusSources']>>;
 		try { prepared = await this.prepareDeusSources(value, session); } catch (error) { report(error); return; }
 		const { intent, source, project, open: openDocuments } = prepared;
 		const contexts = existing?.context ? existing.context.sources.filter(item => !item.automatic || item.kind === 'selection' || item.kind === 'document' || item.id.startsWith('deus-cast:')).map(item => ({ ...item })) : prepared.attachments;
-		if (session.mode === 'deus' && !project) { new Notice('검색할 프로젝트를 선택해 주세요.'); return; }
+		if (session.mode === 'deus' && !project) { new Notice(wmT("검색할 프로젝트를 선택해 주세요.")); return; }
 		const cli = cliChatProvider(options.model);
 		if (cli) {
 			try { options.cli = cliChatOptions(this.plugin, cli, project?.rootFolder); } catch (error) { report(error); return; }
@@ -620,21 +621,21 @@ export class AiChatPanel {
 		const excluded = new Set(this.excludedContexts.get(session.id) ?? []);
 		if (options.ragTools && excluded.size) {
 			const tools = options.ragTools;
-			options.ragTools = { ...tools, execute: async (call, signal) => { const result = await tools.execute(call, signal); const sources = result.sources.filter(source => deusSourceAllowed(source, excluded)); return { ...result, sources, warnings: sources.length === result.sources.length ? result.warnings : [...result.warnings, '사용자가 제외한 참고 자료는 검색 결과에서도 제외했습니다.'] }; } };
+			options.ragTools = { ...tools, execute: async (call, signal) => { const result = await tools.execute(call, signal); const sources = result.sources.filter(source => deusSourceAllowed(source, excluded)); return { ...result, sources, warnings: sources.length === result.sources.length ? result.warnings : [...result.warnings, wmT("사용자가 제외한 참고 자료는 검색 결과에서도 제외했습니다.")] }; } };
 		}
-		const message: AiChatMessage = existing ?? { id: messageId(), role: 'user', content: value.trim(), kind: 'dialogue', speakerRole: 'author', speakerName: '사용자', skill: intent.skill, participants: intent.participants, timestamp: Date.now() };
-		if (!session.messages.length && ['새 대화', '데우스'].includes(session.title)) session.title = value.trim().replace(/@\[\[([^\]\n]+)\]\]/g, (_match, path: string) => path.split('/').pop()?.replace(/\.md$/i, '') ?? path).slice(0, 60);
+		const message: AiChatMessage = existing ?? { id: messageId(), role: 'user', content: value.trim(), kind: 'dialogue', speakerRole: 'author', speakerName: wmT("사용자"), skill: intent.skill, participants: intent.participants, timestamp: Date.now() };
+		if (!session.messages.length && [wmT("새 대화"), wmT("데우스")].includes(session.title)) session.title = value.trim().replace(/@\[\[([^\]\n]+)\]\]/g, (_match, path: string) => path.split('/').pop()?.replace(/\.md$/i, '') ?? path).slice(0, 60);
 		this.drafts.set(session.id, ''); const input = this.container?.querySelector<DeusComposerInput>('.deus-input'); if (input) input.value = '';
 		this.refreshContextPreview();
 		this.scrollFollow?.follow();
 		await this.requests.send(session, message, async signal => {
-			const prompt = `${deusSkillInstructions({ ...intent, skill: message.skill ?? intent.skill, participants: message.participants ?? intent.participants })}\n${DEUS_REPLY_STYLE}`;
+			const prompt = `${deusSkillInstructions({ ...intent, skill: message.skill ?? intent.skill, participants: message.participants ?? intent.participants })}\n${DEUS_REPLY_STYLE}\n${deusReplyLanguage()}`;
 			// Retry numbered-episode questions from the current manuscript instead of
 			// reusing unrelated frozen snippets collected by older plugin versions.
 			if (!message.context || episodeTarget !== undefined || session.mode === 'deus') message.context = await this.knowledge.collect({ character: null, speaker: null, project: project ?? null, document: source, openDocuments, attachments: contexts, message, history: session.messages.filter(turn => turn.id !== message.id), signal, requireComplete: true, inheritScene: false });
 			if (excluded.size && message.context.sources.some(source => !deusSourceAllowed(source, excluded))) {
 				message.context.sources = message.context.sources.filter(source => deusSourceAllowed(source, excluded));
-				message.context.warnings.push('사용자가 제외한 참고 자료는 검색 결과에서도 제외했습니다.');
+				message.context.warnings.push(wmT("사용자가 제외한 참고 자료는 검색 결과에서도 제외했습니다."));
 				if (message.context.research) message.context.research.partial = true;
 			}
 			const scope = message.context?.episodeRange
@@ -684,15 +685,15 @@ export class AiChatPanel {
 		new AiChatRenameModal(this.plugin.app, session.title, title => { session.title = title; void this.storage.save(session).then(() => { this.refreshSessionList(); this.updateComposer(); }).catch(report); }).open();
 	}
 	private confirmDeleteSession(session: AiChatSession): void {
-		const modal = new Modal(this.plugin.app); modal.setTitle('이 대화를 삭제할까요?'); modal.contentEl.createEl('p', { text: '저장된 대화는 보관 사본으로 남습니다.' });
-		new Setting(modal.contentEl).addButton(button => button.setButtonText('삭제').setClass('mod-warning').onClick(async () => { try { await this.storage.deleteSession(session.id); for (const [key, parked] of this.parkedSessions) if (parked.id === session.id) this.parkedSessions.delete(key); modal.close(); if (this.session?.id === session.id) { this.session = null; await this.newSession(); } else this.refreshSessionList(); } catch (error) { report(error); } })); modal.open();
+		const modal = new Modal(this.plugin.app); modal.setTitle(wmT("이 대화를 삭제할까요?")); modal.contentEl.createEl('p', { text: wmT("저장된 대화는 보관 사본으로 남습니다.") });
+		new Setting(modal.contentEl).addButton(button => button.setButtonText(wmT("삭제")).setClass('mod-warning').onClick(async () => { try { await this.storage.deleteSession(session.id); for (const [key, parked] of this.parkedSessions) if (parked.id === session.id) this.parkedSessions.delete(key); modal.close(); if (this.session?.id === session.id) { this.session = null; await this.newSession(); } else this.refreshSessionList(); } catch (error) { report(error); } })); modal.open();
 	}
 	private menu(event: MouseEvent, session = this.session, sidebar = false): void {
 		const menu = new Menu();
 		menu.setUseNativeMenu?.(false);
 		if (!sidebar && !this.container?.querySelector('.deus-container.is-wide')) {
 			menu.addItem(item => {
-				item.setTitle('프로젝트').setIcon('folder');
+				item.setTitle(wmT("프로젝트")).setIcon('folder');
 				const submenu = (item as typeof item & { setSubmenu?: () => Menu }).setSubmenu?.();
 				if (submenu) { this.populateProjects(submenu); alignDeusSubmenu(menu, item, submenu); }
 				else item.onClick(() => { const projects = new Menu(); this.populateProjects(projects); projects.showAtMouseEvent(event); });
@@ -700,23 +701,23 @@ export class AiChatPanel {
 			menu.addSeparator();
 		}
 		if (session) {
-			menu.addItem(item => item.setTitle('제목 수정').setIcon('pencil').setDisabled(this.requests.isSending(session.id)).onClick(() => this.renameSession(session)));
-			menu.addItem(item => item.setTitle(session.pinned ? '고정 해제' : '대화 고정').setIcon('pin').setDisabled(this.requests.isSending(session.id)).onClick(async () => { try { session.pinned = !session.pinned; await this.storage.save(session); this.refreshSessionList(); } catch (error) { report(error); } }));
-			menu.addItem(item => item.setTitle('Markdown 내보내기').setIcon('file-output').onClick(() => this.exportSession(session)));
-			menu.addItem(item => item.setTitle('대화 삭제').setIcon('trash-2').setDisabled(this.requests.isSending(session.id)).onClick(() => this.confirmDeleteSession(session)));
+			menu.addItem(item => item.setTitle(wmT("제목 수정")).setIcon('pencil').setDisabled(this.requests.isSending(session.id)).onClick(() => this.renameSession(session)));
+			menu.addItem(item => item.setTitle(session.pinned ? wmT("고정 해제") : wmT("대화 고정")).setIcon('pin').setDisabled(this.requests.isSending(session.id)).onClick(async () => { try { session.pinned = !session.pinned; await this.storage.save(session); this.refreshSessionList(); } catch (error) { report(error); } }));
+			menu.addItem(item => item.setTitle(wmT("Markdown 내보내기")).setIcon('file-output').onClick(() => this.exportSession(session)));
+			menu.addItem(item => item.setTitle(wmT("대화 삭제")).setIcon('trash-2').setDisabled(this.requests.isSending(session.id)).onClick(() => this.confirmDeleteSession(session)));
 		}
-		if (!sidebar) { menu.addSeparator(); menu.addItem(item => item.setTitle('Deus AI 설정').setIcon('settings').onClick(() => {
+		if (!sidebar) { menu.addSeparator(); menu.addItem(item => item.setTitle(wmT("Deus AI 설정")).setIcon('settings').onClick(() => {
 			const setting = (this.plugin.app as unknown as { setting?: { open(): void; openTabById(id: string): void } }).setting;
 			setting?.open(); setting?.openTabById(this.plugin.manifest.id); this.plugin.settingTab?.renderPage('ai');
 		})); } menu.showAtMouseEvent(event);
 	}
 	private exportSession(session: AiChatSession): void {
-		const content = `---\nwriting_menu_export: ai-chat\n---\n\n# ${session.title}\n\n${session.messages.map(message => `## ${message.role === 'assistant' ? '응답' : message.speakerName ?? '작가'}\n\n${message.content}`).join('\n\n')}`;
-		const modal = new Modal(this.plugin.app); modal.setTitle('대화 Markdown 저장');
-		let path = `${session.projectRoot ? session.projectRoot + '/' : ''}대화-${Date.now()}.md`;
-		new Setting(modal.contentEl).setName('저장 파일').addText(text => text.setValue(path).onChange(value => path = value));
-		new Setting(modal.contentEl).addButton(button => button.setButtonText('저장').setCta().onClick(async () => {
-			try { const target = normalizePath(path.trim()); if (!target.endsWith('.md') || /^[\\/]|:/.test(target) || target.split('/').some(part => !part || part === '.' || part === '..')) throw new Error('볼트 내부의 새 Markdown 파일 경로를 지정해 주세요.'); await this.plugin.app.vault.create(target, content); modal.close(); new Notice('대화를 저장했습니다.'); }
+		const content = `---\nwriting_menu_export: ai-chat\n---\n\n# ${session.title}\n\n${session.messages.map(message => `## ${message.role === 'assistant' ? wmT("응답") : message.speakerName ?? wmT("작가")}\n\n${message.content}`).join('\n\n')}`;
+		const modal = new Modal(this.plugin.app); modal.setTitle(wmT("대화 Markdown 저장"));
+		let path = wmT("{0}대화-{1}.md", session.projectRoot ? session.projectRoot + '/' : '', Date.now());
+		new Setting(modal.contentEl).setName(wmT("저장 파일")).addText(text => text.setValue(path).onChange(value => path = value));
+		new Setting(modal.contentEl).addButton(button => button.setButtonText(wmT("저장")).setCta().onClick(async () => {
+			try { const target = normalizePath(path.trim()); if (!target.endsWith('.md') || /^[\\/]|:/.test(target) || target.split('/').some(part => !part || part === '.' || part === '..')) throw new Error(wmT("볼트 내부의 새 Markdown 파일 경로를 지정해 주세요.")); await this.plugin.app.vault.create(target, content); modal.close(); new Notice(wmT("대화를 저장했습니다.")); }
 			catch (error) { report(error); }
 		})); modal.open();
 	}

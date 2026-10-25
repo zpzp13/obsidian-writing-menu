@@ -1,6 +1,7 @@
+import { wmT } from '../../i18n/index';
 import { formatDateKey } from '../../utils/dateUtils';
 
-const DOW_KO = ['일','월','화','수','목','금','토'];
+const DOW_KO = [wmT("일"),wmT("월"),wmT("화"),wmT("수"),wmT("목"),wmT("금"),wmT("토")];
 
 const CARD_W = 36;
 const GAP    = 10;

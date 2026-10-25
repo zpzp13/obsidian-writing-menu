@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { Menu, Modal, Notice, setIcon } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { columnLabel, type PlotWorkbookForeshadow, type PlotWorkbookForeshadowLocation, type PlotWorkbookSheet } from './PlotWorkbookTypes';
@@ -16,7 +17,7 @@ interface ForeshadowDraft {
 	payoffColumnId?: string;
 }
 
-const FILTERS = [['all', '전체'], ['resolved', '회수'], ['open', '미회수']] as const;
+const FILTERS = [['all', wmT("전체")], ['resolved', wmT("회수")], ['open', wmT("미회수")]] as const;
 
 export class PlotWorkbookForeshadowModal extends Modal {
 	private query = '';
@@ -41,7 +42,7 @@ export class PlotWorkbookForeshadowModal extends Modal {
 	) { super(plugin.app); }
 
 	onOpen(): void {
-		this.setTitle('복선');
+		this.setTitle(wmT("복선"));
 		this.modalEl.addClass('mod-sidebar-layout', 'wm-plotbook-foreshadow-modal');
 		const items = this.orderedForeshadows(this.session.listForeshadows());
 		const requested = this.initialSelectedId ? items.find(item => item.id === this.initialSelectedId) : undefined;
@@ -54,8 +55,8 @@ export class PlotWorkbookForeshadowModal extends Modal {
 		const search = sidebar.createDiv({ cls: 'wm-search-field wm-plotbook-foreshadow-search-box' });
 		setIcon(search.createSpan({ attr: { 'aria-hidden': 'true' } }), 'search');
 		const input = search.createEl('input', {
-			type: 'search', placeholder: '복선 검색',
-			attr: { 'aria-label': '복선 검색', autocomplete: 'off', spellcheck: 'false' },
+			type: 'search', placeholder: wmT("복선 검색"),
+			attr: { 'aria-label': wmT("복선 검색"), autocomplete: 'off', spellcheck: 'false' },
 		});
 		input.addEventListener('input', () => { this.query = input.value; this.renderList(); });
 		const heading = sidebar.createDiv({ cls: 'wm-plotbook-foreshadow-list-heading' });
@@ -67,7 +68,7 @@ export class PlotWorkbookForeshadowModal extends Modal {
 			const bounds = this.filterButton.getBoundingClientRect();
 			menu.showAtPosition({ x: bounds.left, y: bounds.bottom + 4 });
 		});
-		const add = heading.createEl('button', { cls: 'wm-plotbook-foreshadow-add', attr: { type: 'button', 'aria-label': '새 복선' } });
+		const add = heading.createEl('button', { cls: 'wm-plotbook-foreshadow-add', attr: { type: 'button', 'aria-label': wmT("새 복선") } });
 		setIcon(add, 'plus');
 		add.addEventListener('click', () => {
 			this.query = '';
@@ -81,7 +82,7 @@ export class PlotWorkbookForeshadowModal extends Modal {
 			this.renderDetail(true);
 			this.detailEl.querySelector<HTMLInputElement>('.wm-plotbook-foreshadow-title-input')?.focus();
 		});
-		this.listEl = sidebar.createDiv({ cls: 'wm-plotbook-foreshadow-list', attr: { role: 'list', 'aria-label': '복선 목록' } });
+		this.listEl = sidebar.createDiv({ cls: 'wm-plotbook-foreshadow-list', attr: { role: 'list', 'aria-label': wmT("복선 목록") } });
 		this.detailEl = this.contentEl.createDiv({ cls: 'wm-plotbook-foreshadow-detail' });
 		this.renderList();
 		this.renderDetail();
@@ -159,7 +160,7 @@ export class PlotWorkbookForeshadowModal extends Modal {
 			this.applyContextDefaults = true;
 			this.renderDetail();
 		}
-		if (!items.length) this.listEl.createDiv({ cls: 'wm-plotbook-foreshadow-empty', text: '복선이 없습니다.' });
+		if (!items.length) this.listEl.createDiv({ cls: 'wm-plotbook-foreshadow-empty', text: wmT("복선이 없습니다.") });
 		const labelsBySheet = new Map<string, Map<string, string>>();
 		for (const item of items) {
 			const location = this.plotLocation(item.plantedAt[item.plantedAt.length - 1]);
@@ -169,7 +170,7 @@ export class PlotWorkbookForeshadowModal extends Modal {
 			if (sheet && !labelsBySheet.has(sheet.sheetId)) labelsBySheet.set(sheet.sheetId, this.session.rowLabels(sheet));
 			renderForeshadowCard(row, {
 				title: item.title, status: item.status,
-				plotTitle: sheet && location ? this.columnTitle(sheet, location.columnId) : '플롯 선택',
+				plotTitle: sheet && location ? this.columnTitle(sheet, location.columnId) : wmT("플롯 선택"),
 				rowLabel: sheet && location ? labelsBySheet.get(sheet.sheetId)?.get(location.rowId) ?? '' : '—',
 				selected: this.selectedId === item.id && !this.creating,
 				onSelect: () => {
@@ -194,7 +195,7 @@ export class PlotWorkbookForeshadowModal extends Modal {
 		this.detailEl.empty();
 		const item = this.session.foreshadows.find(candidate => candidate.id === this.selectedId);
 		if (!this.creating && !item) {
-			this.detailEl.createDiv({ cls: 'wm-plotbook-foreshadow-empty', text: '목록에서 복선을 선택하세요.' });
+			this.detailEl.createDiv({ cls: 'wm-plotbook-foreshadow-empty', text: wmT("목록에서 복선을 선택하세요.") });
 			return;
 		}
 		if (!this.draft) {
@@ -218,8 +219,8 @@ export class PlotWorkbookForeshadowModal extends Modal {
 		const card = this.detailEl.createDiv({ cls: 'wm-plotbook-foreshadow-edit-card' });
 		const heading = card.createDiv({ cls: 'wm-plotbook-foreshadow-edit-heading' });
 		const titleField = heading.createDiv({ cls: 'wm-plotbook-foreshadow-title-field' });
-		const titleLabel = titleField.createEl('label', { text: '제목', cls: 'wm-plotbook-foreshadow-field-label' });
-		const title = titleField.createEl('input', { cls: 'wm-plotbook-foreshadow-title-input', type: 'text', placeholder: '복선 제목', attr: { 'aria-label': '복선 제목' } });
+		const titleLabel = titleField.createEl('label', { text: wmT("제목"), cls: 'wm-plotbook-foreshadow-field-label' });
+		const title = titleField.createEl('input', { cls: 'wm-plotbook-foreshadow-title-input', type: 'text', placeholder: wmT("복선 제목"), attr: { 'aria-label': wmT("복선 제목") } });
 		titleLabel.htmlFor = title.id = `wm-foreshadow-title-${item?.id ?? 'new'}`;
 		title.value = draft.title;
 		title.addEventListener('input', () => { draft.title = title.value; this.renderTimeline(); });
@@ -227,14 +228,14 @@ export class PlotWorkbookForeshadowModal extends Modal {
 		this.renderRoutePoint(routeFields, 'plant');
 		this.renderRoutePoint(routeFields, 'payoff');
 		const memoField = card.createDiv({ cls: 'wm-plotbook-foreshadow-memo-field' });
-		const memoLabel = memoField.createEl('label', { text: '메모', cls: 'wm-plotbook-foreshadow-field-label' });
-		const note = memoField.createEl('textarea', { placeholder: '복선의 의도와 회수 계획을 적어두세요.', attr: { 'aria-label': '복선 메모', rows: '3' } });
+		const memoLabel = memoField.createEl('label', { text: wmT("메모"), cls: 'wm-plotbook-foreshadow-field-label' });
+		const note = memoField.createEl('textarea', { placeholder: wmT("복선의 의도와 회수 계획을 적어두세요."), attr: { 'aria-label': wmT("복선 메모"), rows: '3' } });
 		memoLabel.htmlFor = note.id = `wm-foreshadow-note-${item?.id ?? 'new'}`;
 		note.value = draft.note;
 		note.addEventListener('input', () => { draft.note = note.value; });
 		const actions = card.createDiv({ cls: 'wm-plotbook-foreshadow-actions' });
 		if (item) {
-			const remove = actions.createEl('button', { cls: 'wm-plotbook-foreshadow-delete', text: '삭제', attr: { type: 'button' } });
+			const remove = actions.createEl('button', { cls: 'wm-plotbook-foreshadow-delete', text: wmT("삭제"), attr: { type: 'button' } });
 			remove.addEventListener('click', () => new PlotWorkbookForeshadowDeleteConfirmModal(this.app, item.title, async () => {
 				await this.session.deleteForeshadow(item.id);
 				this.selectedId = this.session.listForeshadows()[0]?.id ?? null;
@@ -244,7 +245,7 @@ export class PlotWorkbookForeshadowModal extends Modal {
 				this.renderDetail();
 			}).open());
 		}
-		const save = actions.createEl('button', { cls: 'mod-cta', text: item ? '수정' : '만들기', attr: { type: 'button' } });
+		const save = actions.createEl('button', { cls: 'mod-cta', text: item ? wmT("수정") : wmT("만들기"), attr: { type: 'button' } });
 		save.disabled = this.saving;
 		save.addEventListener('click', () => void this.saveDetail(save));
 		if (focusLabel) Array.from(this.detailEl.querySelectorAll<HTMLElement>('[aria-label]'))
@@ -255,7 +256,7 @@ export class PlotWorkbookForeshadowModal extends Modal {
 	private renderRoutePoint(parent: HTMLElement, point: RoutePoint): void {
 		const draft = this.draft!;
 		const location = draft[point];
-		const label = point === 'plant' ? '등록' : '회수';
+		const label = point === 'plant' ? wmT("등록") : wmT("회수");
 		const endpoint = parent.createDiv({ cls: `wm-plotbook-foreshadow-endpoint is-${point}` });
 		endpoint.createDiv({ cls: 'wm-plotbook-foreshadow-field-label', text: label });
 		// Existing cross-sheet endpoints stay on their original sheet. New endpoints
@@ -264,11 +265,11 @@ export class PlotWorkbookForeshadowModal extends Modal {
 		const sheet = this.session.sheets.get(sheetId);
 		if (!sheet) return;
 		const fields = endpoint.createDiv({ cls: 'wm-plotbook-foreshadow-point-fields' });
-		const column = this.createSelect(fields, `${label} 플롯 열`, 'columns-3');
+		const column = this.createSelect(fields, wmT("{0} 플롯 열", label), 'columns-3');
 		const plots = this.plotColumns(sheet);
 		for (const id of plots) column.createEl('option', { text: this.columnTitle(sheet, id), value: id });
 		column.disabled = plots.length === 0;
-		if (!plots.length) column.createEl('option', { text: '플롯 열 없음', value: '' });
+		if (!plots.length) column.createEl('option', { text: wmT("플롯 열 없음"), value: '' });
 		column.value = location?.columnId ?? (point === 'payoff' && plots.includes(draft.payoffColumnId ?? '') ? draft.payoffColumnId! : plots[0]) ?? '';
 		column.addEventListener('change', () => {
 			if (point === 'payoff') draft.payoffColumnId = column.value;
@@ -279,9 +280,9 @@ export class PlotWorkbookForeshadowModal extends Modal {
 			this.clearEarlierPayoff();
 			this.renderDetail();
 		});
-		const row = this.createSelect(fields, `${label} 행`, 'rows-3');
-		if (point === 'payoff') row.createEl('option', { text: '회수할 행 선택', value: '' });
-		else if (!location) row.createEl('option', { text: '등록할 행 선택', value: '' });
+		const row = this.createSelect(fields, wmT("{0} 행", label), 'rows-3');
+		if (point === 'payoff') row.createEl('option', { text: wmT("회수할 행 선택"), value: '' });
+		else if (!location) row.createEl('option', { text: wmT("등록할 행 선택"), value: '' });
 		// Compute this once, not by scanning rowOrder for every option in a long sheet.
 		const earlierRows = new Set(point === 'payoff' && draft.plant?.sheetId === sheetId
 			? sheet.rowOrder.slice(0, Math.max(0, sheet.rowOrder.indexOf(draft.plant.rowId))) : []);
@@ -289,7 +290,7 @@ export class PlotWorkbookForeshadowModal extends Modal {
 		for (const id of sheet.rowOrder) {
 			const number = rowLabels.get(id);
 			if (!number) continue;
-			const option = row.createEl('option', { text: `${number}행`, value: id });
+			const option = row.createEl('option', { text: wmT("{0}행", number), value: id });
 			option.disabled = earlierRows.has(id);
 		}
 		row.disabled = !plots.length;
@@ -301,7 +302,7 @@ export class PlotWorkbookForeshadowModal extends Modal {
 			this.renderDetail();
 		});
 		this.rowPickers.push(new PlotWorkbookRowPicker(row));
-		if (!plots.length) endpoint.createDiv({ cls: 'wm-plotbook-foreshadow-point-hint', text: '시트에 플롯 열을 추가하세요.' });
+		if (!plots.length) endpoint.createDiv({ cls: 'wm-plotbook-foreshadow-point-hint', text: wmT("시트에 플롯 열을 추가하세요.") });
 	}
 
 	private clearEarlierPayoff(): void {
@@ -320,20 +321,20 @@ export class PlotWorkbookForeshadowModal extends Modal {
 		const sheetId = draft.plant?.sheetId ?? this.location?.sheetId ?? this.session.activeSheet.sheetId;
 		const sheet = this.session.sheets.get(sheetId);
 		if (!sheet) return;
-		const timeline = preview.createDiv({ cls: 'wm-plotbook-foreshadow-timeline', attr: { role: 'group', 'aria-label': `${sheet.name}의 복선 등록 및 회수 위치` } });
+		const timeline = preview.createDiv({ cls: 'wm-plotbook-foreshadow-timeline', attr: { role: 'group', 'aria-label': wmT("{0}의 복선 등록 및 회수 위치", sheet.name) } });
 		const labels = this.session.rowLabels(sheet);
 		for (const point of ['plant', 'payoff'] as const) {
 			const location = draft[point];
 			const targetSheet = location ? this.session.sheets.get(location.sheetId) : undefined;
 			const available = location && targetSheet?.rows[location.rowId];
-			const lane = timeline.createDiv({ cls: `wm-plotbook-foreshadow-timeline-lane is-${point}${available ? '' : ' is-empty'}`, attr: { 'aria-label': point === 'plant' ? '등록 경로' : '회수 경로' } });
+			const lane = timeline.createDiv({ cls: `wm-plotbook-foreshadow-timeline-lane is-${point}${available ? '' : ' is-empty'}`, attr: { 'aria-label': point === 'plant' ? wmT("등록 경로") : wmT("회수 경로") } });
 			lane.createDiv({ cls: 'wm-plotbook-foreshadow-timeline-line', attr: { 'aria-hidden': 'true' } });
 			if (!available || !targetSheet || !location) continue;
 			const event = lane.createDiv({ cls: `wm-plotbook-foreshadow-timeline-event is-${point} is-${draft.status}` });
 			event.dataset.rowId = location.rowId;
 			event.dataset.sheetId = location.sheetId;
-			const label = point === 'plant' ? '등록' : '회수';
-			const dot = event.createEl('button', { cls: 'wm-plotbook-foreshadow-timeline-dot', attr: { type: 'button', 'aria-label': `${label} 위치로 이동` } });
+			const label = point === 'plant' ? wmT("등록") : wmT("회수");
+			const dot = event.createEl('button', { cls: 'wm-plotbook-foreshadow-timeline-dot', attr: { type: 'button', 'aria-label': wmT("{0} 위치로 이동", label) } });
 			dot.disabled = !this.onJump;
 			const jump = () => {
 				void Promise.resolve(this.onJump?.(location)).then(found => { if (found) this.close(); });
@@ -341,7 +342,7 @@ export class PlotWorkbookForeshadowModal extends Modal {
 			dot.addEventListener('click', jump);
 			const rowLabel = (targetSheet !== sheet ? this.session.rowLabels(targetSheet) : labels).get(location.rowId) ?? '';
 			renderForeshadowCard(event, {
-				title: draft.title || '새 복선', status: point === 'plant' ? 'open' : 'resolved',
+				title: draft.title || wmT("새 복선"), status: point === 'plant' ? 'open' : 'resolved',
 				plotTitle: this.columnTitle(targetSheet, location.columnId), rowLabel,
 				onSelect: this.onJump ? jump : undefined,
 			});
@@ -355,16 +356,16 @@ export class PlotWorkbookForeshadowModal extends Modal {
 	}
 
 	private columnTitle(sheet: PlotWorkbookSheet, id: string): string {
-		return sheet.columns[id]?.title || `플롯 ${columnLabel(sheet.columnOrder.indexOf(id))}`;
+		return sheet.columns[id]?.title || wmT("플롯 {0}", columnLabel(sheet.columnOrder.indexOf(id)));
 	}
 
 	private async saveDetail(button: HTMLButtonElement): Promise<void> {
 		const draft = this.draft;
 		if (!draft || this.saving) return;
-		if (!draft.title.trim()) { new Notice('복선 제목을 입력해주세요.'); return; }
-		if (!draft.plant) { new Notice('플롯 열에서 등록 위치를 선택해주세요.'); return; }
+		if (!draft.title.trim()) { new Notice(wmT("복선 제목을 입력해주세요.")); return; }
+		if (!draft.plant) { new Notice(wmT("플롯 열에서 등록 위치를 선택해주세요.")); return; }
 		if (!this.session.isForeshadowRouteInOrder(draft.plant, draft.payoff)) {
-			new Notice('회수 위치는 등록 위치와 같거나 뒤에 있어야 합니다.');
+			new Notice(wmT("회수 위치는 등록 위치와 같거나 뒤에 있어야 합니다."));
 			return;
 		}
 		this.saving = true;
@@ -377,13 +378,13 @@ export class PlotWorkbookForeshadowModal extends Modal {
 				this.creating = false;
 			} else if (this.selectedId) {
 				const saved = await this.session.saveForeshadowDetail(this.selectedId, { ...draft, plant: draft.plant });
-				if (!saved) { new Notice('선택한 플롯 위치를 확인해주세요.'); return; }
+				if (!saved) { new Notice(wmT("선택한 플롯 위치를 확인해주세요.")); return; }
 			}
 			this.draft = null;
 			this.renderList();
 		} catch (error) {
 			console.error('[Writing Menu] Failed to save foreshadow', error);
-			new Notice('복선을 저장하지 못했습니다.');
+			new Notice(wmT("복선을 저장하지 못했습니다."));
 		} finally {
 			this.saving = false;
 			this.renderDetail();
@@ -394,11 +395,11 @@ export class PlotWorkbookForeshadowModal extends Modal {
 class PlotWorkbookForeshadowDeleteConfirmModal extends Modal {
 	constructor(app: WritingMenuPlugin['app'], private readonly foreshadowTitle: string, private readonly onConfirm: () => Promise<void>) { super(app); }
 	onOpen(): void {
-		this.setTitle('복선 삭제');
-		this.contentEl.createEl('p', { text: `“${this.foreshadowTitle}” 복선을 삭제합니다. 등록 및 회수 위치에서도 제거되며 되돌릴 수 없습니다.` });
+		this.setTitle(wmT("복선 삭제"));
+		this.contentEl.createEl('p', { text: wmT("“{0}” 복선을 삭제합니다. 등록 및 회수 위치에서도 제거되며 되돌릴 수 없습니다.", this.foreshadowTitle) });
 		const actions = this.contentEl.createDiv({ cls: 'modal-button-container' });
-		actions.createEl('button', { text: '취소' }).addEventListener('click', () => this.close());
-		actions.createEl('button', { cls: 'mod-warning', text: '삭제' }).addEventListener('click', () => { this.close(); void this.onConfirm(); });
+		actions.createEl('button', { text: wmT("취소") }).addEventListener('click', () => this.close());
+		actions.createEl('button', { cls: 'mod-warning', text: wmT("삭제") }).addEventListener('click', () => { this.close(); void this.onConfirm(); });
 	}
 	onClose(): void { this.contentEl.empty(); }
 }

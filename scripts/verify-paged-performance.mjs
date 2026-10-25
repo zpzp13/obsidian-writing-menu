@@ -15,10 +15,11 @@ import { installObsidianDomHelpers } from './obsidian-dom-stub.mjs';
 import { assertCssVisualParity } from './css-visual-parity.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const i18nSuite = process.argv.includes('--i18n');
 const ragSettingsSuite = process.argv.includes('--rag-settings');
 const dashboardSuite = process.argv.includes('--dashboard') || ragSettingsSuite;
-const plotSuite = !dashboardSuite && process.argv.includes('--plot');
-const suite = dashboardSuite ? (await import('./verify-dashboard-ui-suite.mjs')).runDashboardChecks : plotSuite ? (await import('./verify-plot-ui-suite.mjs')).runPlotChecks : runPagedChecks;
+const plotSuite = !dashboardSuite && (process.argv.includes('--plot') || i18nSuite);
+const suite = i18nSuite ? (await import('./verify-i18n-ui.mjs')).runI18nUiChecks : dashboardSuite ? (await import('./verify-dashboard-ui-suite.mjs')).runDashboardChecks : plotSuite ? (await import('./verify-plot-ui-suite.mjs')).runPlotChecks : runPagedChecks;
 const browserPath = process.env.PAGED_TEST_BROWSER || [
 	'C:/Program Files/Google/Chrome/Application/chrome.exe',
 	'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
@@ -62,6 +63,8 @@ export class WorkspaceLeaf {}
 export class App {}
 export class FileSystemAdapter {}
 export const requireApiVersion = () => true;
+export const getLanguage = () => 'en';
+export const moment = { locale: () => 'ko' };
 export class TFile {}
 export class Component {
 	constructor() { this.cleanups = []; this.children = []; }
@@ -190,6 +193,11 @@ export class SearchComponent {
 	setValue(value) {this.inputEl.value=value;return this;}
 	onChange(action) {this.inputEl.addEventListener('input',()=>action(this.inputEl.value));return this;}
 }
+export class TextComponent {
+	constructor(parent) { this.inputEl = parent.createEl('input', {type:'text'}); }
+	setValue(value) { this.inputEl.value = value; return this; }
+	onChange(action) { this.inputEl.addEventListener('input', () => action(this.inputEl.value)); return this; }
+}
 export class ToggleComponent {
 	constructor(parent) {this.toggleEl=parent.createDiv({cls:'checkbox-container'});this.inputEl=this.toggleEl.createEl('input',{type:'checkbox'});}
 	setValue(value) {this.inputEl.checked=value;this.toggleEl.classList.toggle('is-enabled',value);return this;}
@@ -231,7 +239,13 @@ export class ItemView extends TextFileView {
 const bundle = await build({
 	absWorkingDir: root,
 	stdin: {
-		contents: (plotSuite ? `import { InfinitePlotSheet } from './src/plot-workbook/InfinitePlotSheet';
+		contents: (i18nSuite ? `import './src/i18n/obsidian';
+			import { SpecialCharsModal } from './src/special-chars/SpecialCharsModal';
+			import { MonthCalendar } from './src/dashboard/MonthCalendar';
+			import { PagedFileConflictModal } from './src/paged/PagedFileConflictModal';
+			import { PlotWorkbookRowPicker } from './src/plot-workbook/PlotWorkbookRowPicker';
+			import { TFile } from 'obsidian';
+			Object.assign(globalThis, {SpecialCharsModal,MonthCalendar,PagedFileConflictModal,PlotWorkbookRowPicker,TFile});` : '') + (plotSuite ? `import { InfinitePlotSheet } from './src/plot-workbook/InfinitePlotSheet';
 			import { PlotWorkbookForeshadowModal } from './src/plot-workbook/PlotWorkbookForeshadowModal';
 			import { PlotWorkbookSheetTrashModal } from './src/plot-workbook/PlotWorkbookSheetTrashModal';
 			import { PlotWorkbookSession } from './src/plot-workbook/PlotWorkbookSession';
@@ -280,7 +294,7 @@ const bundle = await build({
 				builder.onResolve({ filter: /^(\.\/WritingToolbar|\.\.\/export)$/ }, args => ({ path: args.path, namespace: 'toolbar-test' }));
 				builder.onLoad({ filter: /.*/, namespace: 'toolbar-test' }, args => ({ loader: 'js', contents: args.path.endsWith('WritingToolbar')
 					? 'export class WritingToolbar { constructor(plugin, container) { this.toolbarEl = container.createDiv({cls:"wm-writing-toolbar wm-paged-toolbar"}); } destroy() { this.toolbarEl.remove(); } }'
-					: 'export class HwpExportModal {} export class TxtExportModal {}' }));
+					: 'export class HwpxExportModal {} export class TxtExportModal {}' }));
 			}
 		},
 	}],
@@ -511,7 +525,7 @@ async function runPagedChecks() {
 
 const css = await readFile(path.join(root, 'styles.css'), 'utf8');
 let nativeSnapshotCss = '';
-if (process.argv.includes('--native-snapshot-preview')) {
+if (plotSuite || process.argv.includes('--native-snapshot-preview')) {
 	const archive = await readFile('C:/Users/82109/AppData/Local/Programs/Obsidian/resources/obsidian.asar');
 	const header = JSON.parse(archive.subarray(16,16+archive.readUInt32LE(12)).toString('utf8'));
 	const entry = header.files['app.css'], offset = 8+archive.readUInt32LE(4)+Number(entry.offset);
@@ -605,6 +619,11 @@ try {
 	const result = await command('Runtime.evaluate', { expression: 'window.runPagedChecks()', awaitPromise: true, returnByValue: true });
 	if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || JSON.stringify(result.exceptionDetails));
 	console.log(JSON.stringify(result.result.value, null, 2));
+	if (i18nSuite) {
+		const output = path.join(root, '.codex-tmp', 'i18n-ui'); await mkdir(output, { recursive: true });
+		const shot = await command('Page.captureScreenshot', { format: 'png' });
+		await writeFile(path.join(output, 'english-desktop.png'), Buffer.from(shot.data, 'base64'));
+	}
 	if (dashboardSuite && !ragSettingsSuite) {
 		const evaluate = async expression => { const result = await command('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true}); if(result.exceptionDetails)throw new Error(result.exceptionDetails.exception?.description); return result.result.value; };
 		const output = path.join(root,'.codex-tmp','dashboard-overhaul'); await mkdir(output,{recursive:true});
@@ -653,7 +672,7 @@ try {
 		if(phoneSnapshot.sidebarBottom>phoneSnapshot.detailTop+1||phoneSnapshot.height<200||phoneSnapshot.overflow)throw new Error('Mobile snapshot panes overlap: '+JSON.stringify(phoneSnapshot));
 		await capture('manuscript-snapshot-mobile');
 	}
-	if (plotSuite) {
+	if (plotSuite && !i18nSuite) {
 		const evaluate = async expression => {
 			const response = await command('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
 			if (response.exceptionDetails) throw new Error(response.exceptionDetails.exception?.description || JSON.stringify(response.exceptionDetails));

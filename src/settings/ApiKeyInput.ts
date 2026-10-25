@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { setIcon } from 'obsidian';
 
 /** Visibility is local to this settings control and never stored with the key. */
@@ -12,7 +13,7 @@ export function configureApiKeyInput(input: HTMLInputElement): void {
 		input.type = hidden ? 'password' : 'text';
 		toggle.toggleClass('is-active', hidden);
 		toggle.setAttribute('aria-pressed', String(hidden));
-		toggle.setAttribute('aria-label', hidden ? 'API 키 표시' : 'API 키 숨기기');
+		toggle.setAttribute('aria-label', hidden ? wmT("API 키 표시") : wmT("API 키 숨기기"));
 		setIcon(toggle, hidden ? 'eye-off' : 'eye');
 	};
 	toggle.addEventListener('pointerdown', event => event.preventDefault());

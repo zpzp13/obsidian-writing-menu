@@ -118,8 +118,9 @@ export async function runPlotChecks() {
 	const source = content.createDiv({ cls: 'markdown-source-view mod-cm6' });
 	const sizer = source.createDiv({ cls:'cm-editor' }).createDiv({ cls:'cm-scroller' }).createDiv({ cls:'cm-sizer' });
 	const editor = sizer.createDiv({ cls: 'cm-content', text: '문서 서식 검사' });
-	const reading = content.createDiv({ cls:'markdown-reading-view markdown-preview-view' });
-	const readingSizer = reading.createDiv({cls:'markdown-preview-sizer',text:'읽기 서식 검사'});
+	const reading = content.createDiv({ cls:'markdown-reading-view' });
+	const readingPreview = reading.createDiv({ cls:'markdown-preview-view' });
+	const readingSizer = readingPreview.createDiv({cls:'markdown-preview-sizer',text:'읽기 서식 검사'});
 	leaf.view = new MarkdownView(leaf);
 	leaf.view.file = { path: 'Project/3. 본문/story.md' };
 	leaves.push(leaf);
@@ -176,6 +177,55 @@ export async function runPlotChecks() {
 		styles.regenerateCSSTemplate();
 		styles.updateAllLeafStyles();
 	};
+	// Native readable-line-width rules are more specific than the old cm-sizer rule.
+	const nativeWidthStyle = document.head.createEl('style');
+	nativeWidthStyle.textContent = await (await fetch('/native-snapshot.css')).text();
+	assert(nativeWidthStyle.textContent.includes('--file-line-width'), 'Native Markdown width CSS is missing');
+	document.head.prepend(nativeWidthStyle);
+	const savedLayout = { width:plugin.settings.lineWidth, padding:plugin.settings.inlinePadding };
+	const savedScopeStyle = scopeHost.getAttribute('style'), savedLeafStyle = leaf.containerEl.getAttribute('style');
+	const savedSizerTransition = sizer.style.transition;
+	const outsideWidthHost = document.body.createDiv();
+	outsideWidthHost.innerHTML = '<div class="markdown-source-view mod-cm6 is-readable-line-width"><div class="cm-sizer"><div class="cm-content"><div class="cm-line">Outside project</div></div></div></div><div class="markdown-preview-view is-readable-line-width"><div class="markdown-preview-sizer">Outside project</div></div>';
+	const outsideWidths = () => [...outsideWidthHost.querySelectorAll('.cm-sizer,.cm-content,.cm-line,.markdown-preview-sizer')].map(element => getComputedStyle(element).maxWidth).join('|');
+	const outsideWidthsBefore = outsideWidths();
+	try {
+		scopeHost.setCssStyles({ display:'block', width:'1100px' });
+		leaf.containerEl.style.width = '1000px';
+		sizer.style.transition = 'none';
+		for (const readable of [true, false]) {
+			source.toggleClass('is-readable-line-width', readable);
+			readingPreview.toggleClass('is-readable-line-width', readable);
+			for (const [width, padding] of [[400, 40], [1000, 0], [280, 20]]) {
+				modeToolbar.toolbarEl.querySelector('[aria-label="레이아웃"]').click();
+				const fields = modeToolbar.activePopover.querySelectorAll('.wm-writing-markdown-layout-body input');
+				fields[0].value = String(width); fields[1].value = String(padding);
+				fields[0].dispatchEvent(new Event('input', { bubbles:true }));
+				modeToolbar.activePopover.querySelector('.wm-paged-layout-apply').click();
+				await settle();
+				assert(plugin.settings.lineWidth === width && plugin.settings.inlinePadding === padding, 'Markdown layout Apply did not save its fields');
+				assert(getComputedStyle(source).getPropertyValue('--file-line-width').trim() === `${width}px`, 'Native Markdown width still ignores the toolbar setting');
+				assert(getComputedStyle(sizer).maxWidth === `${width}px`, `Source width still capped by native CSS (readable=${readable})`);
+				assert(getComputedStyle(readingSizer).maxWidth === `${width}px`, `Reading width still ignores the toolbar (readable=${readable})`);
+				assert(getComputedStyle(sizer).paddingLeft === `${padding}px`, 'Markdown layout lost its horizontal padding');
+				if (width <= 400) {
+					assert(Math.abs(sizer.getBoundingClientRect().width - width) < 1, 'Rendered source column did not resize');
+					assert(Math.abs(readingSizer.getBoundingClientRect().width - width) < 1, 'Rendered reading column did not resize');
+				}
+				assert(outsideWidths() === outsideWidthsBefore, 'Markdown width escaped project scope');
+			}
+		}
+		leaf.containerEl.style.width = '240px';
+		assert(sizer.getBoundingClientRect().width <= 240 && readingSizer.getBoundingClientRect().width <= 240, 'Markdown width overflows a narrow pane');
+	} finally {
+		nativeWidthStyle.remove(); outsideWidthHost.remove();
+		source.removeClass('is-readable-line-width'); readingPreview.removeClass('is-readable-line-width');
+		scopeHost.setAttribute('style', savedScopeStyle ?? ''); leaf.containerEl.setAttribute('style', savedLeafStyle ?? '');
+		sizer.style.transition = savedSizerTransition;
+		modePlugin.settings.lineWidth = savedLayout.width; modePlugin.settings.inlinePadding = savedLayout.padding;
+		await modePlugin.saveSettings();
+	}
+	console.info('Toolbar Markdown width/padding Apply updates actual source/reading columns with native readable length on/off, narrow panes and outside-project isolation');
 	modeToolbar.toolbarEl.querySelector('[aria-label="서식"]').click();
 	const lineSlider = modeToolbar.activePopover.querySelector('input[aria-label="줄 간격"]');
 	assert(lineSlider, 'Toolbar line-height control is missing');
@@ -381,6 +431,48 @@ export async function runPlotChecks() {
 	assert(!root.querySelector('.wm-writing-toolbar'), 'Outside note retained toolbar');
 	root.remove(); scopeHost.remove();
 	console.info('Legacy vault folder regression, Markdown/reading styles, format slider, zen shortcuts/icons and project scope passed');
+
+	// Exercise the asynchronous view replacement while both editors share one leaf.
+	const switchMount = document.body.createDiv({ cls:'workspace-leaf' });
+	const switchPlugin = { ...plugin, toolbarElements:new Map(), charCountElements:new Map(),
+		app:{...app,workspace:{...app.workspace,getLeavesOfType:()=>[]}},
+		updateLeafStyles(current) {
+			assert(switchMount.classList.contains('wm-writing-view-switching') && current.view.containerEl.isConnected,
+				'Target view was exposed before its layout styles were applied');
+		},
+	};
+	const switchManager = new ToolbarManager(switchPlugin);
+	for (const kind of ['paged','markdown']) {
+		const old = switchMount.createDiv({cls:'workspace-leaf-content'});
+		const staleToolbar = old.createDiv({cls:'wm-markdown-toolbar-host'});
+		const current = {view:{containerEl:old}};
+		switchPlugin.toolbarElements.set(current,staleToolbar);
+		let finishLoad, switches = 0, focused = 0;
+		switchPlugin.app.workspace.getMostRecentLeaf=()=>current;
+		current.setViewState = async () => {
+			switches++;
+			assert(!staleToolbar.isConnected && getComputedStyle(old).visibility === 'hidden', 'Outgoing toolbar remained visible during replacement');
+			await new Promise(resolve => { finishLoad=resolve; });
+			old.remove();
+			const replacement=switchMount.createDiv({cls:'workspace-leaf-content'});
+			current.view=Object.create(kind==='markdown'?MarkdownView.prototype:PagedWritingView.prototype);
+			Object.assign(current.view,{containerEl:replacement,editor:{focus(){focused++;}},focusEditorFromToolbar(){focused++;}});
+			assert(getComputedStyle(replacement).visibility === 'hidden', 'Incoming view was exposed while still loading');
+		};
+		const switched=switchManager.switchWritingView(current,{type:kind,active:true});
+		await switchManager.switchWritingView(current,{type:kind,active:true});
+		assert(switches===1, 'Repeated switch started a second overlapping replacement');
+		finishLoad(); await switched;
+		assert(getComputedStyle(current.view.containerEl).visibility==='visible' && !switchMount.hasClass('wm-writing-view-switching'), 'Finished view remained hidden');
+		assert(focused===1,'New editor did not regain keyboard focus after becoming visible');
+		current.view.containerEl.remove();
+	}
+	const failedView=switchMount.createDiv({cls:'workspace-leaf-content'});
+	const failureLeaf={view:{containerEl:failedView},async setViewState(){throw new Error('simulated load failure');}};
+	await switchManager.switchWritingView(failureLeaf,{type:'markdown'}).catch(()=>{});
+	assert(!switchMount.hasClass('wm-writing-view-switching') && !switchManager.switchingLeaves.has(failureLeaf), 'Failed replacement left the leaf hidden or locked');
+	switchMount.remove();
+	console.info('Writing view switching: old toolbar cleanup, hidden intermediate frames, measured target layout, editor focus, duplicate clicks and failure recovery passed');
 
 	const repository = { async saveForeshadowsState() {}, recordOperation() {}, async saveManifestState() {} };
 	const sheet = createPlotWorkbookSheet('메인 시트', 10000, 80);

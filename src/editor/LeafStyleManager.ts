@@ -1,3 +1,4 @@
+import { wmT, getLocale } from '../i18n/index';
 import { MarkdownView, Platform, WorkspaceLeaf, setIcon, sanitizeHTMLToDom } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { MUNPIA_SVG, NOVELPIA_SVG } from '../assets/platformLogos';
@@ -72,7 +73,7 @@ export class LeafStyleManager {
 	}
 
 	formatCharCount(count: number): string {
-		return count.toLocaleString('ko-KR') + ' 자';
+		return count.toLocaleString(getLocale()) + wmT(" 자");
 	}
 
 	updateCharCount(leaf: WorkspaceLeaf) {
@@ -334,7 +335,7 @@ export class LeafStyleManager {
 		const labelGroup = div.createDiv('writing-menu-control-label-group');
 		const iconSpan = labelGroup.createSpan('writing-menu-icon');
 		setIcon(iconSpan, 'binary');
-		labelGroup.createEl('label', { text: '글자수' });
+		labelGroup.createEl('label', { text: wmT("글자수") });
 
 		const rightGroup = div.createDiv();
 		rightGroup.setCssStyles({ display: 'flex', alignItems: 'center', gap: '8px' });

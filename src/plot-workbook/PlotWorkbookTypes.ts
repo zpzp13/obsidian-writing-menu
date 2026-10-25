@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import type { ThemeAwareColor } from '../types';
 
 export const PLOT_WORKBOOK_VIEW_TYPE = 'writing-menu-plot-workbook';
@@ -399,7 +400,7 @@ export function newPlotWorkbookId(prefix: string): string {
 	return `${prefix}-${random.slice(0, 16)}`;
 }
 
-export function createPlotWorkbookSheet(name = '시트 1', rowCount = 200, columnCount = 32): PlotWorkbookSheet {
+export function createPlotWorkbookSheet(name = wmT("시트 1"), rowCount = 200, columnCount = 32): PlotWorkbookSheet {
 	const sheetId = newPlotWorkbookId('sheet');
 	const rows: Record<string, PlotWorkbookRow> = {};
 	const columns: Record<string, PlotWorkbookColumn> = {};

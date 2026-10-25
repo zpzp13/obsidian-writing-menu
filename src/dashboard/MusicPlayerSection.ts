@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { setIcon } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { PlaybackMode, Track } from './MusicPlayer';
@@ -24,9 +25,9 @@ const MODE_ICONS: Record<PlaybackMode, string> = {
 };
 
 const MODE_LABELS: Record<PlaybackMode, string> = {
-	loop: '반복 재생',
-	single: '한 곡 재생',
-	shuffle: '셔플',
+	loop: wmT("반복 재생"),
+	single: wmT("한 곡 재생"),
+	shuffle: wmT("셔플"),
 };
 
 function makeBtn(parent: HTMLElement, icon: string, label: string, extra = ''): HTMLElement {
@@ -86,7 +87,7 @@ function openPlaylistPopup(anchor: HTMLElement, plugin: WritingMenuPlugin) {
 		const favs = mp.favoriteTracks.slice(0, maxFavs);
 		if (favs.length === 0) return false;
 
-		container.createDiv({ cls: 'wm-music-list-section-label', text: '즐겨찾기' });
+		container.createDiv({ cls: 'wm-music-list-section-label', text: wmT("즐겨찾기") });
 		for (const track of favs) {
 			const isCurrent = mp.currentTrack?.path === track.path;
 			const item = container.createDiv({ cls: `wm-music-list-item${isCurrent ? ' is-playing' : ''}` });
@@ -118,10 +119,10 @@ function openPlaylistPopup(anchor: HTMLElement, plugin: WritingMenuPlugin) {
 		if (hasFavs && folders.length > 0) popup.createDiv({ cls: 'wm-music-list-sep' });
 
 		if (folders.length === 0) {
-			if (!hasFavs) popup.createDiv({ cls: 'wm-music-list-empty', text: '등록된 폴더가 없습니다' });
+			if (!hasFavs) popup.createDiv({ cls: 'wm-music-list-empty', text: wmT("등록된 폴더가 없습니다") });
 			return;
 		}
-		popup.createDiv({ cls: 'wm-music-list-section-label', text: '음악 선택' });
+		popup.createDiv({ cls: 'wm-music-list-section-label', text: wmT("음악 선택") });
 		if (folders.length === 1) { renderFolderLevel(folders[0], false); return; }
 		for (const folder of folders) {
 			const item = popup.createDiv({ cls: 'wm-music-list-item' });
@@ -182,7 +183,7 @@ function openPlaylistPopup(anchor: HTMLElement, plugin: WritingMenuPlugin) {
 		}
 
 		if (allTracks.length === 0) {
-			popup.createDiv({ cls: 'wm-music-list-empty', text: '오디오 파일이 없습니다' });
+			popup.createDiv({ cls: 'wm-music-list-empty', text: wmT("오디오 파일이 없습니다") });
 			return;
 		}
 
@@ -380,26 +381,26 @@ export class MusicPlayerSection {
 		}
 
 		if (!mp) {
-			player.createDiv({ cls: 'wm-dash-music-empty', text: '플레이어를 불러오는 중…' });
+			player.createDiv({ cls: 'wm-dash-music-empty', text: wmT("플레이어를 불러오는 중…") });
 			return;
 		}
 		if (mp.playlist.length === 0) {
 			const empty = player.createDiv({ cls: 'wm-dash-music-empty' });
 			setIcon(empty.createSpan({ cls: 'wm-dash-music-empty-icon' }), 'music');
-			empty.createSpan({ text: '설정에서 음악 폴더를 지정해 주세요' });
+			empty.createSpan({ text: wmT("설정에서 음악 폴더를 지정해 주세요") });
 			return;
 		}
 
 		// ── 헤더: [목록] [폴더명] [하트] [모드] ──
 		const header = player.createDiv({ cls: 'wm-dash-music-header' });
-		const listBtn = makeBtn(header, 'music', '재생목록', 'wm-dash-music-list-btn');
+		const listBtn = makeBtn(header, 'music', wmT("재생목록"), 'wm-dash-music-list-btn');
 		listBtn.addEventListener('click', (e) => { e.stopPropagation(); togglePlaylistPopup(listBtn, plugin); });
 
 		// 헤더: 현재 폴더명 표시
 		const folderEl = header.createDiv({ cls: 'wm-dash-music-folder' });
 		folderEl.textContent = mp.currentTrack ? folderNameOf(mp.currentTrack.path) : '—';
 
-		const favBtn = makeBtn(header, 'heart', '즐겨찾기', 'wm-dash-music-fav-btn');
+		const favBtn = makeBtn(header, 'heart', wmT("즐겨찾기"), 'wm-dash-music-fav-btn');
 		if (mp.currentTrack && mp.isFavorite(mp.currentTrack)) favBtn.addClass('is-fav');
 		favBtn.addEventListener('click', (e) => {
 			e.stopPropagation();
@@ -470,9 +471,7 @@ export class MusicPlayerSection {
 		const buildStrip = () => {
 			const vp = mp.viewPlaylist;
 			const ci = mp.currentIndex;
-			if (vp.length === 0) return;
-
-			const key = `${ci}:${vp.length}:${vp[ci]?.path ?? ''}`;
+			const key = JSON.stringify([ci, mp.currentTrack?.path, vp.map(track => track.path)]);
 			if (key === lastStripKey) return;
 			lastStripKey = key;
 
@@ -529,9 +528,9 @@ export class MusicPlayerSection {
 
 		// ── 컨트롤 ──
 		const controls = player.createDiv({ cls: 'wm-dash-music-controls' });
-		const prevBtn = makeBtn(controls, 'skip-back', '이전');
-		const playBtn = makeBtn(controls, mp.isPlaying ? 'pause' : 'play', '재생/일시정지', 'wm-dash-music-play-btn');
-		const nextBtn = makeBtn(controls, 'skip-forward', '다음');
+		const prevBtn = makeBtn(controls, 'skip-back', wmT("이전"));
+		const playBtn = makeBtn(controls, mp.isPlaying ? 'pause' : 'play', wmT("재생/일시정지"), 'wm-dash-music-play-btn');
+		const nextBtn = makeBtn(controls, 'skip-forward', wmT("다음"));
 
 		const { syncIcon: syncVolIcon } = makeVolWrap(controls, mp);
 

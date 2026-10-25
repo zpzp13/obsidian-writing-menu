@@ -1,3 +1,4 @@
+import { wmT, getLocale } from '../i18n/index';
 import { setIcon, TFile } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { ParsedTask } from './data/TaskParser';
@@ -75,13 +76,13 @@ export class TasksRenderer {
 		titleGroup.createDiv({ cls: 'wm-tasks-agenda-kicker', text: 'SELECTED DAY' });
 		titleGroup.createDiv({
 			cls: 'wm-tasks-title',
-			text: selectedDate.toLocaleDateString('ko-KR', {
+			text: selectedDate.toLocaleDateString(getLocale(), {
 				month: 'long', day: 'numeric', weekday: 'long',
 			}),
 		});
 		const addBtn = header.createEl('button', {
 			cls: 'wm-tasks-add-btn',
-			attr: { type: 'button', 'aria-label': '선택한 날짜에 할 일 추가' },
+			attr: { type: 'button', 'aria-label': wmT("선택한 날짜에 할 일 추가") },
 		});
 		const addIcon = addBtn.createSpan({ cls: 'wm-tasks-add-icon' });
 		setIcon(addIcon, 'plus');
@@ -92,7 +93,7 @@ export class TasksRenderer {
 		});
 
 		const toolbar = wrap.createDiv({ cls: 'wm-tasks-agenda-toolbar' });
-		const filters = toolbar.createDiv({ cls: 'wm-tasks-agenda-filters', attr: { role: 'group', 'aria-label': '할 일 필터' } });
+		const filters = toolbar.createDiv({ cls: 'wm-tasks-agenda-filters', attr: { role: 'group', 'aria-label': wmT("할 일 필터") } });
 		const filterButtons = new Map<AgendaFilter, HTMLButtonElement>();
 		for (const item of [
 			{ id: 'all' as const, label: 'ALL' },
@@ -113,12 +114,12 @@ export class TasksRenderer {
 
 		const sortBtn = toolbar.createEl('button', {
 			cls: 'wm-tasks-agenda-sort',
-			attr: { type: 'button', 'aria-label': '기본 순서' },
+			attr: { type: 'button', 'aria-label': wmT("기본 순서") },
 		});
 		setIcon(sortBtn, 'arrow-up-down');
 		sortBtn.addEventListener('click', () => {
 			sort = sort === 'default' ? 'priority' : sort === 'priority' ? 'title' : 'default';
-			sortBtn.setAttribute('aria-label', sort === 'priority' ? '우선순위 순' : sort === 'title' ? '제목 순' : '기본 순서');
+			sortBtn.setAttribute('aria-label', sort === 'priority' ? wmT("우선순위 순") : sort === 'title' ? wmT("제목 순") : wmT("기본 순서"));
 			sortBtn.toggleClass('is-active', sort !== 'default');
 			renderList();
 		});
@@ -156,7 +157,7 @@ export class TasksRenderer {
 				const icon = empty.createSpan({ cls: 'wm-tasks-agenda-empty-icon' });
 				setIcon(icon, 'circle-check-big');
 				empty.createSpan({
-					text: filter === 'all' ? '이 날짜에는 할 일이 없습니다.' : '표시할 할 일이 없습니다.',
+					text: filter === 'all' ? wmT("이 날짜에는 할 일이 없습니다.") : wmT("표시할 할 일이 없습니다."),
 				});
 				return;
 			}

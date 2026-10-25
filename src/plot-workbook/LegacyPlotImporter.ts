@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { legacyText } from '../utils/typeGuards';
 import { normalizePath, parseYaml } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
@@ -101,7 +102,7 @@ export class LegacyPlotImporter {
 
 	async importInto(project: WritingProject): Promise<LegacyPlotImportResult> {
 		const sourcePath = this.getSourcePath();
-		if (!sourcePath) throw new Error('기존 플롯 폴더 설정을 찾을 수 없습니다.');
+		if (!sourcePath) throw new Error(wmT("기존 플롯 폴더 설정을 찾을 수 없습니다."));
 		const legacy = await this.readProject(sourcePath);
 		const sheet = this.toWorkbookSheet(legacy);
 		const repository = new PlotWorkbookRepository(this.plugin, project.rootFolder);
@@ -135,7 +136,7 @@ export class LegacyPlotImporter {
 			if (!raw.startsWith('{')) continue;
 			return this.normalizeProject(JSON.parse(raw) as unknown);
 		}
-		throw new Error(`${sourcePath}에서 기존 플롯 데이터를 찾을 수 없습니다.`);
+		throw new Error(wmT("{0}에서 기존 플롯 데이터를 찾을 수 없습니다.", sourcePath));
 	}
 
 	private async readMarkdownProject(sourcePath: string, configPath: string): Promise<LegacyPlotProject> {
@@ -152,12 +153,12 @@ export class LegacyPlotImporter {
 		if (manifest) {
 			files = manifest.map((item, index) => {
 				if (!item || typeof item !== 'object' || Array.isArray(item)) {
-					throw new Error(`기존 에피소드 목록 ${index + 1}번 항목이 올바르지 않습니다.`);
+					throw new Error(wmT("기존 에피소드 목록 {0}번 항목이 올바르지 않습니다.", index + 1));
 				}
 				const rawPath = legacyText((item as Record<string, unknown>).filePath ?? '').trim();
 				const path = normalizePath(rawPath);
 				if (!path || !this.isInside(sourcePath, path)) {
-					throw new Error(`기존 플롯 폴더 밖의 에피소드 경로는 가져오지 않습니다: ${path || '(빈 경로)'}`);
+					throw new Error(wmT("기존 플롯 폴더 밖의 에피소드 경로는 가져오지 않습니다: {0}", path || wmT("(빈 경로)")));
 				}
 				return path;
 			});
@@ -170,11 +171,11 @@ export class LegacyPlotImporter {
 
 		for (const path of files) {
 			if (!(await this.plugin.app.vault.adapter.exists(path))) {
-				throw new Error(`기존 에피소드 파일을 찾을 수 없습니다: ${path}`);
+				throw new Error(wmT("기존 에피소드 파일을 찾을 수 없습니다: {0}", path));
 			}
 			const parsed = this.parseFrontmatter(await this.plugin.app.vault.adapter.read(path));
 			if (!this.isEpisodeDocument(parsed.data)) {
-				if (manifest) throw new Error(`기존 에피소드 파일 형식이 아닙니다: ${path}`);
+				if (manifest) throw new Error(wmT("기존 에피소드 파일 형식이 아닙니다: {0}", path));
 				continue;
 			}
 			const episode = this.readEpisode(parsed.data, path);
@@ -317,7 +318,7 @@ export class LegacyPlotImporter {
 	}
 
 	private normalizeProject(raw: unknown): LegacyPlotProject {
-		if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('기존 플롯 JSON 형식이 올바르지 않습니다.');
+		if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error(wmT("기존 플롯 JSON 형식이 올바르지 않습니다."));
 		const data = raw as Record<string, unknown>;
 		return {
 			plotLines: this.readPlotLines(data.plotLines),
@@ -509,7 +510,7 @@ export class LegacyPlotImporter {
 	}
 
 	private record(value: unknown, label: string): Record<string, unknown> {
-		if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} 형식이 올바르지 않습니다.`);
+		if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(wmT("{0} 형식이 올바르지 않습니다.", label));
 		return value as Record<string, unknown>;
 	}
 

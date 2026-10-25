@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { requestUrl } from 'obsidian';
 import type { AiChatMessage, ChatContextItem } from './AiChatTypes';
 import type { RagToolCall, RagTools } from './rag/RagTypes';
@@ -38,11 +39,11 @@ function characterSceneDeclaration(options: GeminiRagOptions) {
 
 /** Typed provider output becomes the same portable format used by saved/legacy turns. */
 function characterSceneText(args: Record<string, unknown>, partial = false): string {
-	if (!Array.isArray(args.turns)) { if (partial) return ''; throw new Error('캐릭터 장면의 발언 목록을 받지 못했습니다.'); }
+	if (!Array.isArray(args.turns)) { if (partial) return ''; throw new Error(wmT("캐릭터 장면의 발언 목록을 받지 못했습니다.")); }
 	return (args.turns as unknown[]).map(value => {
 		const turn = value && typeof value === 'object' ? value as Record<string, unknown> : {};
 		if ((turn.type !== 'narration' && turn.type !== 'dialogue') || typeof turn.text !== 'string' || typeof turn.speaker !== 'string' || turn.type === 'dialogue' && !turn.speaker.trim()) {
-			if (partial) return ''; throw new Error('캐릭터 응답의 화자 또는 대사 형식이 올바르지 않습니다.');
+			if (partial) return ''; throw new Error(wmT("캐릭터 응답의 화자 또는 대사 형식이 올바르지 않습니다."));
 		}
 		const speaker = turn.speaker.replace(/[[\]\r\n]/g, '').trim(), text = turn.text.trim();
 		if (!text) return '';
@@ -66,14 +67,14 @@ async function step(options: GeminiRagOptions, contents: GeminiContent[], allowT
 	const base = `https://generativelanguage.googleapis.com/v1beta/models/${options.model}`;
 	let parts: GeminiPart[] = [], usage: GeminiUsage | undefined;
 	const consume = (value: unknown) => {
-		if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Gemini 응답 형식이 올바르지 않습니다.');
+		if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(wmT("Gemini 응답 형식이 올바르지 않습니다."));
 		const data = value as { error?: unknown; candidates?: Array<{ content?: { parts?: GeminiPart[] } }>; usageMetadata?: GeminiUsage };
 		if (data.error) throw geminiApiError(200, data);
-		if (data.candidates !== undefined && !Array.isArray(data.candidates)) throw new Error('Gemini 응답 후보 형식이 올바르지 않습니다.');
+		if (data.candidates !== undefined && !Array.isArray(data.candidates)) throw new Error(wmT("Gemini 응답 후보 형식이 올바르지 않습니다."));
 		const next = data.candidates?.[0]?.content?.parts ?? [];
 		if (!Array.isArray(next) || next.some(part => !part || typeof part !== 'object'
 			|| part.text !== undefined && typeof part.text !== 'string'
-			|| part.functionCall && (typeof part.functionCall.name !== 'string' || part.functionCall.args !== undefined && (!part.functionCall.args || typeof part.functionCall.args !== 'object' || Array.isArray(part.functionCall.args))))) throw new Error('Gemini 응답 본문 형식이 올바르지 않습니다.');
+			|| part.functionCall && (typeof part.functionCall.name !== 'string' || part.functionCall.args !== undefined && (!part.functionCall.args || typeof part.functionCall.args !== 'object' || Array.isArray(part.functionCall.args))))) throw new Error(wmT("Gemini 응답 본문 형식이 올바르지 않습니다."));
 		parts.push(...next); usage = data.usageMetadata ?? usage;
 		const text = parts.filter(part => part.text && !part.thought).map(part => part.text).join('');
 		const scene = character && parts.find(part => part.functionCall?.name === sceneTool)?.functionCall;
@@ -84,7 +85,7 @@ async function step(options: GeminiRagOptions, contents: GeminiContent[], allowT
 		// Streaming must remain abortable and readable incrementally; requestUrl buffers the body.
 		const response = await requestGeminiStream(`${base}:streamGenerateContent?alt=sse`, options.key, body, options.signal);
 		if (!response.ok) throw geminiApiError(response.status, await response.json().catch(() => ({})), response.headers.get('retry-after'));
-		if (!response.body) throw new Error('Gemini 응답 본문을 받지 못했습니다. 잠시 후 재시도해 주세요.');
+		if (!response.body) throw new Error(wmT("Gemini 응답 본문을 받지 못했습니다. 잠시 후 재시도해 주세요."));
 		await readChatSse(response.body, options.signal, consume);
 	} else {
 		const response = await abortableChat(requestUrl({ url: `${base}:generateContent`, method: 'POST', headers: { 'x-goog-api-key': options.key, 'Content-Type': 'application/json' }, body, throw: false }), options.signal);
@@ -113,26 +114,26 @@ export async function callGeminiRag(options: GeminiRagOptions): Promise<string> 
 		const response = await step(options, contents, allowTools, Boolean(options.tools?.strict) && !localPlan && round === 0);
 		if (response.usage) (options.message.usage ??= []).push(response.usage);
 		if (options.tools?.strict && !localPlan && round === 0 && (!response.calls.length || response.calls.some(call => call.name !== 'search_sources')))
-			throw new Error('프로젝트 추가 검색을 수행하지 않은 응답은 완료 처리하지 않았습니다.');
+			throw new Error(wmT("프로젝트 추가 검색을 수행하지 않은 응답은 완료 처리하지 않았습니다."));
 		const scene = options.message.skill === 'character' && response.calls.find(call => call.name === sceneTool);
-		if (scene) { const text = characterSceneText(scene.args); if (!text) throw new Error('빈 캐릭터 장면을 받았습니다.'); return text; }
-		if (!response.calls.length) { if (!response.text) throw new Error('빈 응답'); return response.text; }
-		if (!options.tools || !allowTools) throw new Error('원문 근거는 보존했지만 모델이 최종 답변 대신 추가 조회를 요청했습니다. 추가 API 호출은 하지 않았습니다. 다시 시도해 주세요.');
+		if (scene) { const text = characterSceneText(scene.args); if (!text) throw new Error(wmT("빈 캐릭터 장면을 받았습니다.")); return text; }
+		if (!response.calls.length) { if (!response.text) throw new Error(wmT("빈 응답")); return response.text; }
+		if (!options.tools || !allowTools) throw new Error(wmT("원문 근거는 보존했지만 모델이 최종 답변 대신 추가 조회를 요청했습니다. 추가 API 호출은 하지 않았습니다. 다시 시도해 주세요."));
 		// Opaque provider parts/signatures are retained exactly within this turn, not exposed as a reasoning transcript.
 		contents.push({ role: 'model', parts: response.parts });
-		if (response.calls.length > 12) throw new Error('한 번에 요청한 자료 조회가 너무 많습니다. 질문과 기존 근거는 보존했습니다.');
+		if (response.calls.length > 12) throw new Error(wmT("한 번에 요청한 자료 조회가 너무 많습니다. 질문과 기존 근거는 보존했습니다."));
 		const results: GeminiPart[] = [];
 		for (const call of response.calls) {
 			checkChatAbort(options.signal); options.onPhase?.('reading');
 			let sources: ChatContextItem[] = [], warnings: string[] = [];
-			if (toolsUsed >= 6) warnings.push('추가 자료 조회 한도를 사용했습니다. 앞서 확보한 근거로 최종 답변하고 확인되지 않은 부분은 밝히세요.');
+			if (toolsUsed >= 6) warnings.push(wmT("추가 자료 조회 한도를 사용했습니다. 앞서 확보한 근거로 최종 답변하고 확인되지 않은 부분은 밝히세요."));
 			else try {
 				toolsUsed++;
 				const alias = typeof call.args.source_id === 'string' ? /^C([1-9]\d*)$/.exec(call.args.source_id) : null;
 				const previous = historical.find(item => item.alias === call.args.source_id);
 				const source = alias ? options.message.context?.sources[Number(alias[1]) - 1] : previous?.source;
 				options.tools.useSources?.([...(options.message.context?.sources ?? []), ...(previous ? [previous.source] : [])]);
-				if (alias && !source) throw new Error('현재 질문에 없는 인용 번호입니다.');
+				if (alias && !source) throw new Error(wmT("현재 질문에 없는 인용 번호입니다."));
 				const result = await options.tools.execute(source ? { ...call, args: { ...call.args, source_id: source.id } } : call, options.signal); sources = result.sources; warnings = result.warnings;
 			}
 			catch (error) { checkChatAbort(options.signal); if (options.tools.strict) throw error; warnings.push(error instanceof Error ? error.message : String(error)); }
@@ -162,5 +163,5 @@ export async function callGeminiRag(options: GeminiRagOptions): Promise<string> 
 		await options.onCheckpoint?.(); checkChatAbort(options.signal);
 		contents.push({ role: 'user', parts: results });
 	}
-	throw new Error('응답 횟수 제한에 도달했습니다.');
+	throw new Error(wmT("응답 횟수 제한에 도달했습니다."));
 }

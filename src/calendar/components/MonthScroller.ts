@@ -1,4 +1,5 @@
-const MONTH_KO = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+import { wmT } from '../../i18n/index';
+const MONTH_KO = [wmT("1월"),wmT("2월"),wmT("3월"),wmT("4월"),wmT("5월"),wmT("6월"),wmT("7월"),wmT("8월"),wmT("9월"),wmT("10월"),wmT("11월"),wmT("12월")];
 
 export class MonthScroller {
 	readonly el: HTMLElement;

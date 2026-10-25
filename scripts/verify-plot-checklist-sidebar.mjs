@@ -13,6 +13,24 @@ export async function runPlotChecklistSidebarChecks(base) {
 	await verifyPlotCellInput(base);
 	const assert = (value, message) => { if (!value) throw new Error(message); };
 	const settle = () => new Promise(resolve => setTimeout(resolve, 65));
+	const assertDateBelowTitle = date => {
+		const title = date.parentElement.querySelector('.wm-plotbook-checklist-title, .wm-plotbook-checklist-task-text');
+		const titleRect = title.getBoundingClientRect(), dateRect = date.getBoundingClientRect();
+		assert(dateRect.top >= titleRect.bottom && Math.abs(dateRect.left - titleRect.left) <= 1, 'Completion date is not below and aligned with its task text');
+		assert(Math.abs(titleRect.right - date.parentElement.getBoundingClientRect().right) <= 5, 'Task text still reserves a column for its date or menu');
+		assert(getComputedStyle(date).fontSize === getComputedStyle(title).fontSize, 'Completion date does not inherit the task font size');
+		const greenProbe = date.parentElement.createSpan(); greenProbe.style.color = 'var(--color-green)';
+		assert(getComputedStyle(date).color === getComputedStyle(greenProbe).color, 'Completion date does not use the theme green color');
+		greenProbe.remove();
+	};
+	const openTaskMenu = parent => {
+		const title = parent.querySelector('.wm-plotbook-checklist-title');
+		const bounds = title.getBoundingClientRect();
+		const event = new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:bounds.left+10,clientY:bounds.top+10});
+		title.dispatchEvent(event);
+		assert(event.defaultPrevented, 'Task right-click did not handle the context menu');
+		return globalThis.lastTestMenu;
+	};
 	const project = { id:'checklist-project', name:'작업 프로젝트', rootFolder:'ChecklistProject', manuscriptFolder:'', characterFolder:'' };
 	const plugin = { ...base, settings:structuredClone(DEFAULT_SETTINGS),
 		projectContext: { getProjects:()=>[project], getProjectForFile:()=>project },
@@ -150,8 +168,14 @@ export async function runPlotChecklistSidebarChecks(base) {
 	assert(sidebarCompletionDate?.textContent === today && tableCompletionDate?.textContent === today
 		&& !sidebarCompletionDate.textContent.includes('✅') && !tableCompletionDate.textContent.includes('✅'),
 		'Table/sidebar completion date is missing or still displays the check marker');
+	assertDateBelowTitle(sidebarCompletionDate); assertDateBelowTitle(tableCompletionDate);
+	assert(!sidebarHost.querySelector('.wm-plotbook-checklist-actions'), 'Sidebar tasks still contain menu buttons');
+	const sidebarTaskMenu = openTaskMenu(sidebarHost);
+	assert(sidebarTaskMenu.items.length === 4, 'Sidebar right-click lost task actions');
+	sidebarTaskMenu.hide();
 	assert(!sidebarHost.querySelector('.wm-plotbook-sidebar-progress, .wm-plotbook-checklist-count') && !/\d+\s*\/\s*\d+\s*완료/.test(sidebarHost.textContent), 'Sidebar still displays checklist completion summaries');
 	sidebarHost.style.width = '260px';
+	assertDateBelowTitle(sidebarCompletionDate);
 	assert(sidebar.contentEl.scrollWidth <= sidebar.contentEl.clientWidth + 1, 'Compact sidebar overflows horizontally');
 	const timeline = sidebarHost.querySelector('.wm-plotbook-sidebar-list');
 	assert(timeline.scrollWidth <= timeline.clientWidth + 1, 'Compact task rows overflow horizontally');
@@ -195,10 +219,28 @@ export async function runPlotChecklistSidebarChecks(base) {
 	window.dispatchEvent(new Event('resize')); await settle();
 	assert(Math.abs(popover.getBoundingClientRect().left - popupLeftBeforeMutation) <= 1, 'A zero-size connected anchor overwrote the popup position during resize');
 	grid.checklistPopover.resolveAnchor = resolvePopupAnchor; hiddenPopupAnchor.remove();
+	const longTaskTitle = '캐츠비가 치밀하게 계산하여 접근했다는 설득력을 부여했는가?';
+	session.setCell(row,taskColumn,`- [x] ${longTaskTitle} ✅ ${today}\n${originalPopupValue}`); await settle();
+	assertDateBelowTitle(popover.querySelector('.wm-plotbook-checklist-completion-date'));
+	assertDateBelowTitle(sidebarHost.querySelector('.wm-plotbook-checklist-completion-date'));
+	for (const [rowIds,columnIds,fontSize] of [[[],[taskColumn],17],[[row],[],21]]) {
+		session.setCellAndAxisStyles([],rowIds,columnIds,{fontSize,color:'#345678'}); await settle();
+		for (const dark of [false,true]) {
+			document.body.classList.toggle('theme-dark',dark);
+			for (const parent of [popover,sidebarHost,grid.canvas.querySelector('.wm-plotbook-cell[data-row="0"][data-column="1"]')]) {
+				const date = parent.querySelector('.wm-plotbook-checklist-completion-date');
+				assertDateBelowTitle(date);
+				assert(getComputedStyle(date).fontSize === `${fontSize}px`, 'Completion date ignored a live row/column font size change');
+			}
+		}
+		document.body.classList.remove('theme-dark');
+		session.undo(); await settle();
+	}
+	const completedMenu = openTaskMenu(popover.querySelector('.is-complete'));
+	assert(completedMenu.items.length === 4, 'Completed task right-click lost task actions'); completedMenu.hide();
 	session.setCell(row,taskColumn,originalPopupValue); await settle();
-	assert(popover.querySelectorAll('.wm-plotbook-checklist-actions button').length === 3, 'Task rows did not collapse actions into one menu per item');
-	popover.querySelector('.wm-plotbook-checklist-actions button').click();
-	let taskMenu = globalThis.lastTestMenu;
+	assert(!popover.querySelector('.wm-plotbook-checklist-actions') && popover.querySelectorAll('.wm-plotbook-checklist-item button').length === 3, 'Task rows still reserve space for a menu button');
+	let taskMenu = openTaskMenu(popover);
 	assert(taskMenu.items.map(item=>item.title).join(',') === '항목 수정,위로 이동,아래로 이동,항목 삭제', 'Task action menu lost an edit, reorder or delete action');
 	assert(taskMenu.items[1].disabled && !taskMenu.items[2].disabled, 'Task action menu has incorrect reordering bounds');
 	taskMenu.dom.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));
@@ -206,8 +248,7 @@ export async function runPlotChecklistSidebarChecks(base) {
 	taskMenu.items[2].click(); await settle();
 	assert(parseChecklist(session.getCell(sheet,row,taskColumn))[1].text === '말투 확인', 'Task menu could not reorder items');
 	session.undo(); await settle();
-	popover.querySelector('.wm-plotbook-checklist-actions button').click();
-	taskMenu = globalThis.lastTestMenu; taskMenu.items[3].click(); await settle();
+	taskMenu = openTaskMenu(popover); taskMenu.items[3].click(); await settle();
 	assert(popover.querySelectorAll('.wm-plotbook-checklist-item').length === 2, 'Task menu could not delete an item');
 	session.undo(); await settle();
 	const lastButton = [...popover.querySelectorAll('button:not(:disabled), input:not(:disabled)')].at(-1); lastButton.focus();
@@ -215,9 +256,17 @@ export async function runPlotChecklistSidebarChecks(base) {
 	assert(document.activeElement === popover.querySelector('[data-completed-filter="all"]'), 'Popup keyboard focus escaped past the last control');
 	document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',shiftKey:true,bubbles:true,cancelable:true}));
 	assert(document.activeElement === lastButton, 'Popup reverse-tab focus escaped before the first control');
-	popover.querySelector('.wm-plotbook-checklist-actions button').click();
+	const keyboardMenuTitle = popover.querySelector('.wm-plotbook-checklist-title'); keyboardMenuTitle.focus();
+	keyboardMenuTitle.dispatchEvent(new KeyboardEvent('keydown',{key:'F10',shiftKey:true,bubbles:true,cancelable:true}));
+	assert(globalThis.lastTestMenu !== taskMenu && globalThis.lastTestMenu.items.length === 4, 'Shift+F10 did not open task actions');
+	globalThis.lastTestMenu.hide();
+	assert(document.activeElement === keyboardMenuTitle, 'Closing a task context menu did not restore title focus');
+	keyboardMenuTitle.dispatchEvent(new KeyboardEvent('keydown',{key:'ContextMenu',bubbles:true,cancelable:true}));
 	globalThis.lastTestMenu.items[0].click();
 	let cancelledTitle = popover.querySelector('.wm-plotbook-checklist-title-input');
+	const nativeTextMenu = new MouseEvent('contextmenu',{bubbles:true,cancelable:true});
+	cancelledTitle.dispatchEvent(nativeTextMenu);
+	assert(!nativeTextMenu.defaultPrevented, 'Editing a task title blocked its native text context menu');
 	cancelledTitle.value = '취소할 이름'; cancelledTitle.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
 	assert(popover.isConnected && !popover.querySelector('.wm-plotbook-checklist-title-input') && !session.getCell(sheet,row,taskColumn).includes('취소할 이름'), 'Escape in a task title closed the popup or saved cancelled edits');
 	popover.querySelector('.wm-plotbook-checklist-title').click();

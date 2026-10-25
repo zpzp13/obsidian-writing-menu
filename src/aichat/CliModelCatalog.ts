@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import type { CliChatOptions } from './CliChatApi';
 import { isRecord } from '../utils/typeGuards';
 import { checkChatAbort } from './ChatStream';
@@ -25,13 +26,13 @@ export async function listCliModels(options: CliChatOptions, signal?: AbortSigna
 				if (done) return;
 				done = true; controller.signal.removeEventListener('abort', cancel); terminate();
 				if (error) reject(error);
-				else if (!models.length) reject(new Error('CLI가 선택 가능한 모델 목록을 반환하지 않았습니다.'));
+				else if (!models.length) reject(new Error(wmT("CLI가 선택 가능한 모델 목록을 반환하지 않았습니다.")));
 				else { cache.set(key, { time: Date.now(), models }); resolve(models); }
 			};
-			const cancel = () => finish(new Error(signal?.aborted ? '모델 목록 조회를 중단했습니다.' : '모델 목록 조회 시간이 초과되었습니다. CLI 설치와 로그인 상태를 확인해 주세요.'));
+			const cancel = () => finish(new Error(signal?.aborted ? wmT("모델 목록 조회를 중단했습니다.") : wmT("모델 목록 조회 시간이 초과되었습니다. CLI 설치와 로그인 상태를 확인해 주세요.")));
 			const send = (value: unknown) => child.stdin.write(JSON.stringify(value) + '\n');
 			const add = (values: unknown) => {
-				if (!Array.isArray(values)) throw new Error('CLI 모델 목록 형식이 올바르지 않습니다.');
+				if (!Array.isArray(values)) throw new Error(wmT("CLI 모델 목록 형식이 올바르지 않습니다."));
 				for (const value of values as unknown[]) {
 					if (!isRecord(value) || value.hidden === true) continue;
 					const id = value.model ?? value.value ?? value.id;
@@ -47,33 +48,33 @@ export async function listCliModels(options: CliChatOptions, signal?: AbortSigna
 				const text = line.replace(/^\uFEFF/, '').trim(); if (!text || done) return;
 				if (!text.startsWith('{')) { diagnostics = (diagnostics + text).slice(-1000); return; }
 				const value: unknown = JSON.parse(text); if (!isRecord(value)) return;
-				if (isRecord(value.error)) { finish(new Error(typeof value.error.message === 'string' ? value.error.message : 'CLI 모델 조회 실패')); return; }
+				if (isRecord(value.error)) { finish(new Error(typeof value.error.message === 'string' ? value.error.message : wmT("CLI 모델 조회 실패"))); return; }
 				if (options.provider === 'codex') {
 					if (value.id === 1 && isRecord(value.result)) { send({ method: 'initialized' }); send({ id: 2, method: 'model/list', params: { limit: 100, includeHidden: false } }); }
 					if (value.id === 2 && isRecord(value.result)) {
 						add(value.result.data);
 						const cursor = value.result.nextCursor;
 						if (typeof cursor === 'string' && cursor) {
-							if (cursors.has(cursor) || cursors.size >= 10) throw new Error('CLI 모델 목록 페이지가 반복되었습니다.');
+							if (cursors.has(cursor) || cursors.size >= 10) throw new Error(wmT("CLI 모델 목록 페이지가 반복되었습니다."));
 							cursors.add(cursor); send({ id: 2, method: 'model/list', params: { limit: 100, includeHidden: false, cursor } });
 						} else finish();
 					}
 				} else if (value.type === 'control_response' && isRecord(value.response) && value.response.request_id === 'deus-models') {
-					if (value.response.subtype !== 'success' || !isRecord(value.response.response)) throw new Error('Claude Code 모델 목록을 조회하지 못했습니다.');
+					if (value.response.subtype !== 'success' || !isRecord(value.response.response)) throw new Error(wmT("Claude Code 모델 목록을 조회하지 못했습니다."));
 					add(value.response.response.models); finish();
-				} else if (value.type === 'result' && value.is_error) finish(new Error(typeof value.result === 'string' ? value.result : 'CLI 로그인 상태를 확인해 주세요.'));
+				} else if (value.type === 'result' && value.is_error) finish(new Error(typeof value.result === 'string' ? value.result : wmT("CLI 로그인 상태를 확인해 주세요.")));
 			};
 			child.stdout.setEncoding('utf8'); child.stderr.setEncoding('utf8');
 			child.stdout.on('data', (data: string) => {
 				try {
-					buffer += data; if (buffer.length > 4_000_000) throw new Error('CLI 모델 목록 응답이 너무 큽니다.');
+					buffer += data; if (buffer.length > 4_000_000) throw new Error(wmT("CLI 모델 목록 응답이 너무 큽니다."));
 					let newline: number;
 					while ((newline = buffer.indexOf('\n')) >= 0) { const line = buffer.slice(0, newline); buffer = buffer.slice(newline + 1); consume(line); }
 				} catch (error) { finish(error instanceof Error ? error : new Error(String(error))); }
 			});
 			child.stderr.on('data', (data: string) => { diagnostics = (diagnostics + data).slice(-1000); });
 			child.on('error', error => finish(error)); child.stdin.on('error', error => finish(error));
-			child.on('close', () => { try { consume(buffer); if (!done) finish(new Error(`CLI 모델 목록을 받지 못했습니다. ${diagnostics}`)); } catch (error) { finish(error instanceof Error ? error : new Error(String(error))); } });
+			child.on('close', () => { try { consume(buffer); if (!done) finish(new Error(wmT("CLI 모델 목록을 받지 못했습니다. {0}", diagnostics))); } catch (error) { finish(error instanceof Error ? error : new Error(String(error))); } });
 			controller.signal.addEventListener('abort', cancel, { once: true });
 			if (controller.signal.aborted) cancel();
 			else if (options.provider === 'codex') send({ id: 1, method: 'initialize', params: { clientInfo: { name: 'writing_menu_deus', title: 'Deus', version: '1.0.0' } } });

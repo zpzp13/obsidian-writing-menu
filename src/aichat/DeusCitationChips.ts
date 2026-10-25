@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { detachedEl } from '../utils/dom';
 import { Menu, type App, type HoverParent } from 'obsidian';
 import type { ChatContextItem } from './AiChatTypes';
@@ -44,11 +45,11 @@ export function renderDeusCitationChips(app: App, content: HTMLElement, host: HT
 		}
 		fragment.appendText(node.data.slice(offset)); node.replaceWith(...Array.from(fragment.childNodes));
 	}
-	const details = host.createEl('details', { cls: 'wm-chat-deus-sources', attr: { role: 'doc-endnotes', 'aria-label': '출처' } });
-	details.createEl('summary', { cls: 'wm-chat-deus-sources-label', text: `출처 ${references.length}` });
+	const details = host.createEl('details', { cls: 'wm-chat-deus-sources', attr: { role: 'doc-endnotes', 'aria-label': wmT("출처") } });
+	details.createEl('summary', { cls: 'wm-chat-deus-sources-label', text: wmT("출처 {0}", references.length) });
 	const list = details.createDiv({ cls: 'wm-chat-deus-source-list' });
 	for (const reference of references) {
-		const link = list.createEl('a', { cls: 'wm-chat-source-chip', text: `${reference.source.title}${reference.source.location ? ` · ${reference.source.location}` : ''}`, attr: { href: '#', id: `${prefix}${reference.number}`, 'aria-label': `출처: ${reference.source.title}` } });
+		const link = list.createEl('a', { cls: 'wm-chat-source-chip', text: `${reference.source.title}${reference.source.location ? ` · ${reference.source.location}` : ''}`, attr: { href: '#', id: `${prefix}${reference.number}`, 'aria-label': wmT("출처: {0}", reference.source.title) } });
 		hover(link, reference); link.onclick = event => { event.preventDefault(); event.stopPropagation(); visit(reference); };
 	}
 }

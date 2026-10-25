@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { plotColumnTitle } from './PlotWorkbookColumnPresentation';
 import type { PlotWorkbookSheet, PlotWorkbookSnapshotData } from './PlotWorkbookTypes';
 
@@ -47,7 +48,7 @@ export function plotSnapshotPreview(data: PlotWorkbookSnapshotData, sheet: PlotW
 			if (column.role === 'foreshadow') value = foreshadows.get(rowId)?.join('\n') ?? '';
 			if (!value.trim()) continue;
 			const title = column.role === 'character' && column.characterNotePath
-				? column.title || column.characterNotePath.split('/').pop()?.replace(/\.md$/i, '') || '인물'
+				? column.title || column.characterNotePath.split('/').pop()?.replace(/\.md$/i, '') || wmT("인물")
 				: plotColumnTitle(sheet, columnId);
 			const limit = full ? 4_000_000 : 4000;
 			if (value.length > limit) clipped = true;
@@ -56,10 +57,10 @@ export function plotSnapshotPreview(data: PlotWorkbookSnapshotData, sheet: PlotW
 			if (fieldLength >= remaining) { clipped = true; break; }
 		}
 		if (!fields.length && !sheet.rows[rowId]?.linkedNotePath) continue;
-		append(`## ${labels.get(rowId) ?? '—'}행`);
-		if (sheet.rows[rowId]?.linkedNotePath) append(`본문: ${sheet.rows[rowId].linkedNotePath}`);
+		append(wmT("## {0}행", labels.get(rowId) ?? '—'));
+		if (sheet.rows[rowId]?.linkedNotePath) append(wmT("본문: {0}", sheet.rows[rowId].linkedNotePath));
 		for (const field of fields) append(field);
 	}
-	if (full && clipped) throw new Error('복사할 내용이 너무 큽니다. Markdown 내보내기를 사용해주세요.');
+	if (full && clipped) throw new Error(wmT("복사할 내용이 너무 큽니다. Markdown 내보내기를 사용해주세요."));
 	return { text: lines.join('\n\n'), clipped };
 }

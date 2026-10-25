@@ -1,14 +1,24 @@
-import { App, Modal, TFile, TFolder, Setting, Vault, TAbstractFile, setIcon, TextComponent } from 'obsidian';
+import { wmT } from '../i18n/index';
+import { App, Modal, TFile, TFolder, Setting, Vault, TAbstractFile, setIcon, TextComponent, Platform } from 'obsidian';
+import { defaultUseTemplate } from './converterMethods';
 import type WritingMenuPlugin from '../../main';
 
-// HWP Export Modal
-export class HwpExportModal extends Modal {
+function addTemplateToggle(container: HTMLElement, enabled: boolean, change: (value: boolean) => void): void {
+    new Setting(container)
+        .setName(wmT('템플릿 사용'))
+        .setDesc(Platform.isWin ? wmT('설정에서 지정한 외부 템플릿에 원고 텍스트만 넣습니다. 한컴오피스 한글이 필요합니다.') : wmT('템플릿 적용은 Windows에서만 사용할 수 있습니다.'))
+        .addToggle(toggle => toggle.setValue(enabled).setDisabled(!Platform.isWin).onChange(change));
+}
+
+// HWPX Export Modal
+export class HwpxExportModal extends Modal {
 	private plugin: WritingMenuPlugin;
 	private file: TFile;
 	private resultName: string;
 	private resultPath: string;
 	private useSpaceIndent: boolean;
 	private excludeHeadings: boolean;
+	private useTemplate: boolean;
 	private pathComponent: TextComponent | null = null;
 
 	constructor(app: App, plugin: WritingMenuPlugin, file: TFile) {
@@ -19,18 +29,21 @@ export class HwpExportModal extends Modal {
 		this.resultPath = plugin.getDefaultExportPath();
 		this.useSpaceIndent = plugin.settings.exportDefaultSpaceIndent;
 		this.excludeHeadings = plugin.settings.exportDefaultExcludeHeadings;
+		this.useTemplate = defaultUseTemplate(plugin);
 	}
 
 	onOpen() {
 		const { contentEl } = this;
 		contentEl.empty();
 
-		contentEl.createEl('h2', { text: '한글(HWP)로 내보내기' });
+		contentEl.createEl('h2', { text: wmT("한글(HWPX)로 내보내기") });
+
+		addTemplateToggle(contentEl, this.useTemplate, value => { this.useTemplate = value; });
 
 		// File Name Input
 		const fileSetting = new Setting(contentEl)
-			.setName('파일 이름')
-			.setDesc('내보낼 파일의 이름을 입력하세요.');
+			.setName(wmT("파일 이름"))
+			.setDesc(wmT("내보낼 파일의 이름을 입력하세요."));
 
 		fileSetting.addText((text) =>
 			text
@@ -43,15 +56,15 @@ export class HwpExportModal extends Modal {
 		fileSetting.settingEl.addClass('hwp-filename-setting');
 
 		const extEl = fileSetting.controlEl.createSpan({
-			text: '.hwp',
+			text: '.hwpx',
 			cls: 'hwp-filename-extension'
 		});
 		extEl.addClass('wm-export-ext-label');
 
 		// Export Path Input with Folder Button
 		const pathSetting = new Setting(contentEl)
-			.setName('저장 경로')
-			.setDesc('파일이 저장될 폴더를 선택하세요.');
+			.setName(wmT("저장 경로"))
+			.setDesc(wmT("파일이 저장될 폴더를 선택하세요."));
 
 		pathSetting.addText((text) => {
 			text
@@ -65,7 +78,7 @@ export class HwpExportModal extends Modal {
 		pathSetting.addExtraButton((btn) =>
 			btn
 				.setIcon('folder')
-				.setTooltip('폴더 선택')
+				.setTooltip(wmT("폴더 선택"))
 				.onClick(async () => {
 					const picked = await this.plugin.openFolderPicker();
 					if (picked) {
@@ -79,8 +92,8 @@ export class HwpExportModal extends Modal {
 
 		// Indentation Toggle
 		new Setting(contentEl)
-			.setName('문단 들여쓰기')
-			.setDesc('각 문단 시작에 띄어쓰기 한 칸을 추가합니다.')
+			.setName(wmT("문단 들여쓰기"))
+			.setDesc(wmT("각 문단 시작에 띄어쓰기 한 칸을 추가합니다."))
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.useSpaceIndent)
@@ -91,8 +104,8 @@ export class HwpExportModal extends Modal {
 
 		// Exclude Headings Toggle
 		new Setting(contentEl)
-			.setName('헤딩 제외')
-			.setDesc('마크다운 헤딩(#)을 제외하고 내보냅니다.')
+			.setName(wmT("헤딩 제외"))
+			.setDesc(wmT("마크다운 헤딩(#)을 제외하고 내보냅니다."))
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.excludeHeadings)
@@ -105,12 +118,12 @@ export class HwpExportModal extends Modal {
 		new Setting(contentEl)
 			.addButton((btn) =>
 				btn
-					.setButtonText('내보내기')
+					.setButtonText(wmT("내보내기"))
 					.setCta()
 					.onClick(() => {
 						this.close();
-						const finalName = this.resultName + '.hwp';
-						void this.plugin.convertToHwp(this.file, finalName, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
+						const finalName = this.resultName + '.hwpx';
+						void this.plugin.convertToHwpx(this.file, finalName, this.resultPath, this.useSpaceIndent, this.excludeHeadings, this.useTemplate);
 					})
 			);
 	}
@@ -145,12 +158,12 @@ export class TxtExportModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 
-		contentEl.createEl('h2', { text: '텍스트(TXT)로 내보내기' });
+		contentEl.createEl('h2', { text: wmT("텍스트(TXT)로 내보내기") });
 
 		// File Name Input
 		const fileSetting = new Setting(contentEl)
-			.setName('파일 이름')
-			.setDesc('내보낼 파일의 이름을 입력하세요.');
+			.setName(wmT("파일 이름"))
+			.setDesc(wmT("내보낼 파일의 이름을 입력하세요."));
 
 		fileSetting.addText((text) =>
 			text
@@ -168,8 +181,8 @@ export class TxtExportModal extends Modal {
 
 		// Export Path Input with Folder Button
 		const pathSetting = new Setting(contentEl)
-			.setName('저장 경로')
-			.setDesc('파일이 저장될 폴더를 선택하세요.');
+			.setName(wmT("저장 경로"))
+			.setDesc(wmT("파일이 저장될 폴더를 선택하세요."));
 
 		pathSetting.addText((text) => {
 			text
@@ -183,7 +196,7 @@ export class TxtExportModal extends Modal {
 		pathSetting.addExtraButton((btn) =>
 			btn
 				.setIcon('folder')
-				.setTooltip('폴더 선택')
+				.setTooltip(wmT("폴더 선택"))
 				.onClick(async () => {
 					const picked = await this.plugin.openFolderPicker();
 					if (picked) {
@@ -197,8 +210,8 @@ export class TxtExportModal extends Modal {
 
 		// Indentation Toggle
 		new Setting(contentEl)
-			.setName('문단 들여쓰기')
-			.setDesc('각 문단 시작에 띄어쓰기 한 칸을 추가합니다.')
+			.setName(wmT("문단 들여쓰기"))
+			.setDesc(wmT("각 문단 시작에 띄어쓰기 한 칸을 추가합니다."))
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.useSpaceIndent)
@@ -209,8 +222,8 @@ export class TxtExportModal extends Modal {
 
 		// Exclude Headings Toggle
 		new Setting(contentEl)
-			.setName('헤딩 제외')
-			.setDesc('마크다운 헤딩(#)을 제외하고 내보냅니다.')
+			.setName(wmT("헤딩 제외"))
+			.setDesc(wmT("마크다운 헤딩(#)을 제외하고 내보냅니다."))
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.excludeHeadings)
@@ -223,7 +236,7 @@ export class TxtExportModal extends Modal {
 		new Setting(contentEl)
 			.addButton((btn) =>
 				btn
-					.setButtonText('내보내기')
+					.setButtonText(wmT("내보내기"))
 					.setCta()
 					.onClick(() => {
 						this.close();
@@ -244,11 +257,12 @@ export class BatchExportModal extends Modal {
 	private plugin: WritingMenuPlugin;
 	private target: TFolder | TFile[];
 	private mode: 'folder' | 'multi';
-	private format: 'hwp' | 'txt';
+	private format: 'hwpx' | 'txt';
 	private resultPath: string;
 	private resultName: string;
 	private useSpaceIndent: boolean;
 	private excludeHeadings: boolean;
+	private useTemplate: boolean;
 	private mergeFiles: boolean = false;
 	private pathComponent: TextComponent | null = null;
 	private fileNameSetting: Setting | null = null;
@@ -257,7 +271,7 @@ export class BatchExportModal extends Modal {
 	private fileListContainer: HTMLElement | null = null;
 	private listScrollTop: number = 0;
 
-	constructor(app: App, plugin: WritingMenuPlugin, target: TFolder | TFile[], format: 'hwp' | 'txt') {
+	constructor(app: App, plugin: WritingMenuPlugin, target: TFolder | TFile[], format: 'hwpx' | 'txt') {
 		super(app);
 		this.plugin = plugin;
 		this.target = target;
@@ -266,11 +280,12 @@ export class BatchExportModal extends Modal {
 		this.resultPath = plugin.getDefaultExportPath();
 		this.useSpaceIndent = plugin.settings.exportDefaultSpaceIndent;
 		this.excludeHeadings = plugin.settings.exportDefaultExcludeHeadings;
+		this.useTemplate = defaultUseTemplate(plugin);
 		// Default merged file name
 		if (this.target instanceof TFolder) {
 			this.resultName = this.target.name;
 		} else {
-			this.resultName = '병합된_문서';
+			this.resultName = wmT("병합된_문서");
 		}
 		// Initialize sorted files
 		this.initSortedFiles();
@@ -323,23 +338,25 @@ export class BatchExportModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 
-		const formatLabel = this.format === 'hwp' ? 'HWP' : 'TXT';
-		const fileExt = this.format === 'hwp' ? '.hwp' : '.txt';
+		const formatLabel = this.format === 'hwpx' ? 'HWPX' : 'TXT';
+		const fileExt = this.format === 'hwpx' ? '.hwpx' : '.txt';
 
 		if (this.target instanceof TFolder) {
-			contentEl.createEl('h2', { text: `폴더를 ${formatLabel}로 내보내기` });
+			contentEl.createEl('h2', { text: wmT("폴더를 {0}로 내보내기", formatLabel) });
 			contentEl.createEl('p', {
-				text: `"${this.target.name}" 폴더 내 모든 마크다운 파일이 변환됩니다.`,
+				text: wmT("\"{0}\" 폴더 내 모든 마크다운 파일이 변환됩니다.", this.target.name),
 				cls: 'setting-item-description'
 			});
 		} else {
-			contentEl.createEl('h2', { text: `${this.target.length}개 파일을 ${formatLabel}로 내보내기` });
+			contentEl.createEl('h2', { text: wmT("{0}개 파일을 {1}로 내보내기", this.target.length, formatLabel) });
 		}
+
+		if (this.format === 'hwpx') addTemplateToggle(contentEl, this.useTemplate, value => { this.useTemplate = value; });
 
 		// Merge/Individual Toggle
 		new Setting(contentEl)
-			.setName('파일 병합')
-			.setDesc('모든 파일을 하나로 병합하여 저장합니다.')
+			.setName(wmT("파일 병합"))
+			.setDesc(wmT("모든 파일을 하나로 병합하여 저장합니다."))
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.mergeFiles)
@@ -351,8 +368,8 @@ export class BatchExportModal extends Modal {
 
 		// File Name Input (shown when merge is enabled)
 		this.fileNameSetting = new Setting(contentEl)
-			.setName('파일 이름')
-			.setDesc('저장할 파일의 이름을 입력하세요.');
+			.setName(wmT("파일 이름"))
+			.setDesc(wmT("저장할 파일의 이름을 입력하세요."));
 
 		this.fileNameSetting.addText((text: TextComponent) => {
 			text
@@ -378,8 +395,8 @@ export class BatchExportModal extends Modal {
 
 		// Export Path Input with Folder Button
 		const pathSetting = new Setting(contentEl)
-			.setName('저장 경로')
-			.setDesc('파일이 저장될 폴더를 선택하세요.');
+			.setName(wmT("저장 경로"))
+			.setDesc(wmT("파일이 저장될 폴더를 선택하세요."));
 
 		pathSetting.addText((text) => {
 			text
@@ -393,7 +410,7 @@ export class BatchExportModal extends Modal {
 		pathSetting.addExtraButton((btn) =>
 			btn
 				.setIcon('folder')
-				.setTooltip('폴더 선택')
+				.setTooltip(wmT("폴더 선택"))
 				.onClick(async () => {
 					const picked = await this.plugin.openFolderPicker();
 					if (picked) {
@@ -407,8 +424,8 @@ export class BatchExportModal extends Modal {
 
 		// Indentation Toggle
 		new Setting(contentEl)
-			.setName('문단 들여쓰기')
-			.setDesc('각 문단 시작에 띄어쓰기 한 칸을 추가합니다.')
+			.setName(wmT("문단 들여쓰기"))
+			.setDesc(wmT("각 문단 시작에 띄어쓰기 한 칸을 추가합니다."))
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.useSpaceIndent)
@@ -419,8 +436,8 @@ export class BatchExportModal extends Modal {
 
 		// Exclude Headings Toggle
 		new Setting(contentEl)
-			.setName('헤딩 제외')
-			.setDesc('마크다운 헤딩(#)을 제외하고 내보냅니다.')
+			.setName(wmT("헤딩 제외"))
+			.setDesc(wmT("마크다운 헤딩(#)을 제외하고 내보냅니다."))
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.excludeHeadings)
@@ -433,30 +450,30 @@ export class BatchExportModal extends Modal {
 		new Setting(contentEl)
 			.addButton((btn) =>
 				btn
-					.setButtonText('내보내기')
+					.setButtonText(wmT("내보내기"))
 					.setCta()
 					.onClick(() => {
 						this.close();
-						const fileName = this.resultName + (this.format === 'hwp' ? '.hwp' : '.txt');
+						const fileName = this.resultName + (this.format === 'hwpx' ? '.hwpx' : '.txt');
 
 						if (this.mergeFiles) {
 							// Merge export - use sortedFiles which respects user's drag-and-drop order
-							if (this.format === 'hwp') {
-								void this.plugin.convertFilesToHwpMerged(this.sortedFiles, this.resultPath, fileName, this.useSpaceIndent, this.excludeHeadings);
+							if (this.format === 'hwpx') {
+								void this.plugin.convertFilesToHwpxMerged(this.sortedFiles, this.resultPath, fileName, this.useSpaceIndent, this.excludeHeadings, this.useTemplate);
 							} else {
 								void this.plugin.convertFilesToTxtMerged(this.sortedFiles, this.resultPath, fileName, this.useSpaceIndent, this.excludeHeadings);
 							}
 						} else {
 							// Individual export
 							if (this.target instanceof TFolder) {
-								if (this.format === 'hwp') {
-									void this.plugin.convertFolderToHwp(this.target.path, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
+								if (this.format === 'hwpx') {
+									void this.plugin.convertFolderToHwpx(this.target.path, this.resultPath, this.useSpaceIndent, this.excludeHeadings, this.useTemplate);
 								} else {
 									void this.plugin.convertFolderToTxt(this.target.path, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
 								}
 							} else {
-								if (this.format === 'hwp') {
-									void this.plugin.convertFilesToHwp(this.target, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
+								if (this.format === 'hwpx') {
+									void this.plugin.convertFilesToHwpx(this.target, this.resultPath, this.useSpaceIndent, this.excludeHeadings, this.useTemplate);
 								} else {
 									void this.plugin.convertFilesToTxt(this.target, this.resultPath, this.useSpaceIndent, this.excludeHeadings);
 								}
@@ -482,8 +499,8 @@ export class BatchExportModal extends Modal {
 		// Header for included files
 		const header = this.fileListContainer.createDiv({ cls: 'file-list-header' });
 		
-		header.createSpan({ text: '포함할 파일 (드래그하여 정렬)', cls: 'wm-file-list-title' });
-		const countEl = header.createSpan({ text: `${this.sortedFiles.length}개 파일`, cls: 'wm-file-list-count' });
+		header.createSpan({ text: wmT("포함할 파일 (드래그하여 정렬)"), cls: 'wm-file-list-title' });
+		const countEl = header.createSpan({ text: wmT("{0}개 파일", this.sortedFiles.length), cls: 'wm-file-list-count' });
 
 		// File list
 		const listEl = this.fileListContainer.createDiv({ cls: 'file-list' });
@@ -500,7 +517,7 @@ export class BatchExportModal extends Modal {
 				if (numEl) numEl.textContent = `${i + 1}.`;
 				(item as HTMLElement).setAttribute('data-index', String(i));
 			});
-			countEl.textContent = `${this.sortedFiles.length}개 파일`;
+			countEl.textContent = wmT("{0}개 파일", this.sortedFiles.length);
 		};
 
 		this.sortedFiles.forEach((file, index) => {
@@ -637,8 +654,8 @@ export class BatchExportModal extends Modal {
 		const removedSection = this.fileListContainer.createDiv({ cls: 'removed-section' });
 
 		const removedHeader = removedSection.createDiv({ cls: 'removed-files-header' });
-		removedHeader.createSpan({ text: '제외된 파일', cls: 'wm-removed-files-title' });
-		removedHeader.createSpan({ text: `${this.removedFiles.length}개`, cls: 'wm-file-list-count' });
+		removedHeader.createSpan({ text: wmT("제외된 파일"), cls: 'wm-removed-files-title' });
+		removedHeader.createSpan({ text: wmT("{0}개", this.removedFiles.length), cls: 'wm-file-list-count' });
 
 		const removedListEl = removedSection.createDiv({ cls: 'removed-file-list' });
 

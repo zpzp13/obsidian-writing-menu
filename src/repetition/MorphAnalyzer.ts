@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { Platform } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { MorphToken } from './types';
@@ -8,7 +9,7 @@ declare const __WM_GARU_WORKER_SOURCE__: string;
 const bundledGaruWorker = typeof __WM_GARU_WORKER_SOURCE__ === 'string' ? __WM_GARU_WORKER_SOURCE__ : '';
 
 export class ModelNotDownloadedError extends Error {
-	constructor() { super('형태소 분석 모델이 아직 다운로드되지 않았습니다.'); }
+	constructor() { super(wmT("형태소 분석 모델이 아직 다운로드되지 않았습니다.")); }
 }
 
 interface WorkerResponse {
@@ -59,7 +60,7 @@ function analyzeInWorker(
 		};
 
 		const timeoutId = window.setTimeout(() => {
-			finish(new Error('분석 시간이 60초를 초과해 중단했습니다. 문서를 나누어 다시 시도해 주세요.'));
+			finish(new Error(wmT("분석 시간이 60초를 초과해 중단했습니다. 문서를 나누어 다시 시도해 주세요.")));
 		}, ANALYSIS_TIMEOUT_MS);
 
 		try {
@@ -70,7 +71,7 @@ function analyzeInWorker(
 				else finish(undefined, event.data.tokens ?? []);
 			};
 			worker.onerror = event => {
-				finish(new Error(event.message || '분석 워커를 실행하지 못했습니다.'));
+				finish(new Error(event.message || wmT("분석 워커를 실행하지 못했습니다.")));
 			};
 
 			// Buffer가 공유하는 더 큰 ArrayBuffer까지 보내지 않도록 독립된 배열로 복사한다.
@@ -88,7 +89,7 @@ function analyzeInWorker(
 
 export async function analyzeText(text: string, plugin: WritingMenuPlugin): Promise<MorphToken[]> {
 	if (!isMorphAnalysisSupported()) {
-		throw new Error('퇴고 매니저는 데스크톱 앱에서만 사용할 수 있습니다.');
+		throw new Error(wmT("퇴고 매니저는 데스크톱 앱에서만 사용할 수 있습니다."));
 	}
 	if (!(await isGaruAssetsDownloaded(plugin))) throw new ModelNotDownloadedError();
 
@@ -96,7 +97,7 @@ export async function analyzeText(text: string, plugin: WritingMenuPlugin): Prom
 	const { workerPath, wasmPath, modelPath } = getAssetPaths(plugin);
 	const workerSource = bundledGaruWorker || (await adapter.exists(workerPath) ? await adapter.read(workerPath) : '');
 	if (!workerSource) {
-		throw new Error('분석 워커 파일이 없습니다. 플러그인을 다시 설치하거나 업데이트해 주세요.');
+		throw new Error(wmT("분석 워커 파일이 없습니다. 플러그인을 다시 설치하거나 업데이트해 주세요."));
 	}
 
 	const wasmBytes = new Uint8Array(await adapter.readBinary(wasmPath));

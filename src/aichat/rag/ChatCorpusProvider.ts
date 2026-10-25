@@ -1,3 +1,4 @@
+import { wmT } from '../../i18n/index';
 import type { TFile } from 'obsidian';
 import type WritingMenuPlugin from '../../../main';
 import type { WritingProject } from '../../types';
@@ -36,7 +37,7 @@ export class ChatCorpusProvider {
 				stamp: open.has(file.path) ? '' : `${file.stat?.mtime ?? ''}:${file.stat?.size ?? ''}`,
 				read: async () => {
 					checkChatAbort(signal);
-					if (!this.eligible(file)) throw new Error('이 문서는 현재 프로젝트의 검색 대상이 아닙니다.');
+					if (!this.eligible(file)) throw new Error(wmT("이 문서는 현재 프로젝트의 검색 대상이 아닙니다."));
 					const text = open.get(file.path)?.read() ?? await app.vault.read(file);
 					if (/^writing_menu_(?:snapshot|export):/m.test(text.slice(0, 1600))) return '';
 					return text;
@@ -61,7 +62,7 @@ export class ChatCorpusProvider {
 			for (const document of documents) if (document.kind !== 'plot' && document.path && linked.has(document.path)) {
 				const entry = linked.get(document.path)!; document.characterPaths = [...entry.characters]; document.sequence = Number.isFinite(entry.sequence) ? entry.sequence : undefined;
 			}
-		} catch (error) { checkChatAbort(signal); warnings.push(`플롯 조회 실패: ${(error instanceof Error ? error.message : String(error)).slice(0, 500)}`); }
+		} catch (error) { checkChatAbort(signal); warnings.push(wmT("플롯 조회 실패: {0}", (error instanceof Error ? error.message : String(error)).slice(0, 500))); }
 		return { documents, warnings };
 	}
 }

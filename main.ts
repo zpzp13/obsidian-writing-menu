@@ -1,13 +1,16 @@
-import { App, Plugin, MarkdownView, WorkspaceLeaf, TFile, TFolder, TAbstractFile, Notice, Platform, EventRef, MenuItem, normalizePath } from 'obsidian';
+import './src/i18n/obsidian';
+import { wmT } from './src/i18n/index';
+import { App, Plugin, MarkdownView, WorkspaceLeaf, TFile, TFolder, TAbstractFile, Notice, Platform, EventRef, MenuItem, normalizePath, requireApiVersion } from 'obsidian';
 import type { Editor } from 'obsidian';
 import { WhatsNewModal, getLatestReleaseNote, shouldShowWhatsNew } from './src/ui/WhatsNewModal';
 import { Compartment } from '@codemirror/state';
 import { SymbolSuggester } from './SymbolSuggester';
 import { WritingMenuSettings, DEFAULT_SETTINGS } from './src/types';
 import { MusicLibraryView, MUSIC_LIBRARY_VIEW_TYPE } from './src/views/MusicLibraryView';
-import { HwpExportModal, TxtExportModal, BatchExportModal } from './src/export';
+import type { MusicLibraryBases } from './src/views/MusicLibraryBases';
+import { HwpxExportModal, TxtExportModal, BatchExportModal } from './src/export';
 import { WritingMenuSettingTab } from './src/settings';
-import { ensureConverterScript, openFolderPicker, openTemplatePicker, runPicker, convertToHwp, getDefaultExportPath, cleanMarkdownFrontmatter, removeHeadings, copyWithOptions, applySpaceIndent, convertToTxt, convertFolderToTxt, convertFilesToTxt, convertFolderToHwp, convertFilesToHwp, convertFolderToTxtMerged, convertFilesToTxtMerged, convertFolderToHwpMerged, convertFilesToHwpMerged } from './src/export/converterMethods';
+import { openFolderPicker, openTemplatePicker, runPicker, convertToHwpx, getDefaultExportPath, cleanMarkdownFrontmatter, removeHeadings, copyWithOptions, applySpaceIndent, convertToTxt, convertFolderToTxt, convertFilesToTxt, convertFolderToHwpx, convertFilesToHwpx, convertFolderToTxtMerged, convertFilesToTxtMerged, convertFolderToHwpxMerged, convertFilesToHwpxMerged } from './src/export/converterMethods';
 import { addCompactControl, addCompactToggle, addCompactStepper, addCompactSlider, addDualColorControl } from './src/ui/controls';
 import { openDictionary } from './src/dictionary';
 import { openSpecialChars } from './src/special-chars/SpecialCharsModal';
@@ -73,6 +76,7 @@ export default class WritingMenuPlugin extends Plugin {
 	zenLeaf: WorkspaceLeaf | null = null;
 	zenLeafEventRef: EventRef | null = null;
 	musicPlayer: MusicPlayer | null = null;
+	musicLibraryBases: MusicLibraryBases | null = null;
 	private readonly pagedEditorChangeListeners = new Set<(view: PagedWritingView) => void>();
 
 	leafStyleManager: LeafStyleManager;
@@ -139,9 +143,6 @@ export default class WritingMenuPlugin extends Plugin {
 			if (file instanceof TFile) void this.charStore.onFileModify(file);
 		}));
 
-		if (Platform.isDesktop && Platform.isWin) {
-			await this.ensureConverterScript();
-		}
 
 		this.registerEvent(this.app.workspace.on('layout-change', () => {
 			this.updateAllToolbars();
@@ -197,7 +198,7 @@ export default class WritingMenuPlugin extends Plugin {
 
 			evt.preventDefault();
 			editor.replaceSelection(sanitized);
-			new Notice('붙여넣은 문서의 작업시간 메타데이터를 제외했습니다.');
+			new Notice(wmT("붙여넣은 문서의 작업시간 메타데이터를 제외했습니다."));
 		}));
 
 		this.updateAllToolbars();
@@ -243,26 +244,26 @@ export default class WritingMenuPlugin extends Plugin {
 					if (Platform.isDesktop) {
 						menu.addItem((item) => {
 							item
-								.setTitle('여러 쪽 보기로 열기')
+								.setTitle(wmT("여러 쪽 보기로 열기"))
 								.setIcon('layout-grid')
 								.onClick(() => { void this.openPagedWritingView(file); });
 						});
 						menu.addItem((item) => {
 							item
-								.setTitle('TXT로 내보내기')
+								.setTitle(wmT("TXT로 내보내기"))
 								.setIcon('file-text')
 								.onClick(() => {
 									new TxtExportModal(this.app, this, file).open();
 								});
 						});
 					}
-					if (Platform.isDesktop && Platform.isWin) {
+					if (Platform.isDesktop) {
 						menu.addItem((item) => {
 							item
-								.setTitle('HWP로 내보내기')
+								.setTitle(wmT("HWPX로 내보내기"))
 								.setIcon('file')
 								.onClick(() => {
-									new HwpExportModal(this.app, this, file).open();
+									new HwpxExportModal(this.app, this, file).open();
 								});
 						});
 					}
@@ -270,7 +271,7 @@ export default class WritingMenuPlugin extends Plugin {
 					if (Platform.isDesktop) {
 						menu.addItem((item) => {
 							item
-								.setTitle('폴더를 TXT로 내보내기')
+								.setTitle(wmT("폴더를 TXT로 내보내기"))
 								.setIcon('folder-output')
 								.onClick(() => {
 									new BatchExportModal(this.app, this, file, 'txt').open();
@@ -278,13 +279,13 @@ export default class WritingMenuPlugin extends Plugin {
 						});
 					}
 
-					if (Platform.isDesktop && Platform.isWin) {
+					if (Platform.isDesktop) {
 						menu.addItem((item) => {
 							item
-								.setTitle('폴더를 HWP로 내보내기')
+								.setTitle(wmT("폴더를 HWPX로 내보내기"))
 								.setIcon('folder-output')
 								.onClick(() => {
-									new BatchExportModal(this.app, this, file, 'hwp').open();
+									new BatchExportModal(this.app, this, file, 'hwpx').open();
 								});
 						});
 					}
@@ -299,7 +300,7 @@ export default class WritingMenuPlugin extends Plugin {
 					if (Platform.isDesktop) {
 						menu.addItem((item) => {
 							item
-								.setTitle(`${mdFiles.length}개 파일을 TXT로 내보내기`)
+								.setTitle(wmT("{0}개 파일을 TXT로 내보내기", mdFiles.length))
 								.setIcon('files')
 								.onClick(() => {
 									new BatchExportModal(this.app, this, mdFiles, 'txt').open();
@@ -307,13 +308,13 @@ export default class WritingMenuPlugin extends Plugin {
 						});
 					}
 
-					if (Platform.isDesktop && Platform.isWin) {
+					if (Platform.isDesktop) {
 						menu.addItem((item) => {
 							item
-								.setTitle(`${mdFiles.length}개 파일을 HWP로 내보내기`)
+								.setTitle(wmT("{0}개 파일을 HWPX로 내보내기", mdFiles.length))
 								.setIcon('files')
 								.onClick(() => {
-									new BatchExportModal(this.app, this, mdFiles, 'hwp').open();
+									new BatchExportModal(this.app, this, mdFiles, 'hwpx').open();
 								});
 						});
 					}
@@ -326,6 +327,10 @@ export default class WritingMenuPlugin extends Plugin {
 			(leaf) => new CalendarView(leaf, this)
 		);
 
+		if (requireApiVersion('1.10.0')) {
+			const { registerMusicLibraryBases } = await import('./src/views/MusicLibraryBases');
+			this.musicLibraryBases = registerMusicLibraryBases(this);
+		}
 		this.registerView(
 			MUSIC_LIBRARY_VIEW_TYPE,
 			(leaf) => new MusicLibraryView(leaf, this)
@@ -346,7 +351,7 @@ export default class WritingMenuPlugin extends Plugin {
 		);
 		this.app.workspace.onLayoutReady(() => { void this.migrateLegacyPlotViews(); });
 
-		this.addCommand({ id: 'snapshot-manager', icon: 'camera', name: '스냅샷 관리', checkCallback: checking => {
+		this.addCommand({ id: 'snapshot-manager', icon: 'camera', name: wmT("스냅샷 관리"), checkCallback: checking => {
 			if (!snapshotTarget(this)) return false;
 			if (!checking) openSnapshotManager(this);
 			return true;
@@ -360,7 +365,7 @@ export default class WritingMenuPlugin extends Plugin {
 		this.addCommand({
 			id: 'open-paged-writing-view',
 			icon: 'files',
-			name: '여러 쪽 보기',
+			name: wmT("여러 쪽 보기"),
 			checkCallback: (checking) => {
 				if (!Platform.isDesktop) return false;
 				const file = this.app.workspace.getActiveFile();
@@ -373,29 +378,29 @@ export default class WritingMenuPlugin extends Plugin {
 		this.addCommand({
 			id: 'toggle-plot-manager',
 			icon: 'table-2',
-			name: '플롯 매니저',
+			name: wmT("플롯 매니저"),
 			callback: () => { void this.togglePlotWorkbookView(); }
 		});
 		this.addCommand({
 			id: 'open-plot-manager-sidebar',
 			icon: 'panel-right',
-			name: '플롯 매니저 사이드바',
+			name: wmT("플롯 매니저 사이드바"),
 			callback: () => { void this.openPlotWorkbookSidebar(); },
 		});
 
 		this.addCommand({
 			id: 'toggle-dashboard-view',
 			icon: 'layout-dashboard',
-			name: '대시보드',
+			name: wmT("대시보드"),
 			callback: () => this.toggleCalendarView(),
 		});
 
-		this.addRibbonIcon('layout-dashboard', '대시보드', () => this.toggleCalendarView());
+		this.addRibbonIcon('layout-dashboard', wmT("대시보드"), () => this.toggleCalendarView());
 
 		this.addCommand({
 			id: 'copy-without-excluded',
 			icon: 'copy',
-			name: '복사하기',
+			name: wmT("복사하기"),
 			callback: async () => {
 				const activeLeaf = this.app.workspace.getActiveViewOfType(MarkdownView)?.leaf ?? this.app.workspace.getActiveViewOfType(PagedWritingView)?.leaf;
 				if (activeLeaf?.view instanceof MarkdownView || activeLeaf?.view instanceof PagedWritingView) {
@@ -407,7 +412,7 @@ export default class WritingMenuPlugin extends Plugin {
 		this.addCommand({
 			id: 'run-spell-check',
 			icon: 'spell-check',
-			name: '맞춤법 검사',
+			name: wmT("맞춤법 검사"),
 			checkCallback: checking => {
 				const editor = this.getActiveWritingEditor();
 				if (!editor) return false;
@@ -419,35 +424,35 @@ export default class WritingMenuPlugin extends Plugin {
 		this.addCommand({
 			id: 'zen-wide-mode',
 			icon: 'move-horizontal',
-			name: '길게 보기',
+			name: wmT("길게 보기"),
 			callback: () => { this.toggleZenMode('wide'); },
 		});
 
 		this.addCommand({
 			id: 'zen-focus-mode',
 			icon: 'focus',
-			name: '집중 모드',
+			name: wmT("집중 모드"),
 			callback: () => { this.toggleZenMode('focus'); },
 		});
 
 		this.addCommand({
 			id: 'hanja-convert',
 			icon: 'book-open',
-			name: '국어사전',
+			name: wmT("국어사전"),
 			callback: () => openDictionary(this, this.getActiveWritingEditor()),
 		});
 
 		this.addCommand({
 			id: 'special-chars',
 			icon: 'omega',
-			name: '특수문자',
+			name: wmT("특수문자"),
 			callback: () => openSpecialChars(this, this.getActiveWritingEditor()),
 		});
 
 		this.addCommand({
 			id: 'wiki-folder-picker',
 			icon: 'notebook-tabs',
-			name: '노트를 위키에서 보기',
+			name: wmT("노트를 위키에서 보기"),
 			callback: async () => {
 				let leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CALENDAR);
 				if (leaves.length === 0) {
@@ -461,6 +466,17 @@ export default class WritingMenuPlugin extends Plugin {
 				const leaf = leaves[0];
 				await this.app.workspace.revealLeaf(leaf);
 				(leaf.view as CalendarView).activateWikiPicker();
+			},
+		});
+
+		this.addCommand({
+			id: 'toggle-music-player',
+			icon: 'list-music',
+			name: wmT('뮤직 플레이어'),
+			callback: async () => {
+				const leaves = this.app.workspace.getLeavesOfType(MUSIC_LIBRARY_VIEW_TYPE);
+				if (leaves.length) leaves.forEach(leaf => leaf.detach());
+				else await this.openMusicLibrarySidebar();
 			},
 		});
 
@@ -496,28 +512,28 @@ export default class WritingMenuPlugin extends Plugin {
 			if (isMulti) {
 				if (Platform.isDesktop) {
 					ctx.addItem(item => item
-						.setTitle(`${mdFiles.length}개 파일을 TXT로 내보내기`)
+						.setTitle(wmT("{0}개 파일을 TXT로 내보내기", mdFiles.length))
 						.setIcon('files')
 						.onClick(() => new BatchExportModal(this.app, this, mdFiles, 'txt').open()));
 				}
-				if (Platform.isDesktop && Platform.isWin) {
+				if (Platform.isDesktop) {
 					ctx.addItem(item => item
-						.setTitle(`${mdFiles.length}개 파일을 HWP로 내보내기`)
+						.setTitle(wmT("{0}개 파일을 HWPX로 내보내기", mdFiles.length))
 						.setIcon('files')
-						.onClick(() => new BatchExportModal(this.app, this, mdFiles, 'hwp').open()));
+						.onClick(() => new BatchExportModal(this.app, this, mdFiles, 'hwpx').open()));
 				}
 			} else if (ctx.file.extension === 'md') {
 				if (Platform.isDesktop) {
 					ctx.addItem(item => item
-						.setTitle('TXT로 내보내기')
+						.setTitle(wmT("TXT로 내보내기"))
 						.setIcon('file-text')
 						.onClick(() => new TxtExportModal(this.app, this, ctx.file).open()));
 				}
-				if (Platform.isDesktop && Platform.isWin) {
+				if (Platform.isDesktop) {
 					ctx.addItem(item => item
-						.setTitle('HWP로 내보내기')
+						.setTitle(wmT("HWPX로 내보내기"))
 						.setIcon('file')
-						.onClick(() => new HwpExportModal(this.app, this, ctx.file).open()));
+						.onClick(() => new HwpxExportModal(this.app, this, ctx.file).open()));
 				}
 			}
 		});
@@ -528,15 +544,15 @@ export default class WritingMenuPlugin extends Plugin {
 		}) => {
 			if (Platform.isDesktop) {
 				ctx.addItem(item => item
-					.setTitle('폴더를 TXT로 내보내기')
+					.setTitle(wmT("폴더를 TXT로 내보내기"))
 					.setIcon('folder-output')
 					.onClick(() => new BatchExportModal(this.app, this, ctx.folder, 'txt').open()));
 			}
-			if (Platform.isDesktop && Platform.isWin) {
+			if (Platform.isDesktop) {
 				ctx.addItem(item => item
-					.setTitle('폴더를 HWP로 내보내기')
+					.setTitle(wmT("폴더를 HWPX로 내보내기"))
 					.setIcon('folder-output')
-					.onClick(() => new BatchExportModal(this.app, this, ctx.folder, 'hwp').open()));
+					.onClick(() => new BatchExportModal(this.app, this, ctx.folder, 'hwpx').open()));
 			}
 		});
 
@@ -598,7 +614,7 @@ export default class WritingMenuPlugin extends Plugin {
 		const leaf = activeLeaf?.view instanceof MarkdownView && activeLeaf.view.file?.path === file.path
 			? activeLeaf
 			: this.app.workspace.getLeaf('tab');
-		await leaf.setViewState({
+		await this.toolbarManager.switchWritingView(leaf, {
 			type: PAGED_WRITING_VIEW_TYPE,
 			state: { file: file.path },
 			active: true,
@@ -942,12 +958,11 @@ export default class WritingMenuPlugin extends Plugin {
 	// ── Extension wrappers ──
 	updateEditorExtensions() { updateEditorExtensions(this); }
 
-	// ── HWP Converter Script Management ──
-	async ensureConverterScript(){ return await ensureConverterScript(this); }
+	// ── Desktop export ──
 	async openFolderPicker(): Promise<string | null>{ return await openFolderPicker(this); }
 	async openTemplatePicker(): Promise<string | null>{ return await openTemplatePicker(this); }
 	async runPicker(mode: 'folder' | 'file'): Promise<string | null>{ return await runPicker(this, mode); }
-	async convertToHwp(file: TFile, fileName: string, exportPath: string, useSpaceIndent: boolean, excludeHeadings: boolean = false): Promise<boolean>{ return await convertToHwp(this, file, fileName, exportPath, useSpaceIndent, excludeHeadings); }
+	async convertToHwpx(file: TFile, fileName: string, exportPath: string, useSpaceIndent: boolean, excludeHeadings: boolean = false, useTemplate?: boolean): Promise<boolean>{ return await convertToHwpx(this, file, fileName, exportPath, useSpaceIndent, excludeHeadings, useTemplate); }
 	getDefaultExportPath(): string{ return getDefaultExportPath(this); }
 	cleanMarkdownFrontmatter(content: string): string{ return cleanMarkdownFrontmatter(this, content); }
 	removeHeadings(content: string): string{ return removeHeadings(this, content); }
@@ -956,12 +971,12 @@ export default class WritingMenuPlugin extends Plugin {
 	async convertToTxt(file: TFile, fileName: string, exportPath: string, useSpaceIndent: boolean, excludeHeadings: boolean = false): Promise<boolean>{ return await convertToTxt(this, file, fileName, exportPath, useSpaceIndent, excludeHeadings); }
 	async convertFolderToTxt(folderPath: string, exportPath: string, useSpaceIndent: boolean, excludeHeadings: boolean = false): Promise<void>{ return await convertFolderToTxt(this, folderPath, exportPath, useSpaceIndent, excludeHeadings); }
 	async convertFilesToTxt(files: TFile[], exportPath: string, useSpaceIndent: boolean, excludeHeadings: boolean = false): Promise<void>{ return await convertFilesToTxt(this, files, exportPath, useSpaceIndent, excludeHeadings); }
-	async convertFolderToHwp(folderPath: string, exportPath: string, useSpaceIndent: boolean, excludeHeadings: boolean = false): Promise<void>{ return await convertFolderToHwp(this, folderPath, exportPath, useSpaceIndent, excludeHeadings); }
-	async convertFilesToHwp(files: TFile[], exportPath: string, useSpaceIndent: boolean, excludeHeadings: boolean = false): Promise<void>{ return await convertFilesToHwp(this, files, exportPath, useSpaceIndent, excludeHeadings); }
-	async convertFolderToTxtMerged(folderPath: string, exportPath: string, fileName: string, useSpaceIndent: boolean): Promise<void>{ return await convertFolderToTxtMerged(this, folderPath, exportPath, fileName, useSpaceIndent); }
+	async convertFolderToHwpx(folderPath: string, exportPath: string, useSpaceIndent: boolean, excludeHeadings: boolean = false, useTemplate?: boolean): Promise<void>{ return await convertFolderToHwpx(this, folderPath, exportPath, useSpaceIndent, excludeHeadings, useTemplate); }
+	async convertFilesToHwpx(files: TFile[], exportPath: string, useSpaceIndent: boolean, excludeHeadings: boolean = false, useTemplate?: boolean): Promise<void>{ return await convertFilesToHwpx(this, files, exportPath, useSpaceIndent, excludeHeadings, useTemplate); }
+	async convertFolderToTxtMerged(folderPath: string, exportPath: string, fileName: string, useSpaceIndent: boolean, excludeHeadings: boolean = false): Promise<void>{ return await convertFolderToTxtMerged(this, folderPath, exportPath, fileName, useSpaceIndent, excludeHeadings); }
 	async convertFilesToTxtMerged(files: TFile[], exportPath: string, fileName: string, useSpaceIndent: boolean, excludeHeadings: boolean = false): Promise<void>{ return await convertFilesToTxtMerged(this, files, exportPath, fileName, useSpaceIndent, excludeHeadings); }
-	async convertFolderToHwpMerged(folderPath: string, exportPath: string, fileName: string, useSpaceIndent: boolean, excludeHeadings: boolean = false): Promise<void>{ return await convertFolderToHwpMerged(this, folderPath, exportPath, fileName, useSpaceIndent, excludeHeadings); }
-	async convertFilesToHwpMerged(files: TFile[], exportPath: string, fileName: string, useSpaceIndent: boolean, excludeHeadings: boolean = false): Promise<void>{ return await convertFilesToHwpMerged(this, files, exportPath, fileName, useSpaceIndent, excludeHeadings); }
+	async convertFolderToHwpxMerged(folderPath: string, exportPath: string, fileName: string, useSpaceIndent: boolean, excludeHeadings: boolean = false, useTemplate?: boolean): Promise<void>{ return await convertFolderToHwpxMerged(this, folderPath, exportPath, fileName, useSpaceIndent, excludeHeadings, useTemplate); }
+	async convertFilesToHwpxMerged(files: TFile[], exportPath: string, fileName: string, useSpaceIndent: boolean, excludeHeadings: boolean = false, useTemplate?: boolean): Promise<void>{ return await convertFilesToHwpxMerged(this, files, exportPath, fileName, useSpaceIndent, excludeHeadings, useTemplate); }
 
 	async addCompactControl(container: HTMLElement, label: string, value: string, callback: (v: string) => void | Promise<void>, icon?: string, type: string = 'text'){ return await addCompactControl(this, container, label, value, callback, icon, type); }
 	async addCompactToggle(container: HTMLElement, label: string, value: boolean, callback: (v: boolean) => void | Promise<void>, icon?: string){ return await addCompactToggle(this, container, label, value, callback, icon); }

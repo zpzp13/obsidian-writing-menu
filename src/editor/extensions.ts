@@ -74,7 +74,8 @@ export function getSmartEnterExtension(plugin: WritingMenuPlugin): Extension {
 
 export function getSmartQuoteExtension(plugin: WritingMenuPlugin): Extension {
 	if (!plugin.settings.enableSmartQuotes) return [];
-	return EditorView.inputHandler.of((view, from, to, text) => {
+	// Obsidian's auto-pair handler is registered first and otherwise consumes quotes.
+	return Prec.highest(EditorView.inputHandler.of((view, from, to, text) => {
 		if (!appliesToEditor(plugin, view)) return false;
 		const pair = text === '"' || text === '“'
 			? { open: '“', close: '”' }
@@ -101,7 +102,7 @@ export function getSmartQuoteExtension(plugin: WritingMenuPlugin): Extension {
 			userEvent: 'input.type',
 		});
 		return true;
-	});
+	}));
 }
 
 export function getTypewriterExtension(plugin: WritingMenuPlugin): Extension {

@@ -10,9 +10,13 @@ const core = [
 	['lint', 'node_modules/eslint/bin/eslint.js', 'main.ts', 'src'],
 	['css', 'node_modules/stylelint/bin/stylelint.mjs', 'styles.css'],
 	['types', 'node_modules/typescript/bin/tsc', '-noEmit', '-skipLibCheck'],
-	...['warning-policy', 'settings-compatibility', 'statistics-scope', 'export-boundaries', 'release-artifacts', 'input-boundaries', 'morph-worker', 'paged-zoom', 'chat-stream', 'chat-legacy', 'deus-skills', 'deus-cli', 'rag-api', 'model-free-search', 'rag-navigation', 'episode-retrieval', 'character-research'].map(name => [name, `scripts/verify-${name}.mjs`]),
+	['i18n', 'scripts/verify-i18n.mjs'],
+	['font-settings', 'scripts/verify-font-settings.mjs'],
+	['writing-frontmatter', 'scripts/verify-writing-frontmatter.mjs'],
+	...['warning-policy', 'settings-compatibility', 'statistics-scope', 'hwpx', 'export-ui', 'export-boundaries', 'release-artifacts', 'input-boundaries', 'smart-quotes', 'morph-worker', 'paged-zoom', 'chat-stream', 'chat-legacy', 'deus-skills', 'deus-cli', 'rag-api', 'model-free-search', 'rag-navigation', 'episode-retrieval', 'character-research'].map(name => [name, `scripts/verify-${name}.mjs`]),
 ];
 const browser = [
+	['english-ui', 'scripts/verify-paged-performance.mjs', '--i18n'],
 	['project-typography', 'scripts/verify-project-typography.mjs'],
 	['css-cascade', 'scripts/verify-css-cascade.mjs'],
 	['css-compatibility', 'scripts/verify-css-compatibility.mjs'],

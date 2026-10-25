@@ -1,16 +1,17 @@
+import { wmT } from '../i18n/index';
 import { Modal, Notice, setIcon } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { DeadlineSchedule } from '../types';
 import { watchDisconnect } from '../utils/domUtils';
 
 const WEEKDAYS = [
-	{ value: 1, short: '월', full: '월요일' },
-	{ value: 2, short: '화', full: '화요일' },
-	{ value: 3, short: '수', full: '수요일' },
-	{ value: 4, short: '목', full: '목요일' },
-	{ value: 5, short: '금', full: '금요일' },
-	{ value: 6, short: '토', full: '토요일' },
-	{ value: 0, short: '일', full: '일요일' },
+	{ value: 1, short: wmT("월"), full: wmT("월요일") },
+	{ value: 2, short: wmT("화"), full: wmT("화요일") },
+	{ value: 3, short: wmT("수"), full: wmT("수요일") },
+	{ value: 4, short: wmT("목"), full: wmT("목요일") },
+	{ value: 5, short: wmT("금"), full: wmT("금요일") },
+	{ value: 6, short: wmT("토"), full: wmT("토요일") },
+	{ value: 0, short: wmT("일"), full: wmT("일요일") },
 ] as const;
 
 const DAY_MS = 86_400_000;
@@ -55,15 +56,15 @@ function formatRemaining(milliseconds: number): string {
 	const minutes = Math.floor((totalSeconds % 3600) / 60);
 	const seconds = totalSeconds % 60;
 	const clock = `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
-	return days > 0 ? `${days}일 ${clock}` : clock;
+	return days > 0 ? wmT("{0}일 {1}", days, clock) : clock;
 }
 
 function formatDeadline(date: Date): string {
 	const weekday = WEEKDAYS.find(item => item.value === date.getDay())?.full ?? '';
 	const hour = date.getHours();
-	const period = hour < 12 ? '오전' : '오후';
+	const period = hour < 12 ? wmT("오전") : wmT("오후");
 	const displayHour = hour % 12 || 12;
-	return `${date.getMonth() + 1}월 ${date.getDate()}일 ${weekday} ${period} ${displayHour}:${pad(date.getMinutes())}`;
+	return wmT("{0}월 {1}일 {2} {3} {4}:{5}", date.getMonth() + 1, date.getDate(), weekday, period, displayHour, pad(date.getMinutes()));
 }
 
 export class DeadlineTimerWidget {
@@ -78,10 +79,10 @@ export class DeadlineTimerWidget {
 
 			if (schedule.weekdays.length === 0) {
 				const empty = card.createDiv({ cls: 'wm-dash-deadline-empty' });
-				empty.createDiv({ text: '연재 일정을 설정해 주세요.', cls: 'wm-dash-deadline-empty-title' });
-				empty.createDiv({ text: '요일과 시각을 정하면 다음 마감까지 자동으로 계산합니다.', cls: 'wm-dash-deadline-empty-copy' });
+				empty.createDiv({ text: wmT("연재 일정을 설정해 주세요."), cls: 'wm-dash-deadline-empty-title' });
+				empty.createDiv({ text: wmT("요일과 시각을 정하면 다음 마감까지 자동으로 계산합니다."), cls: 'wm-dash-deadline-empty-copy' });
 				const emptyButton = empty.createEl('button', {
-					text: '일정 설정',
+					text: wmT("일정 설정"),
 					cls: 'wm-dash-deadline-empty-button',
 					attr: { type: 'button' },
 				});
@@ -104,10 +105,10 @@ export class DeadlineTimerWidget {
 
 			const countdown = body.createDiv({ cls: 'wm-dash-deadline-countdown' });
 			const countdownHead = countdown.createDiv({ cls: 'wm-dash-deadline-countdown-head' });
-			countdownHead.createDiv({ text: '다음 마감까지', cls: 'wm-dash-deadline-kicker' });
+			countdownHead.createDiv({ text: wmT("다음 마감까지"), cls: 'wm-dash-deadline-kicker' });
 			const editButton = countdownHead.createEl('button', {
 				cls: 'wm-dash-deadline-edit',
-				attr: { type: 'button', 'aria-label': '연재 일정 수정' },
+				attr: { type: 'button', 'aria-label': wmT("연재 일정 수정") },
 			});
 			setIcon(editButton, 'calendar-clock');
 			editButton.addEventListener('click', () => {
@@ -165,10 +166,10 @@ class DeadlineScheduleModal extends Modal {
 		this.contentEl.empty();
 		this.contentEl.addClass('wm-deadline-modal');
 
-		this.contentEl.createEl('label', { text: '연재 요일', cls: 'wm-deadline-modal-label' });
+		this.contentEl.createEl('label', { text: wmT("연재 요일"), cls: 'wm-deadline-modal-label' });
 		const dayRow = this.contentEl.createDiv({
 			cls: 'wm-deadline-modal-days',
-			attr: { role: 'group', 'aria-label': '연재 요일' },
+			attr: { role: 'group', 'aria-label': wmT("연재 요일") },
 		});
 		const selected = new Set(this.initial.weekdays);
 		for (const item of WEEKDAYS) {
@@ -184,10 +185,10 @@ class DeadlineScheduleModal extends Modal {
 			});
 		}
 
-		this.contentEl.createEl('label', { text: '마감 시각', cls: 'wm-deadline-modal-label', attr: { for: 'wm-deadline-time' } });
+		this.contentEl.createEl('label', { text: wmT("마감 시각"), cls: 'wm-deadline-modal-label', attr: { for: 'wm-deadline-time' } });
 		const timeInput = this.contentEl.createEl('input', {
 			cls: 'wm-deadline-modal-time',
-			attr: { id: 'wm-deadline-time', type: 'time', 'aria-label': '마감 시각' },
+			attr: { id: 'wm-deadline-time', type: 'time', 'aria-label': wmT("마감 시각") },
 		});
 		timeInput.value = this.initial.time;
 		timeInput.addEventListener('click', () => {
@@ -200,15 +201,15 @@ class DeadlineScheduleModal extends Modal {
 
 		const actions = this.contentEl.createDiv({ cls: 'wm-deadline-modal-actions' });
 		const cancelButton = actions.createEl('button', {
-			text: '취소', cls: 'wm-deadline-modal-cancel', attr: { type: 'button' },
+			text: wmT("취소"), cls: 'wm-deadline-modal-cancel', attr: { type: 'button' },
 		});
 		const saveButton = actions.createEl('button', {
-			text: '적용', cls: 'wm-deadline-modal-save', attr: { type: 'button' },
+			text: wmT("적용"), cls: 'wm-deadline-modal-save', attr: { type: 'button' },
 		});
 		cancelButton.addEventListener('click', () => this.close());
 		saveButton.addEventListener('click', () => {
 			if (selected.size === 0) {
-				new Notice('연재 요일을 하나 이상 선택해 주세요.');
+				new Notice(wmT("연재 요일을 하나 이상 선택해 주세요."));
 				return;
 			}
 			void this.save({ weekdays: WEEKDAYS.map(item => item.value).filter(day => selected.has(day)), time: timeInput.value || '10:00' });

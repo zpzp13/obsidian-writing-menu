@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import ts from 'typescript';
+import { loadTsFixture } from './ts-fixture-loader.mjs';
 
 const js = ts.transpileModule(await readFile('src/repetition/MorphAnalyzer.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 for (const [embedded, disk, expected] of [['embedded-current', '', 'embedded-current'], ['embedded-current', 'disk-old', 'embedded-current'], ['', 'disk-current', 'disk-current'], ['', '', null]]) {
@@ -9,6 +10,7 @@ for (const [embedded, disk, expected] of [['embedded-current', '', 'embedded-cur
 	const adapter = { exists: async () => Boolean(disk), read: async () => disk, readBinary: async () => Uint8Array.of(1, 2, 3).buffer };
 	const plugin = { app: { vault: { adapter } } };
 	const imports = {
+		'../i18n/index': loadTsFixture('src/i18n/index.ts'),
 		obsidian: { Platform: { isDesktop: true, isDesktopApp: true } },
 		'./GaruAssets': { isGaruAssetsDownloaded: async () => true, getAssetPaths: () => ({ workerPath: 'worker.js', wasmPath: 'model.wasm', modelPath: 'model.bin' }) },
 	};

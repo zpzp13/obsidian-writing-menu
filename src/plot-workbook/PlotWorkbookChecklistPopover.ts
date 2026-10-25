@@ -1,7 +1,8 @@
+import { wmT } from '../i18n/index';
 import { setIcon } from 'obsidian';
 import { PlotWorkbookChecklistEditor } from './PlotWorkbookChecklistEditor';
 import type { PlotWorkbookSession } from './PlotWorkbookSession';
-import type { PlotWorkbookForeshadowLocation } from './PlotWorkbookTypes';
+import { DEFAULT_PLOTBOOK_FONT_SIZE, type PlotWorkbookForeshadowLocation } from './PlotWorkbookTypes';
 
 export class PlotWorkbookChecklistPopover {
 	private readonly element: HTMLElement;
@@ -17,23 +18,28 @@ export class PlotWorkbookChecklistPopover {
 		this.document = anchor.ownerDocument;
 		this.anchorBounds = anchor.getBoundingClientRect();
 		this.previousFocus = this.document.activeElement as HTMLElement | null;
-		this.element = this.document.body.createDiv({ cls: 'wm-plotbook-checklist-popover', attr: { role: 'dialog', 'aria-label': '체크리스트 편집' } });
-		const header = this.element.createDiv({ cls: 'wm-plotbook-checklist-popover-heading', attr: { role: 'toolbar', 'aria-label': '체크리스트 도구' } });
-		const filters = header.createDiv({cls:'wm-plotbook-checklist-filters',attr:{role:'group','aria-label':'체크리스트 표시'}});
-		for(const [value,label] of [['all','전체'],['pending','미완료']] as const) {
+		this.element = this.document.body.createDiv({ cls: 'wm-plotbook-checklist-popover', attr: { role: 'dialog', 'aria-label': wmT("체크리스트 편집") } });
+		const header = this.element.createDiv({ cls: 'wm-plotbook-checklist-popover-heading', attr: { role: 'toolbar', 'aria-label': wmT("체크리스트 도구") } });
+		const filters = header.createDiv({cls:'wm-plotbook-checklist-filters',attr:{role:'group','aria-label':wmT("체크리스트 표시")}});
+		for(const [value,label] of [['all',wmT("전체")],['pending',wmT("미완료")]] as const) {
 			const button = filters.createEl('button',{text:label,attr:{type:'button','data-completed-filter':value,'aria-pressed':String(value === 'all')}});
 			button.addEventListener('click',()=>{
 				this.editor.setHideCompleted(value === 'pending');
 				filters.querySelectorAll<HTMLButtonElement>('button').forEach(item=>item.setAttribute('aria-pressed',String(item === button)));
 			});
 		}
-		const sidebar = header.createEl('button', { cls: 'clickable-icon', attr: { type: 'button', 'aria-label': '사이드바에서 보기' } });
+		const sidebar = header.createEl('button', { cls: 'clickable-icon', attr: { type: 'button', 'aria-label': wmT("사이드바에서 보기") } });
 		setIcon(sidebar, 'panel-right');
 		sidebar.addEventListener('click', () => { this.close(); onSidebar(); });
-		const close = header.createEl('button', { cls: 'clickable-icon', attr: { type: 'button', 'aria-label': '닫기' } });
+		const close = header.createEl('button', { cls: 'clickable-icon', attr: { type: 'button', 'aria-label': wmT("닫기") } });
 		setIcon(close, 'x'); close.addEventListener('click', () => this.close());
 		const composer = this.element.createDiv({ cls: 'wm-plotbook-checklist-popover-composer' });
 		this.editor = new PlotWorkbookChecklistEditor(this.element, session, location, composer);
+		const updateFontSize = () => {
+			const style = session.getCellStyle(session.activeSheet, location.rowId, location.columnId);
+			this.editor.element.style.fontSize = `${style.fontSize ?? DEFAULT_PLOTBOOK_FONT_SIZE}px`;
+		};
+		updateFontSize();
 		this.position();
 		this.resize = new ResizeObserver(() => { if (!this.closed) this.position(); });
 		this.resize.observe(this.element);
@@ -44,6 +50,7 @@ export class PlotWorkbookChecklistPopover {
 		this.unsubscribe = session.subscribe(() => {
 			if (session.activeSheet.sheetId !== location.sheetId || !session.activeSheet.rows[location.rowId]
 				|| session.activeSheet.columns[location.columnId]?.role !== 'checklist') this.close();
+			else updateFontSize();
 		});
 		this.editor.focus();
 	}

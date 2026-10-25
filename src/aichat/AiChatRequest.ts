@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import type { AiChatMessage, AiChatSession } from './AiChatTypes';
 import { callAiChat, cliChatProvider, type AiChatApiKeys } from './AiChatApi';
 import type { CliChatOptions } from './CliChatApi';
@@ -32,12 +33,12 @@ export class AiChatRequest {
 		let timeout = 0;
 		try {
 			if (!retry) session.messages.push(message);
-			else if (session.messages[session.messages.length - 1]?.id !== message.id || message.role !== 'user') throw new Error('재시도할 대화 위치가 달라졌습니다. 새 분기에서 시도해 주세요.');
+			else if (session.messages[session.messages.length - 1]?.id !== message.id || message.role !== 'user') throw new Error(wmT("재시도할 대화 위치가 달라졌습니다. 새 분기에서 시도해 주세요."));
 			update({ status: 'sending', text, phase: 'searching' });
 			await this.storage.save(session); checkChatAbort(controller.signal);
 			const cli = cliChatProvider(options.model);
-			if (session.mode === 'deus' && !options.model.startsWith('gemini-') && !cli) throw new Error('선택한 모델은 Deus의 자료 검색을 지원하지 않습니다. Gemini 또는 CLI 모델을 선택해 주세요.');
-			if (cli && !options.cli) throw new Error('CLI에 전달할 프로젝트 폴더가 지정되지 않았습니다.');
+			if (session.mode === 'deus' && !options.model.startsWith('gemini-') && !cli) throw new Error(wmT("선택한 모델은 Deus의 자료 검색을 지원하지 않습니다. Gemini 또는 CLI 모델을 선택해 주세요."));
+			if (cli && !options.cli) throw new Error(wmT("CLI에 전달할 프로젝트 폴더가 지정되지 않았습니다."));
 			const system = await context(controller.signal); checkChatAbort(controller.signal);
 			// Context collection may have attached immutable evidence. Persist it before the paid request.
 			await this.storage.save(session); checkChatAbort(controller.signal);
@@ -48,7 +49,7 @@ export class AiChatRequest {
 			const history = overview ? [message] : options.historyTurns > 0 ? session.messages.slice(-Math.max(2, options.historyTurns * 2)) : [...session.messages];
 			while (history[0]?.role === 'assistant') history.shift();
 			const requestHistory = prepareChatHistory(history, message);
-			if (options.freeOnly && !cli && !['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.1-flash-lite'].includes(options.model)) throw new Error('무료 전용 모드에서는 지원되는 Gemini 모델을 직접 선택해 주세요.');
+			if (options.freeOnly && !cli && !['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.1-flash-lite'].includes(options.model)) throw new Error(wmT("무료 전용 모드에서는 지원되는 Gemini 모델을 직접 선택해 주세요."));
 			const onText = (value: string) => { if (!controller.signal.aborted) { text = value; update({ status: 'streaming', text: session.mode === 'deus' ? visibleDeusAnswer(plainDeusReply(value, message.skill)) : value }); } };
 			const generate = cli && options.cli ? (await import('./CliChatApi')).cliGenerator(options.cli, options.stream) : undefined;
 			text = cli || options.freeOnly || session.mode === 'deus' ? await callGeminiRag({ key: options.keys.gemini, model: options.model, system, history, message, maxTokens: options.maxTokens, stream: options.stream, thinkingLevel: options.thinkingLevel, tools: options.ragTools, signal: controller.signal, onText, generate,
@@ -68,10 +69,10 @@ export class AiChatRequest {
 			if (text && !reply) {
 				reply = { id: window.crypto?.randomUUID?.() ?? `${Date.now()}-partial`, role: 'assistant', skill: message.skill, participants: message.participants, content: text, timestamp: Date.now(), status: 'interrupted' };
 				session.messages.push(reply);
-				try { await this.storage.save(session); } catch (saveError) { update({ status: 'error', text: '', error: `받은 응답을 저장하지 못했습니다: ${saveError instanceof Error ? saveError.message : String(saveError)}` }); return; }
+				try { await this.storage.save(session); } catch (saveError) { update({ status: 'error', text: '', error: wmT("받은 응답을 저장하지 못했습니다: {0}", saveError instanceof Error ? saveError.message : String(saveError)) }); return; }
 			}
 			if (controller.signal.aborted) {
-				update({ status: 'stopped', text: '', error: timedOut ? '응답 시간이 초과되었습니다. 원격 서버의 처리는 계속될 수 있습니다.' : '응답 수신을 중단했습니다. 원격 서버의 처리는 계속될 수 있습니다.' });
+				update({ status: 'stopped', text: '', error: timedOut ? wmT("응답 시간이 초과되었습니다. 원격 서버의 처리는 계속될 수 있습니다.") : wmT("응답 수신을 중단했습니다. 원격 서버의 처리는 계속될 수 있습니다.") });
 			} else update({ status: 'error', text: reply ? '' : text, error: error instanceof Error ? error.message : String(error), ...(error instanceof ChatQuotaError ? { quota: true, retryAt: error.retryAt } : error instanceof GeminiServiceError ? { retryAt: error.retryAt } : {}) });
 		} finally { window.clearTimeout(timeout); if (this.active.get(session.id) === controller) this.active.delete(session.id); }
 	}

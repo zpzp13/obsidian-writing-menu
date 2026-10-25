@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import type WritingMenuPlugin from '../../main';
 import { watchDisconnect } from '../utils/domUtils';
 
@@ -80,7 +81,7 @@ export class TimerStopwatchWidget {
 
 		const dialInput = dial.createEl('input', {
 			cls: 'wm-dash-clock-time wm-dash-clock-dial-time',
-			attr: { type: 'text', inputmode: 'numeric', 'aria-label': '스톱워치 시간 입력', spellcheck: 'false' },
+			attr: { type: 'text', inputmode: 'numeric', 'aria-label': wmT("스톱워치 시간 입력"), spellcheck: 'false' },
 		});
 
 		const panel = stage.createDiv({ cls: 'wm-dash-clock-panel' });
@@ -91,7 +92,7 @@ export class TimerStopwatchWidget {
 
 		const switcher = panelTop.createDiv({
 			cls: 'wm-dash-clock-switch wm-dash-char-range-seg',
-			attr: { role: 'group', 'aria-label': '타이머 모드' },
+			attr: { role: 'group', 'aria-label': wmT("타이머 모드") },
 		});
 		const switchThumb = switcher.createSpan({ cls: 'wm-dash-char-range-thumb' });
 		const modeButtons = new Map<ClockMode, HTMLButtonElement>();
@@ -106,7 +107,7 @@ export class TimerStopwatchWidget {
 
 		const digitalInput = panel.createEl('input', {
 			cls: 'wm-dash-clock-time wm-dash-clock-digital-time',
-			attr: { type: 'text', inputmode: 'numeric', 'aria-label': '타이머 시간 입력', spellcheck: 'false' },
+			attr: { type: 'text', inputmode: 'numeric', 'aria-label': wmT("타이머 시간 입력"), spellcheck: 'false' },
 		});
 
 		const adjustScroll = panel.createDiv({ cls: 'wm-dash-clock-adjust-scroll wm-cal-month-scroll' });
@@ -115,7 +116,7 @@ export class TimerStopwatchWidget {
 			const button = adjustScroll.createEl('button', {
 				text: step.label,
 				cls: 'wm-dash-clock-adjust wm-cal-ms-month',
-				attr: { type: 'button', 'aria-label': `${step.label} 조정` },
+				attr: { type: 'button', 'aria-label': wmT("{0} 조정", step.label) },
 			});
 			if (step.seconds === 60) positiveStartButton = button;
 			button.addEventListener('click', () => {
@@ -170,7 +171,7 @@ export class TimerStopwatchWidget {
 			startButton.textContent = running ? 'PAUSE' : 'START';
 			startButton.toggleClass('is-start', !running);
 			startButton.toggleClass('is-pause', running);
-			startButton.setAttribute('aria-label', running ? '일시정지' : '시작');
+			startButton.setAttribute('aria-label', running ? wmT("일시정지") : wmT("시작"));
 			window.requestAnimationFrame(placeSwitchThumb);
 		};
 

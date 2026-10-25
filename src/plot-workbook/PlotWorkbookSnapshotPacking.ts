@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import type { PlotWorkbookCell, PlotWorkbookCellStyle, PlotWorkbookSheet, PlotWorkbookSnapshotData } from './PlotWorkbookTypes';
 
 /** Pool repeated styles/cells and identical rows without dropping empty-cell formatting. */
@@ -34,7 +35,7 @@ export function packPlotSnapshotData(data: PlotWorkbookSnapshotData): PackedSnap
 			const runs: Array<[number, number, number]> = [];
 			for (const [columnId, cell] of Object.entries(cells)) {
 				const columnIndex = columnIndices.get(columnId);
-				if (columnIndex === undefined) throw new Error('스냅샷에 등록되지 않은 열의 셀이 있습니다.');
+				if (columnIndex === undefined) throw new Error(wmT("스냅샷에 등록되지 않은 열의 셀이 있습니다."));
 				const template: Omit<PlotWorkbookCell, 'style'> & { style?: number } = { ...cell, style: undefined };
 				if (cell.style !== undefined) {
 					const key = JSON.stringify(cell.style);
@@ -51,7 +52,7 @@ export function packPlotSnapshotData(data: PlotWorkbookSnapshotData): PackedSnap
 					templateSizes.push(encoder.encode(JSON.stringify(cell)).length + 180);
 				}
 				expandedCells++; expandedBytes += templateSizes[templateIndex];
-				if (expandedCells > MAX_EXPANDED_CELLS || expandedBytes > MAX_EXPANDED_BYTES) throw new Error('복원할 데이터가 안전한 메모리 범위를 초과하여 스냅샷 저장을 중단했습니다.');
+				if (expandedCells > MAX_EXPANDED_CELLS || expandedBytes > MAX_EXPANDED_BYTES) throw new Error(wmT("복원할 데이터가 안전한 메모리 범위를 초과하여 스냅샷 저장을 중단했습니다."));
 				const previous = runs[runs.length - 1];
 				if (previous && previous[0] + previous[1] === columnIndex && previous[2] === templateIndex) previous[1]++;
 				else runs.push([columnIndex, 1, templateIndex]);
@@ -68,11 +69,11 @@ export function packPlotSnapshotData(data: PlotWorkbookSnapshotData): PackedSnap
 }
 
 export function unpackPlotSnapshotData(data: PackedSnapshotData): PlotWorkbookSnapshotData {
-	if (!data || !Array.isArray(data.sheets)) throw new Error('스냅샷의 시트 목록이 올바르지 않습니다.');
+	if (!data || !Array.isArray(data.sheets)) throw new Error(wmT("스냅샷의 시트 목록이 올바르지 않습니다."));
 	let totalCells = 0;
 	let totalBytes = 0;
 	let validatedPatternCells = 0;
-	const fail = (): never => { throw new Error('스냅샷의 셀 복원 정보가 올바르지 않습니다.'); };
+	const fail = (): never => { throw new Error(wmT("스냅샷의 셀 복원 정보가 올바르지 않습니다.")); };
 	return { ...data, sheets: data.sheets.map(sheet => {
 		const block = sheet?.cells;
 		if (!block || block.encoding !== 'cell-templates-v1' || !Array.isArray(block.columnKeys)
@@ -99,7 +100,7 @@ export function unpackPlotSnapshotData(data: PackedSnapshotData): PlotWorkbookSn
 				const [start, count, template] = run;
 				if (start < 0 || count < 1 || start + count > block.columnKeys.length || template < 0 || template >= serialized.length) fail();
 				validatedPatternCells += count;
-				if (validatedPatternCells > MAX_EXPANDED_CELLS) throw new Error('복원할 셀 패턴이 안전한 처리 범위를 초과합니다.');
+				if (validatedPatternCells > MAX_EXPANDED_CELLS) throw new Error(wmT("복원할 셀 패턴이 안전한 처리 범위를 초과합니다."));
 				for (let column = start; column < start + count; column++) {
 					if (columns.has(column)) fail(); columns.add(column);
 				}
@@ -116,7 +117,7 @@ export function unpackPlotSnapshotData(data: PackedSnapshotData): PlotWorkbookSn
 			rowIds.add(row[0]);
 			totalCells += patternSizes[row[1]].cells;
 			totalBytes += patternSizes[row[1]].bytes;
-			if (totalCells > MAX_EXPANDED_CELLS || totalBytes > MAX_EXPANDED_BYTES) throw new Error('복원할 데이터가 안전한 메모리 범위를 초과합니다.');
+			if (totalCells > MAX_EXPANDED_CELLS || totalBytes > MAX_EXPANDED_BYTES) throw new Error(wmT("복원할 데이터가 안전한 메모리 범위를 초과합니다."));
 		}
 		const cells: PlotWorkbookSheet['cells'] = {};
 		for (const [rowId, pattern] of block.rows) {

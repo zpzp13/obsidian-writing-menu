@@ -1,8 +1,9 @@
+import { wmT } from '../i18n/index';
 type ForeshadowStatus = 'open' | 'resolved';
 
 export function renderForeshadowBadge(parent: HTMLElement, status: ForeshadowStatus): HTMLElement {
 	return parent.createSpan({ cls: `wm-plotbook-foreshadow-marker is-${status}`,
-		attr: { role: 'img', 'aria-label': status === 'resolved' ? '회수' : '미회수', title: status === 'resolved' ? '회수' : '미회수' } });
+		attr: { role: 'img', 'aria-label': status === 'resolved' ? wmT("회수") : wmT("미회수"), title: status === 'resolved' ? wmT("회수") : wmT("미회수") } });
 }
 
 /** One card layout for the registry list and both timeline endpoints. */

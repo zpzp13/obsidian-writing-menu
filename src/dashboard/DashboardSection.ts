@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { MarkdownView, TFile, sanitizeHTMLToDom, setIcon } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { WritingTimeSection } from './WritingTimeSection';
@@ -25,10 +26,10 @@ export class DashboardSection {
 		const wrap = container.createDiv({ cls: 'wm-dash' });
 
 		const cfg = sections ?? plugin.settings.dashboardSections ?? [
-			{ id: 'timer', label: '타이머',   visible: true },
-			{ id: 'chars', label: '글자수',   visible: true },
-			{ id: 'time',  label: '작업시간', visible: true },
-			{ id: 'music', label: '음악',     visible: true },
+			{ id: 'timer', label: wmT("타이머"),   visible: true },
+			{ id: 'chars', label: wmT("글자수"),   visible: true },
+			{ id: 'time',  label: wmT("작업시간"), visible: true },
+			{ id: 'music', label: wmT("음악"),     visible: true },
 		];
 
 		for (const sec of cfg) {
@@ -62,13 +63,13 @@ export class DashboardSection {
 		let selectedRange: CharRange = plugin.settings.dashboardCharRange ?? '30';
 
 		const rangeRow = root.createDiv({ cls: 'wm-dash-char-range-row' });
-		const rangeSeg = rangeRow.createDiv({ cls: 'wm-dash-char-range-seg', attr: { role: 'group', 'aria-label': '글자수 평균 기간' } });
+		const rangeSeg = rangeRow.createDiv({ cls: 'wm-dash-char-range-seg', attr: { role: 'group', 'aria-label': wmT("글자수 평균 기간") } });
 		const rangeThumb = rangeSeg.createSpan({ cls: 'wm-dash-char-range-thumb' });
 		const rangeItems: Array<{ key: CharRange; label: string }> = [
-			{ key: '7', label: '7일' },
-			{ key: '30', label: '30일' },
-			{ key: '90', label: '90일' },
-			{ key: '365', label: '1년' },
+			{ key: '7', label: wmT("7일") },
+			{ key: '30', label: wmT("30일") },
+			{ key: '90', label: wmT("90일") },
+			{ key: '365', label: wmT("1년") },
 		];
 		const rangeButtons = new Map<CharRange, HTMLButtonElement>();
 		for (const item of rangeItems) {
@@ -210,22 +211,22 @@ export class DashboardSection {
 	} {
 		const hero = container.createDiv({ cls: 'wm-dash-char-hero' });
 		const heroMain = hero.createDiv({ cls: 'wm-dash-char-main' });
-		this.renderSectionTitle(heroMain, '누적 글자수').addClass('wm-dash-char-kicker');
+		this.renderSectionTitle(heroMain, wmT("누적 글자수")).addClass('wm-dash-char-kicker');
 		const heroNum = heroMain.createDiv({ cls: 'wm-dash-char-hero-num', text: '0' }) as HTMLElement & { _wmRaf?: number; _wmValue?: number };
 		const recentLine = heroMain.createEl('p', { cls: 'wm-dash-char-hero-line' });
-		recentLine.appendText('최근 하루 ');
-		const recentNumEl = recentLine.createEl('b', { text: '0자' });
+		recentLine.appendText(wmT("최근 하루 "));
+		const recentNumEl = recentLine.createEl('b', { text: wmT("0자") });
 		const averageLine = heroMain.createEl('p', { cls: 'wm-dash-char-hero-line wm-dash-char-average-line' });
-		averageLine.appendText('일평균 대비 ');
+		averageLine.appendText(wmT("일평균 대비 "));
 		const avgDiffEl = averageLine.createEl('b', { text: '—' });
 		const deltaEl = averageLine.createSpan({ cls: 'wm-dash-char-delta' });
 		const heroViz = hero.createDiv({ cls: 'wm-dash-char-viz wm-dash-char-rv' });
 		const vizKicker = heroViz.createDiv({ cls: 'wm-dash-char-viz-kicker' });
 		vizKicker.createSpan({ cls: 'wm-dash-char-viz-marker' });
-		const vizLabel = vizKicker.createSpan({ text: '글자수 추이' });
+		const vizLabel = vizKicker.createSpan({ text: wmT("글자수 추이") });
 		const vizNum = heroViz.createDiv({ cls: 'wm-dash-char-viz-num', text: '0' });
 		const vizDelta = heroViz.createEl('p', { cls: 'wm-dash-char-hero-line wm-dash-char-average-line wm-dash-char-viz-delta' });
-		vizDelta.appendText('직전 동일 기간 대비 ');
+		vizDelta.appendText(wmT("직전 동일 기간 대비 "));
 		const vizDeltaValue = vizDelta.createEl('b', { text: '—' });
 		const sparkHost = heroViz.createDiv({ cls: 'wm-dash-char-spark-host' });
 		window.requestAnimationFrame(() => heroViz.addClass('is-in'));
@@ -236,20 +237,20 @@ export class DashboardSection {
 		const yearSummary = yearCard.createDiv({ cls: 'wm-dash-char-year-summary' });
 		const frequencyGauge = yearSummary.createDiv({
 			cls: 'wm-dash-char-frequency-gauge',
-			attr: { role: 'img', 'aria-label': '집필 빈도 0%' },
+			attr: { role: 'img', 'aria-label': wmT("집필 빈도 0%") },
 		});
 		const frequencyGaugeValue = frequencyGauge.createSpan({ text: '0' });
 		const recordSummary = yearSummary.createDiv({ cls: 'wm-dash-char-year-record' });
-		const recordValue = recordSummary.createDiv({ cls: 'wm-dash-char-year-value', text: '0자 · —' });
-		recordSummary.createDiv({ cls: 'wm-dash-char-year-label', text: '최고 기록' });
+		const recordValue = recordSummary.createDiv({ cls: 'wm-dash-char-year-value', text: wmT("0자 · —") });
+		recordSummary.createDiv({ cls: 'wm-dash-char-year-label', text: wmT("최고 기록") });
 		window.requestAnimationFrame(() => detailStats.addClass('is-in'));
 
 		const leftDetails = hero.createDiv({ cls: 'wm-dash-char-left-details' });
 		const noteCard = leftDetails.createDiv({ cls: 'wm-dash-note-card wm-dash-char-platform-card' });
 		const noteLine = noteCard.createDiv({ cls: 'wm-dash-note-card-title' });
-		const noteIcon = noteLine.createSpan({ cls: 'wm-dash-note-card-icon', attr: { 'aria-label': '현재 노트' } });
+		const noteIcon = noteLine.createSpan({ cls: 'wm-dash-note-card-icon', attr: { 'aria-label': wmT("현재 노트") } });
 		setIcon(noteIcon, 'file-text');
-		const noteTitleEl = noteLine.createEl('b', { text: '노트를 선택하십시오' });
+		const noteTitleEl = noteLine.createEl('b', { text: wmT("노트를 선택하십시오") });
 		const platformList = noteCard.createDiv({ cls: 'wm-dash-note-platform-list' });
 		const numEls    = new Map<string, HTMLElement>();
 		const platformDisplay = plugin.settings.statCardDisplay ?? 'both';
@@ -283,13 +284,13 @@ export class DashboardSection {
 			const current = currentCounts?.[mode] ?? 0;
 			const remaining = Math.max(0, target - current);
 			goalLabel.empty();
-			goalLabel.createEl('b', { text: `${target.toLocaleString()}자` });
+			goalLabel.createEl('b', { text: wmT("{0}자", target.toLocaleString()) });
 			goalLabel.appendText('까지');
 			goalRemain.empty();
 			goalRemain.createEl('b', {
-				text: currentCounts === null ? '—' : `${remaining.toLocaleString()}자`,
+				text: currentCounts === null ? '—' : wmT("{0}자", remaining.toLocaleString()),
 			});
-			goalRemain.appendText(' 남음');
+			goalRemain.appendText(wmT(" 남음"));
 			goalTrack.setAttribute('aria-valuemax', String(target));
 			goalTrack.setAttribute('aria-valuenow', String(Math.min(current, target)));
 			const progress = Math.max(2, Math.min(100, (current / target) * 100));
@@ -300,10 +301,10 @@ export class DashboardSection {
 
 		const updateChars = (counts: { munpia: number; novelpia: number } | null, noteTitle: string | null) => {
 			currentCounts = counts;
-			noteTitleEl.textContent = noteTitle ?? '노트를 선택하십시오';
+			noteTitleEl.textContent = noteTitle ?? wmT("노트를 선택하십시오");
 			for (const plat of ['munpia', 'novelpia'] as const) {
 				const el = numEls.get(plat);
-				if (el) el.textContent = counts ? `${counts[plat].toLocaleString()}자` : '—';
+				if (el) el.textContent = counts ? wmT("{0}자", counts[plat].toLocaleString()) : '—';
 			}
 			updateGoal();
 		};
@@ -334,12 +335,12 @@ export class DashboardSection {
 				const bestDate = new Date();
 				bestDate.setHours(0, 0, 0, 0);
 				bestDate.setDate(bestDate.getDate() - yearSeries.length + bestIndex);
-				recordValue.textContent = `${best.toLocaleString()}자 · ${bestDate.getMonth() + 1}월 ${bestDate.getDate()}일`;
+				recordValue.textContent = wmT("{0}자 · {1}월 {2}일", best.toLocaleString(), bestDate.getMonth() + 1, bestDate.getDate());
 			} else {
-				recordValue.textContent = '0자 · —';
+				recordValue.textContent = wmT("0자 · —");
 			}
 			frequencyGaugeValue.textContent = String(writingDays);
-			frequencyGauge.setAttribute('aria-label', `올해 ${yearSeries.length}일 중 ${writingDays}일 집필, ${frequencyRate}%`);
+			frequencyGauge.setAttribute('aria-label', wmT("올해 {0}일 중 {1}일 집필, {2}%", yearSeries.length, writingDays, frequencyRate));
 			frequencyGauge.style.setProperty('--wm-frequency-angle', `${frequencyRate * 3.6}deg`);
 			if (!immediate) this.renderWritingYearCalendar(yearCalendar, yearSeries);
 			if (immediate) {
@@ -356,9 +357,9 @@ export class DashboardSection {
 				this.animateCount(heroNum, periodTotal, 260);
 			}
 			this.lastSummaryValue = periodTotal;
-			recentNumEl.textContent = `${recentDay.toLocaleString()}자`;
-			vizLabel.textContent = '글자수 추이';
-			vizNum.textContent = `일평균 ${avg.toLocaleString()}자`;
+			recentNumEl.textContent = wmT("{0}자", recentDay.toLocaleString());
+			vizLabel.textContent = wmT("글자수 추이");
+			vizNum.textContent = wmT("일평균 {0}자", avg.toLocaleString());
 			vizDeltaValue.removeClass('is-up', 'is-down');
 			if (previousTotal <= 0) {
 				vizDeltaValue.textContent = '—';
@@ -379,8 +380,8 @@ export class DashboardSection {
 				const difference = recentDay - avg;
 				const delta = Math.round((difference / avg) * 100);
 				avgDiffEl.textContent = difference === 0
-					? '± 0자'
-					: `${difference > 0 ? '+' : '-'}${Math.abs(difference).toLocaleString()}자`;
+					? wmT("± 0자")
+					: wmT("{0}{1}자", difference > 0 ? '+' : '-', Math.abs(difference).toLocaleString());
 				if (delta > 0) deltaEl.addClass('is-up');
 				else if (delta < 0) deltaEl.addClass('is-down');
 				deltaEl.textContent = delta === 0 ? '± 0%' : `${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)}%`;
@@ -398,7 +399,7 @@ export class DashboardSection {
 		if (values.length < 2) return;
 		parent.setAttrs({
 			role: 'img',
-			'aria-label': `최근 ${values.length}일 글자수 그래프`,
+			'aria-label': wmT("최근 {0}일 글자수 그래프", values.length),
 		});
 		const max = Math.max(...values);
 		const min = Math.min(...values);
@@ -440,7 +441,7 @@ export class DashboardSection {
 		}
 
 		const max = values.length > 0 ? Math.max(...values) : 0;
-		parent.setAttrs({ role: 'img', 'aria-label': `${year}년 일별 집필 기록` });
+		parent.setAttrs({ role: 'img', 'aria-label': wmT("{0}년 일별 집필 기록", year) });
 		const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 		for (let month = 0; month < 12; month += 1) {
 			const monthBlock = parent.createDiv({ cls: 'wm-dash-char-year-month' });
@@ -462,13 +463,13 @@ export class DashboardSection {
 				}
 				if (value <= 0 || max <= 0) {
 					dot.addClass('is-empty');
-					dot.setAttribute('title', `${month + 1}월 ${day}일 · 기록 없음`);
+					dot.setAttribute('title', wmT("{0}월 {1}일 · 기록 없음", month + 1, day));
 					continue;
 				}
 				const level = Math.max(1, Math.min(4, Math.ceil(Math.sqrt(value / max) * 4)));
 				dot.addClass('is-written');
 				dot.addClass(`is-level-${level}`);
-				dot.setAttribute('title', `${month + 1}월 ${day}일 · ${value.toLocaleString()}자`);
+				dot.setAttribute('title', wmT("{0}월 {1}일 · {2}자", month + 1, day, value.toLocaleString()));
 			}
 			const occupied = firstDay + daysInMonth;
 			for (let blank = occupied; blank < 42; blank += 1) {

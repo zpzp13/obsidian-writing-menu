@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { setIcon } from 'obsidian';
 
 let rowPickerId = 0;
@@ -12,10 +13,10 @@ export class PlotWorkbookRowPicker {
 		select.tabIndex = -1;
 		select.setAttribute('aria-hidden', 'true');
 		this.button = select.parentElement!.createEl('button', { cls: 'wm-plotbook-row-picker', attr: {
-			type: 'button', 'aria-label': `${select.getAttribute('aria-label')} 선택`, 'aria-haspopup': 'listbox', 'aria-expanded': 'false',
+			type: 'button', 'aria-label': wmT("{0} 선택", select.getAttribute('aria-label')), 'aria-haspopup': 'listbox', 'aria-expanded': 'false',
 		} });
 		this.button.disabled = select.disabled;
-		this.button.createSpan({ cls: 'wm-plotbook-row-picker-label', text: select.selectedOptions[0]?.textContent ?? '행 선택' });
+		this.button.createSpan({ cls: 'wm-plotbook-row-picker-label', text: select.selectedOptions[0]?.textContent ?? wmT("행 선택") });
 		setIcon(this.button.createSpan({ cls: 'wm-plotbook-row-picker-chevron', attr: { 'aria-hidden': 'true' } }), 'chevron-down');
 		this.button.addEventListener('click', () => this.popover ? this.close() : this.open());
 	}
@@ -39,10 +40,10 @@ export class PlotWorkbookRowPicker {
 		this.button.setAttribute('aria-expanded', 'true');
 		const searchRow = popover.createDiv({ cls: 'wm-plotbook-row-search' });
 		setIcon(searchRow.createSpan({ attr: { 'aria-hidden': 'true' } }), 'search');
-		const search = searchRow.createEl('input', { type: 'search', placeholder: this.kind === 'row' ? '행 번호 검색' : '열 검색', attr: {
-			'aria-label': `${this.select.getAttribute('aria-label')} 검색`, autocomplete: 'off',
+		const search = searchRow.createEl('input', { type: 'search', placeholder: this.kind === 'row' ? wmT("행 번호 검색") : wmT("열 검색"), attr: {
+			'aria-label': wmT("{0} 검색", this.select.getAttribute('aria-label')), autocomplete: 'off',
 		} });
-		const list = popover.createDiv({ cls: 'wm-plotbook-row-options', attr: { role: 'listbox', 'aria-label': this.kind === 'row' ? '행 목록' : '열 목록' } });
+		const list = popover.createDiv({ cls: 'wm-plotbook-row-options', attr: { role: 'listbox', 'aria-label': this.kind === 'row' ? wmT("행 목록") : wmT("열 목록") } });
 		list.id = `wm-plotbook-row-options-${++rowPickerId}`;
 		search.setAttribute('role', 'combobox');
 		search.setAttribute('aria-controls', list.id);
@@ -65,7 +66,7 @@ export class PlotWorkbookRowPicker {
 		};
 		const render = () => {
 			list.empty(); buttons = []; active = -1;
-			const normalize = (value: string) => this.kind === 'row' ? value.replace(/\s|행/g, '') : value.toLocaleLowerCase('ko-KR').trim();
+			const normalize = (value: string) => this.kind === 'row' ? value.replace(/\brow\b|\s|행/gi, '') : value.toLocaleLowerCase('ko-KR').trim();
 			const query = normalize(search.value);
 			for (const option of this.select.options) {
 				if (query && !normalize(option.textContent ?? '').includes(query)) continue;
@@ -77,7 +78,7 @@ export class PlotWorkbookRowPicker {
 				button.addEventListener('click', () => choose(option.value));
 				if (!option.disabled) buttons.push(button);
 			}
-			if (!list.childElementCount) list.createDiv({ cls: 'wm-plotbook-row-no-results', text: `일치하는 ${this.kind === 'row' ? '행' : '열'}이 없습니다.` });
+			if (!list.childElementCount) list.createDiv({ cls: 'wm-plotbook-row-no-results', text: wmT("일치하는 {0}이 없습니다.", this.kind === 'row' ? wmT("행") : wmT("열")) });
 			highlight(Math.max(0, buttons.findIndex(button => button.dataset.value === this.select.value)));
 		};
 		search.addEventListener('input', render);

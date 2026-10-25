@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { Notice, type WorkspaceLeaf } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { WritingProject } from '../types';
@@ -20,7 +21,7 @@ export function snapshotTarget(plugin: WritingMenuPlugin, leaf?: WorkspaceLeaf |
 
 export function openSnapshotManager(plugin: WritingMenuPlugin, leaf?: WorkspaceLeaf | null): void {
 	const target = snapshotTarget(plugin, leaf);
-	if (!target) { new Notice('프로젝트 내부 문서나 플롯 매니저를 먼저 열어 주세요.'); return; }
+	if (!target) { new Notice(wmT("프로젝트 내부 문서나 플롯 매니저를 먼저 열어 주세요.")); return; }
 	if (target.kind === 'plot') void openPlotSnapshots(plugin, target.project);
 	else new ManuscriptSnapshotModal(plugin, target.document).open();
 }

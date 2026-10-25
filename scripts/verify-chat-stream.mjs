@@ -1,11 +1,7 @@
 // Synthetic streams only: partial UTF-8, cancellation, and parser failure cleanup.
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import ts from 'typescript';
 import { loadTsFixture } from './ts-fixture-loader.mjs';
-const js = ts.transpileModule(await readFile('src/aichat/ChatStream.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-const module = { exports: {} }; new Function('exports', js)(module.exports);
-const { readChatSse, readGeminiStream, abortableChat } = module.exports;
+const { readChatSse, readGeminiStream, abortableChat } = loadTsFixture('src/aichat/ChatStream.ts');
 const encoder = new TextEncoder();
 const frames = [
 	': keepalive\r\n\r\n',

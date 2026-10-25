@@ -42,7 +42,9 @@ class Setting {
 	addButton(callback) { return this.control(callback); }
 	addColorPicker(callback) { return this.control(callback); }
 }
+const i18n = loadTsFixture('src/i18n/index.ts');
 const { WritingMenuSettingTab } = loadTsFixture('src/settings/index.ts', {
+	'../i18n/index': i18n,
 	obsidian: { App: class {}, Notice: class {}, PluginSettingTab: class { constructor(app) { this.app = app; this.containerEl = new Element(); } update() { updates++; refresh(); } }, Setting, setIcon() {}, Platform: { isMobile: false }, ToggleComponent: class {}, requireApiVersion: () => modern },
 	'../wiki/WikiSettings': {}, '../plot-workbook/PlotWorkbookSettings': {}, '../wiki/WikiModals': {}, '../repetition/GaruAssets': {}, '../repetition/MorphAnalyzer': {}, '../aichat/DeusSettings': {}, '../fonts/MobileFontManager': { MOBILE_WEB_FONTS: [] },
 });
@@ -63,6 +65,16 @@ modern = true; settings.secretApiKey = 'PRIVATE_KEY_MUST_NOT_BE_INDEXED';
 const definitions = tab.getSettingDefinitions();
 assert(!JSON.stringify(definitions).includes(settings.secretApiKey));
 const pages = definitions.flatMap(group => group.items);
+const editor = definitions.find(group => group.heading === '편집기');
+assert.equal(editor.items.filter(page => page.visible)[0].name, '도구', 'Tools must be first in the editor section');
+const tools = pages.find(page => page.name === '도구');
+assert.equal(tools.items.length, 1, 'Tools must contain a single native card');
+assert.equal(tools.items[0].type, 'group', 'Tools navigation must use the native card renderer without a custom placeholder');
+assert(!tools.items[0].render, 'An empty custom row would remove the card background and leave a stray divider');
+const fonts = tools.items[0].items.find(page => page.type === 'page' && page.name === '글꼴');
+assert.equal(typeof fonts.page, 'function', 'Fonts must open their own native page');
+assert(!fonts.items, 'A native font page must not be wrapped in a custom setting card');
+tab.renderPage('fonts'); assert.deepEqual(routes.at(-1), ['writing-menu', ['도구', '글꼴']]);
 assert(pages.length >= 20);
 assert(pages.filter(page => page.visible).length >= 19, 'Remaining navigation entries must stay visible');
 assert.deepEqual(pages.filter(page => page.visible).slice(0, 6).map(page => page.name), ['프로젝트', '통계 범위', 'API', '제어', '스냅샷', '기타']);
@@ -131,4 +143,22 @@ assert.equal(settings.hrColor, ''); assert.equal(styleUpdates, styleUpdatesBefor
 assert.deepEqual(namesWithin(dividerWrapper.settingEl), dividerNames, 'Divider reset must also avoid duplicate controls');
 assert.equal(rowsWithin(dividerWrapper.settingEl).find(row => row.name === '색상').api.value, '#888888');
 refresh = () => {}; dividerCleanup();
+i18n.setLanguage('en');
+const englishPages = tab.getSettingDefinitions().flatMap(group => group.items);
+assert.deepEqual(englishPages.filter(page => page.visible).slice(0, 6).map(page => page.name), ['Projects', 'Statistics scope', 'API', 'Controls', 'Snapshots', 'Other']);
+const englishAi = englishPages.find(page => page.name === 'Deus AI');
+assert(englishAi.items[0].aliases.includes('Open citations'));
+assert(englishAi.items[0].aliases.includes('각주 열기'));
+assert(!JSON.stringify(englishPages).includes(settings.secretApiKey));
+tab.renderPage('spellcheck-words');
+assert.deepEqual(routes.at(-1), ['writing-menu', ['Other', 'Proper nouns']]);
+const englishDivider = englishPages.find(page => page.name === 'Custom divider');
+const englishWrapper = new Setting(new Element());
+const englishCleanup = englishDivider.items[0].render(englishWrapper);
+assert(namesWithin(englishWrapper.settingEl).includes('Content'));
+assert(namesWithin(englishWrapper.settingEl).includes('Alignment'));
+const englishSaves = saves;
+await rowsWithin(englishWrapper.settingEl).find(row => row.name === 'Content').api.change('My English divider');
+assert.equal(settings.hrContent, 'My English divider'); assert.equal(saves, englishSaves + 1);
+englishCleanup(); i18n.setLanguage('ko');
 console.log('PASS legacy/native settings metadata, repeated native refresh and color resets, single grouped proper-noun navigation, inner-label search, saves and API-key exclusion');

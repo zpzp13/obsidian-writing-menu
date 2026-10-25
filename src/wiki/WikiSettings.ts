@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { Setting } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 
@@ -20,8 +21,8 @@ export function renderWikiSettingsPage(containerEl: HTMLElement, plugin: Writing
 	const propertyBox = titlelessGroup(containerEl);
 
 	new Setting(propertyBox)
-		.setName('이미지')
-		.setDesc('프로필 이미지의 경로(속성)를 입력하세요.')
+		.setName(wmT("이미지"))
+		.setDesc(wmT("프로필 이미지의 경로(속성)를 입력하세요."))
 		.addText(text => text
 			.setValue(plugin.settings.wikiImageFieldName)
 			.onChange(async value => {
@@ -30,8 +31,8 @@ export function renderWikiSettingsPage(containerEl: HTMLElement, plugin: Writing
 			}));
 
 	new Setting(propertyBox)
-		.setName('제목')
-		.setDesc('프로필 제목의 경로(속성)를 입력하세요. 없으면 노트 제목을 적용합니다.')
+		.setName(wmT("제목"))
+		.setDesc(wmT("프로필 제목의 경로(속성)를 입력하세요. 없으면 노트 제목을 적용합니다."))
 		.addText(text => text
 			.setValue(plugin.settings.wikiNameFieldName)
 			.onChange(async value => {
@@ -40,8 +41,8 @@ export function renderWikiSettingsPage(containerEl: HTMLElement, plugin: Writing
 			}));
 
 	new Setting(propertyBox)
-		.setName('관계도')
-		.setDesc('속성을 입력하면 인물간 관계도를 시각화합니다. 단, 속성값에 인물 링크가 있어야 합니다.')
+		.setName(wmT("관계도"))
+		.setDesc(wmT("속성을 입력하면 인물간 관계도를 시각화합니다. 단, 속성값에 인물 링크가 있어야 합니다."))
 		.addTextArea(textarea => textarea
 			.setValue(plugin.settings.wikiRelationFields || '')
 			.onChange(async value => {
@@ -50,8 +51,8 @@ export function renderWikiSettingsPage(containerEl: HTMLElement, plugin: Writing
 			}));
 
 	new Setting(propertyBox)
-		.setName('숨길 속성')
-		.setDesc('프로필에서 숨기고 싶은 속성을 입력하세요.')
+		.setName(wmT("숨길 속성"))
+		.setDesc(wmT("프로필에서 숨기고 싶은 속성을 입력하세요."))
 		.setClass('wiki-settings-textarea')
 		.addTextArea(textarea => textarea
 			.setValue((plugin.settings.wikiHiddenProperties || []).join(', '))
@@ -63,9 +64,9 @@ export function renderWikiSettingsPage(containerEl: HTMLElement, plugin: Writing
 				await plugin.saveSettings();
 			}));
 
-	const styleBox = groupBox(containerEl, '프로필 스타일');
+	const styleBox = groupBox(containerEl, wmT("프로필 스타일"));
 	new Setting(styleBox)
-		.setName('제목 크기')
+		.setName(wmT("제목 크기"))
 		.addSlider(slider => slider
 			.setLimits(10, 30, 1)
 			.setValue(plugin.settings.wikiProfileHeaderSize ?? 18)
@@ -76,7 +77,7 @@ export function renderWikiSettingsPage(containerEl: HTMLElement, plugin: Writing
 			}));
 
 	new Setting(styleBox)
-		.setName('속성 크기')
+		.setName(wmT("속성 크기"))
 		.addSlider(slider => slider
 			.setLimits(8, 20, 1)
 			.setValue(plugin.settings.wikiProfileKeySize ?? 13)

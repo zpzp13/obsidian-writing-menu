@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { App, Notice } from 'obsidian';
 import type { AiChatMessage, AiChatSession } from './AiChatTypes';
 import { readChatJson, withChatWrite, writeChatJson } from './ChatJsonStore';
@@ -18,7 +19,7 @@ export class AiChatStorage {
 	private warnedRecords = new Set<string>();
 	constructor(private app: App) {}
 	private path(key: string): string {
-		if (!isChatSessionId(key)) throw new Error('대화 파일의 식별자가 올바르지 않습니다. 경로를 포함하지 않는 파일 이름이어야 합니다.');
+		if (!isChatSessionId(key)) throw new Error(wmT("대화 파일의 식별자가 올바르지 않습니다. 경로를 포함하지 않는 파일 이름이어야 합니다."));
 		return `${ROOT}/sessions/${key}.json`;
 	}
 	private async ensureDir(): Promise<void> {
@@ -34,42 +35,42 @@ export class AiChatStorage {
 			if (!isRecord(parsed) || !isUnknownArray(parsed.messages) || typeof parsed.characterPath !== 'string') throw new Error('Invalid session');
 			// Fields below are checked before the hydrated session can leave this boundary.
 			session = parsed as unknown as AiChatSession;
-		} catch { throw new Error('대화 기록이 손상되었습니다. 원본은 덮어쓰지 않았습니다. 이전 .bak 파일이 있으면 복구에 사용할 수 있습니다.'); }
-		if (!session || !Array.isArray(session.messages) || typeof session.characterPath !== 'string') throw new Error('대화 기록 형식이 올바르지 않습니다.');
-		if (session.mode !== undefined && !['character', 'deus'].includes(session.mode)) throw new Error('대화 모드가 올바르지 않습니다. 원본은 보존했습니다.');
+		} catch { throw new Error(wmT("대화 기록이 손상되었습니다. 원본은 덮어쓰지 않았습니다. 이전 .bak 파일이 있으면 복구에 사용할 수 있습니다.")); }
+		if (!session || !Array.isArray(session.messages) || typeof session.characterPath !== 'string') throw new Error(wmT("대화 기록 형식이 올바르지 않습니다."));
+		if (session.mode !== undefined && !['character', 'deus'].includes(session.mode)) throw new Error(wmT("대화 모드가 올바르지 않습니다. 원본은 보존했습니다."));
 		const validSkill = (value: unknown) => value === undefined || ['research', 'character', 'description', 'dialogue', 'rewrite'].includes(value as string);
 		const validParticipants = (value: unknown) => value === undefined || isUnknownArray(value) && value.every(person => isRecord(person) && typeof person.path === 'string' && typeof person.name === 'string');
-		if (!validSkill(session.skill) || !validParticipants(session.participants)) throw new Error('Deus 스킬 설정 형식이 올바르지 않습니다. 원본은 보존했습니다.');
+		if (!validSkill(session.skill) || !validParticipants(session.participants)) throw new Error(wmT("Deus 스킬 설정 형식이 올바르지 않습니다. 원본은 보존했습니다."));
 		// Very early character-scoped sessions had neither id nor title, including an old undefined.json record.
 		// Hydrate in memory only. The original file is not rewritten merely by listing or opening it.
 		if (session.id == null) {
 			session.id = key;
 			if (typeof session.title !== 'string') session.title = session.characterPath.split('/').pop()?.replace(/\.md$/i, '') || '이전 대화';
 		}
-		if (session.id !== key || typeof session.title !== 'string') throw new Error('대화 기록의 식별자나 제목이 파일과 일치하지 않습니다.');
+		if (session.id !== key || typeof session.title !== 'string') throw new Error(wmT("대화 기록의 식별자나 제목이 파일과 일치하지 않습니다."));
 		if (!Number.isFinite(session.updatedAt)) session.updatedAt = 0;
 		session.messages.forEach((message, index) => {
-			if (!message || !['user', 'assistant'].includes(message.role) || typeof message.content !== 'string') throw new Error('메시지 형식이 올바르지 않습니다.');
-			if (!validSkill(message.skill) || !validParticipants(message.participants)) throw new Error('메시지의 스킬·참여 인물 형식이 올바르지 않습니다.');
+			if (!message || !['user', 'assistant'].includes(message.role) || typeof message.content !== 'string') throw new Error(wmT("메시지 형식이 올바르지 않습니다."));
+			if (!validSkill(message.skill) || !validParticipants(message.participants)) throw new Error(wmT("메시지의 스킬·참여 인물 형식이 올바르지 않습니다."));
 			message.id ??= `legacy-${key}-${index}`;
-			if (message.citations !== undefined && (!Array.isArray(message.citations) || message.citations.some(citation => !citation || !Number.isSafeInteger(citation.number) || citation.number < 1 || typeof citation.sourceId !== 'string' || typeof citation.quote !== 'string' || citation.quote.length > 300 || (citation.kind !== undefined && citation.kind !== 'reference') || (citation.kind === 'reference' && citation.quote !== '')))) throw new Error('대화의 인용 형식이 올바르지 않습니다. 원본은 변경하지 않았습니다.');
+			if (message.citations !== undefined && (!Array.isArray(message.citations) || message.citations.some(citation => !citation || !Number.isSafeInteger(citation.number) || citation.number < 1 || typeof citation.sourceId !== 'string' || typeof citation.quote !== 'string' || citation.quote.length > 300 || (citation.kind !== undefined && citation.kind !== 'reference') || (citation.kind === 'reference' && citation.quote !== '')))) throw new Error(wmT("대화의 인용 형식이 올바르지 않습니다. 원본은 변경하지 않았습니다."));
 			if (message.context && (message.context.version !== 1 || !Array.isArray(message.context.sources) || !Array.isArray(message.context.warnings)
 				|| message.context.warnings.some(warning => typeof warning !== 'string')
 				|| message.context.sources.some(source => !source || typeof source.id !== 'string' || typeof source.title !== 'string' || typeof source.text !== 'string'
 					|| (source.path !== undefined && typeof source.path !== 'string') || (source.location !== undefined && typeof source.location !== 'string')
 					|| (source.contentHash !== undefined && typeof source.contentHash !== 'string')
 					|| [source.from, source.to].some(value => value !== undefined && (!Number.isSafeInteger(value) || value < 0)))
-				|| (message.context.searches !== undefined && (!Array.isArray(message.context.searches) || message.context.searches.some(search => !search || typeof search.name !== 'string' || !Array.isArray(search.sourceIds) || search.sourceIds.some(value => typeof value !== 'string') || (search.query !== undefined && typeof search.query !== 'string') || (search.warning !== undefined && typeof search.warning !== 'string')))))) throw new Error('대화의 참고 자료 형식이 올바르지 않습니다. 원본은 변경하지 않았습니다.');
-			if (message.context?.retrieval && (message.context.retrieval.version !== 1 || !['focused', 'character-history', 'character-relationship', 'episode', 'episode-range'].includes(message.context.retrieval.strategy))) throw new Error('대화의 검색 계획 형식이 올바르지 않습니다.');
+				|| (message.context.searches !== undefined && (!Array.isArray(message.context.searches) || message.context.searches.some(search => !search || typeof search.name !== 'string' || !Array.isArray(search.sourceIds) || search.sourceIds.some(value => typeof value !== 'string') || (search.query !== undefined && typeof search.query !== 'string') || (search.warning !== undefined && typeof search.warning !== 'string')))))) throw new Error(wmT("대화의 참고 자료 형식이 올바르지 않습니다. 원본은 변경하지 않았습니다."));
+			if (message.context?.retrieval && (message.context.retrieval.version !== 1 || !['focused', 'character-history', 'character-relationship', 'episode', 'episode-range'].includes(message.context.retrieval.strategy))) throw new Error(wmT("대화의 검색 계획 형식이 올바르지 않습니다."));
 			const range = message.context?.episodeRange;
 			if (range && ([range.from, range.to, range.inspectedEpisodes, range.includedEpisodes, range.sourceCharacters, range.includedCharacters].some(value => !Number.isSafeInteger(value) || value < 0)
 				|| range.from > range.to || range.inspectedEpisodes !== range.to - range.from + 1 || range.includedEpisodes > range.inspectedEpisodes || range.includedCharacters > range.sourceCharacters
-				|| typeof range.partial !== 'boolean' || (range.volume !== undefined && (!Number.isSafeInteger(range.volume) || range.volume < 1)))) throw new Error('대화의 회차 범위 확인 정보가 올바르지 않습니다.');
+				|| typeof range.partial !== 'boolean' || (range.volume !== undefined && (!Number.isSafeInteger(range.volume) || range.volume < 1)))) throw new Error(wmT("대화의 회차 범위 확인 정보가 올바르지 않습니다."));
 			const research = message.context?.research;
 			if (research && (!Array.isArray(research.characters) || research.characters.some(entity => !entity || typeof entity.id !== 'string' || typeof entity.name !== 'string')
 				|| (research.purpose !== undefined && research.purpose !== 'relationship')
 				|| typeof research.partial !== 'boolean' || [research.inspectedDocuments, research.matchedDocuments, research.matchedPassages, research.includedDocuments, research.includedPassages, research.shortenedPassages].some(value => !Number.isSafeInteger(value) || value < 0)
-				|| research.includedDocuments > research.matchedDocuments || research.matchedDocuments > research.inspectedDocuments || research.includedPassages > research.matchedPassages || research.shortenedPassages > research.includedPassages)) throw new Error('대화의 행적 조사 범위가 올바르지 않습니다.');
+				|| research.includedDocuments > research.matchedDocuments || research.matchedDocuments > research.inspectedDocuments || research.includedPassages > research.matchedPassages || research.shortenedPassages > research.includedPassages)) throw new Error(wmT("대화의 행적 조사 범위가 올바르지 않습니다."));
 		});
 		// Recover replies left on the question by older releases; listing never rewrites the original file.
 		session.messages = session.messages.flatMap((message, index, messages) => {
@@ -83,7 +84,7 @@ export class AiChatStorage {
 	async save(session: AiChatSession): Promise<void> {
 		await this.ensureDir(); const path = this.path(session.id), adapter = this.app.vault.adapter;
 		await withChatWrite(adapter, path, async () => {
-			if (!this.baselines.has(session)) throw new Error('대화를 다시 불러온 뒤 저장해 주세요.');
+			if (!this.baselines.has(session)) throw new Error(wmT("대화를 다시 불러온 뒤 저장해 주세요."));
 			session.updatedAt = Date.now();
 			const raw = await writeChatJson(adapter, path, session, this.baselines.get(session)!);
 			this.baselines.set(session, raw);
@@ -107,7 +108,7 @@ export class AiChatStorage {
 				&& ['parentId', 'forkMessageId', 'projectRoot'].every(key => entry[key] === undefined || typeof entry[key] === 'string'))) throw new Error('Invalid index');
 			return data;
 		}
-		catch { throw new Error('대화 목록이 손상되었습니다. 목록 백업은 index.json.bak에 있습니다.'); }
+		catch { throw new Error(wmT("대화 목록이 손상되었습니다. 목록 백업은 index.json.bak에 있습니다.")); }
 	}
 	private async updateIndex(session: AiChatSession | null, removeId?: string): Promise<void> {
 		const adapter = this.app.vault.adapter, path = `${ROOT}/index.json`;
@@ -132,7 +133,7 @@ export class AiChatStorage {
 				if (session) { entries.push(this.summary(session)); await this.updateIndex(session); }
 			} catch {
 				// One damaged or externally renamed record must not hide every healthy conversation.
-				if (!this.warnedRecords.has(path)) { this.warnedRecords.add(path); new Notice('일부 대화 기록을 읽지 못했습니다. 해당 원본 파일은 보존했으며, 다른 대화는 계속 사용할 수 있습니다.'); }
+				if (!this.warnedRecords.has(path)) { this.warnedRecords.add(path); new Notice(wmT("일부 대화 기록을 읽지 못했습니다. 해당 원본 파일은 보존했으며, 다른 대화는 계속 사용할 수 있습니다.")); }
 			}
 		}
 		return entries.filter(item => item.count > 0).sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) || b.updatedAt - a.updatedAt);
@@ -168,7 +169,7 @@ export class AiChatStorage {
 		await withChatWrite(adapter, path, async () => {
 			const previous = await readChatJson(adapter, path); if (previous === null) return;
 			await adapter.write(`${path}.removed`, previous);
-			if (await adapter.read(`${path}.removed`) !== previous) throw new Error('삭제 전 대화 보관을 검증하지 못했습니다.');
+			if (await adapter.read(`${path}.removed`) !== previous) throw new Error(wmT("삭제 전 대화 보관을 검증하지 못했습니다."));
 			await this.updateIndex(null, key); await adapter.remove(path);
 		});
 	}

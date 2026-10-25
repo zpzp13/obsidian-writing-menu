@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { createToolbarOption, createToolbarSelect } from './toolbarUi';
 
 /** Compact toolbar picker; the native select remains the source of value/change events. */
@@ -13,7 +14,7 @@ export class ToolbarSelect {
 		this.originalTabIndex = select.tabIndex;
 		this.originalAriaHidden = select.getAttribute('aria-hidden');
 		select.hidden = true; select.tabIndex = -1; select.setAttribute('aria-hidden', 'true');
-		this.button = createToolbarSelect(select.parentElement!, `${select.getAttribute('aria-label')} 선택`, '', modifier);
+		this.button = createToolbarSelect(select.parentElement!, wmT("{0} 선택", select.getAttribute('aria-label')), '', modifier);
 		this.button.addEventListener('click', this.toggle);
 		select.addEventListener('change', this.refresh);
 		this.refresh();
@@ -45,7 +46,7 @@ export class ToolbarSelect {
 		const doc = this.button.ownerDocument;
 		const mount = this.button.closest<HTMLElement>('.modal-container') ?? doc.body;
 		const popover = this.popover = mount.createDiv({ cls: 'wm-paged-toolbar-popover wm-paged-compact-popover wm-toolbar-select-popover',
-			attr: { role: 'menu', 'aria-label': `${this.select.getAttribute('aria-label')} 목록` } });
+			attr: { role: 'menu', 'aria-label': wmT("{0} 목록", this.select.getAttribute('aria-label')) } });
 		this.button.setAttribute('aria-expanded', 'true'); this.button.addClass('is-open');
 		const buttons: HTMLButtonElement[] = [];
 		for (const option of this.select.options) {

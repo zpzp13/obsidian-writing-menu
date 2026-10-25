@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { normalizePath, requestUrl } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 
@@ -47,8 +48,8 @@ export async function isGaruAssetsDownloaded(plugin: WritingMenuPlugin): Promise
 
 async function downloadFile(url: string): Promise<ArrayBuffer> {
 	const res = await requestUrl({ url, throw: false });
-	if (res.status !== 200) throw new Error(`다운로드 실패 (HTTP ${res.status}): ${url}`);
-	if (!res.arrayBuffer.byteLength) throw new Error(`빈 분석 파일을 받았습니다: ${url}`);
+	if (res.status !== 200) throw new Error(wmT("다운로드 실패 (HTTP {0}): {1}", res.status, url));
+	if (!res.arrayBuffer.byteLength) throw new Error(wmT("빈 분석 파일을 받았습니다: {0}", url));
 	return res.arrayBuffer;
 }
 
@@ -58,15 +59,15 @@ export async function downloadGaruAssets(plugin: WritingMenuPlugin, onProgress?:
 	if (!await adapter.exists(dir)) await adapter.mkdir(dir);
 	const { wasmPath, modelPath, versionPath } = getAssetPaths(plugin);
 
-	onProgress?.('WASM 엔진 다운로드 중… (약 400KB)');
+	onProgress?.(wmT("WASM 엔진 다운로드 중… (약 400KB)"));
 	const wasmBytes = await downloadFile(WASM_URL);
 
-	onProgress?.('최신 모델 다운로드 중… (약 1.2MB)');
+	onProgress?.(wmT("최신 모델 다운로드 중… (약 1.2MB)"));
 	const modelBytes = await downloadFile(MODEL_URL);
 
 	// The marker is written last. A network or disk failure can therefore never
 	// make a partially updated engine look current on the next launch.
-	onProgress?.('엔진 설치 중…');
+	onProgress?.(wmT("엔진 설치 중…"));
 	if (await adapter.exists(versionPath)) await adapter.remove(versionPath);
 	await adapter.writeBinary(wasmPath, wasmBytes);
 	await adapter.writeBinary(modelPath, modelBytes);

@@ -1,9 +1,10 @@
+import { wmT } from '../i18n/index';
 import type { ParagraphKind } from './ParagraphAnalysis';
 
 /** Bounded, deterministic chart aggregation. No source paragraphs are discarded from details. */
 export function lengthBuckets<T extends { chars: number }>(items: T[]): Array<{ label: string; items: T[] }> {
 	const bounds = [40, 80, 160, 320, Infinity];
-	const buckets = ['1–40자', '41–80자', '81–160자', '161–320자', '321자+'].map(label => ({ label, items: [] as T[] }));
+	const buckets = [wmT("1–40자"), wmT("41–80자"), wmT("81–160자"), wmT("161–320자"), wmT("321자+")].map(label => ({ label, items: [] as T[] }));
 	for (const item of items) buckets[bounds.findIndex(bound => item.chars <= bound)].items.push(item);
 	return buckets;
 }

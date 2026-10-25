@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { MarkdownView, type Editor, type TFile } from 'obsidian';
 import { Transaction } from '@codemirror/state';
 import { isolateHistory } from '@codemirror/commands';
@@ -55,7 +56,7 @@ function documentForView(view: WritingView): WritingDocument {
 	const editor = view instanceof PagedWritingView ? view.getEditorAdapter() : view.editor;
 	const read = () => view instanceof PagedWritingView ? view.getViewData() : editor.getValue();
 	const isCurrent = (expected: string) => view.file === file && file.path === path && view.containerEl.isConnected && read() === expected;
-	const assert = (expected: string) => { if (!isCurrent(expected)) throw new Error('원고가 변경되었습니다. 다시 비교하거나 분석해 주세요.'); };
+	const assert = (expected: string) => { if (!isCurrent(expected)) throw new Error(wmT("원고가 변경되었습니다. 다시 비교하거나 분석해 주세요.")); };
 	return {
 		file, path, editor, read, isCurrent,
 		replace(expected, next) {
@@ -76,7 +77,7 @@ function documentForView(view: WritingView): WritingDocument {
 		select(expected, from, to) {
 			assert(expected);
 			const prefix = view instanceof PagedWritingView ? splitPagedFrontmatter(expected).prefix.length : 0;
-			if (from < prefix) throw new Error('속성 영역은 마크다운 편집기에서 확인해 주세요.');
+			if (from < prefix) throw new Error(wmT("속성 영역은 마크다운 편집기에서 확인해 주세요."));
 			editor.focus();
 			const start = editor.offsetToPos(Math.max(0, from - prefix));
 			const end = editor.offsetToPos(Math.max(0, to - prefix));

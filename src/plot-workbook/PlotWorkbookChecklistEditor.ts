@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { detachedEl } from '../utils/dom';
 import { Menu, Notice, setIcon } from 'obsidian';
 import { parseChecklist, type ChecklistTask } from './PlotWorkbookChecklist';
@@ -24,8 +25,8 @@ export class PlotWorkbookChecklistEditor {
 		this.empty = this.element.createDiv({ cls: 'wm-plotbook-checklist-empty' });
 		this.list = this.element.createDiv({ cls: 'wm-plotbook-checklist-items' });
 		const form = this.form = (composerParent ?? this.element).createEl('form', { cls: 'wm-plotbook-checklist-add' });
-		this.input = form.createEl('input', { type: 'text', placeholder: '체크리스트 추가', attr: { 'aria-label': '체크리스트 항목 추가' } });
-		const add = form.createEl('button', { cls: 'clickable-icon', attr: { type: 'submit', 'aria-label': '항목 추가' } });
+		this.input = form.createEl('input', { type: 'text', placeholder: wmT("체크리스트 추가"), attr: { 'aria-label': wmT("체크리스트 항목 추가") } });
+		const add = form.createEl('button', { cls: 'clickable-icon', attr: { type: 'submit', 'aria-label': wmT("항목 추가") } });
 		setIcon(add, 'plus');
 		form.addEventListener('submit', event => {
 			event.preventDefault();
@@ -60,52 +61,57 @@ export class PlotWorkbookChecklistEditor {
 		if (this.editing) return;
 		this.list.empty();
 		this.empty.hidden = false;
-		if (!valid) { this.empty.setText('이 셀을 편집할 수 없습니다.'); return; }
+		if (!valid) { this.empty.setText(wmT("이 셀을 편집할 수 없습니다.")); return; }
 		const tasks = parseChecklist(this.session.getCell(sheet, this.location.rowId, this.location.columnId));
 		this.empty.hidden = tasks.some(task => !this.hideCompleted || !task.completed);
-		this.empty.setText(tasks.length ? '표시할 항목이 없습니다.' : '아직 항목이 없습니다.');
+		this.empty.setText(tasks.length ? wmT("표시할 항목이 없습니다.") : wmT("아직 항목이 없습니다."));
 		let rendered = 0;
 		for (const [index, task] of tasks.entries()) {
 			if (this.hideCompleted && task.completed) continue;
 			if(rendered++ >= this.previewLimit)break;
 			const row = this.list.createDiv({ cls: `wm-plotbook-checklist-item${task.completed ? ' is-complete' : ''}` });
-			createChecklistControl(row,task.completed,`${task.text} 완료`,completed=>this.change(task,{completed}));
-			const title = row.createEl('button', { cls: 'wm-plotbook-checklist-title', text: task.text || '제목 없음', attr: { type: 'button', 'aria-label': `항목 수정: ${task.text}` } });
+			createChecklistControl(row,task.completed,wmT("{0} 완료", task.text),completed=>this.change(task,{completed}));
+			const title = row.createEl('button', { cls: 'wm-plotbook-checklist-title', text: task.text || wmT("제목 없음"), attr: { type: 'button', 'aria-label': wmT("항목 수정: {0}", task.text), 'aria-keyshortcuts': 'Shift+F10' } });
 			title.addEventListener('click', () => this.beginTitleEdit(title, task));
 			renderChecklistCompletionDate(row, task.completionDate);
-			const actions = row.createDiv({ cls: 'wm-plotbook-checklist-actions' });
-			const more = actions.createEl('button', { cls: 'clickable-icon', attr: { type: 'button', 'aria-label': `항목 메뉴: ${task.text}`, 'aria-haspopup': 'menu', 'aria-expanded': 'false' } });
-			setIcon(more, 'ellipsis');
-			more.addEventListener('click', () => this.openMenu(more, title, task, index, tasks.length));
+			row.addEventListener('contextmenu', event => {
+				if ((event.target as Element).matches('.wm-plotbook-checklist-title-input')) return;
+				event.preventDefault(); event.stopPropagation();
+				this.openMenu(title, task, index, tasks.length, { x: event.clientX, y: event.clientY });
+			});
+			row.addEventListener('keydown', event => {
+				if (event.isComposing || (event.target as Element).matches('.wm-plotbook-checklist-title-input')) return;
+				if (event.key !== 'ContextMenu' && !(event.shiftKey && event.key === 'F10')) return;
+				event.preventDefault(); event.stopPropagation();
+				this.openMenu(title, task, index, tasks.length);
+			});
 		}
 	}
 
-	private openMenu(trigger: HTMLButtonElement, title: HTMLButtonElement, task: ChecklistTask, index: number, length: number): void {
+	private openMenu(title: HTMLButtonElement, task: ChecklistTask, index: number, length: number, position?: { x: number; y: number }): void {
 		this.menu?.hide();
 		const menu = this.menu = new Menu();
-		trigger.setAttribute('aria-expanded', 'true');
 		menu.onHide(() => {
 			if (this.menu === menu) this.menu = null;
-			trigger.setAttribute('aria-expanded', 'false');
-			if (trigger.isConnected) trigger.focus({ preventScroll: true });
+			if (title.isConnected) title.focus({ preventScroll: true });
 		});
-		menu.addItem(item => item.setTitle('항목 수정').setIcon('pencil').onClick(() => {
+		menu.addItem(item => item.setTitle(wmT("항목 수정")).setIcon('pencil').onClick(() => {
 			menu.hide();
 			if (title.isConnected) this.beginTitleEdit(title, task);
 		}));
 		for (const [icon, label, direction, disabled] of [
-			['arrow-up', '위로 이동', -1 as const, index === 0],
-			['arrow-down', '아래로 이동', 1 as const, index === length - 1],
+			['arrow-up', wmT("위로 이동"), -1 as const, index === 0],
+			['arrow-down', wmT("아래로 이동"), 1 as const, index === length - 1],
 		] as const) menu.addItem(item => item.setTitle(label).setIcon(icon).setDisabled(disabled).onClick(() => {
 			menu.hide(); this.change(task, { move: direction });
 			this.focusItem(index + direction);
 		}));
 		menu.addSeparator();
-		menu.addItem(item => item.setTitle('항목 삭제').setIcon('trash-2').onClick(() => {
+		menu.addItem(item => item.setTitle(wmT("항목 삭제")).setIcon('trash-2').onClick(() => {
 			menu.hide(); this.change(task, { remove: true }); this.focusItem(index);
 		}));
-		const rect = trigger.getBoundingClientRect();
-		menu.showAtPosition({ x: rect.left, y: rect.bottom }, trigger.ownerDocument);
+		const rect = title.getBoundingClientRect();
+		menu.showAtPosition(position ?? { x: rect.left, y: rect.bottom }, title.ownerDocument);
 	}
 
 	private focusItem(index: number): void {
@@ -116,7 +122,7 @@ export class PlotWorkbookChecklistEditor {
 	private change(task: ChecklistTask, change: Parameters<PlotWorkbookSession['changeChecklistTask']>[4]): void {
 		const { sheetId, rowId, columnId } = this.location;
 		if (!this.session.changeChecklistTask(sheetId, rowId, columnId, task, change)) {
-			new Notice('다른 화면에서 목록이 변경되었습니다. 항목을 다시 선택해 주세요.');
+			new Notice(wmT("다른 화면에서 목록이 변경되었습니다. 항목을 다시 선택해 주세요."));
 			this.render();
 		}
 	}
@@ -127,7 +133,7 @@ export class PlotWorkbookChecklistEditor {
 		const input = detachedEl(title.ownerDocument, 'input');
 		input.type = 'text'; input.value = task.text;
 		input.className = 'wm-plotbook-checklist-title-input';
-		input.setAttribute('aria-label', '항목 제목');
+		input.setAttribute('aria-label', wmT("항목 제목"));
 		title.replaceWith(input);
 		let finished = false;
 		const finish = (save: boolean) => {

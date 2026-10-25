@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { Editor, Notice, requestUrl } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { CorrectionModal } from './CorrectionModal';
@@ -132,7 +133,7 @@ async function checkChunkDaum(chunk: string): Promise<RawResult[]> {
 	});
 	if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
 	if (!res.text.includes('="screen_out">맞춤법 검사기 본문</h2>')) {
-		throw new Error('Daum 서비스 응답 형식 오류');
+		throw new Error(wmT("Daum 서비스 응답 형식 오류"));
 	}
 	return parseDaumResponse(res.text);
 }
@@ -166,7 +167,7 @@ function buildCorrections(raw: RawResult[]): Correction[] {
 			map.set(r.token, {
 				original: r.token,
 				corrected: r.suggestions,
-				help: formatHelp(r.info || '맞춤법 교정'),
+				help: formatHelp(r.info || wmT("맞춤법 교정")),
 				type: r.type,
 			});
 		}
@@ -193,12 +194,12 @@ export class SpellCheckerService {
 
 	async run(editor: Editor, plugin: WritingMenuPlugin): Promise<void> {
 		const text = editor.getValue();
-		if (!text.trim()) { new Notice('검사할 내용이 없습니다.'); return; }
+		if (!text.trim()) { new Notice(wmT("검사할 내용이 없습니다.")); return; }
 
 		const bodyOffset = getFrontmatterOffset(text);
 		const body = bodyOffset > 0 ? text.substring(bodyOffset) : text;
 
-		const loadingNotice = new Notice('맞춤법 검사 중...', 0);
+		const loadingNotice = new Notice(wmT("맞춤법 검사 중..."), 0);
 		try {
 			let corrections = await this.checkByDaum(body);
 
@@ -208,7 +209,7 @@ export class SpellCheckerService {
 			);
 
 			loadingNotice.hide();
-			if (corrections.length === 0) { new Notice('맞춤법 오류가 없습니다. ✓'); return; }
+			if (corrections.length === 0) { new Notice(wmT("맞춤법 오류가 없습니다. ✓")); return; }
 
 			new CorrectionModal(plugin.app, {
 				text,
@@ -225,7 +226,7 @@ export class SpellCheckerService {
 			}).open();
 		} catch {
 			loadingNotice.hide();
-			new Notice('맞춤법 검사 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+			new Notice(wmT("맞춤법 검사 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."));
 		}
 	}
 }

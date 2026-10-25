@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { normalizePath, type TFile } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { WritingProject } from '../types';
@@ -28,13 +29,13 @@ export class ProjectContextService {
 
 	createProject(rootFolder: string, name?: string): WritingProject {
 		const normalizedRoot = normalizeFolder(rootFolder);
-		const fallbackName = normalizedRoot.split('/').pop() || '프로젝트';
+		const fallbackName = normalizedRoot.split('/').pop() || wmT('프로젝트');
 		return {
 			id: `project-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
 			name: name?.trim() || fallbackName,
 			rootFolder: normalizedRoot,
-			manuscriptFolder: normalizeFolder(normalizedRoot ? `${normalizedRoot}/본문` : '본문'),
-			characterFolder: normalizeFolder(normalizedRoot ? `${normalizedRoot}/인물` : '인물'),
+			manuscriptFolder: normalizeFolder(normalizedRoot ? wmT('{0}/본문', normalizedRoot) : wmT('본문')),
+			characterFolder: normalizeFolder(normalizedRoot ? wmT('{0}/인물', normalizedRoot) : wmT('인물')),
 			statisticsEnabled: true,
 			statisticsFolders: [],
 			statisticsExcludeFolders: [],

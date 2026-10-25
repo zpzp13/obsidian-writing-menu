@@ -1,3 +1,4 @@
+import { wmT } from '../../i18n/index';
 import type { CorpusDocument } from './ChatCorpusProvider';
 import type { WritingProject } from '../../types';
 
@@ -6,11 +7,11 @@ export function requestedEpisodeScope(question: string): EpisodeScope | undefine
 	const normalized = question.normalize('NFKC');
 	const volumes = [...normalized.matchAll(/(?:^|[^\p{L}\p{N}])(?:제\s*)?(\d{1,6})\s*권(?!\s*(?:분량|짜리|규모))/gu)];
 	const ranges = [...normalized.matchAll(/(?:^|[^\p{L}\p{N}])(?:제\s*)?(\d{1,6})\s*(?:회차|화|회|편|장)?\s*(?:~|〜|∼|–|—|-|부터|에서)\s*(?:제\s*)?(\d{1,6})\s*(?:회차|화|회|편|장)/gu)];
-	if (volumes.length > 1 || ranges.length > 1) throw new Error('요약할 권 또는 연속 회차 범위를 하나 지정해 주세요. 예: 1권, 1~25화.');
+	if (volumes.length > 1 || ranges.length > 1) throw new Error(wmT("요약할 권 또는 연속 회차 범위를 하나 지정해 주세요. 예: 1권, 1~25화."));
 	const volume = volumes.length ? Number(volumes[0][1]) : undefined;
 	if (ranges.length) {
 		const from = Number(ranges[0][1]), to = Number(ranges[0][2]);
-		if (from > to || to - from > 1000) throw new Error('회차 범위의 시작·끝을 확인해 주세요. 한 번에 최대 1,001개 회차를 확인할 수 있습니다.');
+		if (from > to || to - from > 1000) throw new Error(wmT("회차 범위의 시작·끝을 확인해 주세요. 한 번에 최대 1,001개 회차를 확인할 수 있습니다."));
 		return { from, to, ...(volume !== undefined ? { volume } : {}) };
 	}
 	if (volume !== undefined && /\d+\s*(?:회차|화|회|편|장)(?!\s*(?:분량|짜리|규모))/u.test(normalized)) return;

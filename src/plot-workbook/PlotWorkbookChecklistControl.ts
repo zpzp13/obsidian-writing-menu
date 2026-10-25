@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 /** Obsidian's native task checkbox is shared by the grid, popup and sidebar. */
 export function createChecklistControl(parent: HTMLElement, completed: boolean, label: string, change?: (completed: boolean) => void): HTMLInputElement {
 	const input = parent.createEl('input', {
@@ -16,6 +17,6 @@ export function createChecklistControl(parent: HTMLElement, completed: boolean, 
 
 export function renderChecklistCompletionDate(parent: HTMLElement, completionDate?: string): HTMLElement | null {
 	return completionDate
-		? parent.createSpan({ cls: 'wm-plotbook-checklist-completion-date', text: completionDate, attr: { title: `완료: ${completionDate}` } })
+		? parent.createSpan({ cls: 'wm-plotbook-checklist-completion-date', text: completionDate, attr: { title: wmT("완료: {0}", completionDate) } })
 		: null;
 }

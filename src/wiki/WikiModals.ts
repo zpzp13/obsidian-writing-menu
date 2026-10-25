@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { App, FuzzyMatch, FuzzySuggestModal, Modal, Setting, TFile, TFolder, setIcon } from 'obsidian';
 
 
@@ -6,7 +7,7 @@ export class NoteSuggestModal extends FuzzySuggestModal<TFile> {
 	constructor(app: App, onChoose: (result: TFile) => void) {
 		super(app);
 		this.onChoose = onChoose;
-		this.setPlaceholder('불러올 노트를 검색하세요...');
+		this.setPlaceholder(wmT("불러올 노트를 검색하세요..."));
 	}
 	getItems(): TFile[] { return this.app.vault.getMarkdownFiles(); }
 	getItemText(item: TFile): string { return item.path; }
@@ -19,7 +20,7 @@ export class FolderOrNoteSuggestModal extends FuzzySuggestModal<TFolder | TFile>
 	constructor(app: App, onChoose: (result: TFolder | TFile) => void) {
 		super(app);
 		this.onChoose = onChoose;
-		this.setPlaceholder('폴더 또는 노트를 선택하세요...');
+		this.setPlaceholder(wmT("폴더 또는 노트를 선택하세요..."));
 	}
 	getItems(): (TFolder | TFile)[] {
 		const folders = this.app.vault.getAllLoadedFiles().filter((f): f is TFolder => f instanceof TFolder);
@@ -41,7 +42,7 @@ export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
 	constructor(app: App, onChoose: (result: TFolder) => void) {
 		super(app);
 		this.onChoose = onChoose;
-		this.setPlaceholder('폴더를 선택하세요...');
+		this.setPlaceholder(wmT("폴더를 선택하세요..."));
 	}
 	getItems(): TFolder[] { return this.app.vault.getAllLoadedFiles().filter((f): f is TFolder => f instanceof TFolder); }
 	getItemText(item: TFolder): string { return item.path; }
@@ -53,7 +54,7 @@ export class ImageSuggestModal extends FuzzySuggestModal<TFile> {
 	constructor(app: App, onChoose: (result: TFile) => void) {
 		super(app);
 		this.onChoose = onChoose;
-		this.setPlaceholder('이미지를 검색하세요...');
+		this.setPlaceholder(wmT("이미지를 검색하세요..."));
 	}
 	getItems(): TFile[] {
 		const ext = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'svg', 'webp'];
@@ -66,8 +67,8 @@ export class ImageSuggestModal extends FuzzySuggestModal<TFile> {
 export class RenameModal extends Modal {
 	constructor(app: App, defaultName: string, onSubmit: (newName: string) => void) {
 		super(app);
-		this.setTitle('뷰 이름 수정');
+		this.setTitle(wmT("뷰 이름 수정"));
 		new Setting(this.contentEl).addText(text => text.setValue(defaultName).onChange(v => { defaultName = v; }));
-		new Setting(this.contentEl).addButton(btn => btn.setButtonText('확인').setCta().onClick(() => { onSubmit(defaultName); this.close(); }));
+		new Setting(this.contentEl).addButton(btn => btn.setButtonText(wmT("확인")).setCta().onClick(() => { onSubmit(defaultName); this.close(); }));
 	}
 }

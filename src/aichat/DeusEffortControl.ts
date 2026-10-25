@@ -1,7 +1,8 @@
+import { wmT } from '../i18n/index';
 import { supportedCliEffort, type CliModelOption } from './CliReasoning';
 
 /** Pointer selection is handled directly; the native range remains for keyboard/AT. */
-export function renderDeusEffortControl(host: HTMLElement, model: CliModelOption | undefined, selected: string, choose: (value: string) => void, label = '추론 effort'): (() => void) | undefined {
+export function renderDeusEffortControl(host: HTMLElement, model: CliModelOption | undefined, selected: string, choose: (value: string) => void, label = wmT("추론 effort")): (() => void) | undefined {
 	if (!model?.efforts.length) return;
 	const block = host.createDiv({ cls: 'deus-effort-control' });
 	const value = block.createDiv({ cls: 'deus-effort-heading' }).createEl('output', { cls: 'deus-effort-value' });

@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { FuzzySuggestModal, FuzzyMatch, TFile } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { getWikiDisplayName } from '../wiki/wikiProfileUtils';
@@ -15,7 +16,7 @@ export class AiChatSuggestModal extends FuzzySuggestModal<TFile | null> {
 	}
 
 	getItemText(item: TFile | null): string {
-		return item ? getWikiDisplayName(this.app, this.plugin, item) : '작가';
+		return item ? getWikiDisplayName(this.app, this.plugin, item) : wmT("작가");
 	}
 
 	renderSuggestion(match: FuzzyMatch<TFile | null>, el: HTMLElement): void {

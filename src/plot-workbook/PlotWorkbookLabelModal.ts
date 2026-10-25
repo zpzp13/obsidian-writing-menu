@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { Modal, Notice, Setting } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { PlotWorkbookSession } from './PlotWorkbookSession';
@@ -12,7 +13,7 @@ export class PlotWorkbookLabelModal extends Modal {
 	}
 
 	onOpen(): void {
-		this.setTitle('라벨');
+		this.setTitle(wmT("라벨"));
 		this.contentEl.addClass('wm-plotbook-label-modal');
 		const selectedIds = new Set(this.columnIds
 			.map(columnId => this.session.activeSheet.columns[columnId]?.labelId)
@@ -21,13 +22,13 @@ export class PlotWorkbookLabelModal extends Modal {
 
 		const listHeading = this.contentEl.createDiv({ cls: 'setting-item setting-item-heading' });
 		listHeading.createDiv({ cls: 'setting-item-info' })
-			.createDiv({ cls: 'setting-item-name', text: '목록' });
+			.createDiv({ cls: 'setting-item-name', text: wmT("목록") });
 
 		new Setting(this.contentEl)
-			.setName('없음')
-			.setDesc('선택한 열에서 라벨을 제거합니다.')
+			.setName(wmT("없음"))
+			.setDesc(wmT("선택한 열에서 라벨을 제거합니다."))
 			.addButton(button => button
-				.setButtonText(selectedIds.size === 0 ? '선택됨' : '선택')
+				.setButtonText(selectedIds.size === 0 ? wmT("선택됨") : wmT("선택"))
 				.setDisabled(selectedIds.size === 0)
 				.onClick(() => {
 					this.session.setColumnLabel(this.columnIds);
@@ -38,7 +39,7 @@ export class PlotWorkbookLabelModal extends Modal {
 			const setting = new Setting(this.contentEl)
 				.setName(label.name)
 				.addButton(button => button
-					.setButtonText(selectedLabelId === label.id ? '선택됨' : '선택')
+					.setButtonText(selectedLabelId === label.id ? wmT("선택됨") : wmT("선택"))
 					.setDisabled(selectedLabelId === label.id)
 					.onClick(() => {
 						this.session.setColumnLabel(this.columnIds, label.id);
@@ -52,22 +53,22 @@ export class PlotWorkbookLabelModal extends Modal {
 
 		const createHeading = this.contentEl.createDiv({ cls: 'setting-item setting-item-heading' });
 		createHeading.createDiv({ cls: 'setting-item-info' })
-			.createDiv({ cls: 'setting-item-name', text: '새 라벨' });
+			.createDiv({ cls: 'setting-item-name', text: wmT("새 라벨") });
 		let name = '';
 		let color = '#7c8cf8';
 		new Setting(this.contentEl)
-			.setName('이름')
+			.setName(wmT("이름"))
 			.addText(text => text
-				.setPlaceholder('예: 메인 플롯')
+				.setPlaceholder(wmT("예: 메인 플롯"))
 				.onChange(value => { name = value; }));
 		new Setting(this.contentEl)
-			.setName('색상')
+			.setName(wmT("색상"))
 			.addColorPicker(picker => picker
 				.setValue(color)
 				.onChange(value => { color = value; }));
 
 		const actions = this.contentEl.createDiv({ cls: 'modal-button-container' });
-		const addButton = actions.createEl('button', { cls: 'mod-cta', text: '추가 및 지정' });
+		const addButton = actions.createEl('button', { cls: 'mod-cta', text: wmT("추가 및 지정") });
 		addButton.addEventListener('click', () => void this.createAndAssign(name, color));
 	}
 
@@ -77,7 +78,7 @@ export class PlotWorkbookLabelModal extends Modal {
 
 	private async createAndAssign(name: string, color: string): Promise<void> {
 		if (!name.trim()) {
-			new Notice('라벨 이름을 입력해주세요.');
+			new Notice(wmT("라벨 이름을 입력해주세요."));
 			return;
 		}
 		const label = await this.session.addLabel(name, color);

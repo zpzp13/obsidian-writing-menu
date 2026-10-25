@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { detachedEl } from '../utils/dom';
 import { computeInlineDiff, computeLineDiff, DIFF_DELETE, DIFF_INSERT, type InlineSeg } from './diff';
 
@@ -52,7 +53,7 @@ function equalLines(view: HTMLElement, lines: string[]): void {
 	const refresh = () => {
 		control.textContent = `${folded.length} lines ${expanded ? 'expanded' : 'folded'}`;
 		control.setAttribute('aria-expanded', String(expanded));
-		control.setAttribute('aria-label', `${folded.length}줄의 동일 구간 ${expanded ? '접기' : '펼치기'}`);
+		control.setAttribute('aria-label', wmT("{0}줄의 동일 구간 {1}", folded.length, expanded ? wmT("접기") : wmT("펼치기")));
 		region.hidden = !expanded;
 	};
 	const toggle = () => {

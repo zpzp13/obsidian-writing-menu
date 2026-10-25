@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { hasControlCharacters, replaceControlCharacters } from '../utils/typeGuards';
 import { Modal, Notice, normalizePath, type App, type Vault } from 'obsidian';
 import { plotColumnTitle } from './PlotWorkbookColumnPresentation';
@@ -16,7 +17,7 @@ export function plotWorkbookMarkdown(session: PlotWorkbookSession, sheet = sessi
 	const locationLabels = new Map([[sheet.sheetId, labels]]);
 	const describeLocation = (point: PlotWorkbookForeshadowLocation): string => {
 		const target = session.sheets.get(point.sheetId);
-		if (!target?.rows[point.rowId] || !target.columns[point.columnId]) return '삭제된 위치';
+		if (!target?.rows[point.rowId] || !target.columns[point.columnId]) return wmT("삭제된 위치");
 		if (!locationLabels.has(target.sheetId)) locationLabels.set(target.sheetId, session.rowLabels(target));
 		return singleLine(`${target.name} · ${plotColumnTitle(target, point.columnId)} · ${locationLabels.get(target.sheetId)!.get(point.rowId) ?? '—'}`);
 	};
@@ -35,27 +36,27 @@ export function plotWorkbookMarkdown(session: PlotWorkbookSession, sheet = sessi
 			else if (column.role === 'foreshadow') {
 				value = session.foreshadowsInRow(sheet.sheetId, rowId).map(item => [
 					`- [${item.status === 'resolved' ? 'x' : ' '}] ${singleLine(item.title)}`,
-					...item.plantedAt.map(point => `  - 등록: ${describeLocation(point)}`),
-					...item.resolvedAt.map(point => `  - 회수: ${describeLocation(point)}`),
-					...(item.note?.trim() ? [`  - 메모: ${item.note.trim().replace(/\n/g, '\n    ')}`] : []),
+					...item.plantedAt.map(point => wmT("  - 등록: {0}", describeLocation(point))),
+					...item.resolvedAt.map(point => wmT("  - 회수: {0}", describeLocation(point))),
+					...(item.note?.trim() ? [wmT("  - 메모: {0}", item.note.trim().replace(/\n/g, '\n    '))] : []),
 				].join('\n')).join('\n');
 			}
 			if (!value.trim()) continue;
 			const title = column.role === 'character' && column.characterNotePath
-				? column.title || column.characterNotePath.split('/').pop()?.replace(/\.md$/i, '') || '인물'
+				? column.title || column.characterNotePath.split('/').pop()?.replace(/\.md$/i, '') || wmT("인물")
 				: plotColumnTitle(sheet, columnId);
 			fields.push(`### ${singleLine(title)}\n\n${value}`);
 		}
 		if (!fields.length && !sheet.rows[rowId]?.linkedNotePath) continue;
 		sections.push(`## ${labels.get(rowId) ?? '—'}`);
-		if (sheet.rows[rowId]?.linkedNotePath) sections.push(`본문: ${noteLink(sheet.rows[rowId].linkedNotePath)}`);
+		if (sheet.rows[rowId]?.linkedNotePath) sections.push(wmT("본문: {0}", noteLink(sheet.rows[rowId].linkedNotePath)));
 		sections.push(...fields);
 	}
 	return `${sections.join('\n\n')}\n`;
 }
 
 export function plotExportFileName(name: string): string {
-	const clean = replaceControlCharacters(name, '_').replace(/[<>:"/\\|?*]/g, '_').replace(/[.\s]+$/g, '').trim() || '플롯';
+	const clean = replaceControlCharacters(name, '_').replace(/[<>:"/\\|?*]/g, '_').replace(/[.\s]+$/g, '').trim() || wmT("플롯");
 	return /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(clean) ? `_${clean}` : clean;
 }
 
@@ -66,7 +67,7 @@ export async function savePlotMarkdown(vault: Vault, requestedPath: string, mark
 	if (!raw || raw.startsWith('/') || parts.some(part => !part || part === '.' || part === '..'
 		|| /[<>:"|?*]/.test(part) || hasControlCharacters(part) || /[.\s]$/.test(part)
 		|| /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(part))) {
-		throw new Error('볼트 내부의 올바른 파일 경로를 입력하세요.');
+		throw new Error(wmT("볼트 내부의 올바른 파일 경로를 입력하세요."));
 	}
 	let path = normalizePath(raw);
 	if (!/\.md$/i.test(path)) path += '.md';
@@ -85,17 +86,17 @@ export class PlotWorkbookMarkdownExportModal extends Modal {
 	constructor(app: App, private readonly session: PlotWorkbookSession, private readonly projectRoot: string) { super(app); }
 
 	onOpen(): void {
-		this.setTitle('Markdown으로 내보내기');
+		this.setTitle(wmT("Markdown으로 내보내기"));
 		const sheet: PlotWorkbookSheet = this.session.activeSheet;
-		this.contentEl.createEl('p', { text: `현재 시트 '${sheet.name}'를 Markdown 파일로 저장합니다. 원본 플롯 데이터는 변경하지 않습니다.` });
+		this.contentEl.createEl('p', { text: wmT("현재 시트 '{0}'를 Markdown 파일로 저장합니다. 원본 플롯 데이터는 변경하지 않습니다.", sheet.name) });
 		const field = this.contentEl.createEl('label', { cls: 'wm-plotbook-export-path' });
-		field.createSpan({ text: '저장 경로 (볼트 내부)' });
-		const input = field.createEl('input', { type: 'text', attr: { 'aria-label': 'Markdown 저장 경로', spellcheck: 'false' } });
-		input.value = normalizePath(`${this.projectRoot ? `${this.projectRoot}/` : ''}내보내기/${plotExportFileName(sheet.name)}.md`);
+		field.createSpan({ text: wmT("저장 경로 (볼트 내부)") });
+		const input = field.createEl('input', { type: 'text', attr: { 'aria-label': wmT("Markdown 저장 경로"), spellcheck: 'false' } });
+		input.value = normalizePath(wmT("{0}내보내기/{1}.md", this.projectRoot ? `${this.projectRoot}/` : '', plotExportFileName(sheet.name)));
 		const error = this.contentEl.createDiv({ cls: 'wm-plotbook-export-error', attr: { role: 'alert' } });
 		const actions = this.contentEl.createDiv({ cls: 'modal-button-container' });
-		actions.createEl('button', { text: '취소', attr: { type: 'button' } }).addEventListener('click', () => this.close());
-		const save = actions.createEl('button', { text: '내보내기', cls: 'mod-cta', attr: { type: 'button' } });
+		actions.createEl('button', { text: wmT("취소"), attr: { type: 'button' } }).addEventListener('click', () => this.close());
+		const save = actions.createEl('button', { text: wmT("내보내기"), cls: 'mod-cta', attr: { type: 'button' } });
 		const submit = async () => {
 			if (save.disabled) return;
 			save.disabled = true;
@@ -103,7 +104,7 @@ export class PlotWorkbookMarkdownExportModal extends Modal {
 			try {
 				const path = await savePlotMarkdown(this.app.vault, input.value, plotWorkbookMarkdown(this.session, sheet));
 				this.close();
-				new Notice(`Markdown으로 내보냈습니다: ${path}`);
+				new Notice(wmT("Markdown으로 내보냈습니다: {0}", path));
 			} catch (cause) {
 				error.setText(cause instanceof Error ? cause.message : String(cause));
 				save.disabled = false;

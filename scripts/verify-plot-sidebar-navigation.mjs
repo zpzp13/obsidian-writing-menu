@@ -9,12 +9,19 @@ export async function verifySidebarNavigation({sidebar,sidebarHost,session,row,p
 	const chrome=sidebarHost.querySelector('.wm-plotbook-sidebar-chrome');
 	assert(getComputedStyle(chrome).padding==='0px 16px 12px','Sidebar chrome padding does not match the compact top layout');
 	const labelStyle=getComputedStyle(location),labelRect=location.getBoundingClientRect(),buttonRect=previous.getBoundingClientRect();
-	assert(labelStyle.fontSize==='13px' && labelStyle.display==='flex' && labelStyle.alignItems==='center' && labelStyle.justifyContent==='center' && labelRect.height===26 && Math.abs((labelRect.top+labelRect.bottom-buttonRect.top-buttonRect.bottom)/2)<=1,'Current axis label is not a vertically centered 13px toolbar item');
+	assert(labelStyle.fontSize==='13px' && labelStyle.display==='flex' && labelStyle.alignItems==='center' && labelStyle.justifyContent==='center' && labelRect.height===30 && Math.abs((labelRect.top+labelRect.bottom-buttonRect.top-buttonRect.bottom)/2)<=1,'Current axis label is not a vertically centered 13px toolbar item');
 	for(const button of [previous,next]) {
 		const rect=button.getBoundingClientRect(),icon=button.querySelector('svg').getBoundingClientRect();
-		assert(rect.width===26 && rect.height===26 && icon.width===16 && icon.height===16,'Previous/next icon is not optically sized inside the standard toolbar button');
-		assert(Math.abs((rect.left+rect.right-icon.left-icon.right)/2)<=1 && Math.abs((rect.top+rect.bottom-icon.top-icon.bottom)/2)<=1,'Previous/next icon is not centered in its toolbar button');
+		assert(rect.width===30 && rect.height===30 && icon.width===22 && icon.height===22,'Previous/next chevron is not optically sized inside the standard toolbar button');
+		assert(Math.abs((rect.left+rect.right-icon.left-icon.right)/2)<=1 && Math.abs((icon.top+icon.bottom-rect.top-rect.bottom)/2)<=.1,'Previous/next icon is not centered in its toolbar button');
+		const chevron=button.querySelector('svg'), modeIcon=sidebarHost.querySelector('[data-sidebar-mode="column"] svg');
+		const glyphHeight=chevron.getBBox().height*icon.height/chevron.viewBox.baseVal.height;
+		const modeGlyphHeight=modeIcon.getBBox().height*modeIcon.getBoundingClientRect().height/modeIcon.viewBox.baseVal.height;
+		assert(Math.abs(glyphHeight-modeGlyphHeight)<=1,'Chevron strokes still look smaller than the other toolbar icons');
 	}
+	const originalWidth=sidebarHost.style.width; sidebarHost.style.width='640px';
+	assert(location.clientWidth>=100,'Current axis label still has the former short maximum width');
+	sidebarHost.style.width=originalWidth;
 	await sidebar.setState({mode:'column',columnId:plotColumn,rowId:row},{});await settle();
 	assert(previous.disabled && !next.disabled && next.getAttribute('aria-label')==='다음 열','Column navigation does not expose its boundary/meaning');
 	assert(location.textContent===sidebar.columnTitle(sheet,plotColumn) && location.getAttribute('aria-label')===`현재 열: ${sidebar.columnTitle(sheet,plotColumn)}` && location.clientWidth>0,'Column navigation does not display its current title');

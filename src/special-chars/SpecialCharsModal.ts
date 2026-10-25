@@ -1,6 +1,8 @@
-﻿import { App, Modal, Editor, setIcon } from 'obsidian';
+import { getLanguage, wmT } from '../i18n/index';
+import { App, Modal, Editor, setIcon } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import charData from './charData.json';
+import englishCharNames from './charNames.en.json';
 import { bindMobileSearchModalViewport } from '../ui/MobileSearchModalViewport';
 
 interface CharCategory {
@@ -12,12 +14,13 @@ interface CharCategory {
 
 type CharEntry = { title: string; aliases: string[] };
 const CD = charData as Record<string, CharEntry>;
+const EN_NAMES: Record<string, string> = englishCharNames;
 
 const CATEGORIES: CharCategory[] = [
-	{ id: 'favorites', label: '즐겨찾기',   icon: '★', chars: [] },
-	{ id: 'custom',    label: '사용자 지정', icon: '✎', chars: [] },
+	{ id: 'favorites', label: wmT("즐겨찾기"),   icon: '★', chars: [] },
+	{ id: 'custom',    label: wmT("사용자 지정"), icon: '✎', chars: [] },
 	{
-		id: 'quotes', label: '따옴표', icon: '”', chars: [
+		id: 'quotes', label: wmT("따옴표"), icon: '”', chars: [
 			'“', '”', '‘', '’',
 			'〝', '〞',
 			'«', '»', '‹', '›',
@@ -25,7 +28,7 @@ const CATEGORIES: CharCategory[] = [
 		],
 	},
 	{
-		id: 'punctuation', label: '구두점', icon: '·', chars: [
+		id: 'punctuation', label: wmT("구두점"), icon: '·', chars: [
 			'·', '・', '…', '‥', '—', '–', '―', '‾',
 			'※', '•', '‣', '⁃',
 			'、', '。',
@@ -33,7 +36,7 @@ const CATEGORIES: CharCategory[] = [
 		],
 	},
 	{
-		id: 'brackets', label: '괄호', icon: '〔', chars: [
+		id: 'brackets', label: wmT("괄호"), icon: '〔', chars: [
 			'「', '」', '『', '』',
 			'【', '】', '《', '》', '〈', '〉',
 			'〔', '〕', '〖', '〗', '〘', '〙', '〚', '〛',
@@ -43,7 +46,7 @@ const CATEGORIES: CharCategory[] = [
 		],
 	},
 	{
-		id: 'math', label: '수학 기호', icon: '±', chars: [
+		id: 'math', label: wmT("수학 기호"), icon: '±', chars: [
 			'−', '×', '÷', '≠', '≈', '≡',
 			'≤', '≥', '≪', '≫', '±', '∓',
 			'∞', '∑', '∏', '√', '∛', '∜',
@@ -56,7 +59,7 @@ const CATEGORIES: CharCategory[] = [
 		],
 	},
 	{
-		id: 'fractions', label: '분수·지수', icon: '½', chars: [
+		id: 'fractions', label: wmT("분수·지수"), icon: '½', chars: [
 			'½', '⅓', '⅔', '¼', '¾',
 			'⅕', '⅖', '⅗', '⅘',
 			'⅙', '⅚', '⅛', '⅜', '⅝', '⅞',
@@ -65,7 +68,7 @@ const CATEGORIES: CharCategory[] = [
 		],
 	},
 	{
-		id: 'arrows', label: '화살표', icon: '→', chars: [
+		id: 'arrows', label: wmT("화살표"), icon: '→', chars: [
 			'→', '←', '↑', '↓', '↔', '↕',
 			'↗', '↘', '↙', '↖',
 			'↩', '↪', '↺', '↻',
@@ -77,7 +80,7 @@ const CATEGORIES: CharCategory[] = [
 		],
 	},
 	{
-		id: 'shapes', label: '별·도형', icon: '●', chars: [
+		id: 'shapes', label: wmT("별·도형"), icon: '●', chars: [
 			'★', '☆', '✦', '✧', '✩', '✪', '✫', '✬', '✭', '✮', '✯', '✰',
 			'●', '○', '◉', '◎', '◆', '◇',
 			'■', '□', '▲', '△', '▼', '▽',
@@ -88,7 +91,7 @@ const CATEGORIES: CharCategory[] = [
 		],
 	},
 	{
-		id: 'currency', label: '통화', icon: '₩', chars: [
+		id: 'currency', label: wmT("통화"), icon: '₩', chars: [
 			'₩', '€', '£', '¥', '¢',
 			'₽', '₺', '₹', '₦', '₪', '₫',
 			'₭', '₮', '₱', '₲', '₳', '₴',
@@ -96,7 +99,7 @@ const CATEGORIES: CharCategory[] = [
 		],
 	},
 	{
-		id: 'misc', label: '기타 기호', icon: '©', chars: [
+		id: 'misc', label: wmT("기타 기호"), icon: '©', chars: [
 			'©', '®', '™', '§', '¶', '†', '‡',
 			'‰', '‱', '№', '℃', '℉', 'ℓ',
 			'℅', '℗', '℠', '℡', '℮',
@@ -108,19 +111,19 @@ const CATEGORIES: CharCategory[] = [
 		],
 	},
 	{
-		id: 'kr-circled', label: '한글(원)', icon: '㉠', chars: [
+		id: 'kr-circled', label: wmT("한글(원)"), icon: '㉠', chars: [
 			'㉠', '㉡', '㉢', '㉣', '㉤', '㉥', '㉦', '㉧', '㉨', '㉩', '㉪', '㉫', '㉬', '㉭',
 			'㉮', '㉯', '㉰', '㉱', '㉲', '㉳', '㉴', '㉵', '㉶', '㉷', '㉸', '㉹', '㉺', '㉻',
 		],
 	},
 	{
-		id: 'kr-paren', label: '한글(괄호)', icon: '㈎', chars: [
+		id: 'kr-paren', label: wmT("한글(괄호)"), icon: '㈎', chars: [
 			'㈀', '㈁', '㈂', '㈃', '㈄', '㈅', '㈆', '㈇', '㈈', '㈉', '㈊', '㈋', '㈌', '㈍',
 			'㈎', '㈏', '㈐', '㈑', '㈒', '㈓', '㈔', '㈕', '㈖', '㈗', '㈘', '㈙', '㈚', '㈛', '㈜',
 		],
 	},
 	{
-		id: 'alpha-circled', label: '영어(원)', icon: 'Ⓐ', chars: [
+		id: 'alpha-circled', label: wmT("영어(원)"), icon: 'Ⓐ', chars: [
 			'Ⓐ', 'Ⓑ', 'Ⓒ', 'Ⓓ', 'Ⓔ', 'Ⓕ', 'Ⓖ', 'Ⓗ', 'Ⓘ', 'Ⓙ', 'Ⓚ', 'Ⓛ', 'Ⓜ',
 			'Ⓝ', 'Ⓞ', 'Ⓟ', 'Ⓠ', 'Ⓡ', 'Ⓢ', 'Ⓣ', 'Ⓤ', 'Ⓥ', 'Ⓦ', 'Ⓧ', 'Ⓨ', 'Ⓩ',
 			'ⓐ', 'ⓑ', 'ⓒ', 'ⓓ', 'ⓔ', 'ⓕ', 'ⓖ', 'ⓗ', 'ⓘ', 'ⓙ', 'ⓚ', 'ⓛ', 'ⓜ',
@@ -128,37 +131,37 @@ const CATEGORIES: CharCategory[] = [
 		],
 	},
 	{
-		id: 'alpha-paren', label: '영어(괄호)', icon: '⒜', chars: [
+		id: 'alpha-paren', label: wmT("영어(괄호)"), icon: '⒜', chars: [
 			'⒜', '⒝', '⒞', '⒟', '⒠', '⒡', '⒢', '⒣', '⒤', '⒥', '⒦', '⒧', '⒨',
 			'⒩', '⒪', '⒫', '⒬', '⒭', '⒮', '⒯', '⒰', '⒱', '⒲', '⒳', '⒴', '⒵',
 		],
 	},
 	{
-		id: 'num-circled', label: '숫자(원)', icon: '①', chars: [
+		id: 'num-circled', label: wmT("숫자(원)"), icon: '①', chars: [
 			'①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩',
 			'⑪', '⑫', '⑬', '⑭', '⑮',
 		],
 	},
 	{
-		id: 'num-paren', label: '숫자(괄호)', icon: '⑴', chars: [
+		id: 'num-paren', label: wmT("숫자(괄호)"), icon: '⑴', chars: [
 			'⑴', '⑵', '⑶', '⑷', '⑸', '⑹', '⑺', '⑻', '⑼', '⑽',
 			'⑾', '⑿', '⒀', '⒁', '⒂', '⒃', '⒄', '⒅', '⒆', '⒇',
 		],
 	},
 	{
-		id: 'roman', label: '숫자(로마)', icon: 'Ⅰ', chars: [
+		id: 'roman', label: wmT("숫자(로마)"), icon: 'Ⅰ', chars: [
 			'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ', 'Ⅶ', 'Ⅷ', 'Ⅸ', 'Ⅹ', 'Ⅺ', 'Ⅻ',
 			'ⅰ', 'ⅱ', 'ⅲ', 'ⅳ', 'ⅴ', 'ⅵ', 'ⅶ', 'ⅷ', 'ⅸ', 'ⅹ', 'ⅺ', 'ⅻ',
 		],
 	},
 	{
-		id: 'num-dot', label: '숫자(온점)', icon: '⒈', chars: [
+		id: 'num-dot', label: wmT("숫자(온점)"), icon: '⒈', chars: [
 			'⒈', '⒉', '⒊', '⒋', '⒌', '⒍', '⒎', '⒏', '⒐', '⒑',
 			'⒒', '⒓', '⒔', '⒕', '⒖', '⒗', '⒘', '⒙', '⒚', '⒛',
 		],
 	},
 	{
-		id: 'greek', label: '문자(그리스)', icon: 'α', chars: [
+		id: 'greek', label: wmT("문자(그리스)"), icon: 'α', chars: [
 			'α', 'β', 'γ', 'δ', 'ε', 'ζ', 'η', 'θ',
 			'ι', 'κ', 'λ', 'μ', 'ν', 'ξ', 'ο', 'π',
 			'ρ', 'σ', 'τ', 'υ', 'φ', 'χ', 'ψ', 'ω',
@@ -168,7 +171,7 @@ const CATEGORIES: CharCategory[] = [
 		],
 	},
 	{
-		id: 'latin', label: '문자(라틴 확장)', icon: 'à', chars: [
+		id: 'latin', label: wmT("문자(라틴 확장)"), icon: 'à', chars: [
 			'à', 'á', 'â', 'ã', 'ä', 'å', 'æ', 'ç',
 			'è', 'é', 'ê', 'ë', 'ì', 'í', 'î', 'ï',
 			'ð', 'ñ', 'ò', 'ó', 'ô', 'õ', 'ö', 'ø',
@@ -203,6 +206,11 @@ export class SpecialCharsModal extends Modal {
 	private boundKeyDown: (e: KeyboardEvent) => void;
 	private boundClickOutside: (e: MouseEvent) => void;
 	private releaseViewport?: () => void;
+
+	private characterTitle(char: string): string {
+		const custom = this.plugin.settings.specialCharCustom?.find(item => item.char === char)?.desc;
+		return custom || (getLanguage() === 'en' ? EN_NAMES[char] : undefined) || CD[char]?.title || char;
+	}
 
 	constructor(app: App, plugin: WritingMenuPlugin, editor: Editor | null) {
 		super(app);
@@ -277,7 +285,7 @@ export class SpecialCharsModal extends Modal {
 		setIcon(searchIcon, 'search');
 		const input = searchWrap.createEl('input', {
 			cls: 'wm-sc-search',
-			attr: { placeholder: '검색… (예: 화살표, 별, 체크)', type: 'text' },
+			attr: { placeholder: wmT("검색… (예: 화살표, 별, 체크)"), type: 'text' },
 		});
 		this.searchInputEl = input;
 		input.addEventListener('input', () => {
@@ -295,7 +303,7 @@ export class SpecialCharsModal extends Modal {
 		this.buildAddButton(footerLeft);
 		footer.createEl('button', {
 			cls: 'wm-sc-footer-close',
-			text: '닫기',
+			text: wmT("닫기"),
 			attr: { type: 'button' },
 		}).addEventListener('click', () => this.close());
 	}
@@ -308,7 +316,7 @@ export class SpecialCharsModal extends Modal {
 
 		const btn = wrap.createEl('button', {
 			cls: 'wm-sc-footer-add',
-			text: '추가',
+			text: wmT("추가"),
 			attr: { type: 'button' },
 		});
 
@@ -318,18 +326,18 @@ export class SpecialCharsModal extends Modal {
 		// 문자 입력
 		const charRow = popup.createDiv({ cls: 'wm-sc-add-row' });
 		const charInput = charRow.createEl('input', {
-			attr: { type: 'text', placeholder: '특수문자', maxlength: '4' },
+			attr: { type: 'text', placeholder: wmT("특수문자"), maxlength: '4' },
 		});
 		this.addCharInputEl = charInput;
 
 		// 이름/설명 입력
 		const descRow = popup.createDiv({ cls: 'wm-sc-add-row' });
 		const descInput = descRow.createEl('input', {
-			attr: { type: 'text', placeholder: '이름 또는 설명' },
+			attr: { type: 'text', placeholder: wmT("이름 또는 설명") },
 		});
 
 		// 추가 버튼
-		const submitBtn = popup.createEl('button', { cls: 'wm-sc-add-submit', text: '추가' });
+		const submitBtn = popup.createEl('button', { cls: 'wm-sc-add-submit', text: wmT("추가") });
 
 		const doAdd = () => {
 			const char = charInput.value.trim();
@@ -390,7 +398,7 @@ export class SpecialCharsModal extends Modal {
 	private buildBody(container: HTMLElement) {
 		const body = container.createDiv({ cls: 'wm-sc-body' });
 
-		const catList = body.createDiv({ cls: 'wm-sc-cat-list', attr: { role: 'listbox', 'aria-label': '특수문자 카테고리' } });
+		const catList = body.createDiv({ cls: 'wm-sc-cat-list', attr: { role: 'listbox', 'aria-label': wmT("특수문자 카테고리") } });
 		catList.tabIndex = -1;
 		this.catListEl = catList;
 		this.renderCatList();
@@ -441,7 +449,7 @@ export class SpecialCharsModal extends Modal {
 
 		if (this.renderedChars.length === 0) {
 			this.gridEl.addClass('is-empty');
-			this.gridEl.createDiv({ cls: 'wm-sc-grid-empty' }).createSpan({ text: '결과 없음' });
+			this.gridEl.createDiv({ cls: 'wm-sc-grid-empty' }).createSpan({ text: wmT("결과 없음") });
 			return;
 		}
 
@@ -450,17 +458,17 @@ export class SpecialCharsModal extends Modal {
 			const cell = this.gridEl.createDiv({ cls: 'wm-sc-cell' });
 			cell.dataset.idx = String(i);
 
-			const entry = CD[ch];
+			const title = this.characterTitle(ch);
 			const insertButton = cell.createEl('button', {
 				cls: 'wm-sc-cell-insert',
-				attr: { type: 'button', 'aria-label': entry?.title ? `${ch}, ${entry.title}` : ch },
+				attr: { type: 'button', 'aria-label': title !== ch ? `${ch}, ${title}` : ch },
 			});
 			insertButton.createSpan({ cls: 'wm-sc-cell-char', text: ch });
 			const starBtn = cell.createEl('button', {
 				cls: `wm-sc-cell-star${favs.has(ch) ? ' is-fav' : ''}`,
 				attr: {
 					type: 'button',
-					'aria-label': favs.has(ch) ? `${ch} 즐겨찾기에서 제거` : `${ch} 즐겨찾기에 추가`,
+					'aria-label': favs.has(ch) ? wmT("{0} 즐겨찾기에서 제거", ch) : wmT("{0} 즐겨찾기에 추가", ch),
 					'aria-pressed': String(favs.has(ch)),
 				},
 			});
@@ -499,7 +507,9 @@ export class SpecialCharsModal extends Modal {
 				if (seen.has(ch)) continue;
 				seen.add(ch);
 				const entry = CD[ch];
-				const titleMatch = entry?.title?.toLowerCase().includes(ql) ?? false;
+				const titleMatch = this.characterTitle(ch).toLowerCase().includes(ql)
+					|| (entry?.title?.toLowerCase().includes(ql) ?? false)
+					|| (EN_NAMES[ch]?.includes(ql) ?? false);
 				const aliasMatch = (entry?.aliases ?? []).some(t => t.toLowerCase().includes(ql));
 				if (ch.includes(q) || titleMatch || aliasMatch) results.push(ch);
 			}

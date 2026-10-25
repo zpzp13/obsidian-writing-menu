@@ -15,6 +15,17 @@ export class FileSystemAdapter { getFullPath(path){return 'C:/Synthetic Vault/'+
 export const Platform = {isDesktop:false};
 export class Modal extends Component { constructor(app){super();this.app=app;} }
 export class FuzzySuggestModal extends Modal {setPlaceholder(){} open(){} close(){}}
+export class TextComponent {
+ constructor(parent){this.inputEl=parent.createEl('input',{type:'text'});}
+ setValue(value){this.inputEl.value=value;return this;}
+ onChange(callback){this.inputEl.addEventListener('input',()=>callback(this.inputEl.value));return this;}
+}
+export class ButtonComponent {
+ constructor(parent){this.buttonEl=parent.createEl('button',{type:'button'});}
+ setButtonText(value){this.buttonEl.textContent=value;return this;}
+ setCta(){this.buttonEl.classList.add('mod-cta');return this;}
+ onClick(callback){this.buttonEl.addEventListener('click',callback);return this;}
+}
 export class Notice {constructor(text){console.log(text);}}
 export class Setting {
  constructor(parent){this.settingEl=parent.createDiv({cls:'setting-item'});this.nameEl=this.settingEl.createDiv({cls:'setting-item-name'});this.descEl=this.settingEl.createDiv({cls:'setting-item-description'});}

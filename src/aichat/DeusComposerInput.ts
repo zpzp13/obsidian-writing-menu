@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { detachedEl, detachedFragment } from '../utils/dom';
 /** A plain-text editor with atomic note links. Paths are serialized for storage/API only. */
 export type DeusComposerInput = HTMLDivElement & {
@@ -29,7 +30,7 @@ function fragment(document: Document, value: string): DocumentFragment {
 }
 
 export function createDeusComposerInput(parent: HTMLElement): DeusComposerInput {
-	const element = parent.createDiv({ cls: 'deus-input', attr: { contenteditable: 'true', role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Deus AI에 메시지', spellcheck: 'true' } }) as DeusComposerInput;
+	const element = parent.createDiv({ cls: 'deus-input', attr: { contenteditable: 'true', role: 'textbox', 'aria-multiline': 'true', 'aria-label': wmT("Deus AI에 메시지"), spellcheck: 'true' } }) as DeusComposerInput;
 	const caretLine = () => {
 		for (const tail of element.querySelectorAll('[data-deus-caret-tail]')) tail.remove();
 		// A final newline needs a visible empty line for Chromium's native caret.

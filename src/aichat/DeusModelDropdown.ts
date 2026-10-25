@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { setIcon } from 'obsidian';
 import { renderDeusProviderIcon, type DeusModelProvider } from './DeusProviderIcon';
 import type { CliModelOption } from './CliReasoning';
@@ -29,7 +30,7 @@ export class DeusModelDropdown {
 	private open(trigger: HTMLElement): void {
 		this.trigger = trigger; trigger.setAttribute('aria-expanded', 'true');
 		const doc = trigger.ownerDocument, view = doc.defaultView; if (!view) return;
-		const dom = this.dom = doc.body.createDiv({ cls: 'menu deus-compact-menu deus-model-menu', attr: { role: 'dialog', 'aria-label': 'AI 및 모델 선택' } });
+		const dom = this.dom = doc.body.createDiv({ cls: 'menu deus-compact-menu deus-model-menu', attr: { role: 'dialog', 'aria-label': wmT("AI 및 모델 선택") } });
 		const outside = (event: PointerEvent) => { if (!dom.contains(event.target as Node) && !trigger.contains(event.target as Node)) this.close(); };
 		const keys = (event: KeyboardEvent) => {
 			if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); this.close(); trigger.focus(); }
@@ -71,7 +72,7 @@ export class DeusModelDropdown {
 		const generation = ++this.generation; this.abort?.abort(); const abort = this.abort = new AbortController();
 		this.layoutControl = undefined;
 		dom.empty();
-		const back = dom.createEl('button', { cls: 'menu-item deus-model-row deus-model-back', attr: { type: 'button', 'aria-label': 'AI 목록으로 돌아가기' } });
+		const back = dom.createEl('button', { cls: 'menu-item deus-model-row deus-model-back', attr: { type: 'button', 'aria-label': wmT("AI 목록으로 돌아가기") } });
 		setIcon(back.createSpan({ cls: 'deus-model-row-chevron', attr: { 'aria-hidden': 'true' } }), 'chevron-left');
 		back.createSpan({ cls: 'deus-model-back-label', text: providers.find(item => item.id === provider)!.label }); back.onclick = () => { this.showProviders(); this.dom?.querySelector<HTMLButtonElement>(`[data-provider="${provider}"]`)?.focus(); };
 		const body = dom.createDiv({ cls: 'deus-model-list', attr: { 'aria-busy': 'true' } });
@@ -91,7 +92,7 @@ export class DeusModelDropdown {
 				setIcon(row.createSpan({ cls: 'deus-model-row-check', attr: { 'aria-hidden': 'true' } }), 'check');
 				row.onclick = () => { this.options.choose(provider, model); this.close(); }; rows.push({ row, model });
 			}
-			body.setAttribute('role', 'radiogroup'); body.setAttribute('aria-label', '모델');
+			body.setAttribute('role', 'radiogroup'); body.setAttribute('aria-label', wmT("모델"));
 			body.onkeydown = event => {
 				if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
 				event.preventDefault(); const index = rows.findIndex(item => item.row === dom.ownerDocument.activeElement);
@@ -101,7 +102,7 @@ export class DeusModelDropdown {
 		} catch (error) {
 			if (generation !== this.generation || abort.signal.aborted) return;
 			body.empty(); body.createDiv({ cls: 'deus-model-loading', text: error instanceof Error ? error.message : String(error) });
-			const retry = body.createEl('button', { cls: 'menu-item deus-model-row', text: '다시 불러오기' }); retry.onclick = () => { void this.showModels(provider); }; this.position();
+			const retry = body.createEl('button', { cls: 'menu-item deus-model-row', text: wmT("다시 불러오기") }); retry.onclick = () => { void this.showModels(provider); }; this.position();
 		}
 	}
 }

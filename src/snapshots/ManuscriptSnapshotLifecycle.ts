@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { Notice, TFile, TFolder } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { ManuscriptSnapshotRepository, snapshotStorageRoot } from './ManuscriptSnapshotRepository';
@@ -26,7 +27,7 @@ export function initializeManuscriptSnapshots(plugin: WritingMenuPlugin): void {
 					await new ManuscriptSnapshotRepository(plugin, manifest.filePath).rebind(file.path + manifest.filePath.slice(oldPath.length));
 				} catch { failures.push(directory); }
 			}
-			if (failures.length) throw new Error(`${failures.length}개 기록은 기존 위치에 남겨 두었습니다.`);
-		})().catch(error => new Notice(`스냅샷 기록 이동을 완료하지 못했습니다. 기록은 보존됩니다: ${error instanceof Error ? error.message : String(error)}`));
+			if (failures.length) throw new Error(wmT("{0}개 기록은 기존 위치에 남겨 두었습니다.", failures.length));
+		})().catch(error => new Notice(wmT("스냅샷 기록 이동을 완료하지 못했습니다. 기록은 보존됩니다: {0}", error instanceof Error ? error.message : String(error))));
 	}));
 }

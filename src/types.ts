@@ -174,6 +174,7 @@ export interface WritingMenuSettings {
 	dashboardSections?: DashSectionConfig[];
 	// ── Music Player ──────────────────────────────────────────────────────
 	musicFolderPaths: string[];
+	musicLibraryBasePath?: string;
 	musicVolume: number;
 	musicPlaybackMode: 'loop' | 'single' | 'shuffle';
 	musicFavorites: string[];

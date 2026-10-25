@@ -1,8 +1,9 @@
+import { wmT } from '../i18n/index';
 import { setIcon } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { ParsedTask } from './data/TaskParser';
 
-const DOW_KO = ['일', '월', '화', '수', '목', '금', '토'];
+const DOW_KO = [wmT("일"), wmT("월"), wmT("화"), wmT("수"), wmT("목"), wmT("금"), wmT("토")];
 
 function openPopupAutoClose(popup: HTMLElement) {
 	window.setTimeout(() => {
@@ -36,7 +37,7 @@ export class MonthCalendar {
 			const hdr = wrap.createDiv({ cls: 'wm-month-cal-hdr' });
 			const prevBtn = hdr.createDiv({ cls: 'wm-month-cal-nav' });
 			setIcon(prevBtn, 'chevron-left');
-			hdr.createDiv({ cls: 'wm-month-cal-title', text: `${viewYear}년 ${viewMonth + 1}월` });
+			hdr.createDiv({ cls: 'wm-month-cal-title', text: wmT("{0}년 {1}월", viewYear, viewMonth + 1) });
 			const nextBtn = hdr.createDiv({ cls: 'wm-month-cal-nav' });
 			setIcon(nextBtn, 'chevron-right');
 
@@ -90,7 +91,7 @@ export class MonthCalendar {
 						activeDocument.querySelector('.wm-month-task-preview')?.remove();
 
 						const ppop = activeDocument.body.createDiv({ cls: 'wm-month-task-preview wm-popup' });
-						ppop.createDiv({ cls: 'wm-popup-section-label', text: `${viewMonth + 1}월 ${day}일 할 일` });
+						ppop.createDiv({ cls: 'wm-popup-section-label', text: wmT("{0}월 {1}일 할 일", viewMonth + 1, day) });
 
 						for (const t of tasks) {
 							const item = ppop.createDiv({ cls: 'wm-popup-item' });

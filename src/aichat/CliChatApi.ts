@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { FileSystemAdapter, Platform } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { DeusGenerationInput, DeusGenerator, GeminiStep } from './GeminiRagApi';
@@ -7,7 +8,7 @@ import { selectedCliModel, supportedCliEffort } from './CliReasoning';
 export interface CliChatOptions { provider: 'claude' | 'codex'; cwd: string; path: string; model: string; effort?: string }
 export function cliChatOptions(plugin: WritingMenuPlugin, provider: CliChatOptions['provider'], root?: string): CliChatOptions {
 	const adapter = plugin.app.vault.adapter;
-	if (!(adapter instanceof FileSystemAdapter)) throw new Error('CLI 연결은 데스크톱의 프로젝트 폴더에서 사용할 수 있습니다.');
+	if (!(adapter instanceof FileSystemAdapter)) throw new Error(wmT("CLI 연결은 데스크톱의 프로젝트 폴더에서 사용할 수 있습니다."));
 	return { provider, cwd: root ? adapter.getFullPath(root) : adapter.getBasePath(),
 		path: provider === 'claude' ? plugin.settings.aiChatClaudeCliPath : plugin.settings.aiChatCodexCliPath,
 		model: provider === 'claude' ? plugin.settings.aiChatClaudeCliModel : plugin.settings.aiChatCodexCliModel,
@@ -19,14 +20,14 @@ const toolTag = '<deus_tools>';
 export function parseCliReply(text: string, input: DeusGenerationInput): GeminiStep {
 	const envelope = /^\s*<deus_tools>\s*([\s\S]+?)\s*<\/deus_tools>\s*$/.exec(text);
 	if (!envelope) {
-		if (text.includes(toolTag)) throw new Error('CLI의 자료 조회 응답 형식이 올바르지 않습니다.');
+		if (text.includes(toolTag)) throw new Error(wmT("CLI의 자료 조회 응답 형식이 올바르지 않습니다."));
 		return { text: text.trim(), calls: [], parts: [{ text: text.trim() }] };
 	}
 	const value: unknown = JSON.parse(envelope[1]);
 	const names = input.tools.filter(isRecord).map(tool => tool.name);
-	if (!isRecord(value) || !Array.isArray(value.calls) || !value.calls.length || value.calls.length > 12) throw new Error('CLI의 자료 조회 목록이 올바르지 않습니다.');
+	if (!isRecord(value) || !Array.isArray(value.calls) || !value.calls.length || value.calls.length > 12) throw new Error(wmT("CLI의 자료 조회 목록이 올바르지 않습니다."));
 	const calls = (value.calls as unknown[]).map(call => {
-		if (!isRecord(call) || typeof call.name !== 'string' || !names.includes(call.name) || !isRecord(call.args)) throw new Error('CLI가 허용되지 않은 자료 도구를 요청했습니다.');
+		if (!isRecord(call) || typeof call.name !== 'string' || !names.includes(call.name) || !isRecord(call.args)) throw new Error(wmT("CLI가 허용되지 않은 자료 도구를 요청했습니다."));
 		return { name: call.name, args: call.args };
 	});
 	return { text: '', calls, parts: calls.map(call => ({ functionCall: call })) };
@@ -39,7 +40,7 @@ export function cliPrompt(input: DeusGenerationInput): string {
 export function cliGenerator(options: CliChatOptions, stream: boolean): DeusGenerator {
 	let resolved: CliChatOptions | undefined;
 	return async (input, signal, onText) => {
-		if (!Platform.isDesktop) throw new Error('CLI 연결은 데스크톱 Obsidian에서 사용할 수 있습니다.');
+		if (!Platform.isDesktop) throw new Error(wmT("CLI 연결은 데스크톱 Obsidian에서 사용할 수 있습니다."));
 		const { runCliChat } = await import('./CliChatProcess');
 		if (!resolved) {
 			resolved = { ...options };

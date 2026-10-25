@@ -1,3 +1,4 @@
+import { wmT } from '../../i18n/index';
 import { normalizePath, TFile } from 'obsidian';
 
 declare const moment: (date?: unknown, fmt?: string) => { format(f: string): string };
@@ -30,25 +31,25 @@ export class WritingTimeStore {
 
 	/** seconds → compact 표시 ("X시간 Y분" / "Y분 Z초" / "Z초") */
 	static formatTime(sec: number): string {
-		if (sec <= 0) return '0초';
+		if (sec <= 0) return wmT('0초');
 		const h = Math.floor(sec / 3600);
 		const m = Math.floor((sec % 3600) / 60);
 		const s = sec % 60;
-		if (h > 0) return `${h}시간${m > 0 ? ` ${m}분` : ''}`;
-		if (m > 0) return `${m}분${s > 0 ? ` ${s}초` : ''}`;
-		return `${s}초`;
+		if (h > 0) return wmT('{0}시간{1}', h, m > 0 ? wmT(' {0}분', m) : '');
+		if (m > 0) return wmT('{0}분{1}', m, s > 0 ? wmT(' {0}초', s) : '');
+		return wmT('{0}초', s);
 	}
 
 	/** seconds → full 표시 ("X시간 Y분 Z초", 툴팁용) */
 	static formatTimeFull(sec: number): string {
-		if (sec <= 0) return '0초';
+		if (sec <= 0) return wmT('0초');
 		const h = Math.floor(sec / 3600);
 		const m = Math.floor((sec % 3600) / 60);
 		const s = sec % 60;
 		const parts: string[] = [];
-		if (h > 0) parts.push(`${h}시간`);
-		if (m > 0) parts.push(`${m}분`);
-		if (s > 0 || parts.length === 0) parts.push(`${s}초`);
+		if (h > 0) parts.push(wmT('{0}시간', h));
+		if (m > 0) parts.push(wmT('{0}분', m));
+		if (s > 0 || parts.length === 0) parts.push(wmT('{0}초', s));
 		return parts.join(' ');
 	}
 

@@ -1,10 +1,84 @@
-import { ItemView, WorkspaceLeaf, setIcon } from 'obsidian';
+import { wmT } from '../i18n/index';
+import { Component, ItemView, MarkdownRenderer, WorkspaceLeaf, setIcon } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { Track } from '../dashboard/MusicPlayer';
 import { refreshOverflowMarquee } from '../utils/domUtils';
+import { MusicLibraryTracks, type MusicLibraryTrackGroup } from './MusicLibraryTracks';
 
 export const MUSIC_LIBRARY_VIEW_TYPE = 'writing-menu-music-library';
-const MUSIC_LIBRARY_WAVEFORM_BARS = 128;
+let musicLibraryVolumeId = 0;
+
+/*!
+ * Wave shaping adapted for SVG from FHRha/LiquidSeekBar:
+ * https://github.com/FHRha/LiquidSeekBar/blob/c31d5e8e032b148bb18f012d3341c3d4d549f2d9/src/components/common/LiquidSeekBar.tsx
+ * Modified to keep the native range control, a flat thumb junction and browser-driven animation.
+ *
+ * MIT License
+ * Copyright (c) 2026 FHRha
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY.
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+function liquidWavePath(width: number, time: number, layer: number): string {
+	const strength = Math.min(1, width / 48);
+	const frequency = 2 * Math.PI / (layer === 0 ? 132 : 112);
+	const amplitude = (layer === 0 ? 10.8 : 10) * (0.86 + 0.14 * Math.sin(time));
+	const warpFrequency = layer === 0 ? 0.012 : 0.016;
+	const warpAmplitude = layer === 0 ? 0.65 : 0.45;
+	const taper = Math.min(40, width * 0.7);
+	const sample = (x: number) => {
+		const t = Math.min(1, Math.max(0, (width - x) / taper));
+		const envelope = t * t * (3 - 2 * t);
+		const derivative = t < 1 ? -6 * t * (1 - t) / taper : 0;
+		const warp = x * warpFrequency + time;
+		const angle = frequency * x + Math.sin(warp) * warpAmplitude + layer * Math.PI * 0.9 - time;
+		const angleSlope = frequency + Math.cos(warp) * warpAmplitude * warpFrequency;
+		const harmonic = 2 * angle - Math.PI / 2;
+		const rounded = Math.max(0, Math.min(1, (Math.sin(angle) + 0.18 * Math.sin(harmonic) + 1) / 2.18));
+		const height = amplitude * Math.pow(rounded, 1.35);
+		const heightSlope = amplitude * 1.35 * Math.pow(rounded, 0.35)
+			* (Math.cos(angle) + 0.36 * Math.cos(harmonic)) / 2.18 * angleSlope;
+		return {
+			y: 12 - strength * height * envelope,
+			slope: -strength * (heightSlope * envelope + height * derivative),
+		};
+	};
+	const number = (value: number) => String(Number(value.toFixed(3)));
+	const segments = Math.max(2, Math.ceil(width / 12));
+	let previous = sample(0);
+	let path = `M0 ${number(previous.y)}`;
+	for (let segment = 1; segment <= segments; segment++) {
+		const x = width * segment / segments;
+		const start = width * (segment - 1) / segments;
+		const next = sample(x);
+		const step = (x - start) / 3;
+		path += `C${number(start + step)} ${number(previous.y + previous.slope * step)} ${number(x - step)} ${number(next.y - next.slope * step)} ${number(x)} ${number(next.y)}`;
+		previous = next;
+	}
+	return `${path}V16H0Z`;
+}
+
+function liquidWaveFrames(width: number, layer: number): Keyframe[] {
+	// Sample densely; Web Animations interpolates without a JS frame loop.
+	return Array.from({ length: 65 }, (_, index) => ({
+		d: `path("${liquidWavePath(width, index * Math.PI / 32, layer)}")`,
+	}));
+}
 
 function folderOf(track: Track): string {
 	const index = track.path.lastIndexOf('/');
@@ -22,19 +96,23 @@ function formatAudioTime(seconds: number): string {
 }
 
 export class MusicLibraryView extends ItemView {
-	private query = '';
 	private listEl: HTMLElement | null = null;
-	private countEl: HTMLElement | null = null;
+	private baseRender: Component | null = null;
+	private basePath = '';
+	private fallbackTracks: MusicLibraryTracks | null = null;
 	private shuffleButton: HTMLButtonElement | null = null;
 	private repeatButton: HTMLButtonElement | null = null;
 	private repeatIcon = '';
 	private lastPlaybackSignature = '';
 	private renderRevision = 0;
-	private waveformTrack: HTMLElement | null = null;
-	private waveformFill: HTMLElement | null = null;
-	private waveformKey = '';
-	private waveformRevision = 0;
-	private waveformPrefetchTimer = 0;
+	private progressEl: HTMLElement | null = null;
+	private liquidAnimations: Animation[] = [];
+	private liquidLayers: { svg: SVGSVGElement; effect: KeyframeEffect; layer: number }[] = [];
+	private liquidWidth = -1;
+	private liquidMotionQuery: MediaQueryList | null = null;
+	private liquidAnimating: boolean | null = null;
+	private seekInput: HTMLInputElement | null = null;
+	private trackKey: string | null = null;
 	private currentTimeEl: HTMLElement | null = null;
 	private durationEl: HTMLElement | null = null;
 	private volumeButton: HTMLButtonElement | null = null;
@@ -44,7 +122,7 @@ export class MusicLibraryView extends ItemView {
 	private audioCover: HTMLImageElement | null = null;
 	private audioBackdrop: HTMLElement | null = null;
 	private audioTitle: HTMLElement | null = null;
-	private audioFolder: HTMLElement | null = null;
+	private audioArtist: HTMLElement | null = null;
 	private audioPlayButton: HTMLButtonElement | null = null;
 	private audioArtworkRevision = 0;
 	private audioPlayIcon = '';
@@ -52,7 +130,7 @@ export class MusicLibraryView extends ItemView {
 		const player = this.plugin.musicPlayer;
 		this.updateAudioControls();
 		const favorites = this.plugin.settings.musicFavorites ?? [];
-		const signature = `${player?.currentTrack?.path ?? ''}|${player?.isPlaying ?? false}|${player?.playlist.length ?? 0}|${player?.mode ?? ''}|${favorites.join('\u0000')}`;
+		const signature = JSON.stringify([player?.currentTrack?.path, player?.isPlaying, player?.playlist.length, player?.mode, favorites, this.plugin.settings.musicFolderPaths]);
 		if (signature === this.lastPlaybackSignature) return;
 		this.lastPlaybackSignature = signature;
 		this.updateModeControls();
@@ -73,7 +151,11 @@ export class MusicLibraryView extends ItemView {
 	}
 
 	async onClose() {
-		window.clearTimeout(this.waveformPrefetchTimer);
+		this.renderRevision++;
+		this.audioArtworkRevision++;
+		this.progressEl?.removeClass('is-playing');
+		for (const animation of this.liquidAnimations) animation.cancel();
+		this.liquidAnimating = false;
 		this.plugin.musicPlayer?.unsubscribe(this.handlePlayerUpdate);
 	}
 
@@ -81,19 +163,6 @@ export class MusicLibraryView extends ItemView {
 		const content = this.containerEl.children[1] as HTMLElement;
 		content.empty();
 		content.addClass('wm-music-library-view');
-
-		const header = content.createDiv({ cls: 'wm-music-library-header' });
-		const heading = header.createDiv({ cls: 'wm-music-library-heading' });
-		heading.createSpan({ cls: 'wm-music-library-kicker', text: 'LIBRARY' });
-		this.countEl = heading.createSpan({ cls: 'wm-music-library-count' });
-		const refresh = header.createEl('button', {
-			cls: 'wm-music-library-action',
-			attr: { type: 'button', 'aria-label': '음악 목록 새로고침' },
-		});
-		setIcon(refresh, 'refresh-cw');
-		refresh.addEventListener('click', () => {
-			void this.plugin.musicPlayer?.loadPlaylist().then(() => this.renderList());
-		});
 
 		const nowPlaying = content.createDiv({ cls: 'wm-music-library-now-playing' });
 		this.renderAudioControls(nowPlaying);
@@ -106,9 +175,8 @@ export class MusicLibraryView extends ItemView {
 	private renderAudioControls(content: HTMLElement) {
 		const player = this.plugin.musicPlayer;
 		if (!player) return;
-		this.waveformKey = '';
+		this.trackKey = null;
 		this.volumeIcon = '';
-		this.audioFolder = null;
 		const audio = content.createDiv({ cls: 'wm-music-library-audio' });
 		const foreground = audio.createDiv({ cls: 'wm-music-library-audio-foreground' });
 		const artStage = foreground.createDiv({ cls: 'wm-music-library-audio-art-stage' });
@@ -118,20 +186,69 @@ export class MusicLibraryView extends ItemView {
 		});
 		const art = artStage.createDiv({ cls: 'wm-music-library-audio-art' });
 		this.audioCover = art.createEl('img', { cls: 'wm-music-library-audio-cover', attr: { alt: '' } });
+		this.audioCover.hidden = true;
 		setIcon(art.createSpan({ cls: 'wm-music-library-audio-placeholder' }), 'music-2');
+		const progress = foreground.createDiv({ cls: 'wm-music-library-progress' });
+		this.progressEl = progress;
+		const progressResizeObserver = new ResizeObserver(() => this.updateAudioControls());
+		progressResizeObserver.observe(progress);
+		this.register(() => progressResizeObserver.disconnect());
+		const liquid = progress.createDiv({
+			cls: 'wm-music-library-liquid',
+			attr: { 'aria-hidden': 'true' },
+		});
+		for (const animation of this.liquidAnimations) animation.cancel();
+		this.liquidAnimations = [];
+		this.liquidAnimating = null;
+		this.liquidMotionQuery = (progress.ownerDocument.defaultView ?? window).matchMedia('(prefers-reduced-motion: reduce)');
+		const motionQuery = this.liquidMotionQuery;
+		const onMotionChange = () => this.updateLiquidMotion();
+		motionQuery.addEventListener('change', onMotionChange);
+		this.register(() => motionQuery.removeEventListener('change', onMotionChange));
+		this.liquidLayers = [];
+		this.liquidWidth = -1;
+		for (const [index, layer] of ['back', 'front'].entries()) {
+			const wave = liquid.createSvg('svg', {
+				cls: ['wm-music-library-liquid-wave', `is-${layer}`],
+				attr: { viewBox: '0 0 1 16', preserveAspectRatio: 'none' },
+			});
+			const path = wave.createSvg('path', { attr: { d: liquidWavePath(1, 0, index) } });
+			const animation = path.animate(liquidWaveFrames(1, index), {
+				duration: index === 0 ? 4800 : 3600,
+				iterations: Infinity,
+				easing: 'linear',
+			});
+			this.liquidAnimations.push(animation);
+			this.liquidLayers.push({ svg: wave, effect: animation.effect as KeyframeEffect, layer: index });
+		}
+		this.seekInput = progress.createEl('input', {
+			cls: 'wm-music-library-seek',
+			attr: { type: 'range', min: '0', max: '1000', step: '1', 'aria-label': wmT("재생 위치") },
+		});
+		this.seekInput.addEventListener('input', () => {
+			player.seek(Number(this.seekInput?.value ?? 0) / 1000);
+			this.updateAudioControls();
+		});
 		const body = foreground.createDiv({ cls: 'wm-music-library-audio-body' });
+		const footer = body.createDiv({ cls: 'wm-music-library-audio-footer' });
+		this.currentTimeEl = footer.createSpan({ cls: 'wm-music-library-audio-time', text: '0:00' });
+		this.durationEl = footer.createSpan({ cls: 'wm-music-library-audio-time', text: '0:00' });
 		const copy = body.createDiv({ cls: 'wm-music-library-audio-copy' });
-		this.audioTitle = copy.createDiv({ cls: 'wm-music-library-audio-title', text: '재생할 곡을 선택하세요' });
+		this.audioTitle = copy.createDiv({ cls: 'wm-music-library-audio-title', text: wmT("재생할 곡을 선택하세요") });
+		this.audioArtist = copy.createDiv({ cls: 'wm-music-library-audio-artist' });
 		const transport = body.createDiv({ cls: 'wm-music-library-audio-transport' });
 		const volume = transport.createDiv({ cls: 'wm-music-library-volume' });
 		this.volumeButton = volume.createEl('button', {
 			cls: 'wm-music-library-volume-button wm-music-library-transport-button is-mode',
-			attr: { type: 'button', 'aria-label': '볼륨 조절', 'aria-expanded': 'false' },
+			attr: { type: 'button', 'aria-label': wmT("볼륨 조절"), 'aria-expanded': 'false' },
 		});
 		const volumeSliderOuter = volume.createDiv({ cls: 'wm-music-library-volume-slider-outer' });
+		const volumeId = `wm-library-volume-${++musicLibraryVolumeId}`;
+		volumeSliderOuter.id = volumeId;
+		this.volumeButton.setAttribute('aria-controls', volumeId);
 		this.volumeInput = volumeSliderOuter.createEl('input', {
 			cls: 'slider wm-music-vol-slider wm-music-library-volume-slider',
-			attr: { type: 'range', min: '0', max: '100', step: '1', 'aria-label': '음량' },
+			attr: { type: 'range', min: '0', max: '100', step: '1', 'aria-label': wmT("음량"), 'aria-orientation': 'vertical' },
 		});
 		this.volumeInput.addEventListener('input', () => {
 			const value = Number(this.volumeInput?.value ?? player.volume * 100) / 100;
@@ -144,27 +261,36 @@ export class MusicLibraryView extends ItemView {
 			event.stopPropagation();
 			const open = !transport.hasClass('is-vol-open');
 			transport.toggleClass('is-vol-open', open);
+			body.toggleClass('is-vol-open', open);
 			this.volumeButton?.setAttribute('aria-expanded', String(open));
 		});
 		volumeSliderOuter.addEventListener('click', event => event.stopPropagation());
+		volume.addEventListener('keydown', event => {
+			if (event.key !== 'Escape') return;
+			transport.removeClass('is-vol-open');
+			body.removeClass('is-vol-open');
+			this.volumeButton?.setAttribute('aria-expanded', 'false');
+			this.volumeButton?.focus();
+		});
 		this.registerDomEvent(transport.ownerDocument, 'click', event => {
 			if (volume.contains(event.target as Node)) return;
 			transport.removeClass('is-vol-open');
+			body.removeClass('is-vol-open');
 			this.volumeButton?.setAttribute('aria-expanded', 'false');
 		});
-		this.shuffleButton = transport.createEl('button', { cls: 'wm-music-library-transport-button is-mode', attr: { type: 'button', 'aria-label': '셔플' } });
+		this.shuffleButton = transport.createEl('button', { cls: 'wm-music-library-transport-button is-mode', attr: { type: 'button', 'aria-label': wmT("셔플") } });
 		setIcon(this.shuffleButton, 'shuffle');
-		const previous = transport.createEl('button', { cls: 'wm-music-library-transport-button', attr: { type: 'button', 'aria-label': '이전 곡' } });
+		const previous = transport.createEl('button', { cls: 'wm-music-library-transport-button', attr: { type: 'button', 'aria-label': wmT("이전 곡") } });
 		setIcon(previous, 'skip-back');
-		this.audioPlayButton = transport.createEl('button', { cls: 'wm-music-library-transport-button is-primary', attr: { type: 'button', 'aria-label': '재생 또는 일시정지' } });
+		this.audioPlayButton = transport.createEl('button', { cls: 'wm-music-library-transport-button is-primary', attr: { type: 'button', 'aria-label': wmT("재생 또는 일시정지") } });
 		setIcon(this.audioPlayButton, 'play');
-		const next = transport.createEl('button', { cls: 'wm-music-library-transport-button', attr: { type: 'button', 'aria-label': '다음 곡' } });
+		const next = transport.createEl('button', { cls: 'wm-music-library-transport-button', attr: { type: 'button', 'aria-label': wmT("다음 곡") } });
 		setIcon(next, 'skip-forward');
-		this.repeatButton = transport.createEl('button', { cls: 'wm-music-library-transport-button is-mode', attr: { type: 'button', 'aria-label': '전체 반복' } });
+		this.repeatButton = transport.createEl('button', { cls: 'wm-music-library-transport-button is-mode', attr: { type: 'button', 'aria-label': wmT("전체 반복") } });
 		setIcon(this.repeatButton, 'repeat');
 		this.favoriteButton = transport.createEl('button', {
 			cls: 'wm-music-library-favorite-button wm-music-library-transport-button is-mode',
-			attr: { type: 'button', 'aria-label': '즐겨찾기' },
+			attr: { type: 'button', 'aria-label': wmT("즐겨찾기") },
 		});
 		setIcon(this.favoriteButton, 'heart');
 		this.shuffleButton.addEventListener('click', () => player.setMode(player.mode === 'shuffle' ? 'loop' : 'shuffle'));
@@ -176,136 +302,69 @@ export class MusicLibraryView extends ItemView {
 			if (player.currentTrack) void player.toggleFavorite(player.currentTrack);
 		});
 
-		const search = body.createDiv({ cls: 'wm-music-library-search' });
-		setIcon(search.createSpan(), 'search');
-		const input = search.createEl('input', {
-			type: 'search',
-			attr: { placeholder: 'Search library', 'aria-label': '음악 검색' },
-		});
-		input.value = this.query;
-		input.addEventListener('input', () => {
-			this.query = input.value.trim().toLocaleLowerCase();
-			this.renderList();
-		});
-
-		const waveform = body.createDiv({
-			cls: 'wm-music-library-waveform',
-			attr: { role: 'slider', tabindex: '0', 'aria-label': '재생 위치', 'aria-valuemin': '0', 'aria-valuemax': '100' },
-		});
-		waveform.createSpan({ cls: 'wm-music-library-wave-loading', attr: { 'aria-hidden': 'true' } });
-		this.waveformTrack = waveform.createDiv({ cls: 'wm-music-library-wave-layer is-track' });
-		this.waveformFill = waveform.createDiv({ cls: 'wm-music-library-wave-layer is-fill' });
-		const seekAt = (clientX: number) => {
-			const bounds = waveform.getBoundingClientRect();
-			if (bounds.width <= 0) return;
-			player.seek(Math.max(0, Math.min(1, (clientX - bounds.left) / bounds.width)));
-			this.updateAudioControls();
-		};
-		waveform.addEventListener('pointerdown', event => {
-			waveform.setPointerCapture(event.pointerId);
-			seekAt(event.clientX);
-		});
-		waveform.addEventListener('pointermove', event => {
-			if (!waveform.hasPointerCapture(event.pointerId)) return;
-			seekAt(event.clientX);
-		});
-		waveform.addEventListener('keydown', event => {
-			if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
-			event.preventDefault();
-			const duration = player.audio.duration;
-			if (!Number.isFinite(duration) || duration <= 0) return;
-			player.seek((player.audio.currentTime + (event.key === 'ArrowRight' ? 5 : -5)) / duration);
-		});
-
-		const footer = body.createDiv({ cls: 'wm-music-library-audio-footer' });
-		this.currentTimeEl = footer.createSpan({ cls: 'wm-music-library-audio-time', text: '0:00' });
-		this.durationEl = footer.createSpan({ cls: 'wm-music-library-audio-time', text: '0:00' });
 		this.updateAudioControls();
 	}
 
-	private renderWaveform(key: string) {
-		if (!this.waveformTrack || !this.waveformFill) return;
-		const revision = ++this.waveformRevision;
-		const player = this.plugin.musicPlayer;
-		const track = player?.currentTrack ?? null;
-		const waveform = this.waveformTrack.parentElement;
-		this.waveformTrack.empty();
-		this.waveformFill.empty();
-		waveform?.removeClass('is-unavailable');
-		waveform?.toggleClass('is-loading', !!track);
-		const paint = (peaks: number[]) => {
-			if (revision !== this.waveformRevision || key !== this.waveformKey) return;
-			waveform?.removeClass('is-loading');
-			waveform?.toggleClass('is-unavailable', peaks.length === 0);
-			this.waveformTrack?.empty();
-			this.waveformFill?.empty();
-			for (const layer of [this.waveformTrack, this.waveformFill]) {
-				if (layer) this.paintWaveformCanvas(layer, peaks);
-			}
-		};
-		if (!track || !player) return;
-		void player.getWaveform(track, MUSIC_LIBRARY_WAVEFORM_BARS).then(paint);
+	private updateLiquidGeometry(width: number): void {
+		const nextWidth = Math.max(1, Number(width.toFixed(2)));
+		if (Math.abs(nextWidth - this.liquidWidth) < .2) return;
+		this.liquidWidth = nextWidth;
+		for (const { svg, effect, layer } of this.liquidLayers) {
+			svg.setAttribute('viewBox', `0 0 ${nextWidth} 16`);
+			effect.setKeyframes(liquidWaveFrames(nextWidth, layer));
+		}
 	}
 
-	/** WaveSurfer의 bar renderer처럼 peak 배열을 고정 폭 canvas 막대로 그린다. */
-	private paintWaveformCanvas(layer: HTMLElement, peaks: number[]): void {
-		const host = layer.parentElement;
-		const cssWidth = Math.max(1, Math.round(host?.clientWidth ?? 320));
-		const cssHeight = Math.max(1, Math.round(host?.clientHeight ?? 34));
-		const pixelRatio = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-		const canvas = layer.createEl('canvas', { cls: 'wm-music-library-wave-canvas' });
-		canvas.width = Math.round(cssWidth * pixelRatio);
-		canvas.height = Math.round(cssHeight * pixelRatio);
-		const context = canvas.getContext('2d');
-		if (!context) return;
-		context.scale(pixelRatio, pixelRatio);
-		context.strokeStyle = getComputedStyle(layer).color;
-		context.lineCap = 'round';
-		const spacing = cssWidth / Math.max(1, peaks.length);
-		context.lineWidth = Math.max(1, Math.min(2, spacing * .62));
-		const halfHeight = cssHeight / 2;
-		const amplitude = Math.max(1, halfHeight - 1.5);
-		context.beginPath();
-		peaks.forEach((peak, index) => {
-			const height = Math.max(1.5, Math.min(amplitude, peak * amplitude));
-			const x = (index + .5) * spacing;
-			context.moveTo(x, halfHeight - height);
-			context.lineTo(x, halfHeight + height);
-		});
-		context.stroke();
+	private updateLiquidMotion(): void {
+		const animate = !!this.progressEl?.hasClass('is-playing') && !this.liquidMotionQuery?.matches;
+		if (animate === this.liquidAnimating) return;
+		this.liquidAnimating = animate;
+		for (const animation of this.liquidAnimations) {
+			if (animate) void animation.play();
+			else animation.pause();
+		}
 	}
 
 	private updateAudioControls() {
 		const player = this.plugin.musicPlayer;
 		if (!player) return;
 		const trackKey = player.currentTrack?.path ?? '';
-		if (trackKey !== this.waveformKey) {
-			this.waveformKey = trackKey;
-			this.renderWaveform(trackKey);
-			this.updateNowPlayingArtwork(trackKey);
+		if (trackKey !== this.trackKey) {
+			this.trackKey = trackKey;
+			this.updateNowPlayingTrack(trackKey);
 		}
 		const track = player.currentTrack;
-		if (this.audioTitle) refreshOverflowMarquee(this.audioTitle, track?.name ?? '재생할 곡을 선택하세요');
-		if (this.audioFolder) this.audioFolder.textContent = track ? folderLabel(folderOf(track)) : 'LOCAL LIBRARY';
 		const playIcon = player.isPlaying ? 'pause' : 'play';
 		if (this.audioPlayButton && playIcon !== this.audioPlayIcon) {
 			this.audioPlayIcon = playIcon;
 			setIcon(this.audioPlayButton, playIcon);
 		}
 		const duration = player.audio.duration;
-		const ratio = Number.isFinite(duration) && duration > 0
+		const canSeek = !!track && Number.isFinite(duration) && duration > 0;
+		const ratio = canSeek
 			? Math.max(0, Math.min(1, player.audio.currentTime / duration))
 			: 0;
-		if (this.waveformFill) this.waveformFill.style.clipPath = `inset(0 ${100 - ratio * 100}% 0 0)`;
-		const waveform = this.waveformFill?.parentElement;
-		waveform?.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
+		if (this.progressEl) {
+			const playedWidth = 6 + Math.max(0, this.progressEl.clientWidth - 12) * ratio;
+			this.updateLiquidGeometry(playedWidth);
+			// Match the native 12px thumb's center, including at either end of the track.
+			this.progressEl.style.setProperty('--wm-music-progress', `calc(6px + (100% - 12px) * ${ratio})`);
+			this.progressEl.toggleClass('has-progress', ratio > 0);
+			this.progressEl.toggleClass('is-playing', canSeek && player.isPlaying);
+			this.updateLiquidMotion();
+		}
+		if (this.seekInput) {
+			this.seekInput.value = String(Math.round(ratio * 1000));
+			this.seekInput.disabled = !canSeek;
+			this.seekInput.setAttribute('aria-valuetext', `${formatAudioTime(player.audio.currentTime)} / ${formatAudioTime(duration)}`);
+		}
 		if (this.currentTimeEl) this.currentTimeEl.textContent = formatAudioTime(player.audio.currentTime);
 		if (this.durationEl) this.durationEl.textContent = formatAudioTime(duration);
 		if (this.volumeInput && document.activeElement !== this.volumeInput) this.volumeInput.value = String(Math.round(player.volume * 100));
 		if (this.volumeInput) {
 			const percent = Math.round(player.volume * 100);
 			this.volumeInput.setCssStyles({
-				background: `linear-gradient(to right, var(--wm-music-ui-accent) ${percent}%, var(--wm-music-wave-track) ${percent}%)`,
+				background: `linear-gradient(to right, var(--wm-music-ui-accent) ${percent}%, var(--wm-music-progress-track) ${percent}%)`,
 			});
 		}
 		if (this.volumeButton) {
@@ -314,32 +373,57 @@ export class MusicLibraryView extends ItemView {
 				this.volumeIcon = icon;
 				setIcon(this.volumeButton, icon);
 			}
-			this.volumeButton.setAttribute('aria-label', `볼륨 조절: ${Math.round(player.volume * 100)}%`);
+			this.volumeButton.setAttribute('aria-label', wmT("볼륨 조절: {0}%", Math.round(player.volume * 100)));
 		}
 		if (this.favoriteButton) {
 			const favorite = !!track && player.isFavorite(track);
 			this.favoriteButton.toggleClass('is-favorite', favorite);
 			this.favoriteButton.setAttribute('aria-pressed', String(favorite));
-			this.favoriteButton.setAttribute('aria-label', favorite ? '즐겨찾기 해제' : '즐겨찾기');
+			this.favoriteButton.setAttribute('aria-label', favorite ? wmT("즐겨찾기 해제") : wmT("즐겨찾기"));
 			this.favoriteButton.disabled = !track;
 		}
 	}
 
-	private updateNowPlayingArtwork(trackKey: string): void {
+	private updateNowPlayingTrack(trackKey: string): void {
 		const player = this.plugin.musicPlayer;
 		const track = player?.currentTrack ?? null;
 		const revision = ++this.audioArtworkRevision;
-		this.audioCover?.removeAttribute('src');
-		this.audioCover?.removeClass('is-loaded');
+		if (this.audioCover) {
+			// Hide immediately so clearing src cannot fade a broken-image icon into view.
+			this.audioCover.hidden = true;
+			this.audioCover.removeClass('is-loaded');
+			this.audioCover.removeAttribute('src');
+		}
 		this.audioBackdrop?.style.removeProperty('--wm-music-backdrop-image');
 		this.audioBackdrop?.removeClass('is-loaded');
+		if (this.audioTitle) refreshOverflowMarquee(this.audioTitle, track?.name ?? wmT("재생할 곡을 선택하세요"));
+		if (this.audioArtist) {
+			this.audioArtist.textContent = '';
+			this.audioArtist.hidden = true;
+		}
 		if (!player || !track) return;
-		void player.getCover(track).then(url => {
-			if (!url || revision !== this.audioArtworkRevision || trackKey !== (player.currentTrack?.path ?? '')) return;
-			if (this.audioCover) {
-				this.audioCover.src = url;
-				this.audioCover.addClass('is-loaded');
+		void player.getMetadata(track).then(metadata => {
+			if (revision !== this.audioArtworkRevision || trackKey !== (player.currentTrack?.path ?? '')) return;
+			if (this.audioTitle) refreshOverflowMarquee(this.audioTitle, metadata.title || track.name);
+			if (this.audioArtist) {
+				this.audioArtist.textContent = metadata.artist;
+				this.audioArtist.hidden = !metadata.artist;
 			}
+		});
+		void player.getCover(track).then(async url => {
+			if (!url || revision !== this.audioArtworkRevision || trackKey !== (player.currentTrack?.path ?? '')) return;
+			const cover = this.audioCover;
+			if (!cover) return;
+			cover.src = url;
+			try {
+				await cover.decode();
+			} catch {
+				if (revision === this.audioArtworkRevision) cover.removeAttribute('src');
+				return;
+			}
+			if (revision !== this.audioArtworkRevision || trackKey !== (player.currentTrack?.path ?? '') || cover !== this.audioCover) return;
+			cover.addClass('is-loaded');
+			cover.hidden = false;
 			if (this.audioBackdrop) {
 				this.audioBackdrop.style.setProperty('--wm-music-backdrop-image', `url("${url}")`);
 				this.audioBackdrop.addClass('is-loaded');
@@ -359,121 +443,67 @@ export class MusicLibraryView extends ItemView {
 		}
 		this.repeatButton?.toggleClass('is-active', activeMode === 'single');
 		this.repeatButton?.setAttribute('aria-pressed', String(activeMode === 'single'));
-		this.repeatButton?.setAttribute('aria-label', activeMode === 'single' ? '한 곡 반복' : '전체 반복');
+		this.repeatButton?.setAttribute('aria-label', activeMode === 'single' ? wmT("한 곡 반복") : wmT("전체 반복"));
 	}
 
 	private renderList() {
 		const list = this.listEl;
-		const player = this.plugin.musicPlayer;
-		if (!list || !player) return;
-		list.empty();
+		if (!list) return;
 		const revision = ++this.renderRevision;
-		const filtered = player.playlist.filter(track => {
-			if (!this.query) return true;
-			return `${track.name} ${track.path}`.toLocaleLowerCase().includes(this.query);
-		});
-		if (this.countEl) this.countEl.textContent = `${filtered.length} TRACKS`;
-
-		if (filtered.length === 0) {
-			const empty = list.createDiv({ cls: 'wm-music-library-empty' });
-			setIcon(empty.createSpan(), 'disc-3');
-			empty.createSpan({ text: this.query ? '검색 결과가 없습니다.' : '설정에서 음악 폴더를 지정해 주세요.' });
+		const bases = this.plugin.musicLibraryBases;
+		if (!bases) {
+			this.renderFallback(wmT('필터를 사용하려면 베이스 코어 플러그인을 켜 주세요.'));
 			return;
 		}
-
-		const filteredPaths = new Set(filtered.map(track => track.path));
-		const favoriteTracks = player.favoriteTracks.filter(track => filteredPaths.has(track.path));
-		const favorites = list.createDiv({ cls: 'wm-music-library-folder wm-music-library-favorites' });
-		const favoriteHeader = favorites.createDiv({ cls: 'wm-music-library-folder-header' });
-		const favoriteTitle = favoriteHeader.createSpan({ cls: 'wm-music-library-folder-title' });
-		favoriteTitle.createSpan({ text: '즐겨찾기' });
-		favoriteHeader.createSpan({ text: String(favoriteTracks.length) });
-		if (favoriteTracks.length === 0) {
-			favorites.createDiv({ cls: 'wm-music-library-favorites-empty', text: '즐겨찾기한 곡이 없습니다.' });
-		} else {
-			for (const track of favoriteTracks) {
-				this.renderTrackRow(favorites, track, folderLabel(folderOf(track)), revision);
-			}
-		}
-
-		const groups = new Map<string, Track[]>();
-		for (const track of filtered) {
-			const folder = folderOf(track);
-			const tracks = groups.get(folder) ?? [];
-			tracks.push(track);
-			groups.set(folder, tracks);
-		}
-
-		for (const [folder, tracks] of groups) {
-			const section = list.createDiv({ cls: 'wm-music-library-folder' });
-			const folderHeader = section.createDiv({ cls: 'wm-music-library-folder-header' });
-			folderHeader.createSpan({ text: folderLabel(folder) });
-			folderHeader.createSpan({ text: String(tracks.length) });
-			for (const track of tracks) {
-				this.renderTrackRow(section, track, folderLabel(folder), revision);
-			}
-		}
+		void bases.getFile().then(async file => {
+			if (revision !== this.renderRevision || !list.isConnected) return;
+			if (!file) { this.renderFallback(); return; }
+			if (this.basePath === file.path && this.baseRender) return;
+			this.clearList();
+			list.addClass('wm-music-library-bases');
+			this.basePath = file.path;
+			const component = this.addChild(new Component());
+			this.baseRender = component;
+			await MarkdownRenderer.render(this.app, `![[${file.path}]]`, list, '', component);
+		}).catch(error => {
+			console.error('Music library Bases render failed', error);
+			if (revision === this.renderRevision) this.renderFallback(wmT('라이브러리 필터를 불러오지 못했습니다.'));
+		});
 	}
 
-	private renderTrackRow(parent: HTMLElement, track: Track, meta: string, revision: number) {
-		const player = this.plugin.musicPlayer;
-		if (!player) return;
-		const isCurrent = player.currentTrack?.path === track.path;
-		const isFavorite = player.isFavorite(track);
-		const row = parent.createDiv({
-			cls: `wm-music-library-track${isCurrent ? ' is-current' : ''}`,
-			attr: { role: 'button', tabindex: '0', 'aria-label': `${track.name} 재생` },
-		});
-		const art = row.createSpan({ cls: 'wm-music-library-track-art' });
-		setIcon(art, 'music-2');
-		void player.getCover(track).then(url => {
-			if (!url || revision !== this.renderRevision || !row.isConnected) return;
-			art.empty();
-			const image = art.createEl('img', { cls: 'wm-music-library-track-cover', attr: { alt: '' } });
-			image.src = url;
-		});
-		const copy = row.createSpan({ cls: 'wm-music-library-track-copy' });
-		copy.createSpan({ cls: 'wm-music-library-track-title', text: track.name });
-		copy.createSpan({ cls: 'wm-music-library-track-meta', text: meta });
-		const action = row.createEl('button', {
-			cls: 'wm-music-library-track-action',
-			attr: { type: 'button', 'aria-label': isCurrent && player.isPlaying ? '일시정지' : '재생' },
-		});
-		setIcon(action, isCurrent && player.isPlaying ? 'pause' : 'play');
-		const favorite = row.createEl('button', {
-			cls: `wm-music-library-track-favorite${isFavorite ? ' is-favorite' : ''}`,
-			attr: { type: 'button', 'aria-label': isFavorite ? '즐겨찾기 해제' : '즐겨찾기' },
-		});
-		setIcon(favorite, 'heart');
+	private clearList(): void {
+		if (this.baseRender) this.removeChild(this.baseRender);
+		if (this.fallbackTracks) this.removeChild(this.fallbackTracks);
+		this.baseRender = null;
+		this.fallbackTracks = null;
+		this.basePath = '';
+		this.listEl?.removeClass('wm-music-library-bases');
+		this.listEl?.empty();
+	}
 
-		const playTrack = () => {
-			if (player.currentTrack?.path === track.path) player.togglePlay();
-			else player.playInFolder(track);
-		};
-		row.addEventListener('click', event => {
-			if ((event.target as HTMLElement).closest('button')) return;
-			playTrack();
-		});
-		row.addEventListener('pointerenter', () => {
-			window.clearTimeout(this.waveformPrefetchTimer);
-			this.waveformPrefetchTimer = window.setTimeout(() => {
-				void player.getWaveform(track, MUSIC_LIBRARY_WAVEFORM_BARS);
-			}, 180);
-		});
-		row.addEventListener('pointerleave', () => window.clearTimeout(this.waveformPrefetchTimer));
-		row.addEventListener('keydown', event => {
-			if (event.key !== 'Enter' && event.key !== ' ') return;
-			if ((event.target as HTMLElement).closest('button')) return;
-			event.preventDefault();
-			playTrack();
-		});
-		action.addEventListener('click', event => {
-			event.stopPropagation();
-			playTrack();
-		});
-		favorite.addEventListener('click', event => {
-			event.stopPropagation();
-			void player.toggleFavorite(track);
-		});
+	private renderFallback(message = ''): void {
+		const list = this.listEl;
+		const player = this.plugin.musicPlayer;
+		if (!list || !player) return;
+		if (!this.fallbackTracks) {
+			this.clearList();
+			if (message) list.createDiv({ cls: 'wm-music-library-filter-status', text: message });
+			this.fallbackTracks = this.addChild(new MusicLibraryTracks(list.createDiv(), player));
+		}
+		const folders = new Map<string, Track[]>();
+		for (const track of player.playlist) {
+			const folder = folderOf(track);
+			const tracks = folders.get(folder) ?? [];
+			tracks.push(track);
+			folders.set(folder, tracks);
+		}
+		const groups: MusicLibraryTrackGroup[] = [{
+			key: 'favorites', label: wmT('즐겨찾기'),
+			tracks: player.favoriteTracks,
+		}, ...[...folders].map(([folder, tracks]) => ({
+			key: folder, label: folderLabel(folder),
+			tracks,
+		}))];
+		this.fallbackTracks.render(groups, wmT('설정에서 음악 폴더를 지정해 주세요.'));
 	}
 }

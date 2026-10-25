@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import type { ChatContextItem } from './AiChatTypes';
 
 export interface DeusReferenceChoice { source: ChatContextItem; checked: boolean }
@@ -7,9 +8,9 @@ export function createDeusComposerMenu(host: HTMLElement, trigger: HTMLButtonEle
 }) {
  const close = () => { host.hidden = true; trigger.setAttribute('aria-expanded', 'false'); };
  const render = () => {
-  host.empty(); host.createDiv({ cls: 'deus-add-heading', text: '참고 자료' });
+  host.empty(); host.createDiv({ cls: 'deus-add-heading', text: wmT("참고 자료") });
   const body = host.createDiv({ cls: 'deus-add-list' });
-  const groups = [['본문', ['document', 'selection']], ['인물', ['character']], ['플롯', ['plot']], ['참고 자료', ['reference']]] as const;
+  const groups = [[wmT("본문"), ['document', 'selection']], [wmT("인물"), ['character']], [wmT("플롯"), ['plot']], [wmT("참고 자료"), ['reference']]] as const;
   const choices = options.references();
   for (const [name, kinds] of groups) {
    const items = choices.filter(item => (kinds as readonly string[]).includes(item.source.kind ?? 'reference'));
@@ -22,7 +23,7 @@ export function createDeusComposerMenu(host: HTMLElement, trigger: HTMLButtonEle
     checkbox.onchange = () => options.toggle(source, checkbox.checked);
    }
   }
-  if (!choices.length) body.createDiv({ cls: 'deus-add-empty', text: '참고 자료가 없습니다. @로 노트를 지정할 수 있습니다.' });
+  if (!choices.length) body.createDiv({ cls: 'deus-add-empty', text: wmT("참고 자료가 없습니다. @로 노트를 지정할 수 있습니다.") });
  };
  trigger.setAttribute('aria-haspopup', 'dialog'); trigger.setAttribute('aria-expanded', 'false');
  trigger.onclick = () => { if (!host.hidden) { close(); return; } render(); host.hidden = false; trigger.setAttribute('aria-expanded', 'true'); };

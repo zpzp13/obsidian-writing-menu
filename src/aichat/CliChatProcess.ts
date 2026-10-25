@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import type { CliChatOptions } from './CliChatApi';
 import { Platform } from 'obsidian';
 import { checkChatAbort } from './ChatStream';
@@ -23,7 +24,7 @@ function cliRuntime() {
 		homedir: (require('os') as { homedir: () => string }).homedir,
 		path: require('path') as { delimiter: string; join(...parts: string[]): string; dirname(filename: string): string; isAbsolute(filename: string): boolean },
 	};
-	throw new Error('CLI 연결은 데스크톱 Obsidian에서 사용할 수 있습니다.');
+	throw new Error(wmT("CLI 연결은 데스크톱 Obsidian에서 사용할 수 있습니다."));
 }
 
 interface CliCommand { command: string; prefix: string[] }
@@ -43,7 +44,7 @@ export async function resolveCliCommand(provider: CliChatOptions['provider'], co
 		if (/\.(?:cmd|bat|ps1)$/i.test(candidate)) {
 			const entry = provider === 'codex' ? ['@openai', 'codex', 'bin', 'codex.js'] : ['@anthropic-ai', 'claude-code', 'cli.js'];
 			executable = path.join(path.dirname(candidate), 'node_modules', ...entry);
-			if (!await isFile(executable)) { if (selected) throw new Error('이 CLI 바로가기를 실행할 수 없습니다. 실행 파일 또는 CLI의 JS 파일 경로를 지정해 주세요.'); continue; }
+			if (!await isFile(executable)) { if (selected) throw new Error(wmT("이 CLI 바로가기를 실행할 수 없습니다. 실행 파일 또는 CLI의 JS 파일 경로를 지정해 주세요.")); continue; }
 		}
 		if (/\.[cm]?js$/i.test(executable)) {
 			if (provider === 'codex') {
@@ -60,11 +61,11 @@ export async function resolveCliCommand(provider: CliChatOptions['provider'], co
 				...folders.map(folder => path.join(folder, windows ? 'node.exe' : 'node')),
 				...(windows ? [path.join(process.env.ProgramFiles ?? 'C:\\Program Files', 'nodejs', 'node.exe')] : ['/usr/bin/node'])];
 			for (const node of nodes) if (await isFile(node)) return { command: node, prefix: [executable] };
-			throw new Error('이 CLI의 JS 실행 파일에는 Node.js가 필요합니다. Node.js를 설치하거나 CLI 실행 파일 경로를 지정해 주세요.');
+			throw new Error(wmT("이 CLI의 JS 실행 파일에는 Node.js가 필요합니다. Node.js를 설치하거나 CLI 실행 파일 경로를 지정해 주세요."));
 		}
 		return { command: executable, prefix: [] };
 	}
-	throw new Error(`${provider === 'claude' ? 'Claude Code' : 'Codex'} CLI를 찾지 못했습니다. 설치 후 Deus 설정에서 CLI 경로를 지정해 주세요.`);
+	throw new Error(wmT("{0} CLI를 찾지 못했습니다. 설치 후 Deus 설정에서 CLI 경로를 지정해 주세요.", provider === 'claude' ? 'Claude Code' : 'Codex'));
 }
 
 export function cliArguments(options: CliChatOptions, system: string): string[] {
@@ -81,7 +82,7 @@ export function cliArguments(options: CliChatOptions, system: string): string[] 
 export async function withCliProcess<T>(options: CliChatOptions, args: string[], signal: AbortSignal | undefined, run: (child: CliChild, terminate: () => void) => Promise<T>): Promise<T> {
 	checkChatAbort(signal);
 	const { spawn, stat, path } = cliRuntime();
-	if (!path.isAbsolute(options.cwd) || !(await stat(options.cwd)).isDirectory()) throw new Error('CLI에 전달할 프로젝트 폴더를 찾지 못했습니다.');
+	if (!path.isAbsolute(options.cwd) || !(await stat(options.cwd)).isDirectory()) throw new Error(wmT("CLI에 전달할 프로젝트 폴더를 찾지 못했습니다."));
 	const resolved = await resolveCliCommand(options.provider, options.path);
 	checkChatAbort(signal);
 	const env: Record<string, string | undefined> = { ...process.env, NO_COLOR: '1', CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1' };
@@ -107,18 +108,18 @@ export async function runCliChat(options: CliChatOptions, prompt: string, system
 			settled = true; signal?.removeEventListener('abort', abort);
 			if (error) reject(error); else resolve(text);
 		};
-		const abort = () => { terminate(); finish(new DOMException('응답 수신을 중단했습니다.', 'AbortError')); };
+		const abort = () => { terminate(); finish(new DOMException(wmT("응답 수신을 중단했습니다."), 'AbortError')); };
 		const update = (value: string) => { text = value; onText?.(text); };
 		const consume = (line: string) => {
 			line = line.replace(/^\uFEFF/, '').trim();
 			if (settled || !line) return;
 			if (!line.startsWith('{')) { stderr = (stderr + '\n' + line).slice(-2000); return; }
 			let record: unknown;
-			try { record = JSON.parse(line); } catch { throw new Error('CLI에서 올바른 JSON 응답을 받지 못했습니다.'); }
+			try { record = JSON.parse(line); } catch { throw new Error(wmT("CLI에서 올바른 JSON 응답을 받지 못했습니다.")); }
 			if (!isRecord(record)) return;
-			if (record.type === 'error') failure = typeof record.message === 'string' ? record.message : 'CLI 오류';
+			if (record.type === 'error') failure = typeof record.message === 'string' ? record.message : wmT("CLI 오류");
 			if (options.provider === 'codex') {
-				if (record.type === 'turn.failed') failure = isRecord(record.error) && typeof record.error.message === 'string' ? record.error.message : 'Codex 응답 실패';
+				if (record.type === 'turn.failed') failure = isRecord(record.error) && typeof record.error.message === 'string' ? record.error.message : wmT("Codex 응답 실패");
 				if (record.type === 'turn.completed') completed = true;
 				if (record.type === 'item.completed' && isRecord(record.item) && record.item.type === 'agent_message' && typeof record.item.text === 'string') update(record.item.text);
 			} else {
@@ -131,7 +132,7 @@ export async function runCliChat(options: CliChatOptions, prompt: string, system
 				}
 				if (record.type === 'result') {
 					completed = !record.is_error && record.subtype === 'success';
-					if (!completed) failure = typeof record.result === 'string' ? record.result : 'Claude Code 응답 실패';
+					if (!completed) failure = typeof record.result === 'string' ? record.result : wmT("Claude Code 응답 실패");
 					else if (typeof record.result === 'string') update(record.result);
 				}
 			}
@@ -140,21 +141,21 @@ export async function runCliChat(options: CliChatOptions, prompt: string, system
 		child.stdout.on('data', (data: string) => {
 			try {
 				buffer += data;
-				if (buffer.length > 16_000_000) throw new Error('CLI 응답이 너무 큽니다.');
+				if (buffer.length > 16_000_000) throw new Error(wmT("CLI 응답이 너무 큽니다."));
 				let newline: number;
 				while ((newline = buffer.indexOf('\n')) >= 0) { const line = buffer.slice(0, newline); buffer = buffer.slice(newline + 1); consume(line); }
 			} catch (error) { terminate(); finish(error instanceof Error ? error : new Error(String(error))); }
 		});
 		child.stderr.on('data', (data: string) => { stderr = (stderr + data).slice(-2000); });
-		child.on('error', error => finish(new Error(`CLI를 실행하지 못했습니다: ${error.message}`)));
-		child.stdin.on('error', error => { if (!settled) { terminate(); finish(new Error(`CLI 입력을 전달하지 못했습니다: ${error.message}`)); } });
+		child.on('error', error => finish(new Error(wmT("CLI를 실행하지 못했습니다: {0}", error.message))));
+		child.stdin.on('error', error => { if (!settled) { terminate(); finish(new Error(wmT("CLI 입력을 전달하지 못했습니다: {0}", error.message))); } });
 		child.on('close', code => {
 			if (settled) return;
 			try {
 				consume(buffer);
 				const detail = failure || stderr.trim();
-				if (/not logged in|please.*(?:log ?in|sign ?in)|authentication required/i.test(detail)) finish(new Error(`CLI 로그인이 필요합니다. 터미널에서 ${options.provider === 'claude' ? 'claude auth login' : 'codex login'} 실행 후 다시 시도해 주세요.`));
-				else if (code !== 0 || failure || !completed || !text.trim()) finish(new Error(failure || `CLI 응답을 완료하지 못했습니다 (${code ?? '중단'}). ${stderr.trim() || '터미널에서 CLI 설치와 로그인 상태를 확인해 주세요.'}`));
+				if (/not logged in|please.*(?:log ?in|sign ?in)|authentication required/i.test(detail)) finish(new Error(wmT("CLI 로그인이 필요합니다. 터미널에서 {0} 실행 후 다시 시도해 주세요.", options.provider === 'claude' ? 'claude auth login' : 'codex login')));
+				else if (code !== 0 || failure || !completed || !text.trim()) finish(new Error(failure || wmT("CLI 응답을 완료하지 못했습니다 ({0}). {1}", code ?? wmT("중단"), stderr.trim() || wmT("터미널에서 CLI 설치와 로그인 상태를 확인해 주세요."))));
 				else finish();
 			} catch (error) { finish(error instanceof Error ? error : new Error(String(error))); }
 		});

@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { App, Modal, Editor, EditorPosition, setIcon } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import type { DictEntry } from './types';
@@ -60,7 +61,7 @@ export class DictionaryModal extends Modal {
 		const searchInput = inputRow.createEl('input', { cls: 'wm-dict-search' });
 		searchInput.type = 'text';
 		searchInput.value = this.searchQuery;
-		searchInput.placeholder = '검색어 입력 후 엔터';
+		searchInput.placeholder = wmT("검색어 입력 후 엔터");
 		this.searchInputEl = searchInput;
 
 		this.dropdownEl = searchContainer.createDiv({ cls: 'wm-dict-dropdown', attr: { role: 'listbox' } });
@@ -136,13 +137,13 @@ export class DictionaryModal extends Modal {
 		const footer = contentEl.createDiv({ cls: 'wm-dict-footer' });
 		const footerLeft = footer.createDiv({ cls: 'wm-dict-footer-left' });
 
-		const applyBtn = footerLeft.createEl('button', { cls: 'wm-dict-apply-btn', text: '한자 변환' });
+		const applyBtn = footerLeft.createEl('button', { cls: 'wm-dict-apply-btn', text: wmT("한자 변환") });
 		applyBtn.addEventListener('click', () => this.apply());
 		this.applyBtnEl = applyBtn;
 
 		const bracketBtn = footerLeft.createEl('button', { cls: 'wm-dict-bracket-btn' });
 		const bracketIcon = bracketBtn.createDiv({ cls: 'wm-dict-bracket-icon' });
-		bracketBtn.createSpan({ text: '괄호 병기' });
+		bracketBtn.createSpan({ text: wmT("괄호 병기") });
 		const syncBracketButton = () => {
 			const checked = this.plugin.settings.hanjaBracketMode;
 			bracketIcon.empty();
@@ -158,7 +159,7 @@ export class DictionaryModal extends Modal {
 		})(); });
 		this.bracketBtnEl = bracketBtn;
 
-		footer.createEl('button', { cls: 'wm-dict-footer-btn', text: '닫기', attr: { type: 'button' } })
+		footer.createEl('button', { cls: 'wm-dict-footer-btn', text: wmT("닫기"), attr: { type: 'button' } })
 			.addEventListener('click', () => this.close());
 
 		// ── 키보드 네비게이션 (scope) ─────────────────────────────
@@ -236,7 +237,7 @@ export class DictionaryModal extends Modal {
 		});
 
 		const clearAll = this.dropdownEl.createDiv({ cls: 'wm-dict-drop-clear-all', attr: { role: 'button', tabindex: '0' } });
-		clearAll.createSpan({ text: '최근 검색어 모두 삭제' });
+		clearAll.createSpan({ text: wmT("최근 검색어 모두 삭제") });
 		clearAll.addEventListener('mousedown', (e: MouseEvent) => { void (async () => {
 			e.preventDefault();
 			this.plugin.settings.recentSearches = [];
@@ -343,7 +344,7 @@ export class DictionaryModal extends Modal {
 		this.selectedIdx = 0;
 		this.leftColEl.empty();
 		this.rightColEl.empty();
-		this.rightColEl.createDiv({ cls: 'wm-dict-loading', text: '검색 중…' });
+		this.rightColEl.createDiv({ cls: 'wm-dict-loading', text: wmT("검색 중…") });
 
 		if (this.plugin.settings.stdictApiKey) {
 			this.entries = await callStdictSearch(normalizeQuery(this.searchQuery), this.plugin.settings.stdictApiKey);
@@ -390,8 +391,8 @@ export class DictionaryModal extends Modal {
 
 		if (this.entries.length === 0) {
 			const msg = this.plugin.settings.stdictApiKey
-				? '검색 결과가 없습니다.'
-				: '설정에서 표준국어대사전 API 키를 입력해 주세요.';
+				? wmT("검색 결과가 없습니다.")
+				: wmT("설정에서 표준국어대사전 API 키를 입력해 주세요.");
 			this.rightColEl.createDiv({ cls: 'wm-dict-loading', text: msg });
 			this.updateFooter(false);
 			return;
@@ -422,9 +423,9 @@ export class DictionaryModal extends Modal {
 
 		const exSection = view.createDiv({ cls: 'wm-dict-examples-section' });
 		const divider = exSection.createDiv({ cls: 'wm-dict-examples-divider' });
-		divider.createSpan({ text: '용례' });
+		divider.createSpan({ text: wmT("용례") });
 		const exList = exSection.createDiv({ cls: 'wm-dict-examples-list' });
-		exList.createDiv({ cls: 'wm-dict-loading-small', text: '로딩 중…' });
+		exList.createDiv({ cls: 'wm-dict-loading-small', text: wmT("로딩 중…") });
 		void this.loadExamples(entry, exList);
 
 		this.updateFooter(!!entry.origin);
@@ -439,7 +440,7 @@ export class DictionaryModal extends Modal {
 		if (!container.isConnected) return;
 		container.empty();
 		if (examples.length === 0) {
-			container.createDiv({ cls: 'wm-dict-example', text: '용례가 없습니다.' });
+			container.createDiv({ cls: 'wm-dict-example', text: wmT("용례가 없습니다.") });
 			return;
 		}
 		const circled = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩'];

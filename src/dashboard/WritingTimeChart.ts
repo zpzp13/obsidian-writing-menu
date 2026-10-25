@@ -1,3 +1,5 @@
+import { wmT } from '../i18n/index';
+import { timeModeLabel } from '../i18n/labels';
 import type { TimeModeConfig } from '../types';
 import { fmtTimeFull } from '../utils/timeUtils';
 
@@ -30,20 +32,20 @@ export class WritingTimeChart {
 
 	constructor(container: HTMLElement, private readonly modes: TimeModeConfig[]) {
 		this.card = container.createEl('section', { cls: 'wm-wt-chart-card wm-wt-rv' });
-		this.card.createEl('h2', { text: '일별 작업시간' });
+		this.card.createEl('h2', { text: wmT("일별 작업시간") });
 		const legend = this.card.createDiv({ cls: 'wm-wt-chart-legend' });
 		modes.forEach((mode, index) => {
 			const item = legend.createSpan();
 			item.createSpan({ cls: 'wm-wt-chart-swatch' })
 				.style.setProperty('--wm-wt-series', `var(--wm-wt-series-${index % SERIES_COUNT + 1})`);
-			item.appendText(mode.label);
+			item.appendText(timeModeLabel(mode));
 		});
 		const averageLegend = legend.createSpan();
 		averageLegend.createSpan({ cls: 'wm-wt-chart-average-key' });
-		averageLegend.appendText('7일 평균');
+		averageLegend.appendText(wmT("7일 평균"));
 
 		const box = this.card.createDiv({ cls: 'wm-wt-chart-box' });
-		this.canvas = box.createEl('canvas', { attr: { role: 'img', 'aria-label': '최근 30일 일별 작업시간 그래프' } });
+		this.canvas = box.createEl('canvas', { attr: { role: 'img', 'aria-label': wmT("최근 30일 일별 작업시간 그래프") } });
 		this.tooltip = box.createDiv({ cls: 'wm-wt-chart-tooltip' });
 		this.canvas.addEventListener('pointermove', this.onPointerMove);
 		this.canvas.addEventListener('pointerleave', this.onPointerLeave);
@@ -234,16 +236,16 @@ export class WritingTimeChart {
 			const row = this.tooltip.createDiv({ cls: 'wm-wt-chart-tooltip-row' });
 			row.createSpan({ cls: 'wm-wt-chart-swatch' })
 				.style.setProperty('--wm-wt-series', `var(--wm-wt-series-${modeIndex % SERIES_COUNT + 1})`);
-			row.createSpan({ text: mode.label });
+			row.createSpan({ text: timeModeLabel(mode) });
 			row.createEl('b', { text: fmtTimeFull(Math.round(value)) });
 		});
 		const totalRow = this.tooltip.createDiv({ cls: 'wm-wt-chart-tooltip-total' });
-		totalRow.createSpan({ text: '합계' });
+		totalRow.createSpan({ text: wmT("합계") });
 		totalRow.createEl('b', { text: fmtTimeFull(Math.round(series.totals[index] ?? 0)) });
 		const average = series.average[index];
 		if (average !== null) {
 			const averageRow = this.tooltip.createDiv({ cls: 'wm-wt-chart-tooltip-total' });
-			averageRow.createSpan({ text: '7일 평균' });
+			averageRow.createSpan({ text: wmT("7일 평균") });
 			averageRow.createEl('b', { text: fmtTimeFull(Math.round(average)) });
 		}
 		const flip = x > plotLeft + plotW * .62;

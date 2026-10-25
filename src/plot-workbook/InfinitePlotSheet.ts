@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { PlotWorkbookLinkSuggest } from './PlotWorkbookLinkSuggest';
 import { renderPlotWorkbookLinks } from './PlotWorkbookLinks';
 import { detachedEl } from '../utils/dom';
@@ -47,14 +48,14 @@ const RENDER_EDGE_TOLERANCE = 64;
 const SCROLL_IDLE_RENDER_MS = 180;
 const INITIAL_CELL_TEXT_PREVIEW = 128;
 const COLUMN_ROLES: Array<{ value: PlotWorkbookColumnRole; label: string }> = [
-	{ value: 'text', label: '일반' },
-	{ value: 'plot', label: '플롯' },
-	{ value: 'character', label: '인물' },
-	{ value: 'cast', label: '등장' },
-	{ value: 'status', label: '상태' },
-	{ value: 'date', label: '날짜' },
-	{ value: 'foreshadow', label: '복선' },
-	{ value: 'checklist', label: '체크리스트' },
+	{ value: 'text', label: wmT("일반") },
+	{ value: 'plot', label: wmT("플롯") },
+	{ value: 'character', label: wmT("인물") },
+	{ value: 'cast', label: wmT("등장") },
+	{ value: 'status', label: wmT("상태") },
+	{ value: 'date', label: wmT("날짜") },
+	{ value: 'foreshadow', label: wmT("복선") },
+	{ value: 'checklist', label: wmT("체크리스트") },
 ];
 
 interface AxisLayout {
@@ -249,10 +250,10 @@ export class InfinitePlotSheet {
 		this.corner = this.canvas.createDiv({ cls: 'wm-plotbook-grid-corner' });
 		this.cornerStyleTarget = this.corner.createDiv({
 			cls: 'wm-plotbook-corner-style-target is-hidden',
-			attr: { role: 'group', 'aria-label': '행열 서식 적용 대상' },
+			attr: { role: 'group', 'aria-label': wmT("행열 서식 적용 대상") },
 		});
 		this.cornerStyleTargetThumb = this.cornerStyleTarget.createDiv({ cls: 'wm-plotbook-corner-style-thumb' });
-		for (const [target, label] of [['headers', '제목'], ['cells', '셀']] as const) {
+		for (const [target, label] of [['headers', wmT("제목")], ['cells', wmT("셀")]] as const) {
 			const button = this.cornerStyleTarget.createEl('button', {
 				text: label,
 				attr: { type: 'button', 'aria-pressed': 'false' },
@@ -387,7 +388,7 @@ export class InfinitePlotSheet {
 	} {
 		const bar = this.element.createDiv({
 			cls: 'wm-paged-findbar wm-plotbook-findbar',
-			attr: { role: 'search', 'aria-label': '플롯에서 찾기 및 바꾸기' },
+			attr: { role: 'search', 'aria-label': wmT("플롯에서 찾기 및 바꾸기") },
 		});
 		bar.hidden = true;
 		const findRow = bar.createDiv({ cls: 'wm-paged-find-row is-find' });
@@ -395,23 +396,23 @@ export class InfinitePlotSheet {
 		setIcon(icon, 'search');
 		const input = findRow.createEl('input', {
 			type: 'search',
-			placeholder: '플롯에서 찾기',
+			placeholder: wmT("플롯에서 찾기"),
 			attr: { autocomplete: 'off', spellcheck: 'false' },
 		});
 		const count = findRow.createSpan({ cls: 'wm-paged-find-count', text: '0/0', attr: { 'aria-live': 'polite' } });
 		const previous = findRow.createEl('button', {
 			cls: 'wm-paged-find-action clickable-icon',
-			attr: { type: 'button', 'aria-label': '이전 검색 결과' },
+			attr: { type: 'button', 'aria-label': wmT("이전 검색 결과") },
 		});
 		setIcon(previous, 'chevron-up');
 		const next = findRow.createEl('button', {
 			cls: 'wm-paged-find-action clickable-icon',
-			attr: { type: 'button', 'aria-label': '다음 검색 결과' },
+			attr: { type: 'button', 'aria-label': wmT("다음 검색 결과") },
 		});
 		setIcon(next, 'chevron-down');
 		const close = findRow.createEl('button', {
 			cls: 'wm-paged-find-action clickable-icon',
-			attr: { type: 'button', 'aria-label': '검색 닫기' },
+			attr: { type: 'button', 'aria-label': wmT("검색 닫기") },
 		});
 		setIcon(close, 'x');
 
@@ -420,18 +421,18 @@ export class InfinitePlotSheet {
 		setIcon(replaceIcon, 'replace');
 		const replaceInput = replaceRow.createEl('input', {
 			type: 'text',
-			placeholder: '바꿀 내용',
+			placeholder: wmT("바꿀 내용"),
 			attr: { autocomplete: 'off', spellcheck: 'false' },
 		});
 		const replaceOne = replaceRow.createEl('button', {
 			cls: 'wm-paged-find-replace-button',
-			text: '바꾸기',
+			text: wmT("바꾸기"),
 			attr: { type: 'button' },
 		});
 		const replaceAll = replaceRow.createEl('button', {
 			cls: 'wm-paged-find-replace-button',
-			text: '모두',
-			attr: { type: 'button', 'aria-label': '모두 바꾸기' },
+			text: wmT("모두"),
+			attr: { type: 'button', 'aria-label': wmT("모두 바꾸기") },
 		});
 		for (const field of [input, replaceInput]) {
 			field.addEventListener('keydown', event => event.stopPropagation());
@@ -750,7 +751,7 @@ export class InfinitePlotSheet {
 			}
 			this.syncedNotePaths = currentPaths;
 		} catch (error) {
-			new Notice(`플롯 정보를 본문 노트에 기록하지 못했습니다: ${error instanceof Error ? error.message : String(error)}`);
+			new Notice(wmT("플롯 정보를 본문 노트에 기록하지 못했습니다: {0}", error instanceof Error ? error.message : String(error)));
 		} finally {
 			this.frontmatterSyncRunning = false;
 			if (this.frontmatterSyncPending) {
@@ -1664,7 +1665,7 @@ export class InfinitePlotSheet {
 			await clipboard.writeText(text);
 			if (cut) this.clearSelectedRange();
 		} catch (error) {
-			new Notice(`클립보드에 복사하지 못했습니다: ${error instanceof Error ? error.message : String(error)}`);
+			new Notice(wmT("클립보드에 복사하지 못했습니다: {0}", error instanceof Error ? error.message : String(error)));
 		}
 	}
 
@@ -1674,7 +1675,7 @@ export class InfinitePlotSheet {
 		try {
 			this.pasteClipboardText(await clipboard.readText());
 		} catch (error) {
-			new Notice(`클립보드에서 붙여넣지 못했습니다: ${error instanceof Error ? error.message : String(error)}`);
+			new Notice(wmT("클립보드에서 붙여넣지 못했습니다: {0}", error instanceof Error ? error.message : String(error)));
 		}
 	}
 
@@ -2009,8 +2010,8 @@ export class InfinitePlotSheet {
 		const value = this.session.getCell(sheet, rowId, columnId);
 		const role = sheet.columns[columnId]?.role ?? 'text';
 		if (collapsedColumn) {
-			const roleLabel = COLUMN_ROLES.find(candidate => candidate.value === role)?.label ?? '일반';
-			cell.setAttribute('title', sheet.columns[columnId]?.title || (role === 'cast' ? '등장' : roleLabel) || columnLabel(columnIndex));
+			const roleLabel = COLUMN_ROLES.find(candidate => candidate.value === role)?.label ?? wmT("일반");
+			cell.setAttribute('title', sheet.columns[columnId]?.title || (role === 'cast' ? wmT("등장") : roleLabel) || columnLabel(columnIndex));
 		}
 		const locked = role === 'cast';
 		const structured = role === 'status' || role === 'date';
@@ -2129,7 +2130,7 @@ export class InfinitePlotSheet {
 		const list = cell.createDiv({ cls:'wm-plotbook-checklist-cell-items' });
 		for (const task of tasks.slice(0, limit)) {
 			const row = list.createDiv({ cls:`wm-plotbook-checklist-cell-item${task.completed ? ' is-complete' : ''}` });
-			createChecklistControl(row,task.completed,`${task.text} 완료`,completed => this.session.changeChecklistTask(sheet.sheetId,rowId,columnId,task,{completed}));
+			createChecklistControl(row,task.completed,wmT("{0} 완료", task.text),completed => this.session.changeChecklistTask(sheet.sheetId,rowId,columnId,task,{completed}));
 			const text = row.createSpan({ cls: 'wm-plotbook-checklist-task-text' });
 			this.renderMatchingLabel(text, task.text);
 			renderChecklistCompletionDate(row, task.completionDate);
@@ -2181,7 +2182,7 @@ export class InfinitePlotSheet {
 			const task = list.createDiv({
 				cls: `wm-plotbook-foreshadow-cell-item wm-plotbook-foreshadow-task is-${item.status}`,
 				attr: {
-					title: `${resolvedHere ? '회수' : plantedHere ? '등록' : '연결'} · ${item.status === 'resolved' ? '회수됨' : '미회수'}`,
+					title: `${resolvedHere ? wmT("회수") : plantedHere ? wmT("등록") : wmT("연결")} · ${item.status === 'resolved' ? wmT("회수됨") : wmT("미회수")}`,
 				},
 			});
 			task.dataset.foreshadowId = item.id;
@@ -2193,7 +2194,7 @@ export class InfinitePlotSheet {
 	}
 
 	private renderStatusCell(cell: HTMLElement, value: string): void {
-		const label = value ? this.session.statusName(value) : '상태 없음';
+		const label = value ? this.session.statusDisplayName(value) : wmT("상태 없음");
 		const badge = cell.createSpan({ cls: `wm-plotbook-status-value${value ? '' : ' is-empty'}` });
 		badge.style.setProperty('--wm-plotbook-status-color', this.session.statusColor(value));
 		this.renderMatchingLabel(badge, label);
@@ -2270,7 +2271,7 @@ export class InfinitePlotSheet {
 	}
 
 	private renderDateCell(cell: HTMLElement, value: string): void {
-		this.renderMatchingLabel(cell.createSpan({ cls: `wm-plotbook-date-value${value ? '' : ' is-empty'}` }), value || '날짜 선택');
+		this.renderMatchingLabel(cell.createSpan({ cls: `wm-plotbook-date-value${value ? '' : ' is-empty'}` }), value || wmT("날짜 선택"));
 		const icon = cell.createSpan({ cls: 'wm-plotbook-structured-chevron', attr: { 'aria-hidden': 'true' } });
 		setIcon(icon, 'calendar-days');
 	}
@@ -2298,7 +2299,7 @@ export class InfinitePlotSheet {
 		const rowIndex = sheet.rowOrder.indexOf(location.rowId);
 		const columnIndex = this.columnOrder(sheet).indexOf(location.columnId);
 		if (rowIndex < 0 || columnIndex < 0) {
-			new Notice('복선이 연결된 셀을 찾을 수 없습니다.');
+			new Notice(wmT("복선이 연결된 셀을 찾을 수 없습니다."));
 			return false;
 		}
 		if (sheet.rows[location.rowId]?.collapsed) this.session.setRowCollapsed(location.rowId, false);
@@ -2325,7 +2326,7 @@ export class InfinitePlotSheet {
 		const input = cell.createEl('input', {
 			cls: 'wm-plotbook-cell-editor wm-plotbook-date-editor',
 			type: 'text',
-			attr: { 'aria-label': '날짜 입력', inputmode: 'numeric', placeholder: 'YYYY-MM-DD', autocomplete: 'off' },
+			attr: { 'aria-label': wmT("날짜 입력"), inputmode: 'numeric', placeholder: 'YYYY-MM-DD', autocomplete: 'off' },
 		});
 		const picker = cell.createSpan({
 			cls: 'wm-plotbook-date-picker',
@@ -2335,7 +2336,7 @@ export class InfinitePlotSheet {
 		const nativePicker = cell.createEl('input', {
 			cls: 'wm-plotbook-date-native-picker',
 			type: 'date',
-			attr: { 'aria-label': '달력 열기', tabindex: '-1' },
+			attr: { 'aria-label': wmT("달력 열기"), tabindex: '-1' },
 		});
 		const before = this.session.getCell(sheet, rowId, columnId);
 		input.value = before;
@@ -2493,7 +2494,7 @@ export class InfinitePlotSheet {
 			};
 		}
 		return {
-			name: column?.title || path.split('/').pop()?.replace(/\.md$/i, '') || '인물',
+			name: column?.title || path.split('/').pop()?.replace(/\.md$/i, '') || wmT("인물"),
 			imageSrc: '',
 			color: this.plugin.settings.wikiColor || '#7025db',
 		};
@@ -2523,30 +2524,30 @@ export class InfinitePlotSheet {
 			const protectedSubrowAppearances = this.subrowAppearancePaths(sheet, rowId, columnId);
 			const removableAppearances = appearances.filter(path => !protectedSubrowAppearances.has(path));
 			menu.addItem(item => item
-				.setTitle('인물 추가')
+				.setTitle(wmT("인물 추가"))
 				.setIcon('user-plus')
 				.setDisabled(subrow)
 				.onClick(() => new PlotWorkbookProjectNoteModal(
 					this.plugin.app,
 					this.configuredProjectFolder(this.characterFolder, 'characterFolder'),
 					file => this.addAppearance(rowId, columnId, file),
-					'추가할 인물을 검색하세요...',
+					wmT("추가할 인물을 검색하세요..."),
 				).open()));
 			menu.addItem(item => item
-				.setTitle('인물 제거')
+				.setTitle(wmT("인물 제거"))
 				.setIcon('user-minus')
 				.setDisabled(subrow || removableAppearances.length === 0)
 				.onClick(() => new PlotWorkbookProjectNoteModal(
 					this.plugin.app,
 					this.configuredProjectFolder(this.characterFolder, 'characterFolder'),
 					file => this.removeAppearance(rowId, columnId, file.path),
-					'제거할 인물을 검색하세요...',
+					wmT("제거할 인물을 검색하세요..."),
 					removableAppearances,
 				).open()));
 			menu.addSeparator();
 		}
 		menu.addItem(item => item
-			.setTitle(role === 'status' ? '상태 선택' : role === 'date' ? '날짜 선택' : foreshadow ? '복선 관리' : role === 'checklist' ? '체크리스트 편집' : '셀 편집')
+			.setTitle(role === 'status' ? wmT("상태 선택") : role === 'date' ? wmT("날짜 선택") : foreshadow ? wmT("복선 관리") : role === 'checklist' ? wmT("체크리스트 편집") : wmT("셀 편집"))
 			.setIcon(role === 'status' ? 'list-todo' : role === 'date' ? 'calendar-days' : foreshadow ? 'sprout' : 'pencil')
 			.setDisabled(locked || (subrow && (role === 'status' || role === 'date')))
 			.onClick(() => {
@@ -2558,79 +2559,79 @@ export class InfinitePlotSheet {
 				else this.beginEditingSelected();
 			}));
 		menu.addItem(item => item
-			.setTitle(insideSelection && (bounds.top !== bounds.bottom || bounds.left !== bounds.right) ? '선택 영역 모든 내용 삭제' : '모든 내용 삭제')
+			.setTitle(insideSelection && (bounds.top !== bounds.bottom || bounds.left !== bounds.right) ? wmT("선택 영역 모든 내용 삭제") : wmT("모든 내용 삭제"))
 			.setIcon('eraser')
 			.setDisabled(locked || foreshadow)
 			.onClick(() => this.clearSelectedRange()));
 		menu.addSeparator();
 		menu.addItem(item => item
-			.setTitle('사이드바에서 보기')
+			.setTitle(wmT("사이드바에서 보기"))
 			.setIcon('panel-right')
 			.onClick(() => void this.plugin.openPlotWorkbookSidebar({
 				projectId:this.session.manifest.projectId, sheetId:sheet.sheetId, rowId, columnId,
 			})));
 		menu.addItem(item => item
-			.setTitle('행 전체 선택')
+			.setTitle(wmT("행 전체 선택"))
 			.setIcon('rows-3')
 			.onClick(() => this.selectWholeRow(rowIndex)));
 		menu.addItem(item => item
-			.setTitle('열 전체 선택')
+			.setTitle(wmT("열 전체 선택"))
 			.setIcon('columns-3')
 			.onClick(() => this.selectWholeColumn(columnIndex)));
 		menu.addSeparator();
 		menu.addItem(item => item
-			.setTitle('위에 행 추가')
+			.setTitle(wmT("위에 행 추가"))
 			.setIcon('rows-3')
 			.onClick(() => this.selectStructureIds('row', this.session.insertRows(rowIndex))));
 		menu.addItem(item => item
-			.setTitle('아래에 행 추가')
+			.setTitle(wmT("아래에 행 추가"))
 			.setIcon('rows-3')
 			.onClick(() => this.selectStructureIds('row', this.session.insertRows(rowIndex + 1))));
 		menu.addItem(item => item
-			.setTitle('왼쪽에 열 추가')
+			.setTitle(wmT("왼쪽에 열 추가"))
 			.setIcon('columns-3')
 			.onClick(() => this.selectStructureIds('column', this.session.insertColumns(columnIndex))));
 		menu.addItem(item => item
-			.setTitle('오른쪽에 열 추가')
+			.setTitle(wmT("오른쪽에 열 추가"))
 			.setIcon('columns-3')
 			.onClick(() => this.selectStructureIds('column', this.session.insertColumns(columnIndex + 1))));
 		menu.addSeparator();
 		const rowCollapsed = sheet.rows[rowId]?.collapsed === true;
 		const columnCollapsed = sheet.columns[columnId]?.collapsed === true;
 		menu.addItem(item => item
-			.setTitle(rowCollapsed ? '행 펼치기' : '행 접기')
+			.setTitle(rowCollapsed ? wmT("행 펼치기") : wmT("행 접기"))
 			.setIcon('rows-3')
 			.onClick(() => this.session.setRowCollapsed(rowId, !rowCollapsed)));
 		menu.addItem(item => item
-			.setTitle(columnCollapsed ? '열 펼치기' : '열 접기')
+			.setTitle(columnCollapsed ? wmT("열 펼치기") : wmT("열 접기"))
 			.setIcon('columns-3')
 			.onClick(() => this.session.setColumnCollapsed(columnId, !columnCollapsed)));
 		menu.addSeparator();
 		menu.addItem(item => item
-			.setTitle('이 행까지 고정')
+			.setTitle(wmT("이 행까지 고정"))
 			.setIcon('pin')
 			.setDisabled((sheet.view?.frozenRowCount ?? 0) === rowIndex + 1)
 			.onClick(() => this.session.setFrozenRows(rowIndex + 1)));
 		menu.addItem(item => item
-			.setTitle('이 열까지 고정')
+			.setTitle(wmT("이 열까지 고정"))
 			.setIcon('pin')
 			.setDisabled((sheet.view?.frozenColumnCount ?? 0) === columnIndex + 1)
 			.onClick(() => this.session.setFrozenColumns(columnIndex + 1)));
 		if ((sheet.view?.frozenRowCount ?? 0) > 0) {
 			menu.addItem(item => item
-				.setTitle('행 고정 해제')
+				.setTitle(wmT("행 고정 해제"))
 				.setIcon('pin-off')
 				.onClick(() => this.session.setFrozenRows(0)));
 		}
 		if ((sheet.view?.frozenColumnCount ?? 0) > 0) {
 			menu.addItem(item => item
-				.setTitle('열 고정 해제')
+				.setTitle(wmT("열 고정 해제"))
 				.setIcon('pin-off')
 				.onClick(() => this.session.setFrozenColumns(0)));
 		}
 		menu.addSeparator();
 		menu.addItem(item => item
-			.setTitle('스타일 복사')
+			.setTitle(wmT("스타일 복사"))
 			.setIcon('copy')
 			.onClick(() => {
 				if (!rowId || !columnId) return;
@@ -2643,7 +2644,7 @@ export class InfinitePlotSheet {
 				};
 			}));
 		menu.addItem(item => item
-			.setTitle('스타일 붙여넣기')
+			.setTitle(wmT("스타일 붙여넣기"))
 			.setIcon('clipboard-paste')
 			.setDisabled(copiedPlotCellStyle === null)
 			.onClick(() => {
@@ -2652,7 +2653,7 @@ export class InfinitePlotSheet {
 			}));
 		menu.addSeparator();
 		menu.addItem(item => item
-			.setTitle(insideSelection && (bounds.top !== bounds.bottom || bounds.left !== bounds.right) ? '선택 영역 스냅샷' : '스냅샷')
+			.setTitle(insideSelection && (bounds.top !== bounds.bottom || bounds.left !== bounds.right) ? wmT("선택 영역 스냅샷") : wmT("스냅샷"))
 			.setIcon('camera')
 			.setDisabled(locked || foreshadow)
 			.onClick(() => {
@@ -2759,7 +2760,7 @@ export class InfinitePlotSheet {
 			const link = header.createEl('button', {
 				cls: 'wm-plotbook-row-label is-linked',
 				text: label,
-				attr: { type: 'button', 'aria-label': `본문 열기: ${row.linkedNotePath}` },
+				attr: { type: 'button', 'aria-label': wmT("본문 열기: {0}", row.linkedNotePath) },
 			});
 			link.addEventListener('pointerdown', event => event.stopPropagation());
 			link.addEventListener('click', event => {
@@ -2797,7 +2798,7 @@ export class InfinitePlotSheet {
 				&& explicitlySelectedRowIds[0] === rowId;
 			const menu = new Menu();
 			menu.addItem(item => item
-				.setTitle(row.linkedNotePath ? '본문 연결 변경' : '본문 연결')
+				.setTitle(row.linkedNotePath ? wmT("본문 연결 변경") : wmT("본문 연결"))
 				.setIcon('file-text')
 				.setDisabled(!singleMainRow)
 				.onClick(() => new PlotWorkbookProjectNoteModal(
@@ -2805,34 +2806,34 @@ export class InfinitePlotSheet {
 					this.configuredProjectFolder(this.manuscriptFolder, 'manuscriptFolder'),
 					file => {
 						if (!this.session.setRowLinkedNote(rowId, file.path)) {
-							new Notice('이 본문 노트는 이미 다른 정식 행에 연결되어 있습니다.');
+							new Notice(wmT("이 본문 노트는 이미 다른 정식 행에 연결되어 있습니다."));
 						}
 					},
-					'연결할 본문 노트를 검색하세요...',
+					wmT("연결할 본문 노트를 검색하세요..."),
 				).open()));
 			menu.addItem(item => item
-				.setTitle('본문 생성')
+				.setTitle(wmT("본문 생성"))
 				.setIcon('file-plus-2')
 				.setDisabled(!singleMainRow)
 				.onClick(() => new PlotWorkbookCreateNoteModal(
 					this.plugin.app,
 					this.configuredProjectFolder(this.manuscriptFolder, 'manuscriptFolder'),
-					`${label}화`,
+					wmT("{0}화", label),
 					file => {
 						if (this.session.setRowLinkedNote(rowId, file.path)) {
-							new Notice(`본문 노트를 만들고 ${label}번 행에 연결했습니다.`);
+							new Notice(wmT("본문 노트를 만들고 {0}번 행에 연결했습니다.", label));
 						}
 					},
 				).open()));
 			if (row.linkedNotePath) {
 				menu.addItem(item => item
-					.setTitle('본문 연결 해제')
+					.setTitle(wmT("본문 연결 해제"))
 					.setIcon('unlink')
 					.setDisabled(!singleMainRow)
 					.onClick(() => this.session.setRowLinkedNote(rowId)));
 			}
 			menu.addItem(item => item
-				.setTitle('번호 시작값 설정')
+				.setTitle(wmT("번호 시작값 설정"))
 				.setIcon('list-ordered')
 				.onClick(() => new PlotWorkbookNumberingModal(
 					this.plugin.app,
@@ -2842,51 +2843,51 @@ export class InfinitePlotSheet {
 			const continuationStart = this.previousSheetContinuationStart(sheet);
 			if (continuationStart !== null) {
 				menu.addItem(item => item
-					.setTitle(`이전 시트에 이어 번호 매기기 (${continuationStart}부터)`)
+					.setTitle(wmT("이전 시트에 이어 번호 매기기 ({0}부터)", continuationStart))
 					.setIcon('list-plus')
 					.onClick(() => this.session.setRowNumberStart(continuationStart)));
 			}
 			menu.addSeparator();
 			menu.addItem(item => item
-				.setTitle('세부 행 추가')
+				.setTitle(wmT("세부 행 추가"))
 				.setIcon('plus')
 				.onClick(() => this.addSubrow(rowId)));
 			menu.addItem(item => item
-				.setTitle(actionIds.length > 1 ? '선택한 행 복제' : '행 복제')
+				.setTitle(actionIds.length > 1 ? wmT("선택한 행 복제") : wmT("행 복제"))
 				.setIcon('copy')
 				.onClick(() => {
 					const duplicated = this.session.duplicateRows(actionIds);
 					if (duplicated.length > 0) this.selectStructureIds('row', duplicated);
 				}));
 			menu.addItem(item => item
-				.setTitle(row.collapsed ? '행 펼치기' : '행 접기')
+				.setTitle(row.collapsed ? wmT("행 펼치기") : wmT("행 접기"))
 				.setIcon('rows-3')
 				.onClick(() => this.session.setRowCollapsed(rowId, !row.collapsed)));
 			menu.addItem(item => item
-				.setTitle(`이 행까지 고정`)
+				.setTitle(wmT("이 행까지 고정"))
 				.setIcon('pin')
 				.setDisabled((sheet.view?.frozenRowCount ?? 0) === rowIndex + 1)
 				.onClick(() => this.session.setFrozenRows(rowIndex + 1)));
 			if ((sheet.view?.frozenRowCount ?? 0) > 0) {
 				menu.addItem(item => item
-					.setTitle('행 고정 해제')
+					.setTitle(wmT("행 고정 해제"))
 					.setIcon('pin-off')
 					.onClick(() => this.session.setFrozenRows(0)));
 			}
 			menu.addSeparator();
 			menu.addItem(item => item
-				.setTitle(actionIds.length > 1 ? '선택한 행 삭제' : (row.parentRowId ? '세부 행 삭제' : '회차와 세부 행 삭제'))
+				.setTitle(actionIds.length > 1 ? wmT("선택한 행 삭제") : (row.parentRowId ? wmT("세부 행 삭제") : wmT("회차와 세부 행 삭제")))
 				.setIcon('trash-2')
 				.setDisabled(actionIds.length >= sheet.rowOrder.length)
 				.onClick(() => {
 					if (!this.session.deleteRows(actionIds)) {
-						new Notice('마지막 행은 삭제할 수 없습니다.');
+						new Notice(wmT("마지막 행은 삭제할 수 없습니다."));
 						return;
 					}
 					this.selectionAnchor = { ...this.selected };
 					this.clampSelection(this.session.activeSheet);
 					this.refreshSelectionBox();
-					new Notice('행을 삭제했습니다. 실행 취소로 복원할 수 있습니다.');
+					new Notice(wmT("행을 삭제했습니다. 실행 취소로 복원할 수 있습니다."));
 				}));
 			menu.showAtMouseEvent(event);
 		});
@@ -2937,18 +2938,18 @@ export class InfinitePlotSheet {
 		const column = sheet.columns[columnId];
 		const fallback = columnLabel(columnIndex);
 		const role = column.role ?? 'text';
-		const roleLabel = COLUMN_ROLES.find(candidate => candidate.value === role)?.label ?? '일반';
+		const roleLabel = COLUMN_ROLES.find(candidate => candidate.value === role)?.label ?? wmT("일반");
 		const label = this.session.manifest.labels?.find(candidate => candidate.id === column.labelId);
 		const selected = this.selectionMode === 'headers'
 			|| (this.selectionMode === 'column' && this.selectedColumnIdsSet.has(columnId));
 		const frozenColumnCount = this.frozenColumnCount(sheet);
 		const frozen = columnIndex < frozenColumnCount;
-		const fixedRoleTitle = role === 'cast' ? '등장' : role === 'foreshadow' ? '복선' : null;
+		const fixedRoleTitle = role === 'cast' ? wmT("등장") : role === 'foreshadow' ? wmT("복선") : null;
 		const titleParts = [fallback, fixedRoleTitle ?? (column.title || roleLabel)];
 		if (column.title && !fixedRoleTitle) titleParts.push(roleLabel);
-		if (column.trackingEnabled) titleParts.push('추적');
-		if (label) titleParts.push(`라벨: ${label.name}`);
-		if (!column.title && role === 'text') titleParts.push('더블클릭하여 제목 변경');
+		if (column.trackingEnabled) titleParts.push(wmT("추적"));
+		if (label) titleParts.push(wmT("라벨: {0}", label.name));
+		if (!column.title && role === 'text') titleParts.push(wmT("더블클릭하여 제목 변경"));
 		const header = (frozen ? this.frozenColumnHeadersLayer : this.columnHeadersLayer).createDiv({
 			cls: `wm-plotbook-column-header${column.title ? ' has-title' : ''}${column.collapsed ? ' is-collapsed' : ''}${selected ? ' is-selected' : ''}${frozen ? ' is-frozen' : ''}${columnIndex === frozenColumnCount - 1 ? ' is-freeze-edge' : ''}`,
 			attr: { title: titleParts.join(' · ') },
@@ -2966,7 +2967,7 @@ export class InfinitePlotSheet {
 				cls: `wm-plotbook-character-name${column.characterNotePath ? ' is-link' : ''}`,
 				text: profile.name,
 				attr: column.characterNotePath ? {
-					'aria-label': `인물 노트 열기: ${profile.name}`,
+					'aria-label': wmT("인물 노트 열기: {0}", profile.name),
 				} : undefined,
 			});
 			if (column.characterNotePath) {
@@ -2986,21 +2987,21 @@ export class InfinitePlotSheet {
 			if (column.trackingEnabled) {
 				const trackingIcon = meta.createSpan({
 					cls: 'wm-plotbook-tracking-icon',
-					attr: { 'aria-label': '추적 활성화' },
+					attr: { 'aria-label': wmT("추적 활성화") },
 				});
 				setIcon(trackingIcon, 'locate-fixed');
 			}
 			if (roleIconName) {
 				const roleIcon = meta.createSpan({
 					cls: `wm-plotbook-role-icon is-${role}`,
-					attr: { 'aria-label': `열 상태: ${roleLabel}` },
+					attr: { 'aria-label': wmT("열 상태: {0}", roleLabel) },
 				});
 				setIcon(roleIcon, roleIconName);
 			}
 			if (label) {
 				const labelDot = meta.createSpan({
 					cls: 'wm-plotbook-label-dot',
-					attr: { title: label.name, 'aria-label': `라벨: ${label.name}` },
+					attr: { title: label.name, 'aria-label': wmT("라벨: {0}", label.name) },
 				});
 				labelDot.style.backgroundColor = label.color;
 			}
@@ -3038,19 +3039,19 @@ export class InfinitePlotSheet {
 				: this.columnOrder(sheet).slice(actionBounds.left, actionBounds.right + 1);
 			const menu = new Menu();
 			menu.addItem(item => item
-				.setTitle('열 제목 변경')
+				.setTitle(wmT("열 제목 변경"))
 				.setIcon('pencil')
 				.setDisabled(actionIds.length !== 1 || role === 'cast' || role === 'status')
 				.onClick(() => this.beginColumnRename(header, columnId, column.title ?? '')));
 			menu.addItem(item => item
-				.setTitle(actionIds.length > 1 ? '선택한 열 복제' : '열 복제')
+				.setTitle(actionIds.length > 1 ? wmT("선택한 열 복제") : wmT("열 복제"))
 				.setIcon('copy')
 				.onClick(() => {
 					const duplicated = this.session.duplicateColumns(actionIds);
 					if (duplicated.length > 0) this.selectStructureIds('column', duplicated);
 				}));
 			menu.addItem(item => item
-				.setTitle(column.collapsed ? '열 펼치기' : '열 접기')
+				.setTitle(column.collapsed ? wmT("열 펼치기") : wmT("열 접기"))
 				.setIcon('columns-3')
 				.onClick(() => this.session.setColumnCollapsed(columnId, !column.collapsed)));
 			menu.addSeparator();
@@ -3074,7 +3075,7 @@ export class InfinitePlotSheet {
 						}
 						if (option.value === 'status' || option.value === 'date' || option.value === 'foreshadow' || option.value === 'checklist') {
 							const structuredRole = option.value;
-							const roleLabel = structuredRole === 'status' ? '상태' : structuredRole === 'date' ? '날짜' : structuredRole === 'checklist' ? '체크리스트' : '복선';
+							const roleLabel = structuredRole === 'status' ? wmT("상태") : structuredRole === 'date' ? wmT("날짜") : structuredRole === 'checklist' ? wmT("체크리스트") : wmT("복선");
 							new PlotWorkbookRoleConfirmModal(this.plugin.app, roleLabel, () =>
 								this.session.setStructuredColumns(actionIds, structuredRole)).open();
 							return;
@@ -3084,13 +3085,13 @@ export class InfinitePlotSheet {
 			}
 			if (actionIds.some(id => sheet.columns[id]?.role === 'foreshadow')) {
 				menu.addItem(item => item
-					.setTitle('복선 목록')
+					.setTitle(wmT("복선 목록"))
 					.setIcon('list')
 					.onClick(() => this.openForeshadowModal()));
 			}
 			menu.addSeparator();
 			menu.addItem(item => item
-				.setTitle('다른 시트로 이동')
+				.setTitle(wmT("다른 시트로 이동"))
 				.setIcon('move-right')
 				.setDisabled(this.session.manifest.sheets.length <= 1 || actionIds.length >= sheet.columnOrder.length)
 				.onClick(() => new PlotWorkbookMoveColumnsModal(this.plugin, this.session, actionIds).open()));
@@ -3099,7 +3100,7 @@ export class InfinitePlotSheet {
 			const allTracking = trackableIds.length > 0
 				&& trackableIds.every(id => sheet.columns[id]?.trackingEnabled === true);
 			menu.addItem(item => item
-				.setTitle(allTracking ? '추적 해제' : '추적')
+				.setTitle(allTracking ? wmT("추적 해제") : wmT("추적"))
 				.setIcon(allTracking ? 'locate-off' : 'locate-fixed')
 				.setChecked(allTracking)
 				.setDisabled(trackableIds.length === 0)
@@ -3112,34 +3113,34 @@ export class InfinitePlotSheet {
 					}
 				}));
 			menu.addItem(item => item
-				.setTitle('라벨')
+				.setTitle(wmT("라벨"))
 				.setIcon('tag')
 				.onClick(() => new PlotWorkbookLabelModal(this.plugin, this.session, actionIds).open()));
 			menu.addSeparator();
 			menu.addItem(item => item
-				.setTitle('이 열까지 고정')
+				.setTitle(wmT("이 열까지 고정"))
 				.setIcon('pin')
 				.setDisabled((sheet.view?.frozenColumnCount ?? 0) === columnIndex + 1)
 				.onClick(() => this.session.setFrozenColumns(columnIndex + 1)));
 			if ((sheet.view?.frozenColumnCount ?? 0) > 0) {
 				menu.addItem(item => item
-					.setTitle('열 고정 해제')
+					.setTitle(wmT("열 고정 해제"))
 					.setIcon('pin-off')
 					.onClick(() => this.session.setFrozenColumns(0)));
 			}
 			menu.addSeparator();
 			menu.addItem(item => item
-				.setTitle(actionIds.length > 1 ? '선택한 열 삭제' : '열 삭제')
+				.setTitle(actionIds.length > 1 ? wmT("선택한 열 삭제") : wmT("열 삭제"))
 				.setIcon('trash-2')
 				.setDisabled(actionIds.length >= this.columnOrder(sheet).length)
 				.onClick(() => {
 					if (!this.session.deleteColumns(actionIds)) {
-						new Notice('마지막 열은 삭제할 수 없습니다.');
+						new Notice(wmT("마지막 열은 삭제할 수 없습니다."));
 						return;
 					}
 					this.clampSelection(this.session.activeSheet);
 					this.refreshSelectionBox();
-					new Notice('열을 삭제했습니다. 실행 취소로 복원할 수 있습니다.');
+					new Notice(wmT("열을 삭제했습니다. 실행 취소로 복원할 수 있습니다."));
 				}));
 			menu.showAtMouseEvent(event);
 		});
@@ -3273,7 +3274,7 @@ export class InfinitePlotSheet {
 		header.textContent = '';
 		const input = header.createEl('input', {
 			cls: 'wm-plotbook-column-title-editor',
-			attr: { 'aria-label': '열 제목' },
+			attr: { 'aria-label': wmT("열 제목") },
 		});
 		input.value = title;
 		let finished = false;
@@ -4138,7 +4139,7 @@ export class InfinitePlotSheet {
 		this.selectedCellPreviewContent.dataset.role = role;
 		if (role === 'checklist') {
 			this.selectedCellPreview.setAttribute('role', 'group');
-			this.selectedCellPreview.setAttribute('aria-label', '선택한 체크리스트 미리보기');
+			this.selectedCellPreview.setAttribute('aria-label', wmT("선택한 체크리스트 미리보기"));
 			this.selectedCellPreview.removeAttribute('aria-readonly');
 			this.renderChecklistCell(this.selectedCellPreviewContent, sheet, rowId, columnId, value, Infinity);
 			return;
@@ -4214,7 +4215,7 @@ export class InfinitePlotSheet {
 				this.renderRequiresFullRefresh = false;
 				this.render(reuseExisting, preserveOutsideRange);
 			} catch (error) {
-				new Notice(`플롯 시트를 표시하지 못했습니다: ${error instanceof Error ? error.message : String(error)}`);
+				new Notice(wmT("플롯 시트를 표시하지 못했습니다: {0}", error instanceof Error ? error.message : String(error)));
 			}
 		});
 	}
@@ -4381,7 +4382,7 @@ export class InfinitePlotSheet {
 					.map(path => namesByPath.get(path) ?? path.split('/').pop()?.replace(/\.md$/i, '') ?? path).join('\n');
 				else if (role === 'foreshadow') value = this.session.foreshadowsInRow(sheet.sheetId, rowId)
 					.map(item => `${item.title}\n${item.note ?? ''}`).join('\n') || value;
-				else if (role === 'status') value = value ? this.session.statusName(value) : '';
+				else if (role === 'status') value = value ? this.session.statusDisplayName(value) : '';
 				else if (role === 'checklist') value = parseChecklist(value).map(task=>task.text).join('\n');
 				if ((role === 'status' || role === 'date') && sheet.rows[rowId]?.parentRowId) continue;
 				if (!value) continue;
@@ -4430,7 +4431,7 @@ export class InfinitePlotSheet {
 					const value = this.session.getCell(sheet, rowId, columnId);
 					if (role === 'status') label.style.setProperty('--wm-plotbook-status-color', this.session.statusColor(value));
 					label.empty();
-					this.renderMatchingLabel(label, role === 'status' ? (value ? this.session.statusName(value) : '상태 없음') : value || '날짜 선택');
+					this.renderMatchingLabel(label, role === 'status' ? (value ? this.session.statusDisplayName(value) : wmT("상태 없음")) : value || wmT("날짜 선택"));
 				}
 			}
 		}

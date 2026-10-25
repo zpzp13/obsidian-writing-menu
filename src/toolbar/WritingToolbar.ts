@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import {
 	Platform,
 	TFile,
@@ -6,7 +7,7 @@ import {
 	setIcon,
 } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
-import { HwpExportModal, TxtExportModal } from '../export';
+import { HwpxExportModal, TxtExportModal } from '../export';
 import { TimerStopwatchWidget } from '../dashboard/TimerStopwatchWidget';
 import { FONT_COLOR_ICON_PATH, FONT_COLOR_ICON_VIEWBOX } from '../assets/fontColorIcon';
 import { MARKDOWN_ICON_SVG } from '../assets/markdownIcon';
@@ -16,6 +17,7 @@ import { appendToolbarChevron, createToolbarActionOption, createToolbarIconButto
 import { InstalledFontCache } from './InstalledFontCache';
 import { bindMobileToolbarPopover } from './MobileToolbarPopover';
 import { MOBILE_WEB_FONTS, mobileFontName } from '../fonts/MobileFontManager';
+import { fontWeightOptions } from '../fonts/FontWeights';
 import { openSnapshotManager } from '../snapshots/SnapshotManager';
 import { CSS_PX_PER_MM as PX_PER_MM, CSS_PX_PER_PT, formatTypographyNumber, pixelsToPoints } from '../utils/typography';
 
@@ -116,15 +118,9 @@ export class WritingToolbar {
 		const settings = this.plugin.settings;
 		this.refreshAutoHideState();
 		this.fontLabelEl?.setText(Platform.isMobile ? mobileFontName(settings.mobileFontFamily)
-			: settings.fontFamily === 'inherit' ? '시스템 폰트' : settings.fontFamily);
-		const weightLabels: Record<number, string> = {
-			300: '얇게',
-			400: '보통',
-			500: '중간',
-			600: '약간 굵게',
-			700: '굵게',
-		};
-		this.weightLabelEl?.setText(weightLabels[settings.fontWeight || 400] ?? String(settings.fontWeight || 400));
+			: settings.fontFamily === 'inherit' ? wmT("시스템 폰트") : settings.fontFamily);
+		const weight = settings.fontWeight || 400;
+		this.weightLabelEl?.setText(fontWeightOptions().find(([value]) => value === weight)?.[1] ?? String(weight));
 		this.sizeLabelEl?.setText(`${this.formatNumber(this.pixelsToPoints(settings.fontSize))} pt`);
 		this.refreshSelectionState();
 		this.renderWidgetDock();
@@ -163,30 +159,30 @@ export class WritingToolbar {
 	private render(): void {
 		if (!Platform.isMobile) {
 			const history = this.toolbarEl.createDiv({ cls: 'wm-paged-toolbar-group is-history' });
-			this.createIconButton(history, 'undo-2', '이전 (Ctrl/Cmd+Z)', () => this.surface.undo());
-			this.createIconButton(history, 'redo-2', '다음 (Ctrl/Cmd+Shift+Z)', () => this.surface.redo());
+			this.createIconButton(history, 'undo-2', wmT("이전 (Ctrl/Cmd+Z)"), () => this.surface.undo());
+			this.createIconButton(history, 'redo-2', wmT("다음 (Ctrl/Cmd+Shift+Z)"), () => this.surface.redo());
 		}
 
 		const typography = this.toolbarEl.createDiv({ cls: 'wm-paged-toolbar-group is-typography' });
-		const font = this.createSelect(typography, '글꼴', '시스템 폰트', 'is-font');
+		const font = this.createSelect(typography, wmT("글꼴"), wmT("시스템 폰트"), 'is-font');
 		this.fontLabelEl = font.querySelector('.wm-paged-select-label');
 		font.addEventListener('click', event => { event.stopPropagation(); this.openFontPopover(font); });
-		const weight = this.createSelect(typography, '글꼴 두께', '보통', 'is-weight');
+		const weight = this.createSelect(typography, wmT("글꼴 두께"), wmT("보통"), 'is-weight');
 		this.weightLabelEl = weight.querySelector('.wm-paged-select-label');
 		weight.addEventListener('click', event => { event.stopPropagation(); this.openWeightPopover(weight); });
-		const size = this.createSelect(typography, '글꼴 크기', '12 pt', 'is-size');
+		const size = this.createSelect(typography, wmT("글꼴 크기"), '12 pt', 'is-size');
 		this.sizeLabelEl = size.querySelector('.wm-paged-select-label');
 		size.addEventListener('click', event => { event.stopPropagation(); this.openFontSizePopover(size); });
-		const format = this.createSelect(typography, '서식', '서식', 'is-format');
+		const format = this.createSelect(typography, wmT("서식"), wmT("서식"), 'is-format');
 		format.addEventListener('pointerdown', event => this.preserveSelection(event));
 		format.addEventListener('click', event => { event.stopPropagation(); this.openFormatPopover(format); });
 
 		const formatting = this.toolbarEl.createDiv({ cls: 'wm-paged-toolbar-group is-formatting' });
 		for (const [icon, label, kind] of [
-			['bold', '굵게 (Ctrl/Cmd+B)', 'bold'],
-			['italic', '이탤릭체 (Ctrl/Cmd+I)', 'italic'],
-			['underline', '밑줄 (Ctrl/Cmd+U)', 'underline'],
-			['strikethrough', '취소선 (Ctrl/Cmd+Shift+S)', 'strikethrough'],
+			['bold', wmT("굵게 (Ctrl/Cmd+B)"), 'bold'],
+			['italic', wmT("이탤릭체 (Ctrl/Cmd+I)"), 'italic'],
+			['underline', wmT("밑줄 (Ctrl/Cmd+U)"), 'underline'],
+			['strikethrough', wmT("취소선 (Ctrl/Cmd+Shift+S)"), 'strikethrough'],
 		] as const) {
 			const button = this.createIconButton(formatting, icon, label, () => {
 				this.surface.toggleFormat(kind);
@@ -200,40 +196,40 @@ export class WritingToolbar {
 		this.createTextColorControl(formatting);
 
 		const actions = this.toolbarEl.createDiv({ cls: 'wm-paged-toolbar-group is-document' });
-		const layout = this.createIconButton(actions, 'panels-top-left', '레이아웃', () => {});
+		const layout = this.createIconButton(actions, 'panels-top-left', wmT("레이아웃"), () => {});
 		layout.addEventListener('click', event => { event.stopPropagation(); this.openLayoutPopover(layout); });
 
-		this.createIconButton(actions, 'copy', '복사하기', () => { void this.plugin.copyWithOptions(this.surface.leaf); });
-		const exportButton = this.createIconButton(actions, 'file-output', '내보내기', () => {});
+		this.createIconButton(actions, 'copy', wmT("복사하기"), () => { void this.plugin.copyWithOptions(this.surface.leaf); });
+		const exportButton = this.createIconButton(actions, 'file-output', wmT("내보내기"), () => {});
 		exportButton.addEventListener('click', event => { event.stopPropagation(); this.openExportPopover(exportButton); });
 
-		this.wideModeButtonEl = this.createIconButton(actions, 'maximize-2', '길게 보기', () => {
+		this.wideModeButtonEl = this.createIconButton(actions, 'maximize-2', wmT("길게 보기"), () => {
 			this.plugin.toggleZenMode('wide', this.surface.leaf);
 		});
 		this.wideModeButtonEl.addClass('wm-writing-wide-mode-button');
 		this.wideModeButtonEl.setAttribute('aria-pressed', 'false');
-		this.focusModeButtonEl = this.createIconButton(actions, 'flame', '집중 모드', () => {
+		this.focusModeButtonEl = this.createIconButton(actions, 'flame', wmT("집중 모드"), () => {
 			this.plugin.toggleZenMode('focus', this.surface.leaf);
 		});
 		this.focusModeButtonEl.addClass('wm-writing-focus-mode-button');
 		this.focusModeButtonEl.setAttribute('aria-pressed', 'false');
-		this.createIconButton(actions, 'git-branch', '플롯 매니저를 새 탭에서 열기', () => {
+		this.createIconButton(actions, 'git-branch', wmT("플롯 매니저를 새 탭에서 열기"), () => {
 			void this.plugin.openPlotManagerInNewTab();
 		});
-		this.createIconButton(actions, 'panel-right', '플롯 매니저 사이드바', () => {
+		this.createIconButton(actions, 'panel-right', wmT("플롯 매니저 사이드바"), () => {
 			const project = this.plugin.projectContext.getProjectForFile(this.surface.getFile());
 			void this.plugin.openPlotWorkbookSidebar(project ? { projectId:project.id } : {});
 		});
 
-		const tower = this.createIconButton(actions, 'toggle-left', '기능 제어', () => {});
+		const tower = this.createIconButton(actions, 'toggle-left', wmT("기능 제어"), () => {});
 		tower.addEventListener('click', event => { event.stopPropagation(); this.openControlTowerPopover(tower); });
 
-		this.createIconButton(actions, 'camera', '스냅샷 관리', () => openSnapshotManager(this.plugin, this.surface.leaf));
+		this.createIconButton(actions, 'camera', wmT("스냅샷 관리"), () => openSnapshotManager(this.plugin, this.surface.leaf));
 		if (!Platform.isMobile) {
 			const switchButton = this.createIconButton(
 				actions,
 				null,
-				this.surface.kind === 'markdown' ? '여러 쪽 보기로 전환' : 'Markdown으로 전환',
+				this.surface.kind === 'markdown' ? wmT("여러 쪽 보기로 전환") : wmT("Markdown으로 전환"),
 				() => { void this.surface.switchView(); },
 			);
 			switchButton.addClass('wm-writing-toolbar-switch');
@@ -244,7 +240,7 @@ export class WritingToolbar {
 
 		this.toolbarEl.createDiv({ cls: 'wm-paged-toolbar-spacer', attr: { 'aria-hidden': 'true' } });
 		const settingsGroup = this.toolbarEl.createDiv({ cls: 'wm-paged-toolbar-group is-settings' });
-		const settings = this.createIconButton(settingsGroup, 'settings', '플러그인 설정', () => {});
+		const settings = this.createIconButton(settingsGroup, 'settings', wmT("플러그인 설정"), () => {});
 		settings.addEventListener('click', event => {
 			event.stopPropagation();
 			this.closePopover();
@@ -254,23 +250,23 @@ export class WritingToolbar {
 		if (!Platform.isMobile && this.surface.kind === 'paged') this.renderZoomControls();
 		this.widgetDockEl = this.mountEl.createDiv({
 			cls: `wm-writing-widget-dock is-${this.surface.kind}`,
-			attr: { 'aria-label': '작성 위젯' },
+			attr: { 'aria-label': wmT("작성 위젯") },
 		});
 	}
 
 	private renderZoomControls(): void {
 		const zoom = this.toolbarEl.createDiv({ cls: 'wm-paged-toolbar-group is-zoom' });
-		const zoomOut = this.createIconButton(zoom, 'zoom-out', '축소 (Ctrl/Cmd+마우스 휠 아래)', () => {
+		const zoomOut = this.createIconButton(zoom, 'zoom-out', wmT("축소 (Ctrl/Cmd+마우스 휠 아래)"), () => {
 			this.surface.setZoom(this.surface.getZoom() - 0.1);
 			this.refresh();
 		});
 		const zoomReset = zoom.createEl('button', {
 			cls: 'wm-paged-zoom-reset',
-			attr: { type: 'button', 'aria-label': '배율을 100%로 초기화' },
+			attr: { type: 'button', 'aria-label': wmT("배율을 100%로 초기화") },
 		});
 		this.zoomValueEl = zoomReset.createSpan({ cls: 'wm-paged-zoom-value', text: '100%' });
 		zoomReset.addEventListener('click', () => { this.surface.setZoom(1); this.refresh(); });
-		const zoomIn = this.createIconButton(zoom, 'zoom-in', '확대 (Ctrl/Cmd+마우스 휠 위)', () => {
+		const zoomIn = this.createIconButton(zoom, 'zoom-in', wmT("확대 (Ctrl/Cmd+마우스 휠 위)"), () => {
 			this.surface.setZoom(this.surface.getZoom() + 0.1);
 			this.refresh();
 		});
@@ -314,7 +310,7 @@ export class WritingToolbar {
 					type: 'button',
 					draggable: 'true',
 					'data-widget-id': id,
-					'aria-label': `${id === 'munpia' ? '문피아 글자수' : id === 'novelpia' ? '노벨피아 글자수' : '타이머/스톱워치'} 위젯. 드래그하여 순서 변경`,
+					'aria-label': wmT("{0} 위젯. 드래그하여 순서 변경", id === 'munpia' ? wmT("문피아 글자수") : id === 'novelpia' ? wmT("노벨피아 글자수") : wmT("타이머/스톱워치")),
 				},
 			});
 			if (id !== 'timer') {
@@ -402,10 +398,10 @@ export class WritingToolbar {
 			const searchRow = popover.createDiv({ cls: 'wm-paged-popover-search' });
 			const icon = searchRow.createSpan({ attr: { 'aria-hidden': 'true' } });
 			setIcon(icon, 'search');
-			const search = searchRow.createEl('input', { type: 'text', placeholder: '시스템 글꼴 검색',
-				attr: { 'aria-label': '글꼴 이름', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', enterkeyhint: 'done' } });
+			const search = searchRow.createEl('input', { type: 'text', placeholder: wmT("시스템 글꼴 검색"),
+				attr: { 'aria-label': wmT("글꼴 이름"), autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', enterkeyhint: 'done' } });
 			const list = popover.createDiv({ cls: 'wm-paged-popover-list' });
-			if (Platform.isMobile) popover.createDiv({ cls: 'wm-paged-popover-heading', text: 'PC에서 등록한 글꼴은 모바일에 자동 설치되지 않습니다.' });
+			if (Platform.isMobile) popover.createDiv({ cls: 'wm-paged-popover-heading', text: wmT("PC에서 등록한 글꼴은 모바일에 자동 설치되지 않습니다.") });
 			const registeredFonts = () => Array.from(new Set([
 				'inherit',
 				...(this.plugin.settings.customFonts ?? []),
@@ -432,7 +428,7 @@ export class WritingToolbar {
 				choices = fonts.slice(0, 80);
 				for (const font of choices) {
 					const active = font === this.plugin.settings.fontFamily;
-					const item = this.createOption(list, font === 'inherit' ? '시스템 폰트' : font, active, () => selectFont(font));
+					const item = this.createOption(list, font === 'inherit' ? wmT("시스템 폰트") : font, active, () => selectFont(font));
 					// Keep the IME/keyboard in place until click commits the choice.
 					// Blurring on touch-down can resize/rebuild the list before click.
 					item.addEventListener('pointerdown', event => {
@@ -464,8 +460,8 @@ export class WritingToolbar {
 		this.openPopover(anchor, 'wm-paged-font-popover', popover => {
 			const row = popover.createDiv({ cls: 'wm-paged-popover-search' });
 			setIcon(row.createSpan({ attr: { 'aria-hidden': 'true' } }), 'search');
-			const search = row.createEl('input', { type: 'text', placeholder: '모바일 웹폰트 검색',
-				attr: { 'aria-label': '글꼴 이름', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', enterkeyhint: 'done' } });
+			const search = row.createEl('input', { type: 'text', placeholder: wmT("모바일 웹폰트 검색"),
+				attr: { 'aria-label': wmT("글꼴 이름"), autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', enterkeyhint: 'done' } });
 			const list = popover.createDiv({ cls: 'wm-paged-popover-list' });
 			let choices: Array<{ id: string; name: string }> = [];
 			const select = (id: string) => {
@@ -476,13 +472,13 @@ export class WritingToolbar {
 			const render = () => {
 				list.empty();
 				const query = search.value.replace(/\s/g, '').toLocaleLowerCase('ko-KR');
-				choices = [{ id: 'inherit', name: '시스템 폰트' }, ...MOBILE_WEB_FONTS]
+				choices = [{ id: 'inherit', name: wmT("시스템 폰트") }, ...MOBILE_WEB_FONTS]
 					.filter(font => `${font.name}${font.id}`.replace(/\s/g, '').toLocaleLowerCase('ko-KR').includes(query));
 				for (const font of choices) {
 					const option = this.createOption(list, font.name, (this.plugin.settings.mobileFontFamily || 'inherit') === font.id, () => select(font.id));
 					option.addEventListener('pointerdown', event => { if (event.button === 0) event.preventDefault(); });
 				}
-				if (!choices.length) list.createDiv({ cls: 'wm-paged-popover-heading', text: '지원하는 웹폰트가 없습니다.' });
+				if (!choices.length) list.createDiv({ cls: 'wm-paged-popover-heading', text: wmT("지원하는 웹폰트가 없습니다.") });
 			};
 			search.addEventListener('input', render);
 			search.addEventListener('keydown', event => {
@@ -498,9 +494,8 @@ export class WritingToolbar {
 	private loadInstalledFonts(): Promise<string[]> { return this.fontCache.load(this.ownerDocument); }
 
 	private openWeightPopover(anchor: HTMLElement): void {
-		const weights: Array<[number, string]> = [[300, '얇게'], [400, '보통'], [500, '중간'], [600, '약간 굵게'], [700, '굵게']];
 		this.openPopover(anchor, 'wm-paged-compact-popover', popover => {
-			for (const [weight, label] of weights) {
+			for (const [weight, label] of fontWeightOptions()) {
 				const item = this.createOption(popover, label, weight === this.plugin.settings.fontWeight, () => {
 					this.plugin.settings.fontWeight = weight;
 					void this.saveAndRefresh();
@@ -519,7 +514,7 @@ export class WritingToolbar {
 			const input = direct.createEl('input', {
 				type: 'number',
 				value: this.formatNumber(current),
-				attr: { min: '1', max: '400', step: '1', 'aria-label': '글자 크기 직접 입력' },
+				attr: { min: '1', max: '400', step: '1', 'aria-label': wmT("글자 크기 직접 입력") },
 			});
 			direct.createSpan({ cls: 'wm-paged-size-input-unit', text: 'pt' });
 			const apply = () => this.applyFontSize(Math.max(1, Math.min(400, Number(input.value) || current)));
@@ -535,7 +530,7 @@ export class WritingToolbar {
 					cls: `wm-paged-popover-item wm-paged-size-option${size === current ? ' is-active' : ''}`,
 					attr: { type: 'button' },
 				});
-				const sample = item.createSpan({ cls: 'wm-paged-size-option-sample', text: '가나다 Aa' });
+				const sample = item.createSpan({ cls: 'wm-paged-size-option-sample', text: wmT("가나다 Aa") });
 				sample.style.fontSize = `${Math.max(10, Math.min(42, size))}px`;
 				item.addEventListener('pointerenter', () => { input.value = this.formatNumber(size); });
 				item.addEventListener('click', () => this.applyFontSize(size));
@@ -558,7 +553,7 @@ export class WritingToolbar {
 			const fontSize = Math.max(1, this.plugin.settings.fontSize);
 			this.createFormatSlider(
 				popover,
-				'들여쓰기',
+				wmT("들여쓰기"),
 				this.plugin.settings.indentation / fontSize,
 				0,
 				5,
@@ -567,7 +562,7 @@ export class WritingToolbar {
 			);
 			this.createFormatSlider(
 				popover,
-				'줄 간격',
+				wmT("줄 간격"),
 				this.plugin.settings.lineHeight,
 				1,
 				3,
@@ -576,7 +571,7 @@ export class WritingToolbar {
 			);
 			this.createFormatSlider(
 				popover,
-				'문단 간격',
+				wmT("문단 간격"),
 				this.plugin.settings.paragraphSpacing,
 				0,
 				5,
@@ -587,11 +582,11 @@ export class WritingToolbar {
 			const alignmentSection = popover.createDiv({
 				cls: `wm-writing-format-section wm-writing-format-alignment${this.surface.kind === 'markdown' ? ' is-disabled' : ''}`,
 			});
-			alignmentSection.createDiv({ cls: 'wm-writing-format-section-title', text: '문단 정렬' });
+			alignmentSection.createDiv({ cls: 'wm-writing-format-section-title', text: wmT("문단 정렬") });
 			this.renderAlignmentGrid(alignmentSection);
 
 			const styleSection = popover.createDiv({ cls: 'wm-writing-format-section wm-writing-format-style' });
-			styleSection.createDiv({ cls: 'wm-writing-format-section-title', text: '스타일' });
+			styleSection.createDiv({ cls: 'wm-writing-format-section-title', text: wmT("스타일") });
 			this.renderStyleControls(styleSection);
 		});
 	}
@@ -650,7 +645,7 @@ export class WritingToolbar {
 		const control = container.createDiv({ cls: 'wm-paged-text-color-control' });
 		const button = control.createEl('button', {
 			cls: 'wm-paged-toolbar-button wm-paged-text-color-button clickable-icon',
-			attr: { type: 'button', 'aria-label': '최근 글자색 적용' },
+			attr: { type: 'button', 'aria-label': wmT("최근 글자색 적용") },
 		});
 		const svg = button.createSvg('svg');
 		svg.setAttribute('viewBox', FONT_COLOR_ICON_VIEWBOX);
@@ -667,7 +662,7 @@ export class WritingToolbar {
 		});
 		const chevron = control.createEl('button', {
 			cls: 'wm-paged-text-color-chevron clickable-icon',
-			attr: { type: 'button', 'aria-label': '색상 메뉴 열기', 'aria-haspopup': 'menu' },
+			attr: { type: 'button', 'aria-label': wmT("색상 메뉴 열기"), 'aria-haspopup': 'menu' },
 		});
 		setIcon(chevron, 'chevron-down');
 		chevron.addEventListener('pointerdown', event => this.preserveSelection(event));
@@ -699,26 +694,26 @@ export class WritingToolbar {
 					});
 				}
 			};
-			createRow('글자색', textColors, 'text');
-			createRow('배경색', backgroundColors, 'background');
+			createRow(wmT("글자색"), textColors, 'text');
+			createRow(wmT("배경색"), backgroundColors, 'background');
 			const custom = popover.createDiv({ cls: 'wm-paged-color-custom' });
-			custom.createSpan({ text: '사용자 색상' });
+			custom.createSpan({ text: wmT("사용자 색상") });
 			const actions = custom.createDiv({ cls: 'wm-paged-color-custom-actions' });
 			const reset = actions.createEl('button', {
 				cls: 'wm-paged-color-reset clickable-icon',
-				attr: { type: 'button', 'aria-label': '선택한 색상 서식 되돌리기' },
+				attr: { type: 'button', 'aria-label': wmT("선택한 색상 서식 되돌리기") },
 			});
 			setIcon(reset, 'rotate-ccw');
 			reset.addEventListener('pointerdown', event => this.preserveSelection(event));
 			reset.addEventListener('click', () => { this.surface.clearTextColors(); this.refresh(); });
 			for (const [label, target, value] of [
-				['사용자 글자색', 'text', this.surface.getRecentTextColor()],
-				['사용자 배경색', 'background', this.getRecentBackgroundColor()],
+				[wmT("사용자 글자색"), 'text', this.surface.getRecentTextColor()],
+				[wmT("사용자 배경색"), 'background', this.getRecentBackgroundColor()],
 			] as const) {
 				const input = actions.createEl('input', {
 					cls: 'wm-compact-color-input wm-paged-color-custom-input',
 					type: 'color',
-					attr: { 'aria-label': `${label} 선택` },
+					attr: { 'aria-label': wmT("{0} 선택", label) },
 				});
 				input.value = value;
 				input.addEventListener('pointerdown', event => this.preserveSelection(event));
@@ -739,10 +734,10 @@ export class WritingToolbar {
 		const current = this.surface.getAlignment();
 		const disabled = this.surface.kind === 'markdown';
 		for (const [icon, label, alignment] of [
-			['align-left', '왼쪽 정렬', 'left'],
-			['align-center', '가운데 정렬', 'center'],
-			['align-right', '오른쪽 정렬', 'right'],
-			['align-justify', '양쪽 정렬', 'justify'],
+			['align-left', wmT("왼쪽 정렬"), 'left'],
+			['align-center', wmT("가운데 정렬"), 'center'],
+			['align-right', wmT("오른쪽 정렬"), 'right'],
+			['align-justify', wmT("양쪽 정렬"), 'justify'],
 		] as const) {
 			const button = grid.createEl('button', {
 				cls: `wm-paged-alignment-option${alignment === current ? ' is-active' : ''}`,
@@ -771,11 +766,11 @@ export class WritingToolbar {
 				popover.empty();
 				const segmented = popover.createDiv({
 					cls: 'wm-dash-char-range-seg wm-writing-layout-segmented',
-					attr: { role: 'group', 'aria-label': '레이아웃 종류' },
+					attr: { role: 'group', 'aria-label': wmT("레이아웃 종류") },
 				});
 				const thumb = segmented.createSpan({ cls: 'wm-dash-char-range-thumb' });
 				const buttons = new Map<'markdown' | 'paged', HTMLButtonElement>();
-				for (const [key, label] of [['markdown', '마크다운'], ['paged', '페이지']] as const) {
+				for (const [key, label] of [['markdown', wmT("마크다운")], ['paged', wmT("페이지")]] as const) {
 					const button = segmented.createEl('button', {
 						text: label,
 						attr: { type: 'button', 'aria-pressed': String(selected === key) },
@@ -807,8 +802,8 @@ export class WritingToolbar {
 		const previewContent = preview.createDiv({ cls: 'wm-writing-markdown-preview-content' });
 		for (let index = 0; index < 8; index++) previewContent.createSpan();
 		const fields = body.createDiv({ cls: 'wm-paged-layout-margin-grid' });
-		const width = this.createNumberField(fields, '너비', settings.lineWidth, 100, 4000, 'px');
-		const padding = this.createNumberField(fields, '좌우 여백', settings.inlinePadding ?? 40, 0, 1000, 'px');
+		const width = this.createNumberField(fields, wmT("너비"), settings.lineWidth, 100, 4000, 'px');
+		const padding = this.createNumberField(fields, wmT("좌우 여백"), settings.inlinePadding ?? 40, 0, 1000, 'px');
 		const update = () => {
 			const lineWidth = Math.max(100, Number(width.value) || settings.lineWidth);
 			const inlinePadding = Math.max(0, Number(padding.value) || 0);
@@ -843,23 +838,23 @@ export class WritingToolbar {
 			left: settings.pagedMarginLeft / PX_PER_MM,
 		};
 		const sizeRow = container.createDiv({ cls: 'wm-paged-layout-size-row wm-writing-layout-size-row' });
-		const width = this.createNumberField(sizeRow, '가로', values.width, 80, 500, 'mm');
+		const width = this.createNumberField(sizeRow, wmT("가로"), values.width, 80, 500, 'mm');
 		sizeRow.createSpan({ cls: 'wm-paged-layout-cross', text: '×' });
-		const height = this.createNumberField(sizeRow, '세로', values.height, 80, 500, 'mm');
+		const height = this.createNumberField(sizeRow, wmT("세로"), values.height, 80, 500, 'mm');
 		const presetWrap = sizeRow.createDiv({ cls: 'wm-paged-layout-preset-wrap' });
 		const current = presets.find(preset => Math.abs(preset.width - values.width) < 0.2 && Math.abs(preset.height - values.height) < 0.2);
 		const presetButton = presetWrap.createEl('button', {
 			cls: 'wm-paged-layout-preset',
-			attr: { type: 'button', 'aria-label': '용지 프리셋', 'aria-haspopup': 'menu' },
+			attr: { type: 'button', 'aria-label': wmT("용지 프리셋"), 'aria-haspopup': 'menu' },
 		});
-		const presetLabel = presetButton.createSpan({ text: current?.name ?? '프리셋' });
+		const presetLabel = presetButton.createSpan({ text: current?.name ?? wmT("프리셋") });
 		this.appendChevron(presetButton, 'wm-paged-layout-preset-chevron');
 		const menu = presetWrap.createDiv({ cls: 'wm-paged-layout-preset-menu' });
 		menu.hidden = true;
 		for (const preset of presets) {
 			const option = menu.createEl('button', { cls: 'wm-paged-layout-preset-option', attr: { type: 'button' } });
 			option.createSpan({ text: preset.name });
-			if (preset.isDefault) option.createSpan({ cls: 'wm-paged-layout-preset-default', text: '기본' });
+			if (preset.isDefault) option.createSpan({ cls: 'wm-paged-layout-preset-default', text: wmT("기본") });
 			option.addEventListener('click', event => {
 				event.stopPropagation();
 				width.value = this.formatNumber(preset.width);
@@ -876,11 +871,11 @@ export class WritingToolbar {
 		const content = preview.createDiv({ cls: 'wm-paged-layout-paper-content' });
 		for (let index = 0; index < 7; index++) content.createSpan();
 		const fields = body.createDiv({ cls: 'wm-paged-layout-margin-grid' });
-		fields.createSpan({ cls: 'wm-paged-layout-section-label', text: '여백' });
-		const top = this.createNumberField(fields, '위', values.top, 0, 100, 'mm');
-		const right = this.createNumberField(fields, '오른쪽', values.right, 0, 100, 'mm');
-		const bottom = this.createNumberField(fields, '아래', values.bottom, 0, 100, 'mm');
-		const left = this.createNumberField(fields, '왼쪽', values.left, 0, 100, 'mm');
+		fields.createSpan({ cls: 'wm-paged-layout-section-label', text: wmT("여백") });
+		const top = this.createNumberField(fields, wmT("위"), values.top, 0, 100, 'mm');
+		const right = this.createNumberField(fields, wmT("오른쪽"), values.right, 0, 100, 'mm');
+		const bottom = this.createNumberField(fields, wmT("아래"), values.bottom, 0, 100, 'mm');
+		const left = this.createNumberField(fields, wmT("왼쪽"), values.left, 0, 100, 'mm');
 		const updatePreview = () => {
 			const w = Math.max(1, Number(width.value) || values.width);
 			const h = Math.max(1, Number(height.value) || values.height);
@@ -907,8 +902,8 @@ export class WritingToolbar {
 
 	private createLayoutActions(container: HTMLElement, apply: () => void): void {
 		const actions = container.createDiv({ cls: 'wm-paged-layout-actions' });
-		const cancel = actions.createEl('button', { cls: 'wm-paged-layout-cancel', text: '취소', attr: { type: 'button' } });
-		const confirm = actions.createEl('button', { cls: 'wm-paged-layout-apply', text: '적용', attr: { type: 'button' } });
+		const cancel = actions.createEl('button', { cls: 'wm-paged-layout-cancel', text: wmT("취소"), attr: { type: 'button' } });
+		const confirm = actions.createEl('button', { cls: 'wm-paged-layout-apply', text: wmT("적용"), attr: { type: 'button' } });
 		cancel.addEventListener('click', () => this.closePopover());
 		confirm.addEventListener('click', () => {
 			apply();
@@ -936,12 +931,12 @@ export class WritingToolbar {
 	}
 
 	private renderStyleControls(container: HTMLElement): void {
-		void this.plugin.addDualColorControl(container, '글자색', this.plugin.settings.fontColor, async value => {
+		void this.plugin.addDualColorControl(container, wmT("글자색"), this.plugin.settings.fontColor, async value => {
 			this.plugin.settings.fontColor = value;
 			await this.plugin.saveSettings();
 			this.refresh();
 		}, 'palette');
-		void this.plugin.addDualColorControl(container, '배경색', this.plugin.settings.backgroundColor, async value => {
+		void this.plugin.addDualColorControl(container, wmT("배경색"), this.plugin.settings.backgroundColor, async value => {
 			this.plugin.settings.backgroundColor = value;
 			await this.plugin.saveSettings();
 			this.refresh();
@@ -952,59 +947,59 @@ export class WritingToolbar {
 		this.openPopover(anchor, 'wm-writing-action-popover', popover => {
 			const file = this.surface.getFile();
 			if (!file) return;
-			if (Platform.isDesktop && Platform.isWin) {
-				this.createActionOption(popover, 'file-output', 'HWP로 내보내기', () => {
+			if (Platform.isDesktop) {
+				this.createActionOption(popover, 'file-output', wmT("HWPX로 내보내기"), () => {
 					this.closePopover();
-					new HwpExportModal(this.plugin.app, this.plugin, file).open();
+					new HwpxExportModal(this.plugin.app, this.plugin, file).open();
 				});
 			}
 			if (Platform.isDesktop) {
-				this.createActionOption(popover, 'file-text', 'TXT로 내보내기', () => {
+				this.createActionOption(popover, 'file-text', wmT("TXT로 내보내기"), () => {
 					this.closePopover();
 					new TxtExportModal(this.plugin.app, this.plugin, file).open();
 				});
 			}
-			if (!Platform.isDesktop) popover.createDiv({ cls: 'wm-paged-popover-heading', text: '데스크톱에서 사용할 수 있습니다.' });
+			if (!Platform.isDesktop) popover.createDiv({ cls: 'wm-paged-popover-heading', text: wmT("데스크톱에서 사용할 수 있습니다.") });
 		});
 	}
 
 	private openControlTowerPopover(anchor: HTMLElement): void {
 		this.openPopover(anchor, 'wm-writing-control-popover writing-menu-dropdown', popover => {
-			popover.createDiv({ cls: 'wm-paged-popover-heading', text: '입력 보조' });
-			void this.plugin.addCompactToggle(popover, '스마트 따옴표', this.plugin.settings.enableSmartQuotes, async value => {
+			popover.createDiv({ cls: 'wm-paged-popover-heading', text: wmT("입력 보조") });
+			void this.plugin.addCompactToggle(popover, wmT("스마트 따옴표"), this.plugin.settings.enableSmartQuotes, async value => {
 				this.plugin.settings.enableSmartQuotes = value; await this.plugin.saveSettings();
 			}, 'quote-glyph');
-			void this.plugin.addCompactToggle(popover, '스마트 엔터', this.plugin.settings.enableSmartEnter, async value => {
+			void this.plugin.addCompactToggle(popover, wmT("스마트 엔터"), this.plugin.settings.enableSmartEnter, async value => {
 				this.plugin.settings.enableSmartEnter = value; await this.plugin.saveSettings();
 			}, 'corner-down-left');
-			void this.plugin.addCompactToggle(popover, '자동완성', this.plugin.settings.enableSmartInput, async value => {
+			void this.plugin.addCompactToggle(popover, wmT("자동완성"), this.plugin.settings.enableSmartInput, async value => {
 				this.plugin.settings.enableSmartInput = value; await this.plugin.saveSettings();
 			}, 'keyboard');
-			void this.plugin.addCompactToggle(popover, '텍스트 치환', this.plugin.settings.enableTextSubstitution, async value => {
+			void this.plugin.addCompactToggle(popover, wmT("텍스트 치환"), this.plugin.settings.enableTextSubstitution, async value => {
 				this.plugin.settings.enableTextSubstitution = value; await this.plugin.saveSettings();
 			}, 'replace');
 			popover.createDiv({ cls: 'writing-menu-separator' });
-			popover.createDiv({ cls: 'wm-paged-popover-heading', text: '보기' });
-			void this.plugin.addCompactToggle(popover, '타자기 스크롤', this.plugin.settings.enableTypewriterScrolling, async value => {
+			popover.createDiv({ cls: 'wm-paged-popover-heading', text: wmT("보기") });
+			void this.plugin.addCompactToggle(popover, wmT("타자기 스크롤"), this.plugin.settings.enableTypewriterScrolling, async value => {
 				this.plugin.settings.enableTypewriterScrolling = value; await this.plugin.saveSettings();
 			}, 'align-vertical-justify-center');
-			void this.plugin.addCompactToggle(popover, '포커스 모드', this.plugin.settings.enableFocusMode, async value => {
+			void this.plugin.addCompactToggle(popover, wmT("포커스 모드"), this.plugin.settings.enableFocusMode, async value => {
 				this.plugin.settings.enableFocusMode = value; await this.plugin.saveSettings();
 			}, 'eye');
-			void this.plugin.addCompactToggle(popover, '커스텀 구분선', this.plugin.settings.hrEnabled, async value => {
+			void this.plugin.addCompactToggle(popover, wmT("커스텀 구분선"), this.plugin.settings.hrEnabled, async value => {
 				this.plugin.settings.hrEnabled = value; await this.plugin.saveSettings();
 			}, 'minus');
 			if (this.surface.kind === 'markdown') {
-				void this.plugin.addCompactToggle(popover, '링크 색상', !this.plugin.settings.disableLinkColor, async value => {
+				void this.plugin.addCompactToggle(popover, wmT("링크 색상"), !this.plugin.settings.disableLinkColor, async value => {
 					this.plugin.settings.disableLinkColor = !value;
 					await this.plugin.saveSettings();
 				}, 'link');
 			}
 			popover.createDiv({ cls: 'writing-menu-separator' });
-			popover.createDiv({ cls: 'wm-paged-popover-heading', text: '위젯' });
+			popover.createDiv({ cls: 'wm-paged-popover-heading', text: wmT("위젯") });
 			this.createWidgetVisibilityToggle(popover, 'munpia', 'MUNPIA', MUNPIA_SVG);
 			this.createWidgetVisibilityToggle(popover, 'novelpia', 'NOVELPIA', NOVELPIA_SVG);
-			this.createWidgetVisibilityToggle(popover, 'timer', '타이머/스톱워치 표시', 'timer');
+			this.createWidgetVisibilityToggle(popover, 'timer', wmT("타이머/스톱워치 표시"), 'timer');
 		});
 	}
 

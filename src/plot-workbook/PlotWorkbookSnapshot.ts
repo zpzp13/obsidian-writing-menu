@@ -1,3 +1,4 @@
+import { wmT } from '../i18n/index';
 import { normalizePath, type Vault } from 'obsidian';
 import type { WritingProject } from '../types';
 import type { PlotWorkbookSnapshotData } from './PlotWorkbookTypes';
@@ -20,7 +21,7 @@ export interface PlotWorkbookSnapshot {
 
 function parseSafeJson(source: string): unknown {
 	return JSON.parse(source, (key, value: unknown) => {
-		if (['__proto__', 'constructor', 'prototype'].includes(key)) throw new Error('허용하지 않는 데이터 키가 있습니다.');
+		if (['__proto__', 'constructor', 'prototype'].includes(key)) throw new Error(wmT("허용하지 않는 데이터 키가 있습니다."));
 		return value;
 	});
 }
@@ -59,9 +60,9 @@ export async function plotSnapshotMarkdown(snapshot: PlotWorkbookSnapshot): Prom
 /** Rename display metadata only; the checksummed restoration payload remains byte-for-byte intact. */
 export function renamePlotSnapshotMarkdown(markdown: string, title: string): string {
 	const heading = markdown.match(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/)?.[0];
-	if (!heading || !/^writing_menu_snapshot: plot-workbook\r?$/m.test(heading)) throw new Error('플롯 스냅샷의 제목을 수정할 수 없습니다.');
+	if (!heading || !/^writing_menu_snapshot: plot-workbook\r?$/m.test(heading)) throw new Error(wmT("플롯 스냅샷의 제목을 수정할 수 없습니다."));
 	const name = title.trim();
-	if (!name || name.length > 160 || /[\r\n]/.test(name)) throw new Error('제목은 한 줄로 160자 이내로 입력하세요.');
+	if (!name || name.length > 160 || /[\r\n]/.test(name)) throw new Error(wmT("제목은 한 줄로 160자 이내로 입력하세요."));
 	const line = `snapshot_title: ${JSON.stringify(name)}`;
 	const next = /^snapshot_title:.*$/m.test(heading) ? heading.replace(/^snapshot_title:.*$/m, line)
 		: heading.replace(/\r?\n---(?:\r?\n|$)$/, `\n${line}\n---\n`);
@@ -69,24 +70,24 @@ export function renamePlotSnapshotMarkdown(markdown: string, title: string): str
 }
 
 export async function readPlotSnapshot(markdown: string): Promise<PlotWorkbookSnapshot> {
-	if (new TextEncoder().encode(markdown).length > MAX_PLOT_SNAPSHOT_BYTES) throw new Error('스냅샷 파일이 너무 큽니다. (최대 25MB)');
+	if (new TextEncoder().encode(markdown).length > MAX_PLOT_SNAPSHOT_BYTES) throw new Error(wmT("스냅샷 파일이 너무 큽니다. (최대 25MB)"));
 	const blocks = [...markdown.matchAll(/^```json wm-plot-snapshot\r?\n([\s\S]*?)\r?\n```[ \t]*\r?$/gm)];
-	if (blocks.length !== 1) throw new Error('복원용 플롯 스냅샷이 아닙니다. 일반 Markdown 내보내기 파일은 복원할 수 없습니다.');
+	if (blocks.length !== 1) throw new Error(wmT("복원용 플롯 스냅샷이 아닙니다. 일반 Markdown 내보내기 파일은 복원할 수 없습니다."));
 	const envelope = parseSafeJson(blocks[0][1]) as { encoding?: string; snapshot: PlotWorkbookSnapshot; checksum: string };
 	const snapshot = envelope?.snapshot;
-	if (!snapshot || snapshot.kind !== SNAPSHOT_KIND || snapshot.formatVersion !== 1) throw new Error('지원하지 않는 스냅샷 형식입니다.');
+	if (!snapshot || snapshot.kind !== SNAPSHOT_KIND || snapshot.formatVersion !== 1) throw new Error(wmT("지원하지 않는 스냅샷 형식입니다."));
 	if (typeof snapshot.id !== 'string' || !/^[a-zA-Z0-9_-]{1,160}$/.test(snapshot.id)
 		|| typeof snapshot.createdAt !== 'string' || !Number.isFinite(Date.parse(snapshot.createdAt))
 		|| !snapshot.project || ['id', 'name', 'rootFolder', 'manuscriptFolder', 'characterFolder'].some(key =>
-			typeof snapshot.project[key as keyof typeof snapshot.project] !== 'string')) throw new Error('스냅샷의 프로젝트 정보가 올바르지 않습니다.');
+			typeof snapshot.project[key as keyof typeof snapshot.project] !== 'string')) throw new Error(wmT("스냅샷의 프로젝트 정보가 올바르지 않습니다."));
 	for (const path of [snapshot.project.rootFolder, snapshot.project.manuscriptFolder, snapshot.project.characterFolder]) {
 		if (path && (/^[\\/]|^[a-z]:/i.test(path) || path.replace(/\\/g, '/').split('/').some(part => part === '..' || part === '.' || !part) || path.includes('\u0000'))) {
-			throw new Error('스냅샷의 폴더 경로가 볼트 밖을 가리킵니다.');
+			throw new Error(wmT("스냅샷의 폴더 경로가 볼트 밖을 가리킵니다."));
 		}
 	}
-	if (envelope.encoding !== undefined && envelope.encoding !== PACKED_ENCODING) throw new Error('지원하지 않는 스냅샷 저장 방식입니다.');
+	if (envelope.encoding !== undefined && envelope.encoding !== PACKED_ENCODING) throw new Error(wmT("지원하지 않는 스냅샷 저장 방식입니다."));
 	const expected = await digest(envelope.encoding ? { encoding: envelope.encoding, snapshot } : snapshot);
-	if (typeof envelope.checksum !== 'string' || envelope.checksum !== expected) throw new Error('스냅샷이 변경되었거나 손상되었습니다. 원본 파일을 다시 가져와주세요.');
+	if (typeof envelope.checksum !== 'string' || envelope.checksum !== expected) throw new Error(wmT("스냅샷이 변경되었거나 손상되었습니다. 원본 파일을 다시 가져와주세요."));
 	return envelope.encoding ? { ...snapshot, data: unpackPlotSnapshotData(snapshot.data as unknown as PackedSnapshotData) } : snapshot;
 }
 
@@ -96,11 +97,11 @@ export function snapshotFileName(snapshot: PlotWorkbookSnapshot): string {
 
 export async function savePlotSnapshot(vault: Vault, folder: string, snapshot: PlotWorkbookSnapshot): Promise<string> {
 	const normalized = normalizePath(folder.trim()).replace(/\/$/, '');
-	if (!normalized || normalized.split('/').some(part => part.startsWith('.'))) throw new Error('동기화할 수 있도록 숨김 폴더가 아닌 일반 폴더를 선택해주세요.');
+	if (!normalized || normalized.split('/').some(part => part.startsWith('.'))) throw new Error(wmT("동기화할 수 있도록 숨김 폴더가 아닌 일반 폴더를 선택해주세요."));
 	const markdown = await plotSnapshotMarkdown(snapshot);
-	if (new TextEncoder().encode(markdown).length > MAX_PLOT_SNAPSHOT_BYTES) throw new Error('스냅샷이 25MB를 초과하여 저장을 중단했습니다.');
+	if (new TextEncoder().encode(markdown).length > MAX_PLOT_SNAPSHOT_BYTES) throw new Error(wmT("스냅샷이 25MB를 초과하여 저장을 중단했습니다."));
 	const path = await savePlotMarkdown(vault, `${normalized}/${snapshotFileName(snapshot)}`, markdown);
 	const file = vault.getFileByPath(path);
-	if (!file || await vault.read(file) !== markdown) throw new Error('스냅샷 저장 후 검증에 실패했습니다. 다시 저장해주세요.');
+	if (!file || await vault.read(file) !== markdown) throw new Error(wmT("스냅샷 저장 후 검증에 실패했습니다. 다시 저장해주세요."));
 	return path;
 }

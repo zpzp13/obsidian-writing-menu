@@ -1,6 +1,7 @@
+import { wmT } from '../i18n/index';
 import { MarkdownView, WorkspaceLeaf, setIcon, Platform, Notice, App } from 'obsidian';
-import type { Editor, EditorPosition } from 'obsidian';
-import { HwpExportModal, TxtExportModal } from '../export';
+import type { Editor, EditorPosition, ViewState } from 'obsidian';
+import { HwpxExportModal, TxtExportModal } from '../export';
 import type WritingMenuPlugin from '../../main';
 import { PagedWritingView, PAGED_WRITING_VIEW_TYPE } from '../paged/PagedWritingView';
 import { WritingToolbar, type WritingToolbarSurface } from './WritingToolbar';
@@ -19,6 +20,7 @@ interface AppWithSettings extends App {
 export class ToolbarManager {
 	private readonly writingToolbars = new Map<WorkspaceLeaf, WritingToolbar>();
 	private readonly mobileLayoutCleanups = new Map<WorkspaceLeaf, () => void>();
+	private readonly switchingLeaves = new WeakSet<WorkspaceLeaf>();
 
 	constructor(private plugin: WritingMenuPlugin) {}
 
@@ -149,6 +151,32 @@ export class ToolbarManager {
 
 	removeToolbarFromLeaf(leaf: WorkspaceLeaf): void {
 		this.forgetToolbar(leaf);
+	}
+
+	async switchWritingView(leaf: WorkspaceLeaf, state: ViewState): Promise<void> {
+		if (this.switchingLeaves.has(leaf)) return;
+		this.switchingLeaves.add(leaf);
+		const mount = leaf.view.containerEl.parentElement;
+		const ownerWindow = leaf.view.containerEl.ownerDocument.defaultView;
+		mount?.addClass('wm-writing-view-switching');
+		try {
+			this.forgetToolbar(leaf);
+			await leaf.setViewState(state);
+			this.updateAllToolbars();
+			this.plugin.updateLeafStyles(leaf);
+			// Let the new editor measure its final width before exposing its first frame.
+			if (ownerWindow) await new Promise<void>(resolve => {
+				ownerWindow.requestAnimationFrame(() => ownerWindow.requestAnimationFrame(() => resolve()));
+			});
+		} finally {
+			this.switchingLeaves.delete(leaf);
+			mount?.removeClass('wm-writing-view-switching');
+			this.updateAllToolbars();
+		}
+		if (state.active && this.plugin.app.workspace.getMostRecentLeaf() === leaf) {
+			if (leaf.view instanceof MarkdownView) leaf.view.editor.focus();
+			else if (leaf.view instanceof PagedWritingView) leaf.view.focusEditorFromToolbar();
+		}
 	}
 
 	refreshToolbar(leaf: WorkspaceLeaf): void {
@@ -356,18 +384,18 @@ export class ToolbarManager {
 	}
 
 	renderMainMenuPage(container: HTMLElement, leaf: WorkspaceLeaf) {
-		void this.plugin.addCompactControl(container, '폴더', this.plugin.settings.applyToFolder, async (v) => { this.plugin.settings.applyToFolder = v; await this.plugin.saveSettings(); }, 'folder');
+		void this.plugin.addCompactControl(container, wmT("폴더"), this.plugin.settings.applyToFolder, async (v) => { this.plugin.settings.applyToFolder = v; await this.plugin.saveSettings(); }, 'folder');
 
 		{
 			const copyDiv = container.createDiv('writing-menu-control');
 			copyDiv.setCssStyles({ cursor: 'pointer' });
 			const copyLabelGroup = copyDiv.createDiv('writing-menu-control-label-group');
 			setIcon(copyLabelGroup.createSpan('writing-menu-icon'), 'copy');
-			copyLabelGroup.createEl('label', { text: '복사하기' });
+			copyLabelGroup.createEl('label', { text: wmT("복사하기") });
 			const copyHotkeyLink = copyDiv.createDiv();
 			copyHotkeyLink.setCssStyles({ display: 'flex', alignItems: 'center', cursor: 'pointer', color: 'var(--text-muted)' });
 			setIcon(copyHotkeyLink, 'keyboard');
-			copyHotkeyLink.setAttribute('aria-label', '단축키 설정');
+			copyHotkeyLink.setAttribute('aria-label', wmT("단축키 설정"));
 			copyHotkeyLink.addEventListener('click', (e) => {
 				e.stopPropagation();
 				const setting = (this.plugin.app as AppWithSettings).setting;
@@ -376,7 +404,7 @@ export class ToolbarManager {
 				window.setTimeout(() => {
 					const input = tab?.searchInputEl ?? tab?.searchComponent?.inputEl;
 					if (input) {
-						input.value = 'Writing Menu: 복사하기';
+						input.value = wmT("Writing Menu: 복사하기");
 						input.dispatchEvent(new Event('input'));
 					}
 				}, 20);
@@ -394,19 +422,19 @@ export class ToolbarManager {
 			const exportDiv = container.createDiv('writing-menu-control');
 			const exportLabelGroup = exportDiv.createDiv('writing-menu-control-label-group');
 			setIcon(exportLabelGroup.createSpan('writing-menu-icon'), 'file-output');
-			exportLabelGroup.createEl('label', { text: '내보내기' });
+			exportLabelGroup.createEl('label', { text: wmT("내보내기") });
 			const exportRightGroup = exportDiv.createDiv();
 			exportRightGroup.setCssStyles({ display: 'flex', alignItems: 'center', gap: '8px' });
-			if (Platform.isDesktop && Platform.isWin) {
+			if (Platform.isDesktop) {
 				const hwpBtn = exportRightGroup.createDiv('writing-menu-text-btn');
-				hwpBtn.setText('HWP');
+				hwpBtn.setText('HWPX');
 				hwpBtn.onclick = () => { void (async () => {
 					const view = leaf.view;
 					if (this.isWritingView(view) && view.file && view.file.extension === 'md') {
 						if (view instanceof PagedWritingView) await view.save();
 						(activeDocument.querySelector('.writing-menu-dropdown') as HTMLElement)?.remove();
-						new HwpExportModal(this.plugin.app, this.plugin, view.file).open();
-					} else { new Notice('마크다운 파일을 열어주세요.', 3000); }
+						new HwpxExportModal(this.plugin.app, this.plugin, view.file).open();
+					} else { new Notice(wmT("마크다운 파일을 열어주세요."), 3000); }
 				})(); };
 			}
 			const txtBtn = exportRightGroup.createDiv('writing-menu-text-btn');
@@ -417,7 +445,7 @@ export class ToolbarManager {
 					if (view instanceof PagedWritingView) await view.save();
 					(activeDocument.querySelector('.writing-menu-dropdown') as HTMLElement)?.remove();
 					new TxtExportModal(this.plugin.app, this.plugin, view.file).open();
-				} else { new Notice('마크다운 파일을 열어주세요.', 3000); }
+				} else { new Notice(wmT("마크다운 파일을 열어주세요."), 3000); }
 			})(); };
 		}
 
@@ -430,11 +458,11 @@ export class ToolbarManager {
 
 		this.addSeparator(container);
 
-		this.addMenuNavCard(container, '서식', 'type', () => this.renderMenuPage(container, 'typography', leaf));
-		this.addMenuNavCard(container, '색상', 'palette', () => this.renderMenuPage(container, 'color', leaf));
-		this.addMenuNavCard(container, '입력 보조', 'keyboard', () => this.renderMenuPage(container, 'input', leaf));
-		this.addMenuNavCard(container, '타이머/스톱워치 표시', 'clock', () => this.renderMenuPage(container, 'time-tracking', leaf));
-		this.addMenuNavCard(container, '보기', 'eye', () => this.renderMenuPage(container, 'view', leaf));
+		this.addMenuNavCard(container, wmT("서식"), 'type', () => this.renderMenuPage(container, 'typography', leaf));
+		this.addMenuNavCard(container, wmT("색상"), 'palette', () => this.renderMenuPage(container, 'color', leaf));
+		this.addMenuNavCard(container, wmT("입력 보조"), 'keyboard', () => this.renderMenuPage(container, 'input', leaf));
+		this.addMenuNavCard(container, wmT("타이머/스톱워치 표시"), 'clock', () => this.renderMenuPage(container, 'time-tracking', leaf));
+		this.addMenuNavCard(container, wmT("보기"), 'eye', () => this.renderMenuPage(container, 'view', leaf));
 
 		this.addSeparator(container);
 
@@ -445,7 +473,7 @@ export class ToolbarManager {
 		const btnIcon = btn.createSpan();
 		setIcon(btnIcon, 'settings');
 		btnIcon.setCssStyles({ display: 'flex', alignItems: 'center' });
-		btn.createSpan({ text: '플러그인 설정' });
+		btn.createSpan({ text: wmT("플러그인 설정") });
 		btn.onclick = () => {
 			(activeDocument.querySelector('.writing-menu-dropdown') as HTMLElement)?.remove();
 			this.plugin.openSettings();
@@ -453,45 +481,45 @@ export class ToolbarManager {
 	}
 
 	renderTypographyPage(container: HTMLElement, leaf: WorkspaceLeaf) {
-		this.addMenuBackButton(container, '서식', () => this.renderMenuPage(container, 'main', leaf));
+		this.addMenuBackButton(container, wmT("서식"), () => this.renderMenuPage(container, 'main', leaf));
 
 		const fontDiv = container.createDiv('writing-menu-control');
 		const fontLabelGroup = fontDiv.createDiv('writing-menu-control-label-group');
 		const hanIcon = fontLabelGroup.createSpan('writing-menu-icon');
-		hanIcon.setText('한');
+		hanIcon.setText(wmT("한"));
 		hanIcon.setCssStyles({ fontWeight: 'bold', display: 'inline-block', lineHeight: '1', verticalAlign: 'text-bottom' });
-		fontLabelGroup.createEl('label', { text: '글꼴' });
+		fontLabelGroup.createEl('label', { text: wmT("글꼴") });
 		const fontInput = fontDiv.createEl('input', { type: 'text', value: this.plugin.settings.fontFamily });
 		fontInput.setCssStyles({ width: '100px', textAlign: 'right' });
 		fontInput.onchange = (e) => { this.plugin.settings.fontFamily = (e.target as HTMLInputElement).value; void this.plugin.saveSettings(); };
 
-		void this.plugin.addCompactStepper(container, '글자 크기', this.plugin.settings.fontSize, 1, 1, async (v) => { this.plugin.settings.fontSize = v; await this.plugin.saveSettings(); }, 'type');
-		void this.plugin.addCompactStepper(container, '줄간격', this.plugin.settings.lineHeight, 0.1, 0, async (v) => { this.plugin.settings.lineHeight = v; await this.plugin.saveSettings(); }, 'align-justify');
-		void this.plugin.addCompactStepper(container, '문단간격', this.plugin.settings.paragraphSpacing, 0.5, 0, async (v) => { this.plugin.settings.paragraphSpacing = v; await this.plugin.saveSettings(); }, 'pilcrow');
-		void this.plugin.addCompactStepper(container, '너비', this.plugin.settings.lineWidth, 100, 0, async (v) => { this.plugin.settings.lineWidth = v; await this.plugin.saveSettings(); }, 'move-horizontal');
-		void this.plugin.addCompactStepper(container, '좌우 여백', this.plugin.settings.inlinePadding ?? 40, 10, 0, async (v) => { this.plugin.settings.inlinePadding = v; await this.plugin.saveSettings(); }, 'arrow-left-right');
-		void this.plugin.addCompactStepper(container, '들여쓰기', this.plugin.settings.indentation, 5, 0, async (v) => { this.plugin.settings.indentation = v; await this.plugin.saveSettings(); }, 'indent');
+		void this.plugin.addCompactStepper(container, wmT("글자 크기"), this.plugin.settings.fontSize, 1, 1, async (v) => { this.plugin.settings.fontSize = v; await this.plugin.saveSettings(); }, 'type');
+		void this.plugin.addCompactStepper(container, wmT("줄간격"), this.plugin.settings.lineHeight, 0.1, 0, async (v) => { this.plugin.settings.lineHeight = v; await this.plugin.saveSettings(); }, 'align-justify');
+		void this.plugin.addCompactStepper(container, wmT("문단간격"), this.plugin.settings.paragraphSpacing, 0.5, 0, async (v) => { this.plugin.settings.paragraphSpacing = v; await this.plugin.saveSettings(); }, 'pilcrow');
+		void this.plugin.addCompactStepper(container, wmT("너비"), this.plugin.settings.lineWidth, 100, 0, async (v) => { this.plugin.settings.lineWidth = v; await this.plugin.saveSettings(); }, 'move-horizontal');
+		void this.plugin.addCompactStepper(container, wmT("좌우 여백"), this.plugin.settings.inlinePadding ?? 40, 10, 0, async (v) => { this.plugin.settings.inlinePadding = v; await this.plugin.saveSettings(); }, 'arrow-left-right');
+		void this.plugin.addCompactStepper(container, wmT("들여쓰기"), this.plugin.settings.indentation, 5, 0, async (v) => { this.plugin.settings.indentation = v; await this.plugin.saveSettings(); }, 'indent');
 	}
 
 	renderColorPage(container: HTMLElement, leaf: WorkspaceLeaf) {
-		this.addMenuBackButton(container, '색상', () => this.renderMenuPage(container, 'main', leaf));
-		void this.plugin.addDualColorControl(container, '글자색', this.plugin.settings.fontColor, async (v) => { this.plugin.settings.fontColor = v; await this.plugin.saveSettings(); }, 'palette');
-		void this.plugin.addDualColorControl(container, '배경색', this.plugin.settings.backgroundColor, async (v) => { this.plugin.settings.backgroundColor = v; await this.plugin.saveSettings(); }, 'droplet');
-		void this.plugin.addCompactToggle(container, '링크 색상', !this.plugin.settings.disableLinkColor, async (v) => { this.plugin.settings.disableLinkColor = !v; await this.plugin.saveSettings(); }, 'link');
+		this.addMenuBackButton(container, wmT("색상"), () => this.renderMenuPage(container, 'main', leaf));
+		void this.plugin.addDualColorControl(container, wmT("글자색"), this.plugin.settings.fontColor, async (v) => { this.plugin.settings.fontColor = v; await this.plugin.saveSettings(); }, 'palette');
+		void this.plugin.addDualColorControl(container, wmT("배경색"), this.plugin.settings.backgroundColor, async (v) => { this.plugin.settings.backgroundColor = v; await this.plugin.saveSettings(); }, 'droplet');
+		void this.plugin.addCompactToggle(container, wmT("링크 색상"), !this.plugin.settings.disableLinkColor, async (v) => { this.plugin.settings.disableLinkColor = !v; await this.plugin.saveSettings(); }, 'link');
 	}
 
 	renderViewPage(container: HTMLElement, leaf: WorkspaceLeaf) {
-		this.addMenuBackButton(container, '보기', () => this.renderMenuPage(container, 'main', leaf));
-		void this.plugin.addCompactToggle(container, '타자기 스크롤', this.plugin.settings.enableTypewriterScrolling, async (v) => { this.plugin.settings.enableTypewriterScrolling = v; await this.plugin.saveSettings(); }, 'align-vertical-justify-center');
-		void this.plugin.addCompactToggle(container, '포커스 모드', this.plugin.settings.enableFocusMode, async (v) => {
+		this.addMenuBackButton(container, wmT("보기"), () => this.renderMenuPage(container, 'main', leaf));
+		void this.plugin.addCompactToggle(container, wmT("타자기 스크롤"), this.plugin.settings.enableTypewriterScrolling, async (v) => { this.plugin.settings.enableTypewriterScrolling = v; await this.plugin.saveSettings(); }, 'align-vertical-justify-center');
+		void this.plugin.addCompactToggle(container, wmT("포커스 모드"), this.plugin.settings.enableFocusMode, async (v) => {
 			this.plugin.settings.enableFocusMode = v;
 			await this.plugin.saveSettings();
 			this.renderMenuPage(container, 'view', leaf);
 		}, 'eye');
 		if (this.plugin.settings.enableFocusMode) {
-			void this.plugin.addCompactSlider(container, '투명도', this.plugin.settings.focusOpacity, 0, 1, 0.05, async (v) => { this.plugin.settings.focusOpacity = v; await this.plugin.saveSettings(); }, 'sun');
+			void this.plugin.addCompactSlider(container, wmT("투명도"), this.plugin.settings.focusOpacity, 0, 1, 0.05, async (v) => { this.plugin.settings.focusOpacity = v; await this.plugin.saveSettings(); }, 'sun');
 		}
-		void this.plugin.addCompactToggle(container, '커스텀 구분선', this.plugin.settings.hrEnabled, async (v) => {
+		void this.plugin.addCompactToggle(container, wmT("커스텀 구분선"), this.plugin.settings.hrEnabled, async (v) => {
 			this.plugin.settings.hrEnabled = v;
 			await this.plugin.saveSettings();
 			this.plugin.leafStyleManager.updateDynamicStyles();
@@ -500,16 +528,16 @@ export class ToolbarManager {
 	}
 
 	renderInputPage(container: HTMLElement, leaf: WorkspaceLeaf) {
-		this.addMenuBackButton(container, '입력 보조', () => this.renderMenuPage(container, 'main', leaf));
-		void this.plugin.addCompactToggle(container, '스마트 따옴표', this.plugin.settings.enableSmartQuotes, async (v) => { this.plugin.settings.enableSmartQuotes = v; await this.plugin.saveSettings(); }, 'quote-glyph');
-		void this.plugin.addCompactToggle(container, '스마트 엔터', this.plugin.settings.enableSmartEnter, async (v) => { this.plugin.settings.enableSmartEnter = v; await this.plugin.saveSettings(); }, 'corner-down-left');
-		void this.plugin.addCompactToggle(container, '자동완성', this.plugin.settings.enableSmartInput, async (v) => { this.plugin.settings.enableSmartInput = v; await this.plugin.saveSettings(); }, 'keyboard');
-		void this.plugin.addCompactToggle(container, '텍스트 치환', this.plugin.settings.enableTextSubstitution, async (v) => { this.plugin.settings.enableTextSubstitution = v; await this.plugin.saveSettings(); }, 'replace');
+		this.addMenuBackButton(container, wmT("입력 보조"), () => this.renderMenuPage(container, 'main', leaf));
+		void this.plugin.addCompactToggle(container, wmT("스마트 따옴표"), this.plugin.settings.enableSmartQuotes, async (v) => { this.plugin.settings.enableSmartQuotes = v; await this.plugin.saveSettings(); }, 'quote-glyph');
+		void this.plugin.addCompactToggle(container, wmT("스마트 엔터"), this.plugin.settings.enableSmartEnter, async (v) => { this.plugin.settings.enableSmartEnter = v; await this.plugin.saveSettings(); }, 'corner-down-left');
+		void this.plugin.addCompactToggle(container, wmT("자동완성"), this.plugin.settings.enableSmartInput, async (v) => { this.plugin.settings.enableSmartInput = v; await this.plugin.saveSettings(); }, 'keyboard');
+		void this.plugin.addCompactToggle(container, wmT("텍스트 치환"), this.plugin.settings.enableTextSubstitution, async (v) => { this.plugin.settings.enableTextSubstitution = v; await this.plugin.saveSettings(); }, 'replace');
 	}
 
 	renderSnapshotMenuPage(container: HTMLElement, leaf: WorkspaceLeaf) {
-		this.addMenuBackButton(container, '원고 스냅샷', () => this.renderMenuPage(container, 'main', leaf));
-		const button = container.createEl('button', { text: '원고 스냅샷 열기', cls: 'wm-snapshot-menu-open' });
+		this.addMenuBackButton(container, wmT("원고 스냅샷"), () => this.renderMenuPage(container, 'main', leaf));
+		const button = container.createEl('button', { text: wmT("원고 스냅샷 열기"), cls: 'wm-snapshot-menu-open' });
 		button.addEventListener('click', () => {
 			(activeDocument.querySelector('.writing-menu-dropdown') as HTMLElement)?.remove();
 			void import('../snapshots/ManuscriptSnapshotModal').then(({ openManuscriptSnapshots }) => openManuscriptSnapshots(this.plugin));
@@ -517,8 +545,8 @@ export class ToolbarManager {
 	}
 
 	renderTimeTrackingPage(container: HTMLElement, leaf: WorkspaceLeaf) {
-		this.addMenuBackButton(container, '타이머/스톱워치 표시', () => this.renderMenuPage(container, 'main', leaf));
-		void this.plugin.addCompactToggle(container, '타이머/스톱워치 표시', this.plugin.settings.showTimerWidget, async (v) => {
+		this.addMenuBackButton(container, wmT("타이머/스톱워치 표시"), () => this.renderMenuPage(container, 'main', leaf));
+		void this.plugin.addCompactToggle(container, wmT("타이머/스톱워치 표시"), this.plugin.settings.showTimerWidget, async (v) => {
 			this.plugin.settings.showTimerWidget = v;
 			await this.plugin.saveSettings();
 		}, 'activity');
