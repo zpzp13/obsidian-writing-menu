@@ -1,11 +1,11 @@
-![Writing Menu — a focused writing workspace for Obsidian](assets/hero.png)
-
 # Writing Menu
 
 [![GitHub stars](https://img.shields.io/github/stars/zpzp13/obsidian-writing-menu?style=flat&logo=github&label=stars&color=b699e2)](https://github.com/zpzp13/obsidian-writing-menu/stargazers)
 [![GitHub release downloads](https://img.shields.io/github/downloads/zpzp13/obsidian-writing-menu/total?color=b699e2)](https://github.com/zpzp13/obsidian-writing-menu/releases)
 [![Latest release](https://img.shields.io/github/v/release/zpzp13/obsidian-writing-menu?color=b699e2)](https://github.com/zpzp13/obsidian-writing-menu/releases/latest)
 [![MIT license](https://img.shields.io/github/license/zpzp13/obsidian-writing-menu?color=7c9e61)](LICENSE)
+
+![Writing Menu — a focused writing workspace for Obsidian](assets/hero.png)
 
 **English** | [한국어](README.ko.md)
 
