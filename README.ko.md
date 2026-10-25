@@ -1,23 +1,30 @@
+![Writing Menu — Obsidian을 위한 집필 작업 공간](assets/hero.png)
+
 # Writing Menu
+
+[![GitHub 스타](https://img.shields.io/github/stars/zpzp13/obsidian-writing-menu?style=flat&logo=github&label=stars&color=b699e2)](https://github.com/zpzp13/obsidian-writing-menu/stargazers)
+[![GitHub 릴리스 다운로드](https://img.shields.io/github/downloads/zpzp13/obsidian-writing-menu/total?color=b699e2)](https://github.com/zpzp13/obsidian-writing-menu/releases)
+[![최신 릴리스](https://img.shields.io/github/v/release/zpzp13/obsidian-writing-menu?color=b699e2)](https://github.com/zpzp13/obsidian-writing-menu/releases/latest)
+[![MIT 라이선스](https://img.shields.io/github/license/zpzp13/obsidian-writing-menu?color=7c9e61)](LICENSE)
 
 [English](README.md) | **한국어**
 
 Obsidian에서 웹소설과 이야기를 쓰기 위한 집필 도구입니다. 원고 작성부터 플롯·인물 관리, 퇴고와 작품 자료 기반 AI 대화까지 한곳에서 진행합니다.
 
-**버전 3.4.1** · [다운로드](https://github.com/zpzp13/obsidian-writing-menu/releases/tag/3.4.1)
-
-![여러 페이지로 펼쳐 편집하는 원고](<docs/여러 쪽 보기.png>)
+[최신 릴리스 다운로드](https://github.com/zpzp13/obsidian-writing-menu/releases/latest)
 
 ## 원고 작성
 
 - Markdown과 여러 쪽 보기에서 공통 작성 툴바를 사용합니다. 여러 쪽 보기는 PC 전용입니다.
 - 글꼴·행간·문단·글자색을 조절하고 집중 모드, 타자기 스크롤, 스마트 인용부호와 텍스트 치환을 사용합니다.
-- 글자수 확인, 복사, TXT·HWP 내보내기를 지원합니다. HWP 변환은 Windows와 Python이 필요합니다.
+- 글자수 확인, 복사, TXT·HWPX 내보내기를 지원합니다. 일반 HWPX 내보내기는 Windows와 macOS에서 Python이나 한글 설치 없이 사용할 수 있습니다. 외부 HWP/HWPX 템플릿 적용은 Windows용 한컴오피스 한글이 필요합니다.
+
+![같은 원고를 여러 페이지로 펼쳐 편집하는 화면](assets/multi-page.png)
 
 <details>
 <summary>Markdown 작성 화면</summary>
 
-![Markdown 편집기와 작성 툴바](docs/마크다운.png)
+![Markdown 편집기와 작성 툴바](assets/markdown.png)
 
 </details>
 
@@ -29,7 +36,7 @@ Obsidian에서 웹소설과 이야기를 쓰기 위한 집필 도구입니다. �
 - 선택한 행이나 열의 내용을 사이드바에서 카드로 확인하고 편집합니다.
 - 검색, 여러 셀 붙여넣기, 실행 취소와 Markdown 내보내기를 지원합니다.
 
-![플롯 시트와 행·열 사이드바](<docs/플롯 매니저.png>)
+![장면별 줄거리·인물·상태와 선택한 행을 함께 보여주는 플롯 시트](assets/plot-workbook.png)
 
 ## Deus AI
 
@@ -40,41 +47,57 @@ Obsidian에서 웹소설과 이야기를 쓰기 위한 집필 도구입니다. �
 - **캐릭터 대화:** `/character`로 현재 장면이나 가정한 상황의 대화를 시험합니다.
 - **대화 관리:** 프로젝트별 세션 검색·고정·분기와 Markdown 내보내기를 지원합니다.
 
-<table>
-  <tr><th>자료 기반 답변</th><th>캐릭터 대화</th></tr>
-  <tr>
-    <td width="50%"><img src="docs/DEUS%20AI%20(3).png" alt="원문 각주가 연결된 인물 행적 답변" width="420"></td>
-    <td width="50%"><img src="docs/DEUS%20AI%20(2).png" alt="인물별 대사와 지문으로 표시하는 Character 스킬" width="420"></td>
-  </tr>
-</table>
+![원문 각주와 참고 회차를 함께 표시하는 작품 자료 기반 답변](assets/deus-research.png)
 
-Gemini API 키가 필요합니다. 각주는 기본으로 현재 탭에서 열며 설정에서 새 탭으로 변경할 수 있습니다.
+<details>
+<summary>캐릭터 대화 화면</summary>
+
+![엘리자베스와 다아시의 대사와 지문을 구분해 보여주는 캐릭터 대화](assets/deus-character-dialogue.png)
+
+</details>
+
+모델에서 Gemini, Claude Code (CLI), Codex (CLI)를 선택할 수 있습니다. Gemini는 API 키가 필요하며, CLI는 데스크톱에 설치하고 로그인한 도구를 사용합니다. CLI를 선택하면 설치된 도구에서 조회한 모델 목록과 모델별 effort를 고를 수 있습니다. CLI 경로·모델·effort는 Deus 설정에서도 지정하며, 경로가 비어 있으면 실행 파일을 자동으로 찾습니다. 프로젝트 컨텍스트·검색·출처 처리는 같은 흐름을 사용합니다. 각주는 기본으로 현재 탭에서 열며 설정에서 새 탭으로 변경할 수 있습니다.
 
 ## 퇴고와 스냅샷
 
-- 현재 원고 또는 프로젝트 전체의 문장 길이·단락·대사 비율·반복표현을 분석합니다.
+- 현재 원고 또는 프로젝트 전체의 문장 길이·단락·대사 비율과 한국어 반복표현을 분석합니다.
 - 원고 스냅샷을 비교하고 전체 또는 선택한 변경 구간을 복원합니다.
 - 플롯은 Markdown 스냅샷으로 다른 기기에 전달하고 수동으로 복원합니다.
 
-![문장·단락·구성 비율·반복표현 분석](<docs/교정 도우미.png>)
+![프로젝트 전체의 문장·단락 길이와 서술·대사 구성 비율 분석](assets/revision-analysis.png)
+
+<details>
+<summary>원고 스냅샷 비교와 변경 구간 복원</summary>
+
+![저장된 초고와 현재 원고를 비교하고 추가·삭제된 내용을 표시하는 화면](assets/manuscript-snapshots.png)
+
+</details>
 
 ## 인물 위키
 
 인물 프로필·이미지·속성을 관리하고 관계 그래프로 연결을 살펴봅니다.
 
-<table>
-  <tr><th>인물 프로필</th><th>관계 그래프</th></tr>
-  <tr>
-    <td width="50%"><img src="docs/위키%20(2).png" alt="인물 속성과 설정을 표시하는 위키 프로필" width="420"></td>
-    <td width="50%"><img src="docs/위키%20(1).png" alt="인물과 관계를 연결하는 그래프" width="420"></td>
-  </tr>
-</table>
+![속성·인물 설정·연결된 관계를 정리한 엘리자베스 베넷의 위키 프로필](assets/character-profile.png)
+
+<details>
+<summary>인물 관계 그래프</summary>
+
+![오만과 편견의 주요 인물을 연결한 관계 그래프](assets/character-relationships.png)
+
+</details>
 
 ## 집필 대시보드
 
 일정·할 일, 글자수·작업시간, 목표 진행률과 타이머를 확인합니다. 문피아·노벨피아 기준 글자수와 볼트 내 음악 재생도 지원합니다.
 
-<img src="docs/대시보드.png" alt="일정·집필 통계·타이머 대시보드" width="720">
+![글자수 추이·목표 진행률·타이머를 보여주는 집필 대시보드](assets/writing-dashboard.png)
+
+<details>
+<summary>달력·할 일·활동별 작업시간</summary>
+
+![주간 일정과 집필 할 일, 기획·초고·퇴고 시간을 보여주는 화면](assets/calendar-and-writing-time.png)
+
+</details>
 
 ## 모바일 도구
 
@@ -83,25 +106,33 @@ Gemini API 키가 필요합니다. 각주는 기본으로 현재 탭에서 열�
 <table>
   <tr><th>국어사전·한자 변환</th><th>맞춤법 교정</th><th>특수문자</th></tr>
   <tr>
-    <td width="33%"><img src="docs/모바일%20국어사전.png" alt="모바일 국어사전과 한자 변환" width="260"></td>
-    <td width="33%"><img src="docs/모바일%20맞검기.png" alt="본문과 연결된 맞춤법 교정 패널" width="260"></td>
-    <td width="33%"><img src="docs/모바일%20특수문자.png" alt="검색과 즐겨찾기를 지원하는 특수문자 입력" width="260"></td>
+    <td width="33%"><a href="assets/mobile-dictionary.png"><img src="assets/mobile-dictionary.png" alt="모바일 국어사전과 한자 변환" width="260"></a></td>
+    <td width="33%"><a href="assets/mobile-spellcheck.png"><img src="assets/mobile-spellcheck.png" alt="본문과 연결된 한국어 맞춤법 교정 패널" width="260"></a></td>
+    <td width="33%"><a href="assets/mobile-special-characters.png"><img src="assets/mobile-special-characters.png" alt="검색과 즐겨찾기를 지원하는 특수문자 입력" width="260"></a></td>
   </tr>
 </table>
 
 ## 설치와 시작
 
-1. [릴리즈 페이지](https://github.com/zpzp13/obsidian-writing-menu/releases/tag/3.4.1)에서 `writing-menu-3.4.1.zip`을 내려받습니다.
+1. [최신 릴리스](https://github.com/zpzp13/obsidian-writing-menu/releases/latest)에서 `writing-menu-*.zip` 파일을 내려받습니다.
 2. ZIP을 풀고 `writing-menu` 폴더 전체를 볼트의 `.obsidian/plugins/`에 복사합니다.
 3. Obsidian 커뮤니티 플러그인 설정에서 Writing Menu를 활성화합니다. 업데이트할 때 기존 `data.json`은 유지합니다.
-4. 플러그인 설정에서 프로젝트와 본문·인물 폴더를 등록합니다. 사전과 Deus AI는 사용할 서비스의 API 키를 추가합니다.
+4. 플러그인 설정에서 프로젝트와 본문·인물 폴더를 등록합니다. 사전과 Gemini는 사용할 서비스의 API 키를 추가합니다. CLI를 사용하려면 터미널에서 `claude auth login` 또는 `codex login`으로 먼저 로그인합니다.
 
 사용할 명령의 단축키는 **Obsidian 설정 → 단축키 → Writing Menu**에서 지정합니다.
 
+## 인터페이스 언어
+
+인터페이스는 Obsidian의 언어 설정을 따릅니다. 한국어에서는 한국어로, 영어 및 다른 언어에서는 영어로 표시합니다. 앱 언어를 바꾼 뒤에는 Obsidian을 다시 시작하세요. 기존 노트, 프로젝트 이름, 사용자 지정 라벨, 통계 메타데이터 키는 유지됩니다. 사전·한자·맞춤법 검사·형태소 분석은 한국어용 기능입니다.
+
 ## 외부 서비스와 라이선스
 
-Deus AI는 대화와 참고 자료를 Gemini API로 전송합니다. 사전과 맞춤법 검사는 각 외부 서비스를 사용하며, 모바일 글꼴과 선택적 분석 자산은 요청 시 내려받아 기기에 저장합니다. 맞춤법 검사는 비공식 API를 사용하므로 제공자의 이용 조건을 확인하세요.
+Deus AI는 대화와 참고 자료를 선택한 모델 제공자에게 Gemini API 또는 설치된 CLI를 통해 전송합니다. 사전과 맞춤법 검사는 각 외부 서비스를 사용하며, 모바일 글꼴과 선택적 분석 자산은 요청 시 내려받아 기기에 저장합니다. 맞춤법 검사는 비공식 API를 사용하므로 제공자의 이용 조건을 확인하세요.
 
-파일 시스템·Python·클립보드·로컬 저장소의 사용 범위는 [플러그인 권한 안내](docs/plugin-permissions.md)에서 확인할 수 있습니다.
+파일 시스템·외부 프로그램 실행·클립보드·로컬 저장소의 사용 범위는 [플러그인 권한 안내](docs/plugin-permissions.md)에서 확인할 수 있습니다.
 
 [MIT 라이선스](LICENSE). Claudian 등 외부 구성 요소의 라이선스 고지는 해당 코드와 배포 파일에 포함합니다.
+
+스크린샷은 제인 오스틴의 [오만과 편견](https://www.gutenberg.org/ebooks/1342) 퍼블릭 도메인 영어 원문으로 구성한 예제 프로젝트입니다. AI 대화와 사전·맞춤법 결과는 기능 설명용 예시이며, 모바일 이미지는 반응형 레이아웃 미리보기입니다.
+
+[로고 SVG](assets/logo.svg)
