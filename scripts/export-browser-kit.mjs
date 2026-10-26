@@ -3,10 +3,10 @@ import { createServer } from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-export async function browserCheck({ html, bundle, css, run, capture }) {
+export async function browserCheck({ html, bundle, css, run, capture, assets = {} }) {
     const executable = process.env.PAGED_TEST_BROWSER || ['C:/Program Files/Google/Chrome/Application/chrome.exe','C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(fs.existsSync);
     if (!executable) throw Error('Set PAGED_TEST_BROWSER to Chromium.');
-    const server=createServer((req,res)=>{const [type,data]=req.url==='/bundle.js'?['text/javascript',bundle]:req.url==='/styles.css'?['text/css',css]:['text/html',html];res.writeHead(200,{'Content-Type':type+'; charset=utf-8'});res.end(data);});
+    const server=createServer((req,res)=>{const [type,data]=assets[req.url] || (req.url==='/bundle.js'?['text/javascript',bundle]:req.url==='/styles.css'?['text/css',css]:['text/html',html]);res.writeHead(200,{'Content-Type':type+'; charset=utf-8'});res.end(data);});
     await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
     const profile=fs.mkdtempSync(path.join(os.tmpdir(),'wm-export-browser-'));
     const child=spawn(executable,['--headless=new','--disable-gpu','--no-first-run','--no-default-browser-check','--disable-background-timer-throttling','--disable-renderer-backgrounding','--remote-debugging-port=0',`--user-data-dir=${profile}`,'about:blank'],{windowsHide:true,stdio:['ignore','ignore','pipe']});

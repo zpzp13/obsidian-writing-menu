@@ -3,7 +3,7 @@ import process from "process";
 import { builtinModules } from "module";
 import { readFile } from 'node:fs/promises';
 
-const licenseNames = ['bootstrap-icons', 'kordoc', 'docx', 'docx-preview', 'markdown-it', 'markdown-it-footnote', 'fflate', 'jszip', 'xmldom'];
+const licenseNames = ['bootstrap-icons', 'kordoc', 'docx', 'docx-preview', 'markdown-it', 'markdown-it-footnote', 'fflate', 'jszip', 'xmldom', 'esbuild-wasm'];
 const licenseText = (await Promise.all(licenseNames.map(async name => `=== ${name} ===\n${await readFile(`vendor/licenses/${name}.txt`, 'utf8')}`))).join('\n\n');
 const banner =
 `/*
@@ -62,6 +62,16 @@ const workerBuildOptions = {
 
 await esbuild.build(workerBuildOptions);
 mainBuildOptions.define.__WM_GARU_WORKER_SOURCE__ = JSON.stringify(await readFile('garu-worker.js', 'utf8'));
+const kordocBridge = await esbuild.build({
+	entryPoints: ['src/export/kordocWorker.ts'], bundle: true, platform: 'browser', format: 'esm',
+	target: 'chrome100', minify: prod, write: false, external: ['./node_modules/kordoc/*'],
+});
+const kordocCompiler = await esbuild.build({
+	entryPoints: ['src/export/kordocCompilerWorker.ts'], bundle: true, platform: 'browser', format: 'iife',
+	target: 'chrome100', minify: true, write: false,
+	define: { __WM_KORDOC_WORKER_SOURCE__: JSON.stringify(kordocBridge.outputFiles[0].text) },
+});
+mainBuildOptions.define.__WM_KORDOC_COMPILER_SOURCE__ = JSON.stringify(kordocCompiler.outputFiles[0].text);
 const documentWorkerBuildOptions = {
 	entryPoints: ['src/export/documentWorker.ts'], bundle: true, platform: 'browser', format: 'iife',
 	target: 'chrome100', logLevel: 'info', minify: prod, sourcemap: prod ? false : 'inline',

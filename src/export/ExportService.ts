@@ -6,7 +6,7 @@ import { wmT } from '../i18n/index';
 import { parseMarkdownDocument, applyContentPolicy, mergeDocuments } from './MarkdownDocument';
 import type { SourceFormatting } from './MarkdownDocument';
 import type { ContentPolicy, DocumentFormat, DocumentResource, EncodeOptions, GeneratedDocument, HwpxTemplate, TextRun, TransferDocument } from './DocumentModel';
-import { DocumentWorker } from './DocumentEngine';
+import { KordocDocumentEngine } from './KordocEngine';
 import type { DocumentEngine } from './DocumentEngine';
 import { EXPORT_IMAGE_EXTENSIONS, prepareExportImage } from './ExportImages';
 import { projectExportStyles } from './ProjectExportStyles';
@@ -31,7 +31,7 @@ export async function flushExportSources(plugin: WritingMenuPlugin, files: TFile
 export class ExportService {
 	private cache = new Map<string, { signature: string; generated: GeneratedDocument }>();
 	private fontCache = new InstalledFontCache();
-	constructor(private plugin: WritingMenuPlugin, readonly engine: DocumentEngine = new DocumentWorker()) {}
+	constructor(private plugin: WritingMenuPlugin, readonly engine: DocumentEngine = new KordocDocumentEngine(plugin)) {}
 	dispose(): void { this.cache.clear(); this.engine.dispose(); }
 	cancelPreview(): void { this.engine.cancelGeneration?.(); }
 	async loadTemplate(path: string): Promise<HwpxTemplate> {

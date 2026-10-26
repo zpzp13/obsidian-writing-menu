@@ -1,37 +1,38 @@
 import { wmT } from '../i18n/index';
 import { App, Modal, setIcon } from 'obsidian';
-import documentExportImage from '../../assets/document-export.png';
-import documentExportFormattingImage from '../../assets/document-export-formatting.png';
-import plotInternalLinksImage from '../../assets/plot-internal-links.png';
-import deusModelSelectionImage from '../../assets/deus-model-selection.png';
-import projectTypographyImage from '../../assets/project-typography.png';
-
-const BASE_URL = 'https://raw.githubusercontent.com/zpzp13/obsidian-writing-menu/main';
-
-type ReleaseItem = string | { text: string; bannerUrl: string };
 
 interface ReleaseNote {
 	version: string;
 	date: string;
-	new?: ReleaseItem[];
-	improved?: ReleaseItem[];
-	fixed?: ReleaseItem[];
-	notice?: ReleaseItem[];
+	new?: string[];
+	improved?: string[];
+	fixed?: string[];
+	notice?: string[];
 }
 
 const RELEASE_NOTES: ReleaseNote[] = [
 	{
+		version: '3.5.1',
+		date: '2026-10-26',
+		new: [wmT('문서 엔진: kordoc을 최초 1회 다운로드하고 HWPX 미리보기에서 오프라인으로 재사용합니다.')],
+		improved: [wmT('업데이트 안내의 이미지를 제거해 플러그인 배포 용량을 줄였습니다.')],
+		fixed: [
+			wmT('문서 엔진 실행 오류와 기존 설치를 업데이트할 때 발생하던 파일 충돌을 수정했습니다.'),
+			wmT('내보내기 양식의 용지 너비·높이 단위를 오른쪽 아래에 정렬했습니다.'),
+		],
+	},
+	{
 		version: '3.5.0',
 		date: '2026-10-26',
 		new: [
-			{ text: wmT("문서 내보내기: TXT·DOCX·HWPX 미리보기에서 원고를 선택·정렬하고 개별 저장하거나 하나로 병합합니다."), bannerUrl: documentExportImage },
-			{ text: wmT("내보내기 서식: 글자·문단·용지를 조절하고 프리셋과 HWPX 템플릿 서식을 사용합니다. Python·Word·한글 설치 없이 생성합니다."), bannerUrl: documentExportFormattingImage },
+			wmT("문서 내보내기: TXT·DOCX·HWPX 미리보기에서 원고를 선택·정렬하고 개별 저장하거나 하나로 병합합니다."),
+			wmT("내보내기 서식: 글자·문단·용지를 조절하고 프리셋과 HWPX 템플릿 서식을 사용합니다. Python·Word·한글 설치 없이 생성합니다."),
 			wmT("한국어·영어 UI: Obsidian 언어 설정에 맞춰 표시하며 원고와 사용자 지정 이름은 유지합니다."),
-			{ text: wmT("플롯 내부 링크: 셀과 사이드바에서 [[노트]] 자동완성과 원문 이동을 지원합니다."), bannerUrl: plotInternalLinksImage },
-			{ text: wmT("Deus CLI: Claude Code·Codex를 연결하고 설치된 도구의 모델과 추론 강도를 선택합니다."), bannerUrl: deusModelSelectionImage },
+			wmT("플롯 내부 링크: 셀과 사이드바에서 [[노트]] 자동완성과 원문 이동을 지원합니다."),
+			wmT("Deus CLI: Claude Code·Codex를 연결하고 설치된 도구의 모델과 추론 강도를 선택합니다."),
 		],
 		improved: [
-			{ text: wmT("집필 서식: Style Settings의 프로젝트 서식과 툴바 글꼴 목록·두께·수치 조작을 개선했습니다."), bannerUrl: projectTypographyImage },
+			wmT("집필 서식: Style Settings의 프로젝트 서식과 툴바 글꼴 목록·두께·수치 조작을 개선했습니다."),
 			wmT("음악 라이브러리: Bases 보기·곡 정보·오디오 메타데이터와 재생 상태 처리를 개선했습니다."),
 		],
 		fixed: [
@@ -90,8 +91,8 @@ const RELEASE_NOTES: ReleaseNote[] = [
 		version: '3.0.16',
 		date: '2026-06-23',
 		new: [
-			{ text: wmT("커스텀 구분선: --- 구분선을 이미지·SVG·CSS 스타일로 꾸밀 수 있습니다 (폴더 조건 적용 가능)"), bannerUrl: `${BASE_URL}/images/커스텀구분선.png` },
-			{ text: wmT("맞춤법 검사기 (F8): Daum 웹 API 기반 맞춤법 검사, 고유명사 사전 등록, 교정 제안 적용 지원 (비상업적 개인 이용 한정)"), bannerUrl: `${BASE_URL}/images/맞춤법검사기.png` },
+			wmT("커스텀 구분선: --- 구분선을 이미지·SVG·CSS 스타일로 꾸밀 수 있습니다 (폴더 조건 적용 가능)"),
+			wmT("맞춤법 검사기 (F8): Daum 웹 API 기반 맞춤법 검사, 고유명사 사전 등록, 교정 제안 적용 지원 (비상업적 개인 이용 한정)"),
 		],
 		improved: [
 			wmT("설정 UI 전면 재설계: 기능별 페이지 그룹화, 항목별 설명 추가, 입력 컨트롤 크기 통일"),
@@ -140,7 +141,7 @@ export class WhatsNewModal extends Modal {
 		header.createEl('h2', { cls: 'wm-wn-title', text: wmT("v{0} 업데이트", this.note.version) });
 		header.createSpan({ cls: 'wm-wn-date', text: this.note.date });
 
-		const sections: { key: keyof ReleaseNote; label: string; icon: string }[] = [
+		const sections: { key: 'notice' | 'new' | 'improved' | 'fixed'; label: string; icon: string }[] = [
 			{ key: 'notice',   label: wmT("공지"),      icon: 'megaphone' },
 			{ key: 'new',      label: wmT("새 기능"),   icon: 'sparkles' },
 			{ key: 'improved', label: wmT("개선"),      icon: 'arrow-up-circle' },
@@ -148,7 +149,7 @@ export class WhatsNewModal extends Modal {
 		];
 
 		for (const { key, label, icon } of sections) {
-			const items = this.note[key] as ReleaseItem[] | undefined;
+			const items = this.note[key];
 			if (!items?.length) continue;
 
 			const section = body.createDiv({ cls: 'wm-wn-section' });
@@ -158,13 +159,7 @@ export class WhatsNewModal extends Modal {
 			sectionHeader.createSpan({ cls: 'wm-wn-section-label', text: label });
 
 			const itemsEl = section.createDiv({ cls: 'wm-wn-items' });
-			for (const item of items) {
-				const text = typeof item === 'string' ? item : item.text;
-				const bannerUrl = typeof item === 'object' ? item.bannerUrl : undefined;
-				if (bannerUrl) {
-					itemsEl.createDiv({ cls: 'wm-wn-item-banner' })
-						.createEl('img', { attr: { src: bannerUrl, alt: text } });
-				}
+			for (const text of items) {
 				itemsEl.createDiv({ cls: 'wm-wn-item' }).createSpan({ text });
 			}
 		}

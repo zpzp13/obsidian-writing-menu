@@ -1,0 +1,42 @@
+{
+  "version": "4.24.9",
+  "protocol": 2,
+  "entry": "node_modules/kordoc/dist/render-Z6N2GGKL.js",
+  "packages": [
+    {
+      "path": "node_modules/@xmldom/xmldom",
+      "name": "@xmldom/xmldom",
+      "version": "0.9.12",
+      "url": "https://registry.npmjs.org/@xmldom/xmldom/-/xmldom-0.9.12.tgz",
+      "integrity": "sha512-5AXjrcMClTryPe9LgZrygpB1lj7s0S9E0+W+AHaVKAVyHanafK86iPSvG5xHVSp/jC+VH1UXu0TAEmY279xH7A=="
+    },
+    {
+      "path": "node_modules/jszip",
+      "name": "jszip",
+      "version": "3.10.2",
+      "url": "https://registry.npmjs.org/jszip/-/jszip-3.10.2.tgz",
+      "integrity": "sha512-3l+rb15IOWtUhU0H5MFqES/T6Kh7abYwjosBey/vD6hDt8zoEffkSC5Ws5SGtgVw3gBx2NEbhTeSW1+kWkpyTQ=="
+    },
+    {
+      "path": "node_modules/kordoc",
+      "name": "kordoc",
+      "version": "4.24.9",
+      "url": "https://registry.npmjs.org/kordoc/-/kordoc-4.24.9.tgz",
+      "integrity": "sha512-DuT6PsEPFNzI+SrVLyY0kiu9VZUFtqSPFLIVax5QPSrKYyY7dKdE49N2acJd4kVxX8ox50a/qGlFluE/4YH0VA=="
+    },
+    {
+      "path": "node_modules/markdown-it",
+      "name": "markdown-it",
+      "version": "14.3.3",
+      "url": "https://registry.npmjs.org/markdown-it/-/markdown-it-14.3.3.tgz",
+      "integrity": "sha512-L//tDAkjTjJCU6pBUSBTgs3Kg4InVaZuUZog/b6V12UKhcDQ7S78877ibbCanRExwPuYP1CZD7Gd2dxSy1GXRg=="
+    }
+  ],
+  "compiler": {
+    "path": "compiler",
+    "name": "esbuild-wasm",
+    "version": "0.17.3",
+    "url": "https://registry.npmjs.org/esbuild-wasm/-/esbuild-wasm-0.17.3.tgz",
+    "integrity": "sha512-ad4foZtmEu5YvMQpky/Fbb2R0LEPxb0H8ePh9o0XTl8tiMPlVMTuRM9UOUgEZWTEu8NfkELuOVzB8s2rGNYi0Q=="
+  }
+}

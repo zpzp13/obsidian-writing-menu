@@ -1,11 +1,9 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { createHash } from 'node:crypto';
 import * as zip from 'fflate';
 import { DOMParser } from '@xmldom/xmldom';
 import { exportFixture, nodeExportHost } from './export-test-kit.mjs';
-const provenance=JSON.parse(fs.readFileSync('vendor/kordoc/provenance.json','utf8'));assert.equal(provenance.version,'4.24.6');assert.equal(provenance.revision,'71666c52fe6321e2ad1df8dfbc21b58693bd6ae3');
-for(const file of provenance.files){const code=fs.readFileSync(file.output,'utf8');assert.equal(createHash('sha256').update(code).digest('hex'),file.outputSha256,file.output);assert(!/\b(?:Buffer|process|require|nodeStream)\b/.test(code),file.output+' contains a Node-only API');}
+assert(!fs.existsSync('vendor/kordoc'), 'kordoc sources must not be vendored');
 nodeExportHost();
 const api=await exportFixture();
 const {parseMarkdownDocument:parse, applyContentPolicy:policy, documentText:text, DEFAULT_CONTENT:content, DEFAULT_DOCUMENT_STYLE:style}=api;
@@ -24,7 +22,7 @@ for(const [i,sample] of samples.entries()){
         const result=await api.generateDocument(doc,format,options);
         const actual=format==='txt'?new TextDecoder().decode(result.bytes):format==='docx'?docxText(result.bytes):hwpxText(result.bytes);
         assert.equal(actual,text(doc),`${format} text ${i}`);
-        if(format==='hwpx')assert(result.pages.length>0,'HWPX generated SVG missing');
+        assert.equal(result.pages,undefined,'Codecs must not load a bundled renderer');
         fs.writeFileSync(`.codex-tmp/export/sample-${i}.${format}`,result.bytes);
     }
 }
@@ -44,7 +42,6 @@ for(const format of ['docx','hwpx']){
  const output=await api.generateDocument(rich,format,options);fs.writeFileSync('.codex-tmp/export/rich.'+format,output.bytes);
  const body=xml(output.bytes,format==='hwpx'?'Contents/section0.xml':'word/document.xml');assert(!body.includes(format==='hwpx'?'hp:tbl':'w:tbl'),'Tables export as plain text');assert((format==='hwpx'?hwpxText(output.bytes):docxText(output.bytes)).includes('한글\tEnglish'));assert(body.includes(format==='hwpx'?'hp:footNote':'w:footnoteReference'));assert(body.includes(format==='hwpx'?'hp:pic':'w:drawing'));
  const archive=zip.unzipSync(output.bytes);assert(Object.keys(archive).some(name=>/\.(?:png)$/.test(name)));
- if(format==='hwpx')assert(output.pages.some(page=>page.includes('data:image/png;base64')),'HWPX embedded image preview missing');
 }
 const indent=policy(parse('가\n나\n\n\t\n끝'),{...content,spaceIndent:true},'txt');assert.equal(text(indent),' 가\n 나\n\n\t\n 끝');
 assert.equal(text(policy(parse('**본문**[^n]\n\n[^n]: **각주**'),{...content,footnotes:'keep'},'hwpx')).includes('본문'),true);
@@ -56,6 +53,6 @@ const again=api.inspectHwpxTemplate(fromTemplate);assert.equal(again.styles[0].s
 assert.throws(()=>api.inspectHwpxTemplate(new Uint8Array([0,1,2])));
 const merged=api.mergeDocuments([parse('둘'),parse('하나')]);assert.equal(text(merged),'둘\n\n하나');
 const long=policy(parse(('한글 English 😀\t & <내용>\n\n').repeat(1500)),content,'hwpx');
-const started=Date.now(), result=await api.generateDocument(long,'hwpx',options);assert.equal(hwpxText(result.bytes),text(long));assert(result.pages.length>1);
+const started=Date.now(), result=await api.generateDocument(long,'hwpx',options);assert.equal(hwpxText(result.bytes),text(long));assert.equal(result.pages,undefined);
 fs.writeFileSync('.codex-tmp/export/long.hwpx',result.bytes);
-console.log(`PASS UTF-8/DOCX/HWPX Unicode, XML, tabs, leading/trailing/blank paragraphs; content modes; template style/background; ${result.pages.length} long-manuscript pages (${Date.now()-started}ms)`);
+console.log(`PASS renderer-free UTF-8/DOCX/HWPX Unicode, XML, tabs, leading/trailing/blank paragraphs; content modes; template style/background; long manuscript (${Date.now()-started}ms)`);

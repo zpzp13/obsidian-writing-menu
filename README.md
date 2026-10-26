@@ -174,9 +174,10 @@ Writing Menu follows Obsidian's language setting: Korean uses the Korean interfa
 
 ## External services and license
 
+Download the **Document engine** once in the export settings to enable HWPX previews. Pinned kordoc and its required libraries are downloaded from the npm registry, checked against integrity hashes, and stored in the plugin's `kordoc-assets` folder. A persistent worker inside Obsidian reuses the engine offline. No separate Node.js/npm installation or executable-path setup is required, and manuscripts are not uploaded. kordoc sources are not bundled in the plugin distribution.
+
 Deus AI sends your conversation and reference material to the selected model provider through the Gemini API or an installed CLI. Dictionary and spell-checking tools use their respective services. Mobile fonts and optional analysis assets are downloaded on request and stored locally. Spell checking uses unofficial endpoints; follow the provider's terms.
 
-See [plugin permissions](docs/plugin-permissions.md) for filesystem, external-process, clipboard, and local-storage usage.
 
 [MIT License](LICENSE). Notices for external components, including Claudian, are included with the relevant code and distribution files.
 

@@ -13,6 +13,7 @@ import { ExportControls, exportButton, exportSection, exportSelect, exportRow, e
 import { ToolbarSelect } from '../toolbar/ToolbarSelect';
 import { createToolbarIconButton } from '../toolbar/toolbarUi';
 import { pickExternalPath } from './DesktopExport';
+import { downloadKordocAssets, KordocNotInstalledError } from './KordocAssets';
 
 export type ExportTarget = TFile | TFolder | TFile[];
 let nextExportModalId = 0;
@@ -61,6 +62,7 @@ export class DocumentExportModal extends Modal {
 	private previewEl!: HTMLElement;
 	private previewBody!: HTMLElement;
 	private messageEl!: HTMLElement;
+	private engineDownloadButton!: HTMLButtonElement;
 	private saveButton!: HTMLButtonElement;
 	private nameInput!: HTMLInputElement;
 	private bodyEl!: HTMLElement;
@@ -308,6 +310,8 @@ export class DocumentExportModal extends Modal {
     private renderFooter(host: HTMLElement): void {
         const footer = host.createDiv({ cls: 'wm-export-footer' });
         this.messageEl = footer.createDiv({ cls: 'wm-export-status', attr: { role: 'status', 'aria-live': 'polite' } });
+        this.engineDownloadButton = exportButton(footer, wmT('엔진 다운로드'), () => { void this.downloadEngine(); }, 'mod-cta');
+        this.engineDownloadButton.hidden = true;
         this.saveButton = exportButton(footer, wmT('내보내기'), () => { void this.save(); }, 'mod-cta'); this.saveButton.disabled = true;
     }
     private openPresetSave(): void {
@@ -358,7 +362,14 @@ export class DocumentExportModal extends Modal {
 			await this.renderPreview(artifacts[0]);
 			if (this.closed || revision !== this.revision) return;
 			this.latest = artifacts; this.completedPreviewKey = key; this.saveButton.disabled = !this.sourceSelection.order.length; this.setMessage(artifacts[0]?.notices?.join('\n') ?? '');
-		} catch (error) { if (!this.closed && revision === this.revision && !controller.signal.aborted) this.showError(this.errorText(error)); }
+		} catch (error) {
+			if (!this.closed && revision === this.revision && !controller.signal.aborted) {
+				this.showError(this.errorText(error));
+				if (error instanceof KordocNotInstalledError) {
+					this.engineDownloadButton.hidden = false;
+				}
+			}
+		}
 		finally {
 			if (!this.closed && revision === this.revision) { this.previewAbort = undefined; this.pendingPreviewKey = ''; this.previewEl.setAttribute('aria-busy', 'false'); }
 		}
@@ -405,7 +416,20 @@ export class DocumentExportModal extends Modal {
         this.previewBody.style.setProperty('--wm-export-zoom',String(this.currentScale)); this.zoomValueEl?.setText(Math.round(this.currentScale * 100) + '%');
     }
 
-	private setMessage(text: string, error = false): void { this.messageEl.setText(text); this.messageEl.toggleClass('is-error', error); }
+	private async downloadEngine(): Promise<void> {
+		const button = this.engineDownloadButton;
+		if (button.disabled || this.closed) return;
+		button.disabled = true;
+		try {
+			await downloadKordocAssets(this.plugin, step => {
+				if (!this.closed) { this.setMessage(step); button.hidden = false; }
+			});
+			if (!this.closed) { button.hidden = true; this.queuePreview(); }
+		} catch (error) {
+			if (!this.closed) { const message = this.errorText(error); new Notice(message); this.setMessage(message, true); button.hidden = this.draft.format !== 'hwpx'; }
+		} finally { button.disabled = false; }
+	}
+	private setMessage(text: string, error = false): void { this.engineDownloadButton.hidden = true; this.messageEl.setText(text); this.messageEl.toggleClass('is-error', error); }
 	private errorText(error: unknown): string { return wmT(error instanceof Error ? error.message : String(error)); }
 	private showError(text: string): void { this.latest = []; this.completedPreviewKey = ''; this.renderedPreview = undefined; this.renderedSource = ''; this.saveButton.disabled = true; this.clearUrls(); this.previewBody.empty(); this.setMessage(text, true); }
 	private async save(): Promise<void> {

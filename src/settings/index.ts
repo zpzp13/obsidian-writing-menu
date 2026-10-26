@@ -1,4 +1,5 @@
 import { exportContentPolicy, exportDefaults } from '../export/ExportDefaults';
+import { renderKordocEngineSetting } from '../export/KordocSettings';
 import type { DocumentFormat } from '../export/DocumentModel';
 import { wmT } from '../i18n/index';
 import { App, Notice, PluginSettingTab, Setting, setIcon, Platform, ToggleComponent, requireApiVersion } from 'obsidian';
@@ -850,6 +851,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			await this.plugin.saveSettings();
 		};
 		if (Platform.isDesktop) {
+			renderKordocEngineSetting(exportBox, this.plugin);
 			let hwpPathText: import('obsidian').TextComponent;
 			new Setting(exportBox)
 				.setName(wmT('저장 경로'))

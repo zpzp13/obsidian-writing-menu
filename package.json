@@ -1,6 +1,6 @@
 {
 	"name": "writing-menu",
-	"version": "3.5.0",
+	"version": "3.5.1",
 	"description": "An Obsidian plugin for customizing editor formatting",
 	"main": "main.js",
 	"scripts": {
@@ -47,6 +47,7 @@
 		"diff-match-patch": "^1.0.5",
 		"docx": "9.14.0",
 		"docx-preview": "0.4.1",
+		"esbuild-wasm": "0.17.3",
 		"fflate": "^0.8.3",
 		"force-graph": "^1.52.0",
 		"ical.js": "^2.2.1",

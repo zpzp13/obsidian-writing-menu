@@ -45,6 +45,7 @@ class Setting {
 const i18n = loadTsFixture('src/i18n/index.ts');
 const { WritingMenuSettingTab } = loadTsFixture('src/settings/index.ts', {
 	'../i18n/index': i18n,
+	'../export/KordocSettings': { renderKordocEngineSetting() {} },
 	obsidian: { App: class {}, Notice: class {}, PluginSettingTab: class { constructor(app) { this.app = app; this.containerEl = new Element(); } update() { updates++; refresh(); } }, Setting, setIcon() {}, Platform: { isMobile: false }, ToggleComponent: class {}, requireApiVersion: () => modern },
 	'../wiki/WikiSettings': {}, '../plot-workbook/PlotWorkbookSettings': {}, '../wiki/WikiModals': {}, '../repetition/GaruAssets': {}, '../repetition/MorphAnalyzer': {}, '../aichat/DeusSettings': {}, '../fonts/MobileFontManager': { MOBILE_WEB_FONTS: [] },
 });

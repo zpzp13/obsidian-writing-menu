@@ -1,4 +1,4 @@
-// HWPX inline picture/note/table shapes follow kordoc's MIT generators; see vendor/kordoc/LICENSE.
+// HWPX inline picture/note/table shapes follow kordoc's MIT generators; see vendor/licenses/kordoc.txt.
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import type { Zippable } from 'fflate';
 import type { Document as XmlDocument, Element as XmlElement } from '@xmldom/xmldom';

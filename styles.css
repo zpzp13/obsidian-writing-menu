@@ -6108,8 +6108,6 @@ button.wm-sc-cell-star { position: absolute; top: 1px; right: 1px; z-index: 1; d
 .wm-wn-section-icon .svg-icon { width: 15px; height: 15px; }
 .wm-wn-section-label { font-size: 13px; font-weight: 600; color: var(--text-accent); }
 .wm-wn-items { display: flex; flex-direction: column; gap: 4px; }
-.wm-wn-item-banner { width: 100%; margin-bottom: 4px; }
-.wm-wn-item-banner img { width: 100%; display: block; border-radius: var(--radius-m, 8px); }
 .wm-wn-item { font-size: 13px; color: var(--text-normal); line-height: 1.5; padding-left: 2px; }
 .wm-wn-item::before { content: "•"; margin-right: 6px; color: var(--text-muted); }
 .wm-wn-footer { display: flex; justify-content: flex-end; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--background-modifier-border); }
@@ -12893,7 +12891,7 @@ body > .wm-export-bases-portal { z-index: calc(var(--layer-menu) + var(--wm-expo
 .wm-export-number.wm-paged-size-input-row input:hover,
 .wm-export-number.wm-paged-size-input-row input:focus { width: 100%; min-width: 0; height: 28px; min-height: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; text-align: right; font-size: 13px; appearance: textfield; }
 .wm-export-number input::-webkit-inner-spin-button, .wm-export-number input::-webkit-outer-spin-button { margin: 0; appearance: none; }
-.wm-export-number .wm-paged-size-input-unit { width: 24px; color: var(--text-faint); font-size: 11px; text-align: right; }
+.wm-export-number .wm-paged-size-input-unit { align-self: end; justify-content: flex-end; width: 24px; height: auto; color: var(--text-faint); font-size: 11px; line-height: 1; text-align: right; }
 .wm-document-export .wm-paged-toolbar-button { flex-shrink: 0; width: 26px; height: 26px; min-height: 26px; padding: 4px; border: 0; box-shadow: none; background: transparent; color: var(--text-muted); }
 .wm-document-export .wm-paged-toolbar-button:hover { background: transparent; color: var(--text-normal); }
 .wm-document-export .wm-paged-toolbar-button svg { width: 15px; height: 15px; }
@@ -12922,7 +12920,8 @@ body > .wm-export-bases-portal { z-index: calc(var(--layer-menu) + var(--wm-expo
 .wm-export-empty { margin: 0; padding: 16px 8px; color: var(--text-muted); }
 .wm-export-inline-error, .wm-export-status.is-error, .wm-export-empty.is-error { color: var(--text-error); }
 .wm-export-footer { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-shrink: 0; min-height: 50px; padding: 12px 24px; border: 0; background: var(--background-primary); }
-.wm-export-footer > button { flex: 0 0 auto; height: 26px; min-height: 26px; }
+.wm-export-footer > button { flex: 0 0 auto; width: 112px; height: 26px; min-height: 26px; }
+.wm-export-footer > button[hidden] { display: none; }
 .wm-export-status { flex: 1; min-width: 0; color: var(--text-muted); overflow-wrap: anywhere; font-size: var(--font-ui-smaller); }
 .wm-export-status:empty { display: none; }
 .wm-export-splitter { touch-action: none; cursor: col-resize; background: transparent; }
