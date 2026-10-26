@@ -9727,7 +9727,6 @@ input.slider.wm-writing-format-slider::-moz-range-thumb {
 	box-shadow: none;
 	text-decoration: none;
 	-webkit-box-decoration-break: clone;
-	box-decoration-break: clone;
 }
 
 .wm-plotbook-sheet.is-searching .wm-plotbook-cell {
@@ -12428,7 +12427,7 @@ button.deus-text-copy-btn.copied{color:var(--text-accent);font-size:11px;font-fa
 body.theme-light .deus-code-wrapper pre,body.theme-light .deus-message-content pre{background:#00000014}
 .deus-message-content>pre{margin:8px 0}
 .deus-message-content code{font-family:var(--font-monospace);font-size:13px}
-.deus-container .deus-message-content :not(pre)>code{background-color:var(--code-background, var(--background-secondary));color:var(--code-normal, var(--text-normal));padding:.1em .35em;border-radius:4px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.deus-container .deus-message-content :not(pre)>code{background-color:var(--code-background, var(--background-secondary));color:var(--code-normal, var(--text-normal));padding:.1em .35em;border-radius:4px;-webkit-box-decoration-break:clone}
 .deus-container .deus-mermaid img{display:block;max-width:100%;height:auto}
 .deus-container .deus-mermaid{position:relative;padding:32px 8px 8px;border:1px solid var(--background-modifier-border);border-radius:6px}
 .deus-container .deus-mermaid>img[hidden],.deus-container .deus-mermaid-toggle[hidden]{display:none}

@@ -29,5 +29,9 @@ jobs:
         run: npm run check:warnings
       - name: Build without deploying
         run: npm --ignore-scripts run build
+      - name: Verify browser runtime and reproducible release assets
+        run: |
+          node scripts/verify-browser-runtime.mjs
+          node scripts/verify-release-build.mjs
       - name: Verify lockfile stayed unchanged
         run: git diff --exit-code -- package.json package-lock.json

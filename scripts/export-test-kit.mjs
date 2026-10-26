@@ -2,6 +2,7 @@ import { build } from 'esbuild';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { browserRuntime } from './browser-runtime.mjs';
 import { kordocUiFixture, kordocAssetsUiFixture } from './export-kordoc-fixture.mjs';
 export const fixtureSources = [ 'DocumentModel', 'MarkdownDocument', 'HwpxTemplate', 'StyledHwpxDocument', 'DocxDocument', 'DocumentCodecs', 'ExportDefaults', 'ExportSelection', 'ExportService' ];
 export async function exportFixture(browser = false, extra = '') {
@@ -18,7 +19,7 @@ export async function exportFixture(browser = false, extra = '') {
         ` : p==='paged' ? `export const {PagedWritingView}=globalThis.__exportHost; export const PAGED_WRITING_VIEW_TYPE='paged';`
         : p==='node' ? `export const getFs = async()=>globalThis.__exportHost.fs; export const joinPath=(...parts)=>parts.filter(Boolean).join(globalThis.__exportHost.Platform.isWin?'\\\\':'/');`
         : `export const pickExternalPath=async(kind)=>globalThis.__exportHost.pick(kind);` }));
-    } }], define: { __WM_DOCUMENT_WORKER_SOURCE__: browser ? JSON.stringify(fs.readFileSync('.codex-tmp/export-worker-smoke.js','utf8')) : '""' } });
+    } }, ...(browser ? [browserRuntime()] : [])], define: { __WM_DOCUMENT_WORKER_SOURCE__: browser ? JSON.stringify(fs.readFileSync('.codex-tmp/export-worker-smoke.js','utf8')) : '""' } });
     if(browser) return result.outputFiles[0].text;
     const filename=path.resolve('.codex-tmp/export-fixture.cjs');fs.mkdirSync(path.dirname(filename),{recursive:true});fs.writeFileSync(filename,result.outputFiles[0].text);return createRequire(import.meta.url)(filename);
 }

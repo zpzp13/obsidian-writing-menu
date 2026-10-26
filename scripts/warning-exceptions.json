@@ -33,16 +33,6 @@
         "scripts/verify-input-boundaries.mjs",
         "scripts/verify-paged-performance.mjs"
       ]
-    },
-    {
-      "file": "src/export/ExportSources.ts",
-      "rule": "obsidianmd/prefer-file-manager-trash-file",
-      "symbol": "delete",
-      "count": 1,
-      "reason": "Remove only the unique temporary .base session created by this export after its embed unloads; exact path and object identity are checked. This is not a user document and should not fill the trash.",
-      "tests": [
-        "scripts/verify-export-ui.mjs"
-      ]
     }
   ],
   "css": [
@@ -154,21 +144,6 @@
     {
       "file": "styles.css",
       "rule": "plugin/no-unsupported-browser-features",
-      "selector": ".wm-plotbook-sheet .wm-plotbook-search-hit, .wm-plotbook-selected-cell-preview .wm-plotbook-search-hit",
-      "property": "box-decoration-break",
-      "value": "clone",
-      "context": "",
-      "count": 1,
-      "reason": "clone is paired with the WebKit-prefixed fallback required by minimum-runtime Chromium.",
-      "tests": [
-        "scripts/verify-css-cascade.mjs",
-        "scripts/verify-paged-performance.mjs",
-        "scripts/verify-deus-ui.mjs"
-      ]
-    },
-    {
-      "file": "styles.css",
-      "rule": "plugin/no-unsupported-browser-features",
       "selector": ".wm-plotbook-row-label.is-linked:hover",
       "property": "text-decoration-thickness",
       "value": "2px",
@@ -205,21 +180,6 @@
       "context": "",
       "count": 1,
       "reason": "The underline is already present; its color is an enhancement with the inherited decoration color as fallback.",
-      "tests": [
-        "scripts/verify-css-cascade.mjs",
-        "scripts/verify-paged-performance.mjs",
-        "scripts/verify-deus-ui.mjs"
-      ]
-    },
-    {
-      "file": "styles.css",
-      "rule": "plugin/no-unsupported-browser-features",
-      "selector": ".deus-container .deus-message-content :not(pre)>code",
-      "property": "box-decoration-break",
-      "value": "clone",
-      "context": "",
-      "count": 1,
-      "reason": "clone is paired with the WebKit-prefixed fallback required by minimum-runtime Chromium.",
       "tests": [
         "scripts/verify-css-cascade.mjs",
         "scripts/verify-paged-performance.mjs",
@@ -777,5 +737,6 @@
         "scripts/verify-export-ui.mjs"
       ]
     }
-  ]
+  ],
+  "maxWarnings": 20
 }

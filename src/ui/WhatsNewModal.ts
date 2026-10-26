@@ -12,6 +12,12 @@ interface ReleaseNote {
 
 const RELEASE_NOTES: ReleaseNote[] = [
 	{
+		version: '3.5.2',
+		date: '2026-10-26',
+		improved: [wmT('기존 디자인을 유지하며 플러그인 검사 기준에 맞게 코드를 정리했습니다.')],
+		fixed: [wmT('문서 내보내기의 스크립트 생성 코드를 제거하고 임시 파일이 휴지통 설정을 따르도록 수정했습니다.')],
+	},
+	{
 		version: '3.5.1',
 		date: '2026-10-26',
 		new: [wmT('문서 엔진: kordoc을 최초 1회 다운로드하고 HWPX 미리보기에서 오프라인으로 재사용합니다.')],

@@ -1996,6 +1996,7 @@ export const en = {
 	"엔진 다운로드": "Download engine",
 	"문서 엔진: kordoc을 최초 1회 다운로드하고 HWPX 미리보기에서 오프라인으로 재사용합니다.": "Document engine: download kordoc once and reuse it offline for HWPX previews.",
 	"업데이트 안내의 이미지를 제거해 플러그인 배포 용량을 줄였습니다.": "Removed images from the update notice to reduce the plugin download size.",
+	"문서 내보내기의 스크립트 생성 코드를 제거하고 임시 파일이 휴지통 설정을 따르도록 수정했습니다.": "Removed script injection code from document export and made temporary file cleanup respect your trash preference.",
 	"문서 엔진 실행 오류와 기존 설치를 업데이트할 때 발생하던 파일 충돌을 수정했습니다.": "Fixed document engine startup errors and file conflicts when updating an existing installation.",
 	"내보내기 양식의 용지 너비·높이 단위를 오른쪽 아래에 정렬했습니다.": "Aligned the paper width and height units to the bottom right in export formatting.",
 } as const;

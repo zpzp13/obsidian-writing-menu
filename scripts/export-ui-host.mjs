@@ -107,8 +107,8 @@ export function installExportUiHost() {
             getMarkdownFiles: () => files, read: async file => texts.get(file.path), getAbstractFileByPath: path => objects.get(path), on: () => ({}),
             create: async (path, source) => { const file = new TFile(path); objects.set(path, file); texts.set(path, source); return file; },
             process: async (file, transform) => { const next = transform(texts.get(file.path)); texts.set(file.path, next); if (embeds.has(file.path)) refresh(embeds.get(file.path)); },
-            delete: async file => { objects.delete(file.path); texts.delete(file.path); },
-        }, workspace: { getLeavesOfType: () => [] }, metadataCache: { getFirstLinkpathDest: () => null },
+        }, fileManager: { trashFile: async file => { objects.delete(file.path); texts.delete(file.path); } },
+        workspace: { getLeavesOfType: () => [] }, metadataCache: { getFirstLinkpathDest: () => null },
     };
     const plugin = {
         app, settings: { hwpTemplatePath: 'C:\\Windows\\old.hwpx', hwpExportPath: '', customFonts: [], pagedInlineFormats: {}, pagedTextColors: {}, pagedTextBackgrounds: {}, pagedParagraphAlignments: {} },

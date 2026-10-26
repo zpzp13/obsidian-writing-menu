@@ -153,7 +153,7 @@ export class ExportSources extends Component {
         await this.syncQueue;
         await new Promise<void>(resolve => window.setTimeout(resolve, 500));
         const file = this.sessionFile;
-        if (file && file.path === this.sessionPath && this.plugin.app.vault.getAbstractFileByPath(this.sessionPath) === file) await this.plugin.app.vault.delete(file);
+        if (file && file.path === this.sessionPath && this.plugin.app.vault.getAbstractFileByPath(this.sessionPath) === file) await this.plugin.app.fileManager.trashFile(file);
     }
     private showLoadError(error: unknown): void {
         if (!this.disposed) this.loadStatusEl.setText(wmT('문서 목록을 불러오지 못했습니다: {0}', error instanceof Error ? error.message : String(error)));

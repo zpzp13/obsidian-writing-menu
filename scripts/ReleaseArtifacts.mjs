@@ -4,7 +4,7 @@ import path from 'node:path';
 
 // One inventory for local deployment and release archives. Never copy vault settings/data.
 export const PLUGIN_ARTIFACTS = [
-	'styles.css', 'manifest.json', 'garu-worker.js',
+	'styles.css', 'manifest.json',
 	'main.js', // Trigger Hot Reload only after the other artifacts are ready.
 ];
 export async function inspectArtifacts(root) {

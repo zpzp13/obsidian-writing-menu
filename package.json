@@ -1,12 +1,14 @@
 {
 	"name": "writing-menu",
-	"version": "3.5.1",
+	"version": "3.5.2",
 	"description": "An Obsidian plugin for customizing editor formatting",
 	"main": "main.js",
 	"scripts": {
 		"lint": "eslint main.ts src",
 		"lint:css": "stylelint styles.css",
 		"check:warnings": "node scripts/verify-warning-policy.mjs",
+		"check:bundle": "node scripts/verify-bundle-policy.mjs",
+		"check:release-build": "node scripts/verify-release-build.mjs",
 		"check": "node scripts/verify-release.mjs",
 		"release:package": "node scripts/package-release.mjs",
 		"dev": "node esbuild.config.mjs",

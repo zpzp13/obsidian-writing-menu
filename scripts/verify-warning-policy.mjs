@@ -25,9 +25,14 @@ for (const [category, key] of [['source', sourceKey], ['css', cssKey], ['capabil
 }
 const errors = [...raw.source, ...raw.css].filter(item => item.severity === 'error');
 const summary = { errors: errors.length, rawSourceWarnings: raw.source.length - errors.filter(item => item.file !== 'styles.css').length, rawCssWarnings: raw.css.length - errors.filter(item => item.file === 'styles.css').length, reviewedCapabilitySites: raw.capabilities.length, unregisteredOrStale: failures.length };
+summary.behaviorWarnings = new Set(raw.capabilities.filter(item => ['filesystem', 'process'].includes(item.kind)).map(item => item.kind)).size;
+summary.totalWarnings = summary.rawSourceWarnings + summary.rawCssWarnings + summary.behaviorWarnings;
+summary.maxWarnings = registry.maxWarnings;
 fs.writeFileSync('.codex-tmp/warning-audit/summary.json', JSON.stringify(summary, null, 2) + '\n');
 console.log(JSON.stringify(summary, null, 2));
 for (const item of [...raw.source, ...raw.css]) console.log(`${item.file}:${item.line} ${item.rule}: ${item.message}`);
 assert.equal(errors.length, 0, 'Source/CSS errors are never exceptions');
+assert(Number.isInteger(summary.maxWarnings) && summary.maxWarnings <= 20, 'Warning budget must be at most 20');
+assert(summary.totalWarnings <= summary.maxWarnings, `Warning budget exceeded: ${summary.totalWarnings}/${summary.maxWarnings}`);
 assert.equal(failures.length, 0, failures.join('\n'));
 console.log('PASS full Obsidian recommended source rules, all Obsidian CSS review rules, exact exception counts and capability inventory. Raw diagnostics retained in .codex-tmp/warning-audit/raw.json');

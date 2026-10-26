@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    tags: ['*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install from lockfile
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Check release tag and version
+        run: node scripts/verify-release-build.mjs --tag-only
+      - name: Check source, CSS and offline regressions
+        run: node scripts/verify-release.mjs --core
+      - name: Build release assets
+        run: npm --ignore-scripts run build
+      - name: Verify bundle policy and reproducible build
+        run: node scripts/verify-release-build.mjs
+      - name: Verify dependency lockfile
+        run: git diff --exit-code -- package.json package-lock.json
+      - name: Attest the exact release assets
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            main.js
+            manifest.json
+            styles.css
+      - name: Publish the three Obsidian assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create "$RELEASE_TAG" main.js manifest.json styles.css --verify-tag --title "$RELEASE_TAG" --notes-file "RELEASE_v${RELEASE_TAG}.md"

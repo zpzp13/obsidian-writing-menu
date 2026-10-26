@@ -3,6 +3,8 @@ import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { copyArtifacts, inspectArtifacts, PLUGIN_ARTIFACTS } from './ReleaseArtifacts.mjs';
 
+assert.deepEqual([...PLUGIN_ARTIFACTS].sort(), ['main.js', 'manifest.json', 'styles.css']);
+
 await mkdir('.codex-tmp', { recursive: true });
 const root = await mkdtemp(path.resolve('.codex-tmp', 'artifact-check-'));
 const source = path.join(root, 'build'), destination = path.join(root, 'vault', '.obsidian', 'plugins', 'writing-menu');
