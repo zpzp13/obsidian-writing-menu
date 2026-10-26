@@ -1,4 +1,5 @@
 import type { WikiSavedView, WikiGroupRule, SortRule } from './wiki/WikiTypes';
+import type { ExportDefaults, ExportPreset } from './export/DocumentModel';
 
 export interface SymbolOption {
 	open: string;
@@ -148,6 +149,11 @@ export interface WritingMenuSettings {
 	hwpTemplatePath: string;
 	exportDefaultSpaceIndent: boolean;
 	exportDefaultExcludeHeadings: boolean;
+	documentExportDefaults?: ExportDefaults;
+	documentExportDefaultPreset: string;
+	exportPreserveFolderStructure: boolean;
+	exportOverwriteExisting: boolean;
+	documentExportPresets?: ExportPreset[];
 	copyExcludeHeadings: boolean;
 	copyExcludeFootnotes: boolean;
 	stdictApiKey: string;
@@ -342,7 +348,10 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	hwpExportPath: '',
 	hwpTemplatePath: '',
 	exportDefaultSpaceIndent: false,
-	exportDefaultExcludeHeadings: false,
+	exportDefaultExcludeHeadings: true,
+	documentExportDefaultPreset: 'default',
+	exportPreserveFolderStructure: false,
+	exportOverwriteExisting: true,
 	copyExcludeHeadings: true,
 	copyExcludeFootnotes: true,
 	stdictApiKey: '',

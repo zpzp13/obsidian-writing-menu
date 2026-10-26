@@ -294,7 +294,7 @@ const bundle = await build({
 				builder.onResolve({ filter: /^(\.\/WritingToolbar|\.\.\/export)$/ }, args => ({ path: args.path, namespace: 'toolbar-test' }));
 				builder.onLoad({ filter: /.*/, namespace: 'toolbar-test' }, args => ({ loader: 'js', contents: args.path.endsWith('WritingToolbar')
 					? 'export class WritingToolbar { constructor(plugin, container) { this.toolbarEl = container.createDiv({cls:"wm-writing-toolbar wm-paged-toolbar"}); } destroy() { this.toolbarEl.remove(); } }'
-					: 'export class HwpxExportModal {} export class TxtExportModal {}' }));
+					: 'export class HwpxExportModal {} export class TxtExportModal {} export class DocxExportModal {} export class DocumentExportModal {} export function setExportIcon() {} export function registerExportIcons() {}' }));
 			}
 		},
 	}],

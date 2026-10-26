@@ -25,7 +25,7 @@ A writing workspace for fiction and serial stories in Obsidian. Draft manuscript
 
 - Use a shared writing toolbar in Markdown and the desktop-only paged view.
 - Adjust fonts, spacing, paragraphs, and text color. Work with focus mode, typewriter scrolling, smart quotes, and text replacements.
-- Check character counts, copy your text, and export to TXT or HWPX. Plain HWPX export works on Windows and macOS without Python or Hancom Hangul. Applying an external HWP/HWPX template requires Hancom Hangul for Windows.
+- Check character counts, copy your text, and export to TXT, DOCX or HWPX from a document-selection and formatting preview dialog. Windows and macOS generation and HWPX template formatting work without Python, Word or Hancom Hangul. See the [export guide](docs/document-export.md) and [transfer architecture](docs/document-transfer-architecture.md).
 
 ![The same manuscript laid out across multiple editable pages](assets/multi-page.png)
 

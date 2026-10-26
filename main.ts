@@ -8,7 +8,7 @@ import { SymbolSuggester } from './SymbolSuggester';
 import { WritingMenuSettings, DEFAULT_SETTINGS } from './src/types';
 import { MusicLibraryView, MUSIC_LIBRARY_VIEW_TYPE } from './src/views/MusicLibraryView';
 import type { MusicLibraryBases } from './src/views/MusicLibraryBases';
-import { HwpxExportModal, TxtExportModal, BatchExportModal } from './src/export';
+import { HwpxExportModal, TxtExportModal, DocxExportModal, BatchExportModal, DocumentExportModal, registerExportIcons } from './src/export';
 import { WritingMenuSettingTab } from './src/settings';
 import { openFolderPicker, openTemplatePicker, runPicker, convertToHwpx, getDefaultExportPath, cleanMarkdownFrontmatter, removeHeadings, copyWithOptions, applySpaceIndent, convertToTxt, convertFolderToTxt, convertFilesToTxt, convertFolderToHwpx, convertFilesToHwpx, convertFolderToTxtMerged, convertFilesToTxtMerged, convertFolderToHwpxMerged, convertFilesToHwpxMerged } from './src/export/converterMethods';
 import { addCompactControl, addCompactToggle, addCompactStepper, addCompactSlider, addDualColorControl } from './src/ui/controls';
@@ -86,6 +86,7 @@ export default class WritingMenuPlugin extends Plugin {
 	mobileFonts: MobileFontManager;
 
 	async onload() {
+		registerExportIcons();
 		initializeWritingDocuments(this);
 		const runtimeWindow = window as WritingMenuRuntimeWindow;
 		const previousInstance = runtimeWindow.__writingMenuPluginInstance;
@@ -251,9 +252,17 @@ export default class WritingMenuPlugin extends Plugin {
 						menu.addItem((item) => {
 							item
 								.setTitle(wmT("TXT로 내보내기"))
-								.setIcon('file-text')
+								.setIcon('wm-filetype-txt')
 								.onClick(() => {
 									new TxtExportModal(this.app, this, file).open();
+								});
+						});
+						menu.addItem((item) => {
+							item
+								.setTitle(wmT("DOCX로 내보내기"))
+								.setIcon('wm-filetype-docx')
+								.onClick(() => {
+									new DocxExportModal(this.app, this, file).open();
 								});
 						});
 					}
@@ -261,7 +270,7 @@ export default class WritingMenuPlugin extends Plugin {
 						menu.addItem((item) => {
 							item
 								.setTitle(wmT("HWPX로 내보내기"))
-								.setIcon('file')
+								.setIcon('wm-filetype-hwpx')
 								.onClick(() => {
 									new HwpxExportModal(this.app, this, file).open();
 								});
@@ -272,9 +281,17 @@ export default class WritingMenuPlugin extends Plugin {
 						menu.addItem((item) => {
 							item
 								.setTitle(wmT("폴더를 TXT로 내보내기"))
-								.setIcon('folder-output')
+								.setIcon('wm-filetype-txt')
 								.onClick(() => {
 									new BatchExportModal(this.app, this, file, 'txt').open();
+								});
+						});
+						menu.addItem((item) => {
+							item
+								.setTitle(wmT("폴더를 DOCX로 내보내기"))
+								.setIcon('wm-filetype-docx')
+								.onClick(() => {
+									new BatchExportModal(this.app, this, file, 'docx').open();
 								});
 						});
 					}
@@ -283,7 +300,7 @@ export default class WritingMenuPlugin extends Plugin {
 						menu.addItem((item) => {
 							item
 								.setTitle(wmT("폴더를 HWPX로 내보내기"))
-								.setIcon('folder-output')
+								.setIcon('wm-filetype-hwpx')
 								.onClick(() => {
 									new BatchExportModal(this.app, this, file, 'hwpx').open();
 								});
@@ -301,9 +318,17 @@ export default class WritingMenuPlugin extends Plugin {
 						menu.addItem((item) => {
 							item
 								.setTitle(wmT("{0}개 파일을 TXT로 내보내기", mdFiles.length))
-								.setIcon('files')
+								.setIcon('wm-filetype-txt')
 								.onClick(() => {
 									new BatchExportModal(this.app, this, mdFiles, 'txt').open();
+								});
+						});
+						menu.addItem((item) => {
+							item
+								.setTitle(wmT("{0}개 파일을 DOCX로 내보내기", mdFiles.length))
+								.setIcon('wm-filetype-docx')
+								.onClick(() => {
+									new BatchExportModal(this.app, this, mdFiles, 'docx').open();
 								});
 						});
 					}
@@ -312,7 +337,7 @@ export default class WritingMenuPlugin extends Plugin {
 						menu.addItem((item) => {
 							item
 								.setTitle(wmT("{0}개 파일을 HWPX로 내보내기", mdFiles.length))
-								.setIcon('files')
+								.setIcon('wm-filetype-hwpx')
 								.onClick(() => {
 									new BatchExportModal(this.app, this, mdFiles, 'hwpx').open();
 								});
@@ -351,7 +376,13 @@ export default class WritingMenuPlugin extends Plugin {
 		);
 		this.app.workspace.onLayoutReady(() => { void this.migrateLegacyPlotViews(); });
 
-		this.addCommand({ id: 'snapshot-manager', icon: 'camera', name: wmT("스냅샷 관리"), checkCallback: checking => {
+		this.addCommand({ id: 'export-document', icon: 'file-output', name: wmT('문서 내보내기'), checkCallback: checking => {
+            const file = this.app.workspace.getActiveFile();
+            if (!Platform.isDesktop || file?.extension !== 'md') return false;
+            if (!checking) new DocumentExportModal(this.app, this, file).open();
+            return true;
+        } });
+        this.addCommand({ id: 'snapshot-manager', icon: 'camera', name: wmT("스냅샷 관리"), checkCallback: checking => {
 			if (!snapshotTarget(this)) return false;
 			if (!checking) openSnapshotManager(this);
 			return true;
@@ -513,26 +544,34 @@ export default class WritingMenuPlugin extends Plugin {
 				if (Platform.isDesktop) {
 					ctx.addItem(item => item
 						.setTitle(wmT("{0}개 파일을 TXT로 내보내기", mdFiles.length))
-						.setIcon('files')
+						.setIcon('wm-filetype-txt')
 						.onClick(() => new BatchExportModal(this.app, this, mdFiles, 'txt').open()));
+					ctx.addItem(item => item
+						.setTitle(wmT("{0}개 파일을 DOCX로 내보내기", mdFiles.length))
+						.setIcon('wm-filetype-docx')
+						.onClick(() => new BatchExportModal(this.app, this, mdFiles, 'docx').open()));
 				}
 				if (Platform.isDesktop) {
 					ctx.addItem(item => item
 						.setTitle(wmT("{0}개 파일을 HWPX로 내보내기", mdFiles.length))
-						.setIcon('files')
+						.setIcon('wm-filetype-hwpx')
 						.onClick(() => new BatchExportModal(this.app, this, mdFiles, 'hwpx').open()));
 				}
 			} else if (ctx.file.extension === 'md') {
 				if (Platform.isDesktop) {
 					ctx.addItem(item => item
 						.setTitle(wmT("TXT로 내보내기"))
-						.setIcon('file-text')
+						.setIcon('wm-filetype-txt')
 						.onClick(() => new TxtExportModal(this.app, this, ctx.file).open()));
+					ctx.addItem(item => item
+						.setTitle(wmT("DOCX로 내보내기"))
+						.setIcon('wm-filetype-docx')
+						.onClick(() => new DocxExportModal(this.app, this, ctx.file).open()));
 				}
 				if (Platform.isDesktop) {
 					ctx.addItem(item => item
 						.setTitle(wmT("HWPX로 내보내기"))
-						.setIcon('file')
+						.setIcon('wm-filetype-hwpx')
 						.onClick(() => new HwpxExportModal(this.app, this, ctx.file).open()));
 				}
 			}
@@ -545,13 +584,17 @@ export default class WritingMenuPlugin extends Plugin {
 			if (Platform.isDesktop) {
 				ctx.addItem(item => item
 					.setTitle(wmT("폴더를 TXT로 내보내기"))
-					.setIcon('folder-output')
+					.setIcon('wm-filetype-txt')
 					.onClick(() => new BatchExportModal(this.app, this, ctx.folder, 'txt').open()));
+					ctx.addItem(item => item
+					.setTitle(wmT("폴더를 DOCX로 내보내기"))
+					.setIcon('wm-filetype-docx')
+					.onClick(() => new BatchExportModal(this.app, this, ctx.folder, 'docx').open()));
 			}
 			if (Platform.isDesktop) {
 				ctx.addItem(item => item
 					.setTitle(wmT("폴더를 HWPX로 내보내기"))
-					.setIcon('folder-output')
+					.setIcon('wm-filetype-hwpx')
 					.onClick(() => new BatchExportModal(this.app, this, ctx.folder, 'hwpx').open()));
 			}
 		});

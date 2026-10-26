@@ -627,147 +627,14 @@
       ]
     },
     {
-      "file": "src/export/converterMethods.ts",
-      "kind": "filesystem",
-      "call": "getFs",
-      "fingerprint": "4a12d434879a5efe0ce06b0ee49260882b3bc14ef6d846fad84bf9d97c329c87",
-      "count": 3,
-      "reason": "User-selected external TXT/HWPX destinations use fs for directory creation and output; template path existence and realpath checks protect the original. Manuscripts are read only through Obsidian Vault APIs.",
-      "tests": [
-        "scripts/verify-export-boundaries.mjs",
-        "scripts/verify-hwpx.mjs"
-      ]
-    },
-    {
-      "file": "src/export/converterMethods.ts",
-      "kind": "filesystem",
-      "call": "fs.existsSync",
-      "fingerprint": "eb7ce1c79f52ae2231023d6df1fa8567d33816edb1bae49fb137d6f139b02fb0",
-      "count": 1,
-      "reason": "User-selected external TXT/HWPX destinations use fs for directory creation and output; template path existence and realpath checks protect the original. Manuscripts are read only through Obsidian Vault APIs.",
-      "tests": [
-        "scripts/verify-export-boundaries.mjs",
-        "scripts/verify-hwpx.mjs"
-      ]
-    },
-    {
-      "file": "src/export/converterMethods.ts",
-      "kind": "filesystem",
-      "call": "fs.realpathSync(template).toLowerCase",
-      "fingerprint": "080c0705f6de1ad87af17f92299e5d1c40ac39b289fadf1a9c5d738677ed7ce6",
-      "count": 1,
-      "reason": "User-selected external TXT/HWPX destinations use fs for directory creation and output; template path existence and realpath checks protect the original. Manuscripts are read only through Obsidian Vault APIs.",
-      "tests": [
-        "scripts/verify-export-boundaries.mjs",
-        "scripts/verify-hwpx.mjs"
-      ]
-    },
-    {
-      "file": "src/export/converterMethods.ts",
-      "kind": "filesystem",
-      "call": "fs.realpathSync",
-      "fingerprint": "8c888a949bee9b6322b48a940875342e4f9ccdc149839e0d57c7a7de7eeab5f2",
-      "count": 1,
-      "reason": "User-selected external TXT/HWPX destinations use fs for directory creation and output; template path existence and realpath checks protect the original. Manuscripts are read only through Obsidian Vault APIs.",
-      "tests": [
-        "scripts/verify-export-boundaries.mjs",
-        "scripts/verify-hwpx.mjs"
-      ]
-    },
-    {
-      "file": "src/export/converterMethods.ts",
-      "kind": "filesystem",
-      "call": "fs.existsSync",
-      "fingerprint": "0177ab04d74248542fc7a0d5d5ba6fe0dbb6bcbe6a0f6be19c91605a06f3a70d",
-      "count": 1,
-      "reason": "User-selected external TXT/HWPX destinations use fs for directory creation and output; template path existence and realpath checks protect the original. Manuscripts are read only through Obsidian Vault APIs.",
-      "tests": [
-        "scripts/verify-export-boundaries.mjs",
-        "scripts/verify-hwpx.mjs"
-      ]
-    },
-    {
-      "file": "src/export/converterMethods.ts",
-      "kind": "filesystem",
-      "call": "fs.realpathSync(document.path).toLowerCase",
-      "fingerprint": "fcecb00084348275596a1d7071f894056a30751fb63854143b991fc6365f391d",
-      "count": 1,
-      "reason": "User-selected external TXT/HWPX destinations use fs for directory creation and output; template path existence and realpath checks protect the original. Manuscripts are read only through Obsidian Vault APIs.",
-      "tests": [
-        "scripts/verify-export-boundaries.mjs",
-        "scripts/verify-hwpx.mjs"
-      ]
-    },
-    {
-      "file": "src/export/converterMethods.ts",
-      "kind": "filesystem",
-      "call": "fs.realpathSync",
-      "fingerprint": "03fe01a02f382d664c10c5d9b858824dba41b31cd19ba116a188fbbe3461c9e3",
-      "count": 1,
-      "reason": "User-selected external TXT/HWPX destinations use fs for directory creation and output; template path existence and realpath checks protect the original. Manuscripts are read only through Obsidian Vault APIs.",
-      "tests": [
-        "scripts/verify-export-boundaries.mjs",
-        "scripts/verify-hwpx.mjs"
-      ]
-    },
-    {
-      "file": "src/export/converterMethods.ts",
-      "kind": "filesystem",
-      "call": "fs.writeFileSync",
-      "fingerprint": "e14ba120c1ea93f9a07e6fd26ddf8d7d3cd7272b9a5c7d5126a3c7012d5bd309",
-      "count": 1,
-      "reason": "User-selected external TXT/HWPX destinations use fs for directory creation and output; template path existence and realpath checks protect the original. Manuscripts are read only through Obsidian Vault APIs.",
-      "tests": [
-        "scripts/verify-export-boundaries.mjs",
-        "scripts/verify-hwpx.mjs"
-      ]
-    },
-    {
-      "file": "src/export/converterMethods.ts",
-      "kind": "filesystem",
-      "call": "fs.writeFileSync",
-      "fingerprint": "98bcc9b8d1aa0a6a74e219312903c8da50187a00934d49c9f0721b82af96295f",
-      "count": 1,
-      "reason": "User-selected external TXT/HWPX destinations use fs for directory creation and output; template path existence and realpath checks protect the original. Manuscripts are read only through Obsidian Vault APIs.",
-      "tests": [
-        "scripts/verify-export-boundaries.mjs",
-        "scripts/verify-hwpx.mjs"
-      ]
-    },
-    {
-      "file": "src/export/converterMethods.ts",
-      "kind": "filesystem",
-      "call": "fs.existsSync",
-      "fingerprint": "3b32455009a21624baff8dce091f1bbf1b16d58289720001d7811668dcfcec59",
-      "count": 1,
-      "reason": "User-selected external TXT/HWPX destinations use fs for directory creation and output; template path existence and realpath checks protect the original. Manuscripts are read only through Obsidian Vault APIs.",
-      "tests": [
-        "scripts/verify-export-boundaries.mjs",
-        "scripts/verify-hwpx.mjs"
-      ]
-    },
-    {
-      "file": "src/export/converterMethods.ts",
-      "kind": "filesystem",
-      "call": "fs.mkdirSync",
-      "fingerprint": "7f066082ffd47c3a7ed1daeba728219ad34583a5ced4f923d4441d5b75c8a5fe",
-      "count": 1,
-      "reason": "User-selected external TXT/HWPX destinations use fs for directory creation and output; template path existence and realpath checks protect the original. Manuscripts are read only through Obsidian Vault APIs.",
-      "tests": [
-        "scripts/verify-export-boundaries.mjs",
-        "scripts/verify-hwpx.mjs"
-      ]
-    },
-    {
       "file": "src/export/DesktopExport.ts",
       "kind": "process",
       "call": "require(child_process)",
       "fingerprint": "2fbcd86bc8bd5690991c18f316a130c0a1c99d0f94d3e8a8a611ee66a77ee1b2",
       "count": 1,
-      "reason": "User-invoked Windows template automation and native path pickers use fixed PowerShell/osascript source, literal argument arrays, shell:false and JSON stdin for document data. Plain HWPX generation never launches a converter.",
+      "reason": "Launch only fixed Windows PowerShell or macOS osascript file/folder picker commands with literal arguments, stdin mode, shell:false and hidden process windows. No export COM/Python call remains.",
       "tests": [
-        "scripts/verify-export-boundaries.mjs",
-        "scripts/verify-hwpx.mjs"
+        "scripts/verify-export-boundaries.mjs"
       ]
     },
     {
@@ -776,10 +643,152 @@
       "call": "spawn",
       "fingerprint": "13cd8a27115c2c2f99295f9f5c1d1d6f2e77cfccc4af0c663a8bf856025e4b99",
       "count": 1,
-      "reason": "User-invoked Windows template automation and native path pickers use fixed PowerShell/osascript source, literal argument arrays, shell:false and JSON stdin for document data. Plain HWPX generation never launches a converter.",
+      "reason": "Launch only fixed Windows PowerShell or macOS osascript file/folder picker commands with literal arguments, stdin mode, shell:false and hidden process windows. No export COM/Python call remains.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/export/converterMethods.ts",
+      "kind": "vault-enumeration",
+      "call": "plugin.app.vault.getMarkdownFiles",
+      "fingerprint": "ee187a81afcb2adf6511820e5451fd7a285ad2bf54dd4042b80f1db85d423360",
+      "count": 1,
+      "reason": "Legacy folder entrypoints enumerate Markdown through Vault API and delegate to the shared document export service.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/export/DocumentExportModal.ts",
+      "kind": "vault-enumeration",
+      "call": "app.vault.getMarkdownFiles",
+      "fingerprint": "b2d464008746375ee923a6e6c915a7c8fc71a6c998706297be2a499e5297b310",
+      "count": 1,
+      "reason": "Populate the document selection tree through Vault API; retain entrypoint selection and order.",
+      "tests": [
+        "scripts/verify-export-ui.mjs",
+        "scripts/verify-export-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/export/DocumentExportModal.ts",
+      "kind": "filesystem",
+      "call": "getFs",
+      "fingerprint": "4a12d434879a5efe0ce06b0ee49260882b3bc14ef6d846fad84bf9d97c329c87",
+      "count": 1,
+      "reason": "Enable a saved local HWPX template only when it exists on this platform; inaccessible foreign-platform settings never block plain export.",
+      "tests": [
+        "scripts/verify-export-ui.mjs",
+        "scripts/verify-export-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/export/DocumentExportModal.ts",
+      "kind": "filesystem",
+      "call": "fs.existsSync",
+      "fingerprint": "9cf75aea755cbf156df2d9f396a3cf5921e2829bd4f9f0b82f5cc9ff2998596a",
+      "count": 1,
+      "reason": "Enable a saved local HWPX template only when it exists on this platform; inaccessible foreign-platform settings never block plain export.",
+      "tests": [
+        "scripts/verify-export-ui.mjs",
+        "scripts/verify-export-boundaries.mjs"
+      ]
+    },
+    {
+      "file": "src/export/ExportService.ts",
+      "kind": "filesystem",
+      "call": "getFs",
+      "fingerprint": "4a12d434879a5efe0ce06b0ee49260882b3bc14ef6d846fad84bf9d97c329c87",
+      "count": 2,
+      "reason": "Check external template/output paths, existence, and canonical identity to preserve the template and avoid unintended overwrite.",
       "tests": [
         "scripts/verify-export-boundaries.mjs",
-        "scripts/verify-hwpx.mjs"
+        "scripts/verify-export-ui.mjs"
+      ]
+    },
+    {
+      "file": "src/export/ExportService.ts",
+      "kind": "filesystem",
+      "call": "fs.existsSync",
+      "fingerprint": "02ff6a349918295d5a181c26a2627eef4d8476a69239e320bdd31181c06b16d4",
+      "count": 3,
+      "reason": "Check external template/output paths, existence, and canonical identity to preserve the template and avoid unintended overwrite.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-export-ui.mjs"
+      ]
+    },
+    {
+      "file": "src/export/ExportService.ts",
+      "kind": "filesystem",
+      "call": "fs.readFileSync",
+      "fingerprint": "2038c106e74a49f524ed10f17a9484573fd7f13e3fe9d89b70c4a403342e0087",
+      "count": 1,
+      "reason": "Read only the configured/chosen external HWPX template; manuscript and image reads use Vault API.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-export-ui.mjs"
+      ]
+    },
+    {
+      "file": "src/export/ExportService.ts",
+      "kind": "filesystem",
+      "call": "fs.realpathSync",
+      "fingerprint": "32bb752a91fa20e82cb3a741dd0e2757417d89574c109ce517d37e2975de6597",
+      "count": 1,
+      "reason": "Check external template/output paths, existence, and canonical identity to preserve the template and avoid unintended overwrite.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-export-ui.mjs"
+      ]
+    },
+    {
+      "file": "src/export/ExportService.ts",
+      "kind": "filesystem",
+      "call": "fs.existsSync",
+      "fingerprint": "8cf9754fa533534420b3f84b0577190a679a42620e43473b3ffcdb1a9c053e8a",
+      "count": 1,
+      "reason": "Check external template/output paths, existence, and canonical identity to preserve the template and avoid unintended overwrite.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-export-ui.mjs"
+      ]
+    },
+    {
+      "file": "src/export/ExportService.ts",
+      "kind": "filesystem",
+      "call": "fs.existsSync",
+      "fingerprint": "4317a4b3729720c6ae0148d944134af6b467e9f34b1d56af40692f1da41f9ce6",
+      "count": 1,
+      "reason": "Check external template/output paths, existence, and canonical identity to preserve the template and avoid unintended overwrite.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-export-ui.mjs"
+      ]
+    },
+    {
+      "file": "src/export/ExportService.ts",
+      "kind": "filesystem",
+      "call": "fs.mkdirSync",
+      "fingerprint": "f7864e1bbeb8f4cde9c4b258c81a8c4b1da1dad10e35f551c40501f81103dd75",
+      "count": 1,
+      "reason": "Write generated document bytes only under the user-selected external destination after name/collision/template preflight.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-export-ui.mjs"
+      ]
+    },
+    {
+      "file": "src/export/ExportService.ts",
+      "kind": "filesystem",
+      "call": "fs.writeFileSync",
+      "fingerprint": "83a0c99edb636f6c93c8ae52187c919d8067bd8f62da908ed8b6201b6108d3c9",
+      "count": 1,
+      "reason": "Write generated document bytes only under the user-selected external destination after name/collision/template preflight.",
+      "tests": [
+        "scripts/verify-export-boundaries.mjs",
+        "scripts/verify-export-ui.mjs"
       ]
     }
   ]

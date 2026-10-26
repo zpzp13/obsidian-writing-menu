@@ -1,7 +1,7 @@
 import { wmT } from '../i18n/index';
 import { MarkdownView, WorkspaceLeaf, setIcon, Platform, Notice, App } from 'obsidian';
 import type { Editor, EditorPosition, ViewState } from 'obsidian';
-import { HwpxExportModal, TxtExportModal } from '../export';
+import { DocumentExportModal, setExportIcon } from '../export';
 import type WritingMenuPlugin from '../../main';
 import { PagedWritingView, PAGED_WRITING_VIEW_TYPE } from '../paged/PagedWritingView';
 import { WritingToolbar, type WritingToolbarSurface } from './WritingToolbar';
@@ -425,29 +425,19 @@ export class ToolbarManager {
 			exportLabelGroup.createEl('label', { text: wmT("내보내기") });
 			const exportRightGroup = exportDiv.createDiv();
 			exportRightGroup.setCssStyles({ display: 'flex', alignItems: 'center', gap: '8px' });
-			if (Platform.isDesktop) {
-				const hwpBtn = exportRightGroup.createDiv('writing-menu-text-btn');
-				hwpBtn.setText('HWPX');
-				hwpBtn.onclick = () => { void (async () => {
-					const view = leaf.view;
-					if (this.isWritingView(view) && view.file && view.file.extension === 'md') {
-						if (view instanceof PagedWritingView) await view.save();
-						(activeDocument.querySelector('.writing-menu-dropdown') as HTMLElement)?.remove();
-						new HwpxExportModal(this.plugin.app, this.plugin, view.file).open();
-					} else { new Notice(wmT("마크다운 파일을 열어주세요."), 3000); }
-				})(); };
-			}
-			const txtBtn = exportRightGroup.createDiv('writing-menu-text-btn');
-			txtBtn.setText('TXT');
-			txtBtn.onclick = () => { void (async () => {
-				const view = leaf.view;
-				if (this.isWritingView(view) && view.file && view.file.extension === 'md') {
-					if (view instanceof PagedWritingView) await view.save();
-					(activeDocument.querySelector('.writing-menu-dropdown') as HTMLElement)?.remove();
-					new TxtExportModal(this.plugin.app, this.plugin, view.file).open();
-				} else { new Notice(wmT("마크다운 파일을 열어주세요."), 3000); }
-			})(); };
-		}
+            for (const format of ['txt', 'docx', 'hwpx'] as const) {
+                const button = exportRightGroup.createEl('button', { cls: 'writing-menu-text-btn', attr: { 'aria-label': wmT('{0}로 내보내기', format.toUpperCase()) } });
+                setExportIcon(button.createSpan(), format); button.createSpan({ text: format.toUpperCase() });
+                button.addEventListener('click', () => { void (async () => {
+                    const view = leaf.view;
+                    if (this.isWritingView(view) && view.file && view.file.extension === 'md') {
+                        if (view instanceof PagedWritingView) await view.save();
+                        activeDocument.querySelector('.writing-menu-dropdown')?.remove();
+                        new DocumentExportModal(this.plugin.app, this.plugin, view.file, format).open();
+                    } else new Notice(wmT('마크다운 파일을 열어주세요.'), 3000);
+                })(); });
+            }
+        }
 
 		try {
 			const view = leaf.view;

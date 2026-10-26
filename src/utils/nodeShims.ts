@@ -21,8 +21,9 @@ export function joinPath(...segments: string[]): string {
 export interface FsLike {
 	existsSync(path: string): boolean;
 	mkdirSync(path: string, options?: { recursive?: boolean }): void;
-	writeFileSync(path: string, data: string | Uint8Array, encoding?: string): void;
+	writeFileSync(path: string, data: string | Uint8Array, options?: string | { flag: 'w' | 'wx' }): void;
 	realpathSync(path: string): string;
+	readFileSync(path: string): Uint8Array;
 }
 
 interface DataEventEmitterLike {

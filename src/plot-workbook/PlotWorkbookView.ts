@@ -216,10 +216,10 @@ export class PlotWorkbookView extends ItemView {
 		this.sheetTabsSignature = this.currentSheetTabsSignature();
 		const dock = content.createDiv({ cls: 'wm-plotbook-sheet-dock' });
 		const bar = dock.createDiv({
-			cls: 'wm-plotbook-sheet-tabs wm-dash-char-range-seg',
+			cls: 'wm-plotbook-sheet-tabs wm-segmented-control',
 			attr: { role: 'tablist' },
 		});
-		const thumb = bar.createSpan({ cls: 'wm-dash-char-range-thumb' });
+		const thumb = bar.createSpan({ cls: 'wm-segmented-thumb' });
 		let activeTab: HTMLButtonElement | null = null;
 		const tabs = new Map<string, HTMLButtonElement>();
 		const putThumb = (position: { x: number; y: number; w: number; h: number }) => {

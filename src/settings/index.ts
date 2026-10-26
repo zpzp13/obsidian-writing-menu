@@ -1,3 +1,5 @@
+import { exportContentPolicy, exportDefaults } from '../export/ExportDefaults';
+import type { DocumentFormat } from '../export/DocumentModel';
 import { wmT } from '../i18n/index';
 import { App, Notice, PluginSettingTab, Setting, setIcon, Platform, ToggleComponent, requireApiVersion } from 'obsidian';
 import type { SettingDefinitionItem, SettingDefinitionPage } from 'obsidian';
@@ -82,7 +84,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 
 	public renderPage(page: string) {
 		if (page === 'mobile-fonts' && !Platform.isMobile) page = 'main';
-		const aliases: Record<string, string> = { footnotes: 'main', 'document-styles': 'main', typography: 'divider', input: 'autocomplete', 'copy-export': 'export', 'writing-stats': 'char-count', time: 'writing-time', 'calendar-chars': 'char-count' };
+		const aliases: Record<string, string> = { footnotes: 'main', 'document-styles': 'main', typography: 'divider', input: 'autocomplete', 'copy-export': 'export', 'export-presets': 'export', 'writing-stats': 'char-count', time: 'writing-time', 'calendar-chars': 'char-count' };
 		page = aliases[page] ?? page;
 		if (requireApiVersion('1.13.0')) {
 			// Obsidian's settings host owns navigation; never replace its page stack's DOM.
@@ -240,7 +242,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		this.addNavCard(editorBox, wmT("자동 완성"), wmT("트리거와 자동 완성 기호를 관리합니다."), 'keyboard', 'autocomplete');
 		this.addNavCard(editorBox, wmT("텍스트 치환"), wmT("입력 중 자동으로 바꿀 문자열을 관리합니다."), 'replace', 'substitutions');
 		this.addNavCard(editorBox, wmT("복사"), wmT("헤딩과 각주를 제외하는 복사 동작을 설정합니다."), 'copy', 'copy');
-		this.addNavCard(editorBox, wmT("내보내기"), wmT("TXT · HWPX 내보내기 기본값을 설정합니다."), 'file-output', 'export');
+		this.addNavCard(editorBox, wmT("내보내기"), wmT("TXT · DOCX · HWPX 내보내기 기본값을 설정합니다."), 'file-output', 'export');
 
 		this.addGroupTitle(containerEl, wmT("대시보드"));
 		const calBox = this.createGroupBox(containerEl);
@@ -657,12 +659,9 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 
 		this.addGroupTitle(containerEl, wmT("내보내기"));
 		const exportBox = this.createGroupBox(containerEl);
-		addToggle(exportBox, wmT("들여쓰기"), wmT("내보낼 때 문단 들여쓰기를 기본으로 활성화합니다."), this.plugin.settings.exportDefaultSpaceIndent, async value => {
-			this.plugin.settings.exportDefaultSpaceIndent = value;
-			await this.plugin.saveSettings();
-		});
 		addToggle(exportBox, wmT("헤딩 제외"), wmT("내보낼 때 헤딩을 항상 제외합니다."), this.plugin.settings.exportDefaultExcludeHeadings, async value => {
 			this.plugin.settings.exportDefaultExcludeHeadings = value;
+                    const defaults = exportDefaults(this.plugin.settings); defaults.content.headings = value ? 'exclude' : 'text'; this.plugin.settings.documentExportDefaults = defaults;
 			await this.plugin.saveSettings();
 		});
 	}
@@ -832,13 +831,28 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 
 	private renderExportPage(containerEl: HTMLElement) {
 		this.addBackButton(containerEl, wmT("내보내기"));
+		this.addGroupTitle(containerEl, wmT('기본값'));
 		const exportBox = this.createGroupBox(containerEl);
+		const defaults = exportDefaults(this.plugin.settings, undefined, containerEl.ownerDocument.body.hasClass('theme-dark'), containerEl.ownerDocument);
+		const migrated = this.plugin.settings.documentExportDefaults?.version !== 2;
+		this.plugin.settings.documentExportDefaults = structuredClone(defaults);
+		if (migrated) {
+			this.plugin.settings.exportDefaultSpaceIndent = false; this.plugin.settings.exportDefaultExcludeHeadings = true;
+			void this.plugin.saveSettings();
+		}
+		const selectedPreset = this.plugin.settings.documentExportPresets?.find(preset => preset.id === this.plugin.settings.documentExportDefaultPreset);
+		const content = selectedPreset ? exportContentPolicy(selectedPreset.content) : defaults.content;
+		const save = async (): Promise<void> => {
+			if (selectedPreset) selectedPreset.content = structuredClone(content);
+			else defaults.content = structuredClone(content);
+			this.plugin.settings.documentExportDefaults = structuredClone(defaults);
+			this.plugin.settings.exportDefaultSpaceIndent = false; this.plugin.settings.exportDefaultExcludeHeadings = defaults.content.headings === 'exclude';
+			await this.plugin.saveSettings();
+		};
 		if (Platform.isDesktop) {
-			new Setting(exportBox).setDesc(wmT("일반 HWPX 내보내기는 한글 설치 없이 사용할 수 있습니다. 템플릿 적용은 Windows용 한컴오피스 한글이 필요합니다."));
-
 			let hwpPathText: import('obsidian').TextComponent;
 			new Setting(exportBox)
-				.setName(wmT("저장 경로(기본값)"))
+				.setName(wmT('저장 경로'))
 				.setDesc(wmT("비어 있으면 내보낼 때 저장 폴더를 선택합니다."))
 				.addExtraButton(btn => btn.setIcon('folder').setTooltip(wmT("폴더 선택"))
 					.onClick(async () => {
@@ -852,11 +866,11 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 						.onChange(async value => { this.plugin.settings.hwpExportPath = value; await this.plugin.saveSettings(); });
 				});
 
-			if (Platform.isWin) {
+			{
 				let hwpTplText: import('obsidian').TextComponent;
 				new Setting(exportBox)
 					.setName(wmT("템플릿"))
-					.setDesc(wmT("외부 HWP 또는 HWPX 문서의 양식에 원고 텍스트만 넣고 새 HWPX 파일로 저장합니다."))
+					.setDesc(wmT('HWPX(HWP는 지원하지 않습니다)를 템플릿으로 적용합니다.'))
 					.addExtraButton(btn => btn.setIcon('document').setTooltip(wmT("파일 선택"))
 						.onClick(async () => {
 							const picked = await this.plugin.openTemplatePicker();
@@ -864,30 +878,94 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 						}))
 					.addText(text => {
 						hwpTplText = text;
-						text.setPlaceholder('C:\\path\\to\\template.hwp')
+						text.setPlaceholder(Platform.isWin ? 'C:\\path\\to\\template.hwpx' : '/Users/you/template.hwpx')
 							.setValue(this.plugin.settings.hwpTemplatePath)
 							.onChange(async value => { this.plugin.settings.hwpTemplatePath = value; await this.plugin.saveSettings(); });
 					});
 			}
 		}
 		new Setting(exportBox)
-			.setName(wmT("들여쓰기"))
-			.setDesc(wmT("내보낼 때 문단 들여쓰기를 기본으로 활성화합니다."))
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.exportDefaultSpaceIndent)
-				.onChange(async value => {
-					this.plugin.settings.exportDefaultSpaceIndent = value;
-					await this.plugin.saveSettings();
-				}));
+			.setName(wmT('폴더 구조 유지')).setDesc(wmT('개별 내보내기에서 프로젝트 기준의 하위 폴더 구조를 유지합니다.'))
+			.addToggle(toggle => toggle.setValue(this.plugin.settings.exportPreserveFolderStructure ?? false).onChange(async value => {
+				this.plugin.settings.exportPreserveFolderStructure = value; await this.plugin.saveSettings();
+			}));
 		new Setting(exportBox)
-			.setName(wmT("헤딩 제외"))
-			.setDesc(wmT("내보낼 때 헤딩을 항상 제외합니다."))
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.exportDefaultExcludeHeadings)
+			.setName(wmT('파일 덮어쓰기')).setDesc(wmT('같은 경로의 출력 파일을 덮어씁니다. 템플릿 원본에는 덮어쓸 수 없습니다.'))
+			.addToggle(toggle => toggle.setValue(this.plugin.settings.exportOverwriteExisting ?? true).onChange(async value => {
+				this.plugin.settings.exportOverwriteExisting = value; await this.plugin.saveSettings();
+			}));
+		new Setting(exportBox)
+			.setName(wmT('프리셋')).setDesc(wmT('내보내기 창을 열었을 때 기본으로 선택할 프리셋입니다.'))
+			.addDropdown(dropdown => {
+				dropdown.addOption('default', wmT('기본값')).addOption('template', wmT('템플릿'));
+				for (const preset of this.plugin.settings.documentExportPresets ?? []) dropdown.addOption(preset.id, preset.name);
+				dropdown.selectEl.querySelector<HTMLOptionElement>('option[value="template"]')!.disabled = defaults.format !== 'hwpx';
+				dropdown.setValue(selectedPreset?.id ?? (this.plugin.settings.documentExportDefaultPreset === 'template' && defaults.format === 'hwpx' ? 'template' : 'default'));
+				dropdown.onChange(async value => { this.plugin.settings.documentExportDefaultPreset = value; await this.plugin.saveSettings(); this.renderPage('export'); });
+			});
+		new Setting(exportBox)
+			.setName(wmT('포맷')).setDesc(wmT('내보내기 창을 열었을 때 기본으로 선택할 파일 형식입니다.'))
+			.addDropdown(dropdown => dropdown.addOption('txt', 'TXT').addOption('docx', 'DOCX').addOption('hwpx', 'HWPX').setValue(defaults.format)
 				.onChange(async value => {
-					this.plugin.settings.exportDefaultExcludeHeadings = value;
-					await this.plugin.saveSettings();
+					defaults.format = value as DocumentFormat;
+					if (value !== 'hwpx' && this.plugin.settings.documentExportDefaultPreset === 'template') this.plugin.settings.documentExportDefaultPreset = 'default';
+					await save(); this.renderPage('export');
 				}));
+		for (const [key, label, description] of [
+			['properties', wmT('속성'), wmT('문서 속성의 YAML 내용을 텍스트로 포함합니다.')],
+			['headings', wmT('헤딩'), wmT('헤딩의 제목 텍스트를 포함합니다.')],
+			['tables', wmT('표'), wmT('표 내용을 탭으로 구분한 텍스트로 포함합니다.')],
+			['footnotes', wmT('각주'), wmT('각주 번호와 본문을 포함합니다. 서식을 켜면 실제 각주로 적용합니다.')],
+		] as const) new Setting(exportBox).setName(label).setDesc(description).addToggle(toggle => toggle.setValue(content[key] !== 'exclude')
+			.onChange(async value => { content[key] = value ? 'text' : 'exclude'; await save(); }));
+		new Setting(exportBox).setName(wmT('이미지')).setDesc(wmT('볼트에 연결된 이미지를 포함합니다. TXT에서는 대체 텍스트를 사용합니다.'))
+			.addToggle(toggle => toggle.setValue(content.images === 'keep').onChange(async value => { content.images = value ? 'keep' : 'exclude'; await save(); }));
+		new Setting(exportBox).setName(wmT('강조')).setDesc(wmT('굵게·기울임·밑줄·취소선·글자색·배경색의 강조 서식을 유지합니다.'))
+			.addToggle(toggle => toggle.setValue(content.emphasis).onChange(async value => { content.emphasis = value; await save(); }));
+		new Setting(exportBox).setName(wmT('서식')).setDesc(wmT('플러그인에서 지정한 헤딩·각주 서식을 적용합니다. TXT에는 적용하지 않습니다.'))
+			.addToggle(toggle => toggle.setValue(content.formatting === true).onChange(async value => { content.formatting = value; await save(); }));
+		this.renderExportPresetsList(containerEl);
+	}
+
+	private renderExportPresetsList(containerEl: HTMLElement): void {
+		this.addGroupTitle(containerEl, wmT('프리셋'));
+		const list = this.createGroupBox(containerEl), presets = this.plugin.settings.documentExportPresets ??= [];
+		const group = list.closest<HTMLElement>('.setting-group');
+		group?.addClasses(['mod-list', 'mod-no-icon']);
+		const add = async (value: string): Promise<void> => {
+			const name = value.trim(); if (!name) return;
+			if (presets.some(preset => preset.name === name)) { new Notice(wmT('같은 이름의 프리셋이 있습니다.')); return; }
+			const defaults = exportDefaults(this.plugin.settings, undefined, containerEl.ownerDocument.body.hasClass('theme-dark'), containerEl.ownerDocument);
+			const source = presets.find(preset => preset.id === this.plugin.settings.documentExportDefaultPreset) ?? defaults;
+			presets.push({ id: 'preset-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8), name, content: structuredClone(source.content), style: structuredClone(source.style) });
+			await this.plugin.saveSettings(); this.renderPage('export');
+		};
+		const showAdd = (): void => {
+			if (list.querySelector('.wm-export-preset-add-row')) return;
+			const row = new Setting(list).setName(wmT('프리셋 추가')).setDesc(wmT('현재 내보내기 기본값으로 추가합니다. 세부 서식은 내보내기 창에서 변경한 뒤 같은 이름으로 저장하세요.'));
+			row.settingEl.addClasses(['setting-list-item', 'wm-export-preset-add-row']);
+			row.addText(text => {
+				text.setPlaceholder(wmT('프리셋 이름 입력 후 Enter'));
+				text.inputEl.addEventListener('keydown', event => {
+					if (event.key === 'Enter' && !event.isComposing) void add(text.getValue());
+					if (event.key === 'Escape') row.settingEl.remove();
+				});
+				window.setTimeout(() => text.inputEl.focus(), 0);
+			});
+		};
+		const addHost = group?.querySelector<HTMLElement>(':scope > .setting-item-heading > .setting-item-control') ?? list;
+		const addButton = addHost.createDiv({ cls: 'clickable-icon wm-muted-icon', attr: { role: 'button', tabindex: '0', 'aria-label': wmT('프리셋 추가') } });
+		setIcon(addButton, 'plus'); addButton.addEventListener('click', showAdd);
+		addButton.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); showAdd(); } });
+		if (!presets.length) new Setting(list).setName(wmT('등록된 프리셋이 없습니다.')).setDesc(wmT('오른쪽 위의 + 버튼을 눌러 추가하세요.'));
+		for (const preset of presets) {
+			const row = new Setting(list).setName(preset.name).addExtraButton(button => button.setIcon('x').setTooltip(wmT('삭제')).onClick(async () => {
+				const index = presets.indexOf(preset); if (index < 0) return; presets.splice(index, 1);
+				if (this.plugin.settings.documentExportDefaultPreset === preset.id) this.plugin.settings.documentExportDefaultPreset = 'default';
+				await this.plugin.saveSettings(); this.renderPage('export');
+			}));
+			row.settingEl.addClass('setting-list-item');
+		}
 	}
 
 	// ── 타이머 ─────────────────────────────────────────────────────────

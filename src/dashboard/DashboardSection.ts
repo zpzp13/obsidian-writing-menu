@@ -63,8 +63,8 @@ export class DashboardSection {
 		let selectedRange: CharRange = plugin.settings.dashboardCharRange ?? '30';
 
 		const rangeRow = root.createDiv({ cls: 'wm-dash-char-range-row' });
-		const rangeSeg = rangeRow.createDiv({ cls: 'wm-dash-char-range-seg', attr: { role: 'group', 'aria-label': wmT("글자수 평균 기간") } });
-		const rangeThumb = rangeSeg.createSpan({ cls: 'wm-dash-char-range-thumb' });
+		const rangeSeg = rangeRow.createDiv({ cls: 'wm-segmented-control wm-dash-char-range', attr: { role: 'group', 'aria-label': wmT("글자수 평균 기간") } });
+		const rangeThumb = rangeSeg.createSpan({ cls: 'wm-segmented-thumb' });
 		const rangeItems: Array<{ key: CharRange; label: string }> = [
 			{ key: '7', label: wmT("7일") },
 			{ key: '30', label: wmT("30일") },

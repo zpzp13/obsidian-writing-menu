@@ -4,6 +4,7 @@ node_modules
 # build
 main.js
 garu-worker.js
+document-worker.js
 rag-worker.js
 rag-runtime/
 *.js.map

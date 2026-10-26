@@ -620,10 +620,10 @@ export class PlotWorkbookToolbar {
 		onChange: (mode: ColorThemeMode) => void,
 	): void {
 		const segmented = container.createDiv({
-			cls: 'wm-dash-char-range-seg wm-writing-layout-segmented wm-writing-color-mode-segmented',
+			cls: 'wm-segmented-control wm-writing-layout-segmented wm-writing-color-mode-segmented',
 			attr: { role: 'group', 'aria-label': wmT("색상 테마") },
 		});
-		const thumb = segmented.createSpan({ cls: 'wm-dash-char-range-thumb' });
+		const thumb = segmented.createSpan({ cls: 'wm-segmented-thumb' });
 		const buttons = new Map<ColorThemeMode, HTMLButtonElement>();
 		for (const [key, label] of [['light', wmT("라이트")], ['dark', wmT("다크")]] as const) {
 			const button = segmented.createEl('button', {

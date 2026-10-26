@@ -42,8 +42,8 @@ export class RevisionDashboard {
 	update(state: State): void { this.state = state; if (!this.disposed) this.render(); }
 	progress(text: string): void { this.progressEl?.setText(text); }
 	private segment(parent: HTMLElement, values: Record<string, string>, value: string, label: string, change: (value: string) => void): void {
-		const group = parent.createDiv({ cls: 'wm-dash-char-range-seg wm-analysis-segment', attr: { role: 'group', 'aria-label': label, 'data-analysis-segment': label } });
-		const thumb = group.createSpan({ cls: 'wm-dash-char-range-thumb is-still', attr: { 'aria-hidden': 'true' } });
+		const group = parent.createDiv({ cls: 'wm-segmented-control wm-analysis-segment', attr: { role: 'group', 'aria-label': label, 'data-analysis-segment': label } });
+		const thumb = group.createSpan({ cls: 'wm-segmented-thumb is-still', attr: { 'aria-hidden': 'true' } });
 		for (const [key, text] of Object.entries(values)) {
 			const button = group.createEl('button', { text, attr: { type: 'button', 'data-value': key, 'aria-pressed': String(key === value) } }); button.disabled = this.state.busy;
 			button.onclick = () => {

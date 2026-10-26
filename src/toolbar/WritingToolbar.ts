@@ -7,7 +7,7 @@ import {
 	setIcon,
 } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
-import { HwpxExportModal, TxtExportModal } from '../export';
+import { DocumentExportModal } from '../export';
 import { TimerStopwatchWidget } from '../dashboard/TimerStopwatchWidget';
 import { FONT_COLOR_ICON_PATH, FONT_COLOR_ICON_VIEWBOX } from '../assets/fontColorIcon';
 import { MARKDOWN_ICON_SVG } from '../assets/markdownIcon';
@@ -15,6 +15,7 @@ import { MUNPIA_SVG, NOVELPIA_SVG } from '../assets/platformLogos';
 import type { PagedInlineFormatKind, PagedParagraphAlignmentValue, WritingWidgetId } from '../types';
 import { appendToolbarChevron, createToolbarActionOption, createToolbarIconButton, createToolbarOption, createToolbarSelect } from './toolbarUi';
 import { InstalledFontCache } from './InstalledFontCache';
+import { createFormatSlider } from './FormatSlider';
 import { bindMobileToolbarPopover } from './MobileToolbarPopover';
 import { MOBILE_WEB_FONTS, mobileFontName } from '../fonts/MobileFontManager';
 import { fontWeightOptions } from '../fonts/FontWeights';
@@ -201,7 +202,7 @@ export class WritingToolbar {
 
 		this.createIconButton(actions, 'copy', wmT("복사하기"), () => { void this.plugin.copyWithOptions(this.surface.leaf); });
 		const exportButton = this.createIconButton(actions, 'file-output', wmT("내보내기"), () => {});
-		exportButton.addEventListener('click', event => { event.stopPropagation(); this.openExportPopover(exportButton); });
+		exportButton.addEventListener('click', event => { event.stopPropagation(); this.openExportDialog(); });
 
 		this.wideModeButtonEl = this.createIconButton(actions, 'maximize-2', wmT("길게 보기"), () => {
 			this.plugin.toggleZenMode('wide', this.surface.leaf);
@@ -600,45 +601,8 @@ export class WritingToolbar {
 		step: number,
 		applyValue: (value: number) => void,
 	): void {
-		const section = container.createDiv({ cls: 'wm-writing-format-section wm-writing-format-slider-section' });
-		section.createDiv({ cls: 'wm-writing-format-section-title', text: label });
-		const slider = section.createEl('input', {
-			type: 'range',
-			cls: 'slider wm-writing-format-slider',
-			attr: {
-				min: String(min),
-				max: String(max),
-				step: String(step),
-				value: String(Math.max(min, Math.min(max, value))),
-				'aria-label': label,
-			},
-		});
-		const scale = section.createDiv({ cls: 'wm-writing-format-slider-scale' });
-		const minEl = scale.createSpan({ cls: 'wm-writing-format-slider-limit' });
-		const currentEl = scale.createSpan({ cls: 'wm-writing-format-slider-current' });
-		const maxEl = scale.createSpan({ cls: 'wm-writing-format-slider-limit' });
-		const display = (raw: number) => this.formatNumber(raw);
-		minEl.setText(display(min));
-		maxEl.setText(display(max));
-
-		const sync = () => {
-			const next = Math.max(min, Math.min(max, Number(slider.value)));
-			const percent = max === min ? 0 : ((next - min) / (max - min)) * 100;
-			currentEl.setText(display(next));
-			slider.setAttribute('aria-valuetext', display(next));
-			slider.setCssStyles({
-				background: `linear-gradient(to right, var(--text-normal) ${percent}%, var(--background-modifier-border) ${percent}%)`,
-			});
-			return next;
-		};
-		sync();
-		slider.addEventListener('input', () => {
-			applyValue(sync());
-		});
-		slider.addEventListener('change', () => {
-			applyValue(sync());
-			void this.plugin.saveSettings().then(() => this.refresh());
-		});
+		createFormatSlider(container, { label, value, min, max, step, onInput: applyValue,
+			onChange: () => { void this.plugin.saveSettings().then(() => this.refresh()); } });
 	}
 
 	private createTextColorControl(container: HTMLElement): void {
@@ -765,10 +729,10 @@ export class WritingToolbar {
 			const render = () => {
 				popover.empty();
 				const segmented = popover.createDiv({
-					cls: 'wm-dash-char-range-seg wm-writing-layout-segmented',
+					cls: 'wm-segmented-control wm-writing-layout-segmented',
 					attr: { role: 'group', 'aria-label': wmT("레이아웃 종류") },
 				});
-				const thumb = segmented.createSpan({ cls: 'wm-dash-char-range-thumb' });
+				const thumb = segmented.createSpan({ cls: 'wm-segmented-thumb' });
 				const buttons = new Map<'markdown' | 'paged', HTMLButtonElement>();
 				for (const [key, label] of [['markdown', wmT("마크다운")], ['paged', wmT("페이지")]] as const) {
 					const button = segmented.createEl('button', {
@@ -943,25 +907,11 @@ export class WritingToolbar {
 		}, 'droplet');
 	}
 
-	private openExportPopover(anchor: HTMLElement): void {
-		this.openPopover(anchor, 'wm-writing-action-popover', popover => {
-			const file = this.surface.getFile();
-			if (!file) return;
-			if (Platform.isDesktop) {
-				this.createActionOption(popover, 'file-output', wmT("HWPX로 내보내기"), () => {
-					this.closePopover();
-					new HwpxExportModal(this.plugin.app, this.plugin, file).open();
-				});
-			}
-			if (Platform.isDesktop) {
-				this.createActionOption(popover, 'file-text', wmT("TXT로 내보내기"), () => {
-					this.closePopover();
-					new TxtExportModal(this.plugin.app, this.plugin, file).open();
-				});
-			}
-			if (!Platform.isDesktop) popover.createDiv({ cls: 'wm-paged-popover-heading', text: wmT("데스크톱에서 사용할 수 있습니다.") });
-		});
-	}
+	private openExportDialog(): void {
+        this.closePopover();
+        const file = this.surface.getFile();
+        if (Platform.isDesktop && file) new DocumentExportModal(this.plugin.app, this.plugin, file).open();
+    }
 
 	private openControlTowerPopover(anchor: HTMLElement): void {
 		this.openPopover(anchor, 'wm-writing-control-popover writing-menu-dropdown', popover => {

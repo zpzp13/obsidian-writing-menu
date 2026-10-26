@@ -36,6 +36,7 @@ for (const [method, node] of methods) {
 	}
 }
 const extras = {
+	export: [],
 	wiki: ['src/wiki/WikiSettings.ts'],
 	plot: ['src/plot-workbook/PlotWorkbookSettings.ts'],
 	snapshots: ['src/plot-workbook/PlotWorkbookSettings.ts'],
@@ -61,7 +62,17 @@ for (const page of pages) {
 		});
 	};
 	collect(methods.get(page.method));
+	if (page.id === 'export') collect(methods.get('renderExportPresetsList'));
 	for (const filename of extras[page.id] ?? []) collect(ts.createSourceFile(filename, fs.readFileSync(filename, 'utf8'), ts.ScriptTarget.Latest, true));
+    if (page.id === 'export') {
+        const collectExportLabels = node => visit(node, child => {
+            if (ts.isCallExpression(child) && ts.isIdentifier(child.expression) && child.expression.text === 'wmT') {
+                const text = literal(child.arguments[0]); if (text && text.length <= 160) labels.add(text);
+            }
+        });
+        collectExportLabels(methods.get(page.method));
+        for (const filename of extras.export) collectExportLabels(ts.createSourceFile(filename, fs.readFileSync(filename, 'utf8'), ts.ScriptTarget.Latest, true));
+    }
 	page.aliases = [...labels];
 	delete page.method;
 }

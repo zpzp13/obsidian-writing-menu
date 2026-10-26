@@ -1,21 +1,22 @@
 # Plugin permissions
 
-Writing Menu retains the **Direct Filesystem Access** and **Shell Execution** capabilities. They are not removed or hidden by the HWPX export change.
+Writing Menu retains the **Direct Filesystem Access** and **Shell Execution** warnings. The export changes reduce their use; they do not hide these capabilities.
 
 ## Document export
 
-- Manuscripts are read through the Obsidian Vault API. Plain HWPX files are assembled locally from a sanitized blank Hancom document; no manuscript is uploaded, and Python or Hancom Hangul is not required.
-- Node.js `fs` creates folders and writes TXT/HWPX files at the external destination selected or entered by the user. Windows template export also checks that the destination will not overwrite the template, including symbolic links resolved by `realpathSync`.
-- On Windows, `child_process` starts the built-in Windows PowerShell for file/folder dialogs and, only when template use is enabled, Hancom COM automation. Fixed PowerShell source receives template paths, output paths and manuscript text as JSON on standard input. User text is not interpolated into PowerShell source. Processes use literal argument arrays with `shell: false`.
-- The template document stays unchanged; the result is saved as a separate HWPX file. The registered Hancom file approval module is used when available. Hancom may ask the user to approve file access. Missing templates or failed saves produce an error rather than a plain-document fallback.
-- On macOS, the built-in `/usr/bin/osascript` opens a file/folder selection dialog. Plain HWPX generation itself does not start external programs. Template automation is Windows-only.
-- On other desktop platforms, output paths can be entered manually. Native folder dialogs are provided for Windows and macOS. Export remains unavailable on mobile.
-- No converter script or manuscript list is installed in the vault. Old `converter.py` files left by an earlier installation are no longer called and are not automatically deleted.
+- Markdown manuscripts and embedded Vault images are read through Obsidian Vault API. TXT/DOCX/HWPX generation and previews run locally without uploading manuscripts, calling Python, launching Office/Hangul or using COM.
+- `fs` reads only an external HWPX template chosen/configured by the user, and creates folders/writes the external output selected or entered by the user. It checks collisions, explicit overwrite permission and template identity (`realpathSync` includes existing symbolic links). Templates are read only. Missing/corrupt/unsupported templates block the selected template operation.
+- Windows `child_process` starts built-in Windows PowerShell **only for file/folder dialogs**. A fixed encoded script receives the mode (`file`/`folder`) on stdin; filenames and manuscript text never enter its source/arguments. The filter permits HWPX. Argument arrays use `shell:false` and hidden process windows. Dialogs are disposed in `finally`.
+- macOS uses fixed `/usr/bin/osascript` file/folder picker expressions. Cancellation returns without saving. Template parsing itself works in TypeScript on both platforms and launches no external program.
+- Other desktop platforms can enter paths manually. Export is unavailable on mobile.
+- No converter script or temporary manuscript list is installed. Old `converter.py` files from earlier installations are not called or automatically deleted.
 
 ## AI CLI connections
 
-The optional Codex and Claude CLI connections continue to use filesystem checks to locate the installed CLI and `child_process` to communicate with it. Their behavior is unchanged by the export feature. This is an additional reason why both community-review capability warnings remain.
+Optional Codex and Claude CLI connections still use filesystem checks and `child_process` to locate and communicate with the installed CLI. Their behavior is unchanged. This remains another reason for both review warnings.
 
-## Other capabilities
+## Other capabilities and audits
 
-Clipboard operations run when the user invokes copying. Plugin settings and existing feature data retain their current storage behavior; this export change does not migrate them. The legacy `hwpTemplatePath` and `hwpExportPath` settings are retained so existing external paths remain available.
+Clipboard operations run when invoked by the user. Legacy `hwpTemplatePath`/`hwpExportPath` are preserved. Independent versioned export defaults migrate heading settings; the removed one-space indentation option is disabled when loading old defaults/presets. Popup overrides are saved only by the explicit save-defaults action. Folder structure preservation defaults to off, and existing-output overwrite defaults to on. Local image normalization uses browser canvas and Vault bytes, with no additional filesystem or process access.
+
+`scripts/warning-exceptions.json` inventories exact capability call sites and reviewed source/CSS warnings. New or stale entries fail `verify-warning-policy.mjs`; source/CSS errors cannot be exceptions. Vendor code is tracked by pinned provenance and browser-only build/UI checks. The optional native verification script uses COM to test synthetic files, but it is a development tool and is never bundled into the plugin.

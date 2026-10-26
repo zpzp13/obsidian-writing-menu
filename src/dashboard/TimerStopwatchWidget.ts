@@ -91,10 +91,10 @@ export class TimerStopwatchWidget {
 		const resetButton = actions.createEl('button', { text: 'RESET', cls: 'wm-dash-clock-text-action is-reset', attr: { type: 'button' } });
 
 		const switcher = panelTop.createDiv({
-			cls: 'wm-dash-clock-switch wm-dash-char-range-seg',
+			cls: 'wm-dash-clock-switch wm-segmented-control',
 			attr: { role: 'group', 'aria-label': wmT("타이머 모드") },
 		});
-		const switchThumb = switcher.createSpan({ cls: 'wm-dash-char-range-thumb' });
+		const switchThumb = switcher.createSpan({ cls: 'wm-segmented-thumb' });
 		const modeButtons = new Map<ClockMode, HTMLButtonElement>();
 		for (const [mode, label] of [['timer', 'T'], ['stopwatch', 'S']] as const) {
 			const fullLabel = mode === 'timer' ? 'Timer' : 'Stopwatch';
