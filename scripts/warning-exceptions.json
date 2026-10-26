@@ -33,6 +33,16 @@
         "scripts/verify-input-boundaries.mjs",
         "scripts/verify-paged-performance.mjs"
       ]
+    },
+    {
+      "file": "src/export/ExportSources.ts",
+      "rule": "obsidianmd/prefer-file-manager-trash-file",
+      "symbol": "delete",
+      "count": 1,
+      "reason": "Remove only the unique temporary .base session created by this export after its embed unloads; exact path and object identity are checked. This is not a user document and should not fill the trash.",
+      "tests": [
+        "scripts/verify-export-ui.mjs"
+      ]
     }
   ],
   "css": [
@@ -666,30 +676,6 @@
       "fingerprint": "b2d464008746375ee923a6e6c915a7c8fc71a6c998706297be2a499e5297b310",
       "count": 1,
       "reason": "Populate the document selection tree through Vault API; retain entrypoint selection and order.",
-      "tests": [
-        "scripts/verify-export-ui.mjs",
-        "scripts/verify-export-boundaries.mjs"
-      ]
-    },
-    {
-      "file": "src/export/DocumentExportModal.ts",
-      "kind": "filesystem",
-      "call": "getFs",
-      "fingerprint": "4a12d434879a5efe0ce06b0ee49260882b3bc14ef6d846fad84bf9d97c329c87",
-      "count": 1,
-      "reason": "Enable a saved local HWPX template only when it exists on this platform; inaccessible foreign-platform settings never block plain export.",
-      "tests": [
-        "scripts/verify-export-ui.mjs",
-        "scripts/verify-export-boundaries.mjs"
-      ]
-    },
-    {
-      "file": "src/export/DocumentExportModal.ts",
-      "kind": "filesystem",
-      "call": "fs.existsSync",
-      "fingerprint": "9cf75aea755cbf156df2d9f396a3cf5921e2829bd4f9f0b82f5cc9ff2998596a",
-      "count": 1,
-      "reason": "Enable a saved local HWPX template only when it exists on this platform; inaccessible foreign-platform settings never block plain export.",
       "tests": [
         "scripts/verify-export-ui.mjs",
         "scripts/verify-export-boundaries.mjs"

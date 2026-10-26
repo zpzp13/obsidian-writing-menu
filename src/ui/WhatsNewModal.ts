@@ -1,5 +1,10 @@
 import { wmT } from '../i18n/index';
 import { App, Modal, setIcon } from 'obsidian';
+import documentExportImage from '../../assets/document-export.png';
+import documentExportFormattingImage from '../../assets/document-export-formatting.png';
+import plotInternalLinksImage from '../../assets/plot-internal-links.png';
+import deusModelSelectionImage from '../../assets/deus-model-selection.png';
+import projectTypographyImage from '../../assets/project-typography.png';
 
 const BASE_URL = 'https://raw.githubusercontent.com/zpzp13/obsidian-writing-menu/main';
 
@@ -15,6 +20,25 @@ interface ReleaseNote {
 }
 
 const RELEASE_NOTES: ReleaseNote[] = [
+	{
+		version: '3.5.0',
+		date: '2026-10-26',
+		new: [
+			{ text: wmT("문서 내보내기: TXT·DOCX·HWPX 미리보기에서 원고를 선택·정렬하고 개별 저장하거나 하나로 병합합니다."), bannerUrl: documentExportImage },
+			{ text: wmT("내보내기 서식: 글자·문단·용지를 조절하고 프리셋과 HWPX 템플릿 서식을 사용합니다. Python·Word·한글 설치 없이 생성합니다."), bannerUrl: documentExportFormattingImage },
+			wmT("한국어·영어 UI: Obsidian 언어 설정에 맞춰 표시하며 원고와 사용자 지정 이름은 유지합니다."),
+			{ text: wmT("플롯 내부 링크: 셀과 사이드바에서 [[노트]] 자동완성과 원문 이동을 지원합니다."), bannerUrl: plotInternalLinksImage },
+			{ text: wmT("Deus CLI: Claude Code·Codex를 연결하고 설치된 도구의 모델과 추론 강도를 선택합니다."), bannerUrl: deusModelSelectionImage },
+		],
+		improved: [
+			{ text: wmT("집필 서식: Style Settings의 프로젝트 서식과 툴바 글꼴 목록·두께·수치 조작을 개선했습니다."), bannerUrl: projectTypographyImage },
+			wmT("음악 라이브러리: Bases 보기·곡 정보·오디오 메타데이터와 재생 상태 처리를 개선했습니다."),
+		],
+		fixed: [
+			wmT("플롯 출처 각주의 시트·행 이동과 현재 탭·새 탭 설정을 수정했습니다."),
+			wmT("집필 통계의 내부 저장소 제외, 기본 설정 화면 중복 표시와 넓게 보기·집중 모드 버튼 동기화를 수정했습니다."),
+		],
+	},
 	{
 		version: '3.4.4',
 		date: '2026-10-22',

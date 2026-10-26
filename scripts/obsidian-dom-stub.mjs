@@ -1,5 +1,6 @@
 /** Public Obsidian DOM helpers, including detached globals and SVG namespaces. */
 export function installObsidianDomHelpers() {
+	if (!Object.getOwnPropertyDescriptor(Document.prototype, 'win')) Object.defineProperty(Document.prototype, 'win', { get() { return this.defaultView; } });
 	const make = (doc, tag, options = {}, svg = false) => {
 		if (typeof options === 'string') options = { cls: options };
 		const element = svg ? doc.createElementNS('http://www.w3.org/2000/svg', tag) : doc.createElement(tag);

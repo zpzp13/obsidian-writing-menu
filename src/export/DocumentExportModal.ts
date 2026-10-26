@@ -226,7 +226,7 @@ export class DocumentExportModal extends Modal {
             this.renderSidebar(); this.queuePreview();
         }, 'folder-open');
         const projectPicker = new ToolbarSelect(projectSelect, 'is-export-context', { iconTrigger: true, valueTooltip: false }); this.pickers.push(projectPicker);
-        projectSelect.parentElement!.hidden = true; projectSelect.parentElement!.style.display = 'none';
+        projectSelect.parentElement!.hidden = true; projectSelect.parentElement!.addClass('wm-export-hidden-control');
         const projectValue = projectSelect.parentElement!.parentElement!;
         projectValue.createSpan({ cls: 'wm-export-context-value', text: choices.find(([path]) => path === this.root)?.[1] || this.root });
         const projectIcon = this.rowAction(projectValue, 'folder-open', wmT('프로젝트 선택'), () => projectPicker.openAt(projectIcon));

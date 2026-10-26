@@ -1,3 +1,4 @@
+import { createDocumentElement } from '../utils/documentDom';
 import { BasesView, Component, MarkdownRenderer, TFile, parseYaml, requireApiVersion, stringifyYaml } from 'obsidian';
 import type { BasesPropertyId, QueryController } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
@@ -38,37 +39,40 @@ function record(value: unknown): Record<string, unknown> | null {
 
 /** Bases owns the entire controller, toolbar, menus, search, filters and sorting. */
 function registerSourceViews(plugin: WritingMenuPlugin): boolean {
-    if (!requireApiVersion('1.10.0') || typeof BasesView !== 'function') return false;
-    if (registrations.has(plugin)) return true;
-    class ExportDocumentsView extends BasesView {
-        readonly type: string;
-        private session?: ExportSources;
-        constructor(controller: QueryController, private host: HTMLElement, private mergeView: boolean) {
-            super(controller); this.type = mergeView ? MERGE_VIEW : FILES_VIEW;
-            this.register(() => this.session?.detach(this));
+    if (requireApiVersion('1.10.0')) {
+        if (typeof BasesView !== 'function') return false;
+        if (registrations.has(plugin)) return true;
+        class ExportDocumentsView extends BasesView {
+            readonly type: string;
+            private session?: ExportSources;
+            constructor(controller: QueryController, private host: HTMLElement, private mergeView: boolean) {
+                super(controller); this.type = mergeView ? MERGE_VIEW : FILES_VIEW;
+                this.register(() => this.session?.detach(this));
+            }
+            onDataUpdated(): void {
+                if (!this.data || !this.config) return;
+                const id = this.config.get('wmExportSession') ?? this.host.closest<HTMLElement>('[data-export-session]')?.dataset.exportSession;
+                const session = typeof id === 'string' ? sessions.get(id) : undefined;
+                if (!session) { this.host.empty(); return; }
+                if (this.session !== session) { this.session?.detach(this); this.session = session; }
+                const columns = this.config.getOrder().map(id => ({ id, label: this.config.getDisplayName(id) }));
+                const groups = this.data.groupedData.map(group => ({
+                    key: JSON.stringify([group.hasKey(), group.key?.toString()]),
+                    label: group.hasKey() ? group.key?.toString() ?? '' : '',
+                    items: group.entries.map(entry => ({
+                        file: entry.file,
+                        values: columns.map(column => column.id === 'file.name' ? entry.file.basename : entry.getValue(column.id)?.toString() ?? ''),
+                    })),
+                }));
+                session.attach(this, this.host, groups, columns, this.mergeView);
+            }
         }
-        onDataUpdated(): void {
-            if (!this.data || !this.config) return;
-            const id = this.config.get('wmExportSession') ?? this.host.closest<HTMLElement>('[data-export-session]')?.dataset.exportSession;
-            const session = typeof id === 'string' ? sessions.get(id) : undefined;
-            if (!session) { this.host.empty(); return; }
-            if (this.session !== session) { this.session?.detach(this); this.session = session; }
-            const columns = this.config.getOrder().map(id => ({ id, label: this.config.getDisplayName(id) }));
-            const groups = this.data.groupedData.map(group => ({
-                key: JSON.stringify([group.hasKey(), group.key?.toString()]),
-                label: group.hasKey() ? group.key?.toString() ?? '' : '',
-                items: group.entries.map(entry => ({
-                    file: entry.file,
-                    values: columns.map(column => column.id === 'file.name' ? entry.file.basename : entry.getValue(column.id)?.toString() ?? ''),
-                })),
-            }));
-            session.attach(this, this.host, groups, columns, this.mergeView);
-        }
+        const files = plugin.registerBasesView(FILES_VIEW, { name: wmT('파일 트리'), icon: 'list-checks', factory: (controller, host) => new ExportDocumentsView(controller, host, false) });
+        const merge = plugin.registerBasesView(MERGE_VIEW, { name: wmT('병합'), icon: 'combine', factory: (controller, host) => new ExportDocumentsView(controller, host, true) });
+        if (files && merge) registrations.add(plugin);
+        return files && merge;
     }
-    const files = plugin.registerBasesView(FILES_VIEW, { name: wmT('파일 트리'), icon: 'list-checks', factory: (controller, host) => new ExportDocumentsView(controller, host, false) });
-    const merge = plugin.registerBasesView(MERGE_VIEW, { name: wmT('병합'), icon: 'combine', factory: (controller, host) => new ExportDocumentsView(controller, host, true) });
-    if (files && merge) registrations.add(plugin);
-    return files && merge;
+    return false;
 }
 
 /** Selection-only result view inside a normal file-backed Bases embed, like the music library. */
@@ -183,7 +187,7 @@ export class ExportSources extends Component {
         this.actions.indexed(groups.flatMap(group => group.items.map(item => item.file)));
         this.nativeOwner = owner; this.nativeHost = host; this.groups = groups; this.columns = columns;
         this.state.mode = merge ? 'merge' : 'files'; this.actions.merge(merge);
-        const sort = owner.config.getSort(), groupSignature = JSON.stringify(groups.map(group => group.key));
+        const sort = requireApiVersion('1.10.0') ? owner.config.getSort() : [], groupSignature = JSON.stringify(groups.map(group => group.key));
         if (!sort.length) this.pendingManualOrder = false;
         if (merge && sort.length && !this.pendingManualOrder) {
             if (this.actions.snapshot().selection.reorderVisible(groups.flatMap(group => group.items.map(item => item.file.path)))) this.actions.changed();
@@ -241,7 +245,7 @@ export class ExportSources extends Component {
         }
         if (this.listEl.parentElement !== host) host.replaceChildren(this.listEl);
         // Build off-DOM so the existing list never shrinks to an empty table mid-render.
-        const table = this.host.ownerDocument.createElement('table'); table.addClass('wm-export-table');
+        const table = createDocumentElement(this.host.ownerDocument, 'table'); table.addClass('wm-export-table');
         table.setAttribute('aria-labelledby', `wm-export-sources-${this.id}`);
         const headings = table.createEl('thead').createEl('tr', { attr: { 'data-source-group': rootKey } });
         const primary = this.treeCell(headings.createEl('th', { attr: { scope: 'col' } }), 0, [], [], !rootCollapsed && paths.length ? rootKey : undefined);
@@ -413,7 +417,7 @@ export class ExportSources extends Component {
     }
     private manualOrder(action: () => void): void {
         if (this.actions.snapshot().busy) return;
-        action(); this.pendingManualOrder = !!this.nativeOwner?.config.getSort().length; this.syncBase(true); this.actions.changed();
+        action(); this.pendingManualOrder = requireApiVersion('1.10.0') && !!this.nativeOwner?.config.getSort().length; this.syncBase(true); this.actions.changed();
     }
     private renderFile(host: HTMLElement, item: SourceItem, snapshot: SourceSnapshot, merge: boolean, depth: number, continuation: boolean[], owners: string[]): void {
         const { file } = item, index = snapshot.selection.order.indexOf(file.path);

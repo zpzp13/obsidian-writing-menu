@@ -1,5 +1,10 @@
 ﻿/* Writing Menu Plugin Styles */
 
+.wm-export-hidden-control,
+.wm-toolbar-hidden-trigger {
+    display: none;
+}
+
 /* @settings
 name: Writing Menu · 프로젝트 문서
 id: writing-menu-project-typography
@@ -12753,7 +12758,7 @@ button.deus-message-image img{width:100%;height:100%;object-fit:cover;display:bl
 .menu.deus-compact-menu { width: max-content; min-width: 0; max-width: calc(100vw - 16px); font-size: 13px; }
 
 /* One segmented control, with section classes for range/layout/export variants. */
-.wm-segmented-control:not(:has(> .wm-segmented-thumb)) > button[aria-pressed="true"] {
+:is(.wm-export-formats, .wm-export-control-segments, .wm-export-margin-segments) > button[aria-pressed="true"] {
     background: var(--wm-dash-ink-1, var(--text-normal));
     color: var(--wm-dash-page, var(--background-primary));
 }
@@ -12761,7 +12766,7 @@ button.deus-message-image img{width:100%;height:100%;object-fit:cover;display:bl
 /* Document export uses native Bases chrome and shared editor/sidebar controls. */
 :is(.wm-document-export, .wm-export-settings-defaults) { --wm-export-label-gap: 10px; --wm-export-menu-icon-size: var(--icon-m, 16px); --wm-export-menu-icon-stroke: var(--icon-m-stroke-width, 1.75px); --wm-export-control-height: 30px; --wm-export-control-tail: 13px; }
 .modal.wm-document-export-modal { --wm-export-label-gap: 10px; width: min(1120px, 94vw); height: min(900px, 94vh); max-width: 94vw; max-height: 94vh; padding: 0; overflow: hidden; background: var(--background-primary); border-radius: var(--radius-l); }
-.wm-export-sr-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; pointer-events: none; }
+.wm-export-sr-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; pointer-events: none; }
 body > .wm-export-bases-portal { z-index: calc(var(--layer-menu) + var(--wm-export-portal-level, 1)); }
 .wm-document-export-modal .modal-content { height: 100%; margin: 0; overflow: hidden; }
 .wm-document-export-modal > .modal-header { display: none; }
@@ -12817,7 +12822,7 @@ body > .wm-export-bases-portal { z-index: calc(var(--layer-menu) + var(--wm-expo
 .wm-export-bases-native .bases-toolbar-new-item-menu { display: none; }
 .wm-export-bases-native .bases-search-row { border: 0; }
 .wm-export-bases-native .bases-toolbar .bases-toolbar-views-menu { margin-inline: 0; }
-.wm-export-bases-native .bases-toolbar .bases-toolbar-views-menu .text-icon-button { display: inline-flex; align-items: center; min-height: 36px; margin: 0; padding: 0; column-gap: var(--wm-export-label-gap); color: var(--text-muted); font-size: 13px; line-height: 20px; }
+.wm-export-bases-native .bases-toolbar .bases-toolbar-views-menu .text-icon-button { display: inline-flex; align-items: center; min-height: 36px; margin: 0; padding: 0; gap: var(--wm-export-label-gap); color: var(--text-muted); font-size: 13px; line-height: 20px; }
 .wm-export-bases-native .bases-toolbar-views-menu .text-button-icon:not(.mod-aux) { display: flex; align-items: center; align-self: center; justify-content: center; flex: 0 0 var(--wm-export-menu-icon-size); width: var(--wm-export-menu-icon-size); height: var(--wm-export-menu-icon-size); margin: 0; padding: 0; color: inherit; line-height: 0; }
 .wm-export-bases-native .bases-toolbar-views-menu .text-button-label { display: flex; align-items: center; align-self: center; min-height: 20px; margin: 0; padding: 0; color: inherit; font-weight: var(--font-normal); line-height: 20px; }
 .wm-export-bases-native .bases-toolbar-views-menu .text-button-icon:not(.mod-aux) svg { display: block; width: var(--wm-export-menu-icon-size); height: var(--wm-export-menu-icon-size); stroke-width: var(--wm-export-menu-icon-stroke); }

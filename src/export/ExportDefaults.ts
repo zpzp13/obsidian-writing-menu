@@ -1,3 +1,4 @@
+import { createDocumentElement } from '../utils/documentDom';
 import type { WritingMenuSettings } from '../types';
 import { DEFAULT_CONTENT, DEFAULT_DOCUMENT_STYLE } from './DocumentModel';
 import type { ContentPolicy, DocumentStyle, ExportDefaults } from './DocumentModel';
@@ -9,15 +10,15 @@ export function exportContentPolicy(content?: Partial<ContentPolicy>): ContentPo
 		images: content?.images === 'keep' ? 'keep' : 'exclude', formatting: content?.formatting === true, spaceIndent: false };
 }
 
-export function exportThemeAppearance(doc: Document | undefined = globalThis.document, dark = false): Pick<DocumentStyle, 'fontFamily' | 'color' | 'background'> {
+export function exportThemeAppearance(doc: Document | undefined = typeof window === 'undefined' ? undefined : window.document, dark = false): Pick<DocumentStyle, 'fontFamily' | 'color' | 'background'> {
 	const fallback = { fontFamily: 'Arial', color: dark ? '#dadada' : '#222222', background: dark ? '#1e1e1e' : '#ffffff' };
 	if (!doc?.defaultView || !doc.body) return fallback;
-	const probe = doc.createElement('span');
+	const probe = createDocumentElement(doc, 'span');
 	Object.assign(probe.style, { position: 'fixed', visibility: 'hidden', pointerEvents: 'none', fontFamily: 'var(--font-interface)', color: 'var(--text-normal)', backgroundColor: 'var(--background-primary)' });
 	doc.body.appendChild(probe);
 	try {
 		const computed = doc.defaultView.getComputedStyle(probe);
-		const canvas = doc.createElement('canvas'); canvas.width = canvas.height = 1;
+		const canvas = createDocumentElement(doc, 'canvas'); canvas.width = canvas.height = 1;
 		const context = canvas.getContext('2d');
 		const hex = (value: string, defaultColor: string): string => {
 			if (!context) return defaultColor;
@@ -31,9 +32,9 @@ export function exportThemeAppearance(doc: Document | undefined = globalThis.doc
 			color: hex(computed.color, fallback.color), background: hex(computed.backgroundColor, fallback.background) };
 	} finally { probe.remove(); }
 }
-export function resolvedExportFont(doc: Document | undefined = globalThis.document): string { return exportThemeAppearance(doc).fontFamily; }
+export function resolvedExportFont(doc: Document | undefined = typeof window === 'undefined' ? undefined : window.document): string { return exportThemeAppearance(doc).fontFamily; }
 
-export function exportDefaults(settings: Partial<WritingMenuSettings>, resolvedFont?: string, dark = false, doc: Document | undefined = globalThis.document): ExportDefaults {
+export function exportDefaults(settings: Partial<WritingMenuSettings>, resolvedFont?: string, dark = false, doc: Document | undefined = typeof window === 'undefined' ? undefined : window.document): ExportDefaults {
 	const theme = exportThemeAppearance(doc, dark), defaults = settings.documentExportDefaults;
 	if (resolvedFont) theme.fontFamily = resolvedFont;
 	// The factory style is immutable; only the settings page controls the starting format and content policy.

@@ -1,19 +1,20 @@
+import { createDocumentElement } from '../utils/documentDom';
 import type { DocumentStyle, ElementTextStyle, EncodeOptions } from './DocumentModel';
 
 /** Resolve the same Style Settings rules consumed by project Markdown/Paged documents. */
 export function projectExportStyles(doc: Document, body: DocumentStyle): NonNullable<EncodeOptions['elementStyles']> | undefined {
 	const win = doc.defaultView;
 	if (!win) return undefined;
-	const root = doc.createElement('div');
+	const root = createDocumentElement(doc, 'div');
 	root.className = 'wm-styled-document wm-export-style-snapshot';
 	root.dataset.writingMenuId = 'export-style-snapshot';
 	root.setAttribute('aria-hidden', 'true');
 	for (const [key, value] of Object.entries({ '--wm-font-family': body.fontFamily, '--wm-font-size': `${body.fontSize * 4 / 3}px`, '--wm-font-weight': String(body.fontWeight), '--wm-font-color': body.color, '--wm-line-height': String(body.lineSpacingType === 'percent' ? body.lineSpacing / 100 : 1.5) })) root.style.setProperty(key, value);
-	const content = doc.createElement('div'); content.className = 'markdown-rendered'; root.appendChild(content);
+	const content = createDocumentElement(doc, 'div'); content.className = 'markdown-rendered'; root.appendChild(content);
 	Object.assign(content.style, { fontFamily: body.fontFamily, fontSize: `${body.fontSize * 4 / 3}px`, fontWeight: String(body.fontWeight), color: body.color });
-	const headings = Array.from({ length: 6 }, (_, index) => content.appendChild(doc.createElement(`h${index + 1}`)));
-	const footnote = content.appendChild(doc.createElement('div')); footnote.className = 'footnotes';
-	const canvas = doc.createElement('canvas'); canvas.width = canvas.height = 1;
+	const headings = Array.from({ length: 6 }, (_, index) => content.appendChild(createDocumentElement(doc, `h${index + 1}` as keyof HTMLElementTagNameMap)));
+	const footnote = content.appendChild(createDocumentElement(doc, 'div')); footnote.className = 'footnotes';
+	const canvas = createDocumentElement(doc, 'canvas'); canvas.width = canvas.height = 1;
 	const context = canvas.getContext('2d');
 	const color = (value: string): string => {
 		if (!context) return body.color;

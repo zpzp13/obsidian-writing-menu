@@ -63,7 +63,7 @@ export class ExportService {
 					const bytes = new Uint8Array(await vault.readBinary(target));
 					if (bytes.length > 20 * 1024 * 1024) throw new Error(wmT('이미지가 너무 큽니다: {0}', target.name));
 					try {
-						const image = await prepareExportImage(bytes, extension, globalThis.document);
+						const image = await prepareExportImage(bytes, extension, window.document);
 						images.set(target.path, { id: target.path, ...image });
 					} catch (error) { throw new Error(wmT('이미지를 불러오지 못했습니다: {0} ({1})', target.path, error instanceof Error ? error.message : String(error))); }
 					imageStamps.push(`${target.path}:${target.stat.mtime}:${target.stat.size}`);
@@ -79,11 +79,12 @@ export class ExportService {
 		if (!files.length) throw new Error(wmT('내보낼 문서를 선택해 주세요.'));
 		await flushExportSources(this.plugin, files);
 		signal?.throwIfAborted();
-		const effectiveOptions: EncodeOptions = { ...options, elementStyles: policy.formatting && format !== 'txt' ? projectExportStyles(globalThis.document, options.style) : undefined };
+		const effectiveOptions: EncodeOptions = { ...options, elementStyles: policy.formatting && format !== 'txt' ? projectExportStyles(window.document, options.style) : undefined };
 		const styles = [effectiveOptions.style, ...(effectiveOptions.elementStyles?.headings ?? []), ...(effectiveOptions.elementStyles ? [effectiveOptions.elementStyles.footnote] : [])];
 		let notices: string[] = [];
 		if (format !== 'txt' && styles.some(style => style.fontWeight !== 400 && style.fontWeight !== 700)) {
-			const resolved = exportFontWeights(effectiveOptions, await this.fontCache.loadFaces(globalThis.document));
+			const faces = typeof window === 'undefined' ? [] : await this.fontCache.loadFaces(window.document);
+			const resolved = exportFontWeights(effectiveOptions, faces);
 			signal?.throwIfAborted(); effectiveOptions.fontFaces = resolved.fontFaces; notices = resolved.notices;
 		}
 		const snapshots = [];

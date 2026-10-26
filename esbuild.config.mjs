@@ -20,6 +20,7 @@ const mainBuildOptions = {
 	entryPoints: ['main.ts'],
 	define: {},
 	bundle: true,
+	loader: { '.png': 'dataurl' },
 	external: [
 		'obsidian',
 		'electron',

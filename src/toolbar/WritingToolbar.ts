@@ -13,7 +13,7 @@ import { FONT_COLOR_ICON_PATH, FONT_COLOR_ICON_VIEWBOX } from '../assets/fontCol
 import { MARKDOWN_ICON_SVG } from '../assets/markdownIcon';
 import { MUNPIA_SVG, NOVELPIA_SVG } from '../assets/platformLogos';
 import type { PagedInlineFormatKind, PagedParagraphAlignmentValue, WritingWidgetId } from '../types';
-import { appendToolbarChevron, createToolbarActionOption, createToolbarIconButton, createToolbarOption, createToolbarSelect } from './toolbarUi';
+import { appendToolbarChevron, createToolbarIconButton, createToolbarOption, createToolbarSelect } from './toolbarUi';
 import { InstalledFontCache } from './InstalledFontCache';
 import { createFormatSlider } from './FormatSlider';
 import { bindMobileToolbarPopover } from './MobileToolbarPopover';
@@ -986,8 +986,6 @@ export class WritingToolbar {
 			apply();
 		});
 	}
-
-	private readonly createActionOption = createToolbarActionOption;
 
 	private readonly createOption = createToolbarOption;
 

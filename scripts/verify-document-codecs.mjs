@@ -32,17 +32,17 @@ const source='# 제목\n\n**굵게** *기울임* ~~취소~~ ![그림](pic.png)\n
 const parsed=parse(source);
 assert.equal(parsed.blocks[0].kind,'heading');assert(parsed.blocks.some(b=>b.kind==='table'));assert.equal(text({blocks:[{kind:'paragraph',runs:parsed.footnotes.one}]}),'각주 본문');
 for(const mode of ['keep','text','exclude']){
-    const doc=policy(parsed,{...content,headings:mode,tables:mode,footnotes:mode,images:mode,emphasis:mode==='keep'},'hwpx');
-    assert.equal(doc.blocks.some(b=>b.kind==='heading'),mode==='keep');assert.equal(doc.blocks.some(b=>b.kind==='table'),mode==='keep');
+    const doc=policy(parsed,{...content,headings:mode,tables:mode,footnotes:mode,images:mode,emphasis:mode==='keep',formatting:mode==='keep'},'hwpx');
+    assert.equal(doc.blocks.some(b=>b.kind==='heading'),mode==='keep');assert.equal(doc.blocks.some(b=>b.kind==='table'),false);
     assert.equal(text(doc).includes('제목'),mode!=='exclude');assert.equal(text(doc).includes('각주 본문'),mode==='text');
     assert.equal(Object.keys(doc.footnotes).length>0,mode==='keep');
 }
 
-const rich=policy(parsed,{headings:'keep',tables:'keep',footnotes:'keep',images:'keep',emphasis:true,spaceIndent:false},'hwpx');
+const rich=policy(parsed,{headings:'keep',tables:'keep',footnotes:'keep',images:'keep',emphasis:true,formatting:true,spaceIndent:false},'hwpx');
 rich.resources=[{id:'pic.png',extension:'png',width:1,height:1,bytes:Uint8Array.from(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a0l8AAAAASUVORK5CYII=','base64'))}];
 for(const format of ['docx','hwpx']){
  const output=await api.generateDocument(rich,format,options);fs.writeFileSync('.codex-tmp/export/rich.'+format,output.bytes);
- const body=xml(output.bytes,format==='hwpx'?'Contents/section0.xml':'word/document.xml');assert(body.includes(format==='hwpx'?'hp:tbl':'w:tbl'));assert(body.includes(format==='hwpx'?'hp:footNote':'w:footnoteReference'));assert(body.includes(format==='hwpx'?'hp:pic':'w:drawing'));
+ const body=xml(output.bytes,format==='hwpx'?'Contents/section0.xml':'word/document.xml');assert(!body.includes(format==='hwpx'?'hp:tbl':'w:tbl'),'Tables export as plain text');assert((format==='hwpx'?hwpxText(output.bytes):docxText(output.bytes)).includes('한글\tEnglish'));assert(body.includes(format==='hwpx'?'hp:footNote':'w:footnoteReference'));assert(body.includes(format==='hwpx'?'hp:pic':'w:drawing'));
  const archive=zip.unzipSync(output.bytes);assert(Object.keys(archive).some(name=>/\.(?:png)$/.test(name)));
  if(format==='hwpx')assert(output.pages.some(page=>page.includes('data:image/png;base64')),'HWPX embedded image preview missing');
 }

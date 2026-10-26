@@ -1,3 +1,4 @@
+import { createDocumentElement } from '../utils/documentDom';
 import { wmT } from '../i18n/index';
 import { createToolbarOption, createToolbarSelect } from './toolbarUi';
 
@@ -21,7 +22,7 @@ export class ToolbarSelect {
 			const labelledBy = select.getAttribute('aria-labelledby');
 			if (labelledBy) this.button.setAttribute('aria-labelledby', labelledBy);
 		}
-		if (options.iconTrigger) { this.button.hidden = true; this.button.style.display = 'none'; this.button.tabIndex = -1; }
+		if (options.iconTrigger) { this.button.hidden = true; this.button.addClass('wm-toolbar-hidden-trigger'); this.button.tabIndex = -1; }
 		this.button.addEventListener('click', this.toggle);
 		select.addEventListener('change', this.refresh);
 		this.refresh();
@@ -84,7 +85,7 @@ export class ToolbarSelect {
             const choices = Array.from(this.select.options).filter(option => !query || option.textContent?.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
             if (query && this.options.custom && !Array.from(this.select.options).some(option => option.value === query)
                 && (this.options.custom !== 'number' || Number(query) >= 1 && Number(query) <= 200)) {
-                const custom = doc.createElement('option'); custom.value = query; custom.textContent = query; choices.unshift(custom);
+                const custom = createDocumentElement(doc, 'option'); custom.value = query; custom.textContent = query; choices.unshift(custom);
             }
             for (const option of choices.slice(0, 100)) {
                 const button = createToolbarOption(list, option.textContent ?? '', option.selected, () => {

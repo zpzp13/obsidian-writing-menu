@@ -1,3 +1,4 @@
+import { createDocumentElement } from '../utils/documentDom';
 import { wmT } from '../i18n';
 import type { DocumentResource } from './DocumentModel';
 
@@ -45,16 +46,16 @@ export async function prepareExportImage(bytes: Uint8Array, extension: string, d
         if (size) { checkSize(size.width, size.height); return { bytes, extension: type, ...size }; }
     }
     const mime = extension === 'svg' ? 'image/svg+xml' : extension === 'jpg' ? 'image/jpeg' : 'image/' + extension;
-    const url = URL.createObjectURL(new Blob([bytes.slice().buffer], { type: mime })), image = doc.createElement('img');
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    const url = URL.createObjectURL(new Blob([bytes.slice().buffer], { type: mime })), image = createDocumentElement(doc, 'img');
+    let timer: number | undefined;
     try {
         image.src = url;
-        await Promise.race([image.decode(), new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error(wmT('이미지를 불러오지 못했습니다.'))), 30000); })]);
+        await Promise.race([image.decode(), new Promise<never>((_, reject) => { timer = window.setTimeout(() => reject(new Error(wmT('이미지를 불러오지 못했습니다.'))), 30000); })]);
         const width = image.naturalWidth, height = image.naturalHeight; checkSize(width, height);
-        const canvas = doc.createElement('canvas'); canvas.width = width; canvas.height = height;
+        const canvas = createDocumentElement(doc, 'canvas'); canvas.width = width; canvas.height = height;
         const context = canvas.getContext('2d'); if (!context) throw new Error(wmT('이미지를 불러오지 못했습니다.'));
         context.drawImage(image, 0, 0);
         const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error(wmT('이미지를 불러오지 못했습니다.'))), 'image/png'));
         return { bytes: new Uint8Array(await blob.arrayBuffer()), extension: 'png', width, height };
-    } finally { clearTimeout(timer); image.removeAttribute('src'); URL.revokeObjectURL(url); }
+    } finally { window.clearTimeout(timer); image.removeAttribute('src'); URL.revokeObjectURL(url); }
 }

@@ -12,7 +12,7 @@ export interface DocumentEngine {
 export class DocumentWorker implements DocumentEngine {
 	private worker: Worker | null = null;
 	private nextId = 0;
-	private pending = new Map<number, { kind: WorkerRequest['kind']; timer: ReturnType<typeof setTimeout>; resolve: (value: WorkerReply) => void; reject: (error: Error) => void }>();
+	private pending = new Map<number, { kind: WorkerRequest['kind']; timer: number; resolve: (value: WorkerReply) => void; reject: (error: Error) => void }>();
 	private closed = false;
 	private ensureWorker(): Worker {
 		if (this.closed) throw new Error('문서 미리보기를 닫았습니다.');
@@ -23,7 +23,7 @@ export class DocumentWorker implements DocumentEngine {
 				const reply = event.data as WorkerReply;
 				if (!reply || typeof reply.id !== 'number') { this.reset(new Error('문서 생성 결과가 올바르지 않습니다.')); return; }
 				const pending = this.pending.get(reply.id); if (!pending) return;
-				this.pending.delete(reply.id); clearTimeout(pending.timer);
+				this.pending.delete(reply.id); window.clearTimeout(pending.timer);
 				if (reply.kind === 'error') pending.reject(new Error(reply.message)); else pending.resolve(reply);
 			};
 			this.worker.onerror = event => { this.reset(new Error(event.message || '문서 생성 Worker를 실행하지 못했습니다.')); };
@@ -36,9 +36,9 @@ export class DocumentWorker implements DocumentEngine {
 		if (this.pending.size) this.reset(this.cancelled());
 		return new Promise((resolve, reject) => {
 			const worker = this.ensureWorker();
-			const timer = setTimeout(() => { this.reset(new Error('문서 생성 시간이 초과되었습니다. 다시 시도해 주세요.')); }, 120000);
+			const timer = window.setTimeout(() => { this.reset(new Error('문서 생성 시간이 초과되었습니다. 다시 시도해 주세요.')); }, 120000);
 			this.pending.set(request.id, { kind: request.kind, timer, resolve, reject });
-			try { worker.postMessage(request); } catch (error) { this.pending.delete(request.id); clearTimeout(timer); reject(error); }
+			try { worker.postMessage(request); } catch (error) { this.pending.delete(request.id); window.clearTimeout(timer); reject(error instanceof Error ? error : new Error(String(error))); }
 		});
 	}
 	async generate(document: TransferDocument, format: DocumentFormat, options: EncodeOptions): Promise<GeneratedDocument> {
@@ -52,6 +52,6 @@ export class DocumentWorker implements DocumentEngine {
 	private cancelled(): Error { const error = new Error('문서 미리보기를 닫았습니다.'); error.name = 'AbortError'; return error; }
 	private reset(error: Error): void { this.worker?.terminate(); this.worker = null; this.fail(error); }
 	cancelGeneration(): void { if ([...this.pending.values()].some(request => request.kind === 'generate')) this.reset(this.cancelled()); }
-	private fail(error: Error): void { for (const pending of this.pending.values()) { clearTimeout(pending.timer); pending.reject(error); } this.pending.clear(); }
+	private fail(error: Error): void { for (const pending of this.pending.values()) { window.clearTimeout(pending.timer); pending.reject(error); } this.pending.clear(); }
 	dispose(): void { this.closed = true; this.worker?.terminate(); this.worker = null; this.fail(new Error('문서 미리보기를 닫았습니다.')); }
 }

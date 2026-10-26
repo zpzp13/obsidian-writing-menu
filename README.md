@@ -25,7 +25,7 @@ A writing workspace for fiction and serial stories in Obsidian. Draft manuscript
 
 - Use a shared writing toolbar in Markdown and the desktop-only paged view.
 - Adjust fonts, spacing, paragraphs, and text color. Work with focus mode, typewriter scrolling, smart quotes, and text replacements.
-- Check character counts, copy your text, and export to TXT, DOCX or HWPX from a document-selection and formatting preview dialog. Windows and macOS generation and HWPX template formatting work without Python, Word or Hancom Hangul. See the [export guide](docs/document-export.md) and [transfer architecture](docs/document-transfer-architecture.md).
+- Check character counts, copy your text, and export to TXT, DOCX or HWPX from a document-selection and formatting preview dialog. Windows and macOS generation and HWPX template formatting work without Python, Word or Hancom Hangul.
 
 ![The same manuscript laid out across multiple editable pages](assets/multi-page.png)
 
@@ -36,6 +36,30 @@ A writing workspace for fiction and serial stories in Obsidian. Draft manuscript
 
 </details>
 
+<details>
+<summary>Project typography</summary>
+
+Configure headings, footnotes, and emphasis for project manuscripts in Style Settings.
+
+![Style Settings controls for project headings and footnotes](assets/project-typography.png)
+
+</details>
+
+## Export documents
+
+Select and reorder manuscripts in a TXT, DOCX, or HWPX preview, then save them separately or merge them into one document. Adjust text, paragraph, and page settings, and apply presets or HWPX template formatting.
+
+The document list uses the Bases core plugin, available in Obsidian 1.10 or later.
+
+![Manuscript merge order alongside an HWPX document preview](assets/document-export.png)
+
+<details>
+<summary>Export formatting</summary>
+
+![Font, size, weight, alignment, and line-spacing controls beside the document preview](assets/document-export-formatting.png)
+
+</details>
+
 ## Plan your story
 
 Organize plots, characters, foreshadowing, and checklists in project workbooks.
@@ -43,8 +67,16 @@ Organize plots, characters, foreshadowing, and checklists in project workbooks.
 - Manage sheets, rows, columns, subrows, statuses, labels, and cell formatting.
 - View and edit the selected row or column as cards in the sidebar.
 - Search, paste multiple cells, undo changes, and export to Markdown.
+- Type `[[internal links]]` in cells and the sidebar to get note suggestions, then follow links to their sources.
 
 ![Plot workbook with scene beats, cast, status, and a row sidebar](assets/plot-workbook.png)
+
+<details>
+<summary>Internal link suggestions</summary>
+
+![Note suggestions while entering an internal link in a plot cell](assets/plot-internal-links.png)
+
+</details>
 
 ## Deus AI
 
@@ -65,6 +97,13 @@ Ask questions using your project's manuscripts, character notes, and plots.
 </details>
 
 Choose Gemini, Claude Code (CLI), or Codex (CLI) in the model selector. Gemini requires an API key. CLI models use an installed, authenticated desktop CLI. Selecting a CLI opens the model catalog and supported effort levels reported by the installed tool. You can also choose its model, effort, and executable path in Deus settings; a blank path uses automatic executable discovery. All providers share the same project context, retrieval, and citation handling. Citations open in the current tab by default; you can choose a new tab in settings.
+
+<details>
+<summary>CLI models and reasoning effort</summary>
+
+![Selecting a Codex model and reasoning effort in Deus](assets/deus-model-selection.png)
+
+</details>
 
 ## Review and restore
 
@@ -137,10 +176,8 @@ Writing Menu follows Obsidian's language setting: Korean uses the Korean interfa
 
 Deus AI sends your conversation and reference material to the selected model provider through the Gemini API or an installed CLI. Dictionary and spell-checking tools use their respective services. Mobile fonts and optional analysis assets are downloaded on request and stored locally. Spell checking uses unofficial endpoints; follow the provider's terms.
 
-See [plugin permissions](docs/plugin-permissions.md) for filesystem, external-process, clipboard, and local-storage usage.
-
 [MIT License](LICENSE). Notices for external components, including Claudian, are included with the relevant code and distribution files.
 
-Screenshots show a demo project based on Jane Austen's [Pride and Prejudice](https://www.gutenberg.org/ebooks/1342), using the public-domain English text. AI conversations and dictionary/spelling results are illustrative. Mobile images show responsive layout previews.
+Screenshots show demo and test projects. The Jane Austen [Pride and Prejudice](https://www.gutenberg.org/ebooks/1342) examples use the public-domain English text. AI conversations and dictionary/spelling results are illustrative. Mobile images show responsive layout previews.
 
 [Logo (SVG)](assets/logo.svg)

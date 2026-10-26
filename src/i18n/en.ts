@@ -1,5 +1,16 @@
 // English UI catalog. Korean source messages are stable translation keys.
 export const en = {
+	"양식": "Formatting",
+	"문서": "Documents",
+	"문서 내보내기: TXT·DOCX·HWPX 미리보기에서 원고를 선택·정렬하고 개별 저장하거나 하나로 병합합니다.": "Document export: select and reorder manuscripts in TXT, DOCX and HWPX previews, then save separately or merge into one document.",
+	"내보내기 서식: 글자·문단·용지를 조절하고 프리셋과 HWPX 템플릿 서식을 사용합니다. Python·Word·한글 설치 없이 생성합니다.": "Export formatting: adjust text, paragraphs and pages, use presets and HWPX template formatting, and generate documents without Python, Word or Hancom Hangul.",
+	"한국어·영어 UI: Obsidian 언어 설정에 맞춰 표시하며 원고와 사용자 지정 이름은 유지합니다.": "Korean and English UI: follow Obsidian's language setting while preserving manuscripts and custom names.",
+	"플롯 내부 링크: 셀과 사이드바에서 [[노트]] 자동완성과 원문 이동을 지원합니다.": "Plot links: get [[note]] suggestions in cells and the sidebar, then follow links to the source.",
+	"Deus CLI: Claude Code·Codex를 연결하고 설치된 도구의 모델과 추론 강도를 선택합니다.": "Deus CLI: connect Claude Code or Codex and choose models and reasoning effort from the installed tool.",
+	"집필 서식: Style Settings의 프로젝트 서식과 툴바 글꼴 목록·두께·수치 조작을 개선했습니다.": "Writing styles: improved project typography in Style Settings, toolbar font lists, weights and numeric controls.",
+	"음악 라이브러리: Bases 보기·곡 정보·오디오 메타데이터와 재생 상태 처리를 개선했습니다.": "Music library: improved Bases views, track information, audio metadata and playback state handling.",
+	"플롯 출처 각주의 시트·행 이동과 현재 탭·새 탭 설정을 수정했습니다.": "Fixed plot citations navigating to their sheet and row and honoring current-tab and new-tab preferences.",
+	"집필 통계의 내부 저장소 제외, 기본 설정 화면 중복 표시와 넓게 보기·집중 모드 버튼 동기화를 수정했습니다.": "Fixed internal storage being counted in writing statistics, duplicate native settings content, and wide-view and focus-mode button synchronization.",
 	"평균 문장 길이": "Average sentence length",
 	"평균 문단 길이": "Average paragraph length",
 	"{0}문장 · ": "{0} sentences · ",
