@@ -176,6 +176,8 @@ Writing Menu follows Obsidian's language setting: Korean uses the Korean interfa
 
 Deus AI sends your conversation and reference material to the selected model provider through the Gemini API or an installed CLI. Dictionary and spell-checking tools use their respective services. Mobile fonts and optional analysis assets are downloaded on request and stored locally. Spell checking uses unofficial endpoints; follow the provider's terms.
 
+See [plugin permissions](docs/plugin-permissions.md) for filesystem, external-process, clipboard, and local-storage usage.
+
 [MIT License](LICENSE). Notices for external components, including Claudian, are included with the relevant code and distribution files.
 
 Screenshots show demo and test projects. The Jane Austen [Pride and Prejudice](https://www.gutenberg.org/ebooks/1342) examples use the public-domain English text. AI conversations and dictionary/spelling results are illustrative. Mobile images show responsive layout previews.
