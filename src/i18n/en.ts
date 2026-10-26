@@ -1980,6 +1980,8 @@ export const en = {
 	"이미지를 불러오지 못했습니다: {0} ({1})": "Could not load image: {0} ({1})",
 	"이미지는 볼트 안의 PNG·JPEG·GIF·BMP·WebP·SVG 파일을 지원합니다.": "Images must be PNG, JPEG, GIF, BMP, WebP or SVG files in the vault.",
 	"문서 엔진": "Document engine",
+	"HWPX 엔진": "HWPX engine",
+	"kordoc v{0} 설치 완료 · 완전히 오프라인으로 동작합니다.": "kordoc v{0} installed · Works entirely offline.",
 	"다시 설치": "Reinstall",
 	"엔진(kordoc)을 먼저 다운로드해 주세요.": "Download the engine (kordoc) first.",
 	"문서 엔진 연결 파일이 없습니다. 플러그인을 다시 설치해 주세요.": "The document engine bridge is missing. Reinstall the plugin.",

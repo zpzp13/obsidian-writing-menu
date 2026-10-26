@@ -1,4 +1,4 @@
-import { App, Modal, Notice, Platform, TFile, TFolder, normalizePath } from 'obsidian';
+import { App, Menu, Modal, Notice, Platform, TFile, TFolder, normalizePath } from 'obsidian';
 import { renderAsync } from 'docx-preview';
 import type WritingMenuPlugin from '../../main';
 import { wmT } from '../i18n/index';
@@ -54,6 +54,7 @@ export class DocumentExportModal extends Modal {
     private preset = 'default';
     private baseDefaults: ExportDefaults;
     private pickers: ToolbarSelect[] = [];
+    private projectMenu?: Menu;
     private zoomValueEl!: HTMLElement;
     private currentScale = 1;
 	private templateEl!: HTMLElement;
@@ -158,6 +159,7 @@ export class DocumentExportModal extends Modal {
     }
     private renderSidebar(): void {
         if (!this.sidebarEl) return;
+        this.projectMenu?.hide();
         this.basesPortal?.closeMenus();
         const scroll = this.sidebarEl.querySelector<HTMLElement>('.wm-export-form-scroll')?.scrollTop || 0;
         this.controls?.dispose(); for (const picker of this.pickers) picker.destroy(); this.pickers = []; this.sidebarEl.empty();
@@ -219,19 +221,30 @@ export class DocumentExportModal extends Modal {
             const path = normalizePath(project.rootFolder).replace(/^\/+|\/+$/g, ''); if (!choices.some(([root]) => root === path)) choices.push([path,project.name]);
         }
         if (!choices.some(([path]) => path === this.root)) choices.push([this.root,this.root]);
-        const projectSelect = exportSelect(fields, wmT('프로젝트'), this.root, choices, value => {
-            if (this.busy || value === this.root) return;
-            this.basesPortal?.closeMenus();
-            this.root = value; this.sourceSelection = new ExportSelection([]); this.activePath = '';
-            this.sources?.unload(); this.sources = undefined; this.sourcesHost = undefined;
-            this.sourceViewState = { mode: 'files', collapsed: new Set(), scroll: 0, reveal: true };
-            this.renderSidebar(); this.queuePreview();
-        }, 'folder-open');
-        const projectPicker = new ToolbarSelect(projectSelect, 'is-export-context', { iconTrigger: true, valueTooltip: false }); this.pickers.push(projectPicker);
-        projectSelect.parentElement!.hidden = true; projectSelect.parentElement!.addClass('wm-export-hidden-control');
-        const projectValue = projectSelect.parentElement!.parentElement!;
+        const projectValue = exportRow(fields, wmT('프로젝트'), 'folder-open', 'project');
         projectValue.createSpan({ cls: 'wm-export-context-value', text: choices.find(([path]) => path === this.root)?.[1] || this.root });
-        const projectIcon = this.rowAction(projectValue, 'folder-open', wmT('프로젝트 선택'), () => projectPicker.openAt(projectIcon));
+        const projectIcon = this.rowAction(projectValue, 'folder-open', wmT('프로젝트 선택'), () => {
+            if (this.busy) return;
+            if (this.projectMenu) { this.projectMenu.hide(); return; }
+            const menu = this.projectMenu = new Menu();
+            menu.setParentElement(this.containerEl);
+            menu.onHide(() => {
+                if (this.projectMenu === menu) this.projectMenu = undefined;
+                projectIcon.setAttribute('aria-expanded', 'false');
+            });
+            for (const [value, label] of choices) menu.addItem(item => item.setTitle(label).setChecked(value === this.root).onClick(() => {
+                menu.hide();
+                if (this.closed || this.busy || value === this.root) return;
+                this.basesPortal?.closeMenus();
+                this.root = value; this.sourceSelection = new ExportSelection([]); this.activePath = '';
+                this.sources?.unload(); this.sources = undefined; this.sourcesHost = undefined;
+                this.sourceViewState = { mode: 'files', collapsed: new Set(), scroll: 0, reveal: true };
+                this.renderSidebar(); this.queuePreview();
+            }));
+            const bounds = projectIcon.getBoundingClientRect();
+            projectIcon.setAttribute('aria-expanded', 'true');
+            menu.showAtPosition({ x: bounds.left, y: bounds.bottom + 6 }, projectIcon.ownerDocument);
+        });
         projectIcon.setAttribute('aria-haspopup','menu'); projectIcon.setAttribute('aria-expanded','false');
         const name = exportRow(fields, wmT('파일 이름'), 'file-pen-line', 'filename');
         this.nameInput = name.createEl('input', { type: 'text', value: this.resultName, cls: 'wm-export-inline-input', attr: exportValueLabel(name) });
@@ -463,7 +476,7 @@ export class DocumentExportModal extends Modal {
     }
 
 	private clearUrls(): void { for (const url of this.urls) URL.revokeObjectURL(url); this.urls = []; }
-	onClose(): void { this.closed = true; this.cancelPreview(); this.templateRevision++; this.observer?.disconnect(); this.clearUrls(); this.service.dispose(); this.basesPortal?.unload(); this.basesPortal = undefined; this.sources?.unload(); this.sources = undefined; this.sourcesHost = undefined; this.controls?.dispose(); for (const picker of this.pickers) picker.destroy(); this.pickers = []; this.contentEl.empty(); }
+	onClose(): void { this.closed = true; this.projectMenu?.hide(); this.cancelPreview(); this.templateRevision++; this.observer?.disconnect(); this.clearUrls(); this.service.dispose(); this.basesPortal?.unload(); this.basesPortal = undefined; this.sources?.unload(); this.sources = undefined; this.sourcesHost = undefined; this.controls?.dispose(); for (const picker of this.pickers) picker.destroy(); this.pickers = []; this.contentEl.empty(); }
 }
 
 class ExportPresetNameModal extends Modal {

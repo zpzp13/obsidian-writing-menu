@@ -887,16 +887,6 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			}
 		}
 		new Setting(exportBox)
-			.setName(wmT('폴더 구조 유지')).setDesc(wmT('개별 내보내기에서 프로젝트 기준의 하위 폴더 구조를 유지합니다.'))
-			.addToggle(toggle => toggle.setValue(this.plugin.settings.exportPreserveFolderStructure ?? false).onChange(async value => {
-				this.plugin.settings.exportPreserveFolderStructure = value; await this.plugin.saveSettings();
-			}));
-		new Setting(exportBox)
-			.setName(wmT('파일 덮어쓰기')).setDesc(wmT('같은 경로의 출력 파일을 덮어씁니다. 템플릿 원본에는 덮어쓸 수 없습니다.'))
-			.addToggle(toggle => toggle.setValue(this.plugin.settings.exportOverwriteExisting ?? true).onChange(async value => {
-				this.plugin.settings.exportOverwriteExisting = value; await this.plugin.saveSettings();
-			}));
-		new Setting(exportBox)
 			.setName(wmT('프리셋')).setDesc(wmT('내보내기 창을 열었을 때 기본으로 선택할 프리셋입니다.'))
 			.addDropdown(dropdown => {
 				dropdown.addOption('default', wmT('기본값')).addOption('template', wmT('템플릿'));
@@ -913,6 +903,16 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					if (value !== 'hwpx' && this.plugin.settings.documentExportDefaultPreset === 'template') this.plugin.settings.documentExportDefaultPreset = 'default';
 					await save(); this.renderPage('export');
 				}));
+		new Setting(exportBox)
+			.setName(wmT('폴더 구조 유지')).setDesc(wmT('개별 내보내기에서 프로젝트 기준의 하위 폴더 구조를 유지합니다.'))
+			.addToggle(toggle => toggle.setValue(this.plugin.settings.exportPreserveFolderStructure ?? false).onChange(async value => {
+				this.plugin.settings.exportPreserveFolderStructure = value; await this.plugin.saveSettings();
+			}));
+		new Setting(exportBox)
+			.setName(wmT('파일 덮어쓰기')).setDesc(wmT('같은 경로의 출력 파일을 덮어씁니다. 템플릿 원본에는 덮어쓸 수 없습니다.'))
+			.addToggle(toggle => toggle.setValue(this.plugin.settings.exportOverwriteExisting ?? true).onChange(async value => {
+				this.plugin.settings.exportOverwriteExisting = value; await this.plugin.saveSettings();
+			}));
 		for (const [key, label, description] of [
 			['properties', wmT('속성'), wmT('문서 속성의 YAML 내용을 텍스트로 포함합니다.')],
 			['headings', wmT('헤딩'), wmT('헤딩의 제목 텍스트를 포함합니다.')],
