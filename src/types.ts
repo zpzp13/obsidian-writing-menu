@@ -156,6 +156,7 @@ export interface WritingMenuSettings {
 	documentExportPresets?: ExportPreset[];
 	copyExcludeHeadings: boolean;
 	copyExcludeFootnotes: boolean;
+	copyExcludeComments: boolean;
 	stdictApiKey: string;
 	hanjaBracketMode: boolean;
 	recentSearches: string[];
@@ -354,6 +355,7 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	exportOverwriteExisting: true,
 	copyExcludeHeadings: true,
 	copyExcludeFootnotes: true,
+	copyExcludeComments: true,
 	stdictApiKey: '',
 	hanjaBracketMode: false,
 	recentSearches: [],

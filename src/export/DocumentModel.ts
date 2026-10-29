@@ -2,6 +2,7 @@
 export type DocumentFormat = 'txt' | 'docx' | 'hwpx';
 export type ElementMode = 'keep' | 'text' | 'exclude';
 export interface ContentPolicy {
+	comments: 'keep' | 'exclude';
 	properties: 'text' | 'exclude';
 	headings: ElementMode;
 	tables: ElementMode;
@@ -128,7 +129,7 @@ export interface GeneratedDocument {
 	pages?: string[];
 	warnings: string[];
 }
-export const DEFAULT_CONTENT: ContentPolicy = { properties: 'exclude', headings: 'exclude', tables: 'exclude', footnotes: 'exclude', images: 'exclude', emphasis: false, formatting: false, spaceIndent: false };
+export const DEFAULT_CONTENT: ContentPolicy = { comments: 'exclude', properties: 'exclude', headings: 'exclude', tables: 'exclude', footnotes: 'exclude', images: 'exclude', emphasis: false, formatting: false, spaceIndent: false };
 export const DEFAULT_DOCUMENT_STYLE: DocumentStyle = {
 	fontFamily: 'Arial', fontSize: 14, fontWeight: 500, color: '#000000', align: 'justify',
 	lineSpacing: 200, lineSpacingType: 'percent', spaceBefore: 0, spaceAfter: 0,

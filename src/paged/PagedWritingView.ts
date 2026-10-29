@@ -15,6 +15,7 @@ import type {
 	EditorRange,
 	EditorSelectionOrCaret,
 	EditorTransaction,
+	Menu,
 	TFile,
 } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
@@ -34,6 +35,8 @@ import { PagedFileStore, mergePagedMetadata, splitPagedFrontmatter as splitFront
 import { PagedFileConflictModal } from './PagedFileConflictModal';
 import { textEdits, validatedEdits, type TextEdit } from '../utils/TextEdits';
 import { loadPagedZoom, savePagedZoom } from './PagedZoomStorage';
+import { curvedQuoteAt } from '../editor/curvedQuotes';
+import { obsidianConfig } from '../utils/obsidianConfig';
 
 export const PAGED_WRITING_VIEW_TYPE = 'writing-menu-paged-writing';
 
@@ -115,8 +118,8 @@ export class PagedWritingView extends FileView {
 	private pageEls: HTMLElement[] = [];
 	private pageTextEls: Array<HTMLElement | null> = [];
 	private compositionPreviewEls: HTMLElement[] = [];
-	private compositionSuppressedPageEls: HTMLElement[] = [];
 	private compositionPreviewFrame = 0;
+	private compositionScrollPageIndex: number | null = null;
 	private readonly pageRenderStates = new WeakMap<HTMLElement, PageRenderState>();
 	private readonly nativeEditedPageEls = new WeakSet<HTMLElement>();
 	private cachedSelection: TextSelection = { anchor: 0, head: 0 };
@@ -129,6 +132,8 @@ export class PagedWritingView extends FileView {
 	private dirtyPageIndex: number | null = 0;
 	private pendingPaginationReuse: PaginationReuseHint | null = null;
 	private composing = false;
+	private compositionSession: { source: string; from: number; to: number; pageFrom: number; pageTo: number; text: string | null; targetCaptured: boolean } | null = null;
+	private compositionCommit: { text: string; source: string; selection: TextSelection } | null = null;
 	private pointerSelecting = false;
 	private rendering = false;
 	private visibleRenderFrame = 0;
@@ -152,7 +157,7 @@ export class PagedWritingView extends FileView {
 	private findRenderFrame = 0;
 	private externalSelectionRestoreFrame = 0;
 	private typewriterScrollFrame = 0;
-	private lastTypewriterPageIndex: number | null = null;
+	private typewriterScrollTarget: number | null = null;
 	private pagedFocusTyping = false;
 	private activeFocusParagraphEl: HTMLElement | null = null;
 	private autocompleteEl: HTMLElement | null = null;
@@ -214,6 +219,25 @@ export class PagedWritingView extends FileView {
 
 	getIcon(): string {
 		return 'layout-grid';
+	}
+
+	onPaneMenu(menu: Menu, source: string): void {
+		// Reuse Obsidian's complete Markdown menu, including file-menu extensions,
+		// instead of duplicating its labels and platform-specific actions.
+		const context = Object.assign(Object.create(this) as MarkdownView, {
+			editor: this.getEditorAdapter(),
+			getMode: () => 'source',
+			getState: () => ({ ...this.getState(), mode: 'source', source: false }),
+			canShowProperties: () => (obsidianConfig(this.app, 'propertiesInDocument') ?? 'visible') === 'visible',
+			onSwitchView: () => { void this.openInSourceView('preview'); },
+			showSearch: (replace = false) => this.openFindBar(replace),
+			printToPdf: async () => {
+				await this.openInSourceView();
+				const view = this.leaf.view as MarkdownView & { printToPdf?: () => Promise<void> };
+				if (view instanceof MarkdownView) await view.printToPdf?.();
+			},
+		});
+		MarkdownView.prototype.onPaneMenu.call(context, menu, source);
 	}
 
 	canAcceptExtension(extension: string): boolean {
@@ -332,7 +356,7 @@ export class PagedWritingView extends FileView {
 		this.externalSelectionRestoreFrame = 0;
 		if (this.typewriterScrollFrame) window.cancelAnimationFrame(this.typewriterScrollFrame);
 		this.typewriterScrollFrame = 0;
-		this.lastTypewriterPageIndex = null;
+		this.typewriterScrollTarget = null;
 		this.activeFocusParagraphEl = null;
 		this.resizeObserver?.disconnect();
 		this.resizeObserver = null;
@@ -632,7 +656,6 @@ export class PagedWritingView extends FileView {
 		this.applyGeometryVariables();
 		if (!this.plugin.settings.enableFocusMode) this.deactivatePagedFocusMode();
 		else this.updatePagedFocusLine();
-		if (!this.plugin.settings.enableTypewriterScrolling) this.lastTypewriterPageIndex = null;
 		this.updateGridColumns();
 		if (layoutChanged && this.measurerEl) {
 			this.pagination = new PaginationEngine(this.measurerEl, this.getPaginationGeometry());
@@ -676,7 +699,6 @@ export class PagedWritingView extends FileView {
 			};
 		if (clear) {
 			this.cachedSelectionPageIndex = 0;
-			this.lastTypewriterPageIndex = null;
 			this.clearHistory();
 			this.deactivatePagedFocusMode();
 		}
@@ -688,13 +710,17 @@ export class PagedWritingView extends FileView {
 	}
 
 	clear(): void {
+		this.clearCompositionOverflowPreview();
+		this.releaseTypewriterScroll();
+		this.compositionSession = null;
+		this.compositionCommit = null;
+		this.composing = false;
 		this.frontmatterPrefix = '';
 		this.setEditableData('');
 		this.hasLoadedDocument = false;
 		this.pages = [{ index: 0, from: 0, to: 0 }];
 		this.cachedSelection = { anchor: 0, head: 0 };
 		this.cachedSelectionPageIndex = 0;
-		this.lastTypewriterPageIndex = null;
 		this.activeFocusParagraphEl = null;
 		this.clearHistory();
 		this.dirtyPageIndex = 0;
@@ -705,7 +731,6 @@ export class PagedWritingView extends FileView {
 		this.pageEls = [];
 		this.pageTextEls = [];
 		this.compositionPreviewEls = [];
-		this.compositionSuppressedPageEls = [];
 		this.rendering = false;
 		this.refreshToolbarSelection();
 	}
@@ -1440,6 +1465,8 @@ export class PagedWritingView extends FileView {
 		const viewport = this.viewportEl;
 		const root = this.rootEl;
 		viewport?.addEventListener('scroll', this.handleViewportScroll, { passive: true });
+		viewport?.addEventListener('pointerdown', this.releaseTypewriterScroll, { capture: true });
+		viewport?.addEventListener('touchstart', this.releaseTypewriterScroll, { passive: true });
 		root?.addEventListener('wheel', this.handleZoomWheel, { passive: false });
 
 		const ownerWindow = this.editRootEl.ownerDocument.defaultView ?? window;
@@ -1474,7 +1501,20 @@ export class PagedWritingView extends FileView {
 
 	private readonly handleBeforeInput = (event: InputEvent): void => {
 		if (this.rendering) return;
-		if (this.composing || event.isComposing || event.inputType === 'insertCompositionText') return;
+		if (this.composing || event.isComposing || event.inputType === 'insertCompositionText') {
+			const session = this.compositionSession;
+			if (session && !session.targetCaptured) {
+				const range = event.getTargetRanges?.()[0];
+				if (range) {
+					const from = this.globalOffsetFromDom(range.startContainer, range.startOffset);
+					const to = this.globalOffsetFromDom(range.endContainer, range.endOffset);
+					if (from !== null && to !== null) { session.from = from; session.to = to; }
+				}
+				session.targetCaptured = true;
+			}
+			if (session && event.data !== null) session.text = event.data;
+			return;
+		}
 
 		const selection = this.readInputSelection(event);
 		if (!selection) return;
@@ -1576,12 +1616,26 @@ export class PagedWritingView extends FileView {
 		// Replacing the active page at a visual/page boundary makes some Korean IMEs
 		// submit the current syllable twice when composition resumes in the new DOM.
 		if (this.composing || event.isComposing) {
+			if (this.compositionSession && event.data !== null) this.compositionSession.text = event.data;
 			// The composing page is already the source of truth until compositionend.
 			// Serializing its full DOM on every intermediate Korean IME event made the
 			// cost grow with the active page and duplicated work done at commit time.
 			this.compositionDirty = true;
 			this.scheduleCompositionOverflowPreview();
 			if (this.plugin.settings.enableTypewriterScrolling) this.centerActivePage();
+			return;
+		}
+		const commit = this.compositionCommit;
+		if (commit && event.inputType === 'insertText' && event.data === commit.text && this.getEditableData() === commit.source) {
+			// Some Windows IMEs deliver a final DOM insertion after compositionend.
+			// The composition data is already committed; reconcile its DOM once rather
+			// than importing a second copy from a retired page fragment.
+			this.compositionCommit = null;
+			for (const index of this.getSelectionPageIndices(commit.selection)) {
+				const textEl = this.pageTextEls[index];
+				if (textEl && serializePagedText(textEl) !== commit.source.slice(this.pages[index].from, this.pages[index].to)) this.pageRenderStates.delete(textEl);
+			}
+			this.refreshPageTexts(commit.selection, this.getSelectionPageIndices(commit.selection));
 			return;
 		}
 		this.clearCompositionOverflowPreview();
@@ -1595,6 +1649,18 @@ export class PagedWritingView extends FileView {
 	};
 
 	private readonly handleCompositionStart = (): void => {
+		this.dismissAutocomplete();
+		this.compositionCommit = null;
+		const selection = this.readSelection() ?? this.cachedSelection;
+		// A click followed immediately by typing can precede selectionchange. The
+		// cached page affinity then still points at the old caret, disabling the
+		// composition snapshot and importing stale/overflowing native DOM instead.
+		const page = this.pages[this.getNativeFocusPageIndex() ?? this.findPageIndex(selection.head)];
+		this.cachedSelectionPageIndex = page?.index ?? null;
+		this.compositionSession = page ? {
+			source: this.getEditableData(), from: Math.min(selection.anchor, selection.head), to: Math.max(selection.anchor, selection.head),
+			pageFrom: page.from, pageTo: page.to, text: null, targetCaptured: false,
+		} : null;
 		this.fileStore?.changed();
 		this.clearCompositionOverflowPreview();
 		this.composing = true;
@@ -1608,7 +1674,8 @@ export class PagedWritingView extends FileView {
 		this.recordHistory('insert');
 	};
 
-	private readonly handleCompositionEnd = (): void => {
+	private readonly handleCompositionEnd = (event: CompositionEvent): void => {
+		if (this.compositionSession) this.compositionSession.text = event.data;
 		this.composing = false;
 		this.editRootEl?.removeClass('is-composing');
 		// Commit and repaginate as soon as Chromium releases the composing DOM.
@@ -1616,6 +1683,8 @@ export class PagedWritingView extends FileView {
 		// cancel the commit, leaving overflow text invisible until another interaction.
 		const activePageFits = this.activeNativePageFits();
 		const changed = this.syncSourceFromDom(false, activePageFits);
+		const session = this.compositionSession;
+		this.compositionSession = null;
 		const reuse = this.pendingPaginationReuse;
 		if (changed || this.compositionDirty) this.markDocumentChanged();
 		this.compositionDirty = false;
@@ -1633,13 +1702,17 @@ export class PagedWritingView extends FileView {
 			this.pendingPaginationReuse = null;
 			this.dirtyPageIndex = null;
 			const selection = this.cachedSelection;
-			this.refreshPageTexts(selection, this.getSelectionPageIndices(selection));
+			this.refreshPageTexts(selection, this.getVisibleRenderPageIndices(selection));
 			this.scheduleVisiblePageRender();
 		} else {
 			this.paginateNow(false);
 		}
 		this.updatePagedFocusLine();
 		this.refreshToolbarSelection();
+		if (session?.text) {
+			const commit = this.compositionCommit = { text: session.text, source: this.getEditableData(), selection: { ...this.cachedSelection } };
+			window.setTimeout(() => { if (this.compositionCommit === commit) this.compositionCommit = null; }, 0);
+		}
 		if (this.plugin.settings.enableTypewriterScrolling) this.centerActivePage();
 	};
 
@@ -1677,13 +1750,17 @@ export class PagedWritingView extends FileView {
 		this.syncSourceFromDom(false);
 		const inlineFormats = this.getInlineFormatRanges();
 		const source = this.getEditableData();
+		const previewThroughPageIndex = Math.max(
+			page.index + COMPOSITION_PREVIEW_PAGE_COUNT,
+			...this.getVisibleRenderPageIndices(selection),
+		);
 		const previewWindow = Math.max(
 			MIN_COMPOSITION_PREVIEW_CHARACTER_WINDOW,
 			Math.min(MAX_COMPOSITION_PREVIEW_CHARACTER_WINDOW, Math.max(1, page.to - page.from) * 2),
 		);
 		const previewSourceTo = Math.min(
 			source.length,
-			page.to + previewWindow,
+			Math.max(page.to + previewWindow, this.pages[previewThroughPageIndex + 1]?.to ?? source.length),
 		);
 		const previewSource = previewSourceTo < source.length ? source.slice(0, previewSourceTo) : source;
 		// Preview pagination deliberately uses an isolated, bounded source. Reusing
@@ -1692,21 +1769,18 @@ export class PagedWritingView extends FileView {
 		const previewPagination = new PaginationEngine(this.measurerEl, this.getPaginationGeometry());
 		previewPagination.updateInlineFormats(inlineFormats);
 		const reusableByBoundary = new Map<string, number>();
-		for (let index = pageIndex + 1; index < this.pages.length; index++) {
+		for (let index = pageIndex + 1; index < this.pages.length && index <= previewThroughPageIndex; index++) {
 			const candidate = this.pages[index];
 			reusableByBoundary.set(`${candidate.from}:${candidate.to}`, index);
 		}
-		let matchedOldPageIndex = -1;
-		const previewThroughPageIndex = page.index + COMPOSITION_PREVIEW_PAGE_COUNT;
 		const stopAfterReusablePage = (candidate: PageRange) => {
 			const oldPageIndex = reusableByBoundary.get(`${candidate.from}:${candidate.to}`);
 			if (oldPageIndex !== undefined) {
-				matchedOldPageIndex = oldPageIndex;
 				return true;
 			}
-			// During IME composition the caret can only overflow into the adjacent
-			// page. Building every remaining page as a temporary preview made a
-			// single wrap in a 150k document create thousands of DOM nodes.
+			// Every visible following page must flow with the overflow, including
+			// later columns/rows. Bound previews to that viewport window rather than
+			// creating every remaining page of a long document.
 			return candidate.index >= previewThroughPageIndex;
 		};
 		const calculated = previewPagination.paginate(
@@ -1717,23 +1791,33 @@ export class PagedWritingView extends FileView {
 			this.pendingPaginationReuse ?? undefined,
 		);
 		const overflowPages = calculated.slice(1);
-		this.clearCompositionOverflowPreview();
-		if (overflowPages.length === 0) return;
+		if (overflowPages.length === 0) { this.clearCompositionOverflowPreview(); return; }
 
-		const suppressThrough = matchedOldPageIndex >= 0
-			? matchedOldPageIndex
-			: Math.min(this.pageEls.length - 1, pageIndex + overflowPages.length);
-		for (let index = pageIndex + 1; index <= suppressThrough; index++) {
-			const shell = this.pageEls[index];
-			if (!shell || shell.hasClass('is-composition-suppressed')) continue;
-			shell.addClass('is-composition-suppressed');
-			this.compositionSuppressedPageEls.push(shell);
-		}
-		const reference = this.pageEls[pageIndex + 1] ?? null;
-		let activePreviewShell: HTMLElement | null = null;
+		const viewport = this.viewportEl;
+		const firstPage = this.pageEls[0];
+		if (!viewport || !firstPage) return;
+		const viewportRect = viewport.getBoundingClientRect();
+		const firstRect = firstPage.getBoundingClientRect();
+		const columns = Math.max(1, this.gridColumns);
+		const nextRowRect = this.pageEls[columns]?.getBoundingClientRect();
+		const nextColumnRect = columns > 1 ? this.pageEls[1]?.getBoundingClientRect() : null;
+		const rowStride = nextRowRect ? nextRowRect.top - firstRect.top : this.displayedPageRowStride;
+		const columnStride = nextColumnRect ? nextColumnRect.left - firstRect.left : this.displayedPageWidth + PAGE_GAP;
+		const pageRects = overflowPages.map(candidate => this.pageEls[candidate.index]?.getBoundingClientRect());
+		const previousPreviews = new Map(this.compositionPreviewEls.map(shell => [Number(shell.dataset.pageIndex), shell]));
+		const nextPreviews: HTMLElement[] = [];
+		// The native caret remains in the old subtree until commit, while its first
+		// overflow glyph is already painted on the next page. Follow that glyph,
+		// keeping the scroll pin on the same visual page between IME events.
+		const compositionHead = this.compositionSession?.text
+			? this.compositionSession.from + this.compositionSession.text.length : selection.head;
+		const glyphPosition = Math.max(0, compositionHead - 1);
+		this.compositionScrollPageIndex = calculated.find(candidate => glyphPosition >= candidate.from && glyphPosition < candidate.to)?.index ?? null;
 		for (let previewIndex = 0; previewIndex < overflowPages.length; previewIndex++) {
 			const previewPage = overflowPages[previewIndex];
-			const shell = this.editRootEl.createDiv({
+			// Previews are siblings of the editing host. Adding/removing even a
+			// non-editable child inside that host can disturb an active IME range.
+			const shell = previousPreviews.get(previewPage.index) ?? viewport.createDiv({
 				cls: 'wm-paged-page-shell wm-paged-composition-preview',
 				attr: {
 					contenteditable: 'false',
@@ -1741,16 +1825,26 @@ export class PagedWritingView extends FileView {
 					'data-page-index': String(previewPage.index),
 				},
 			});
-			if (reference) this.editRootEl.insertBefore(shell, reference);
-			const surface = shell.createDiv({ cls: 'wm-paged-page-surface' });
-			const content = surface.createDiv({ cls: 'wm-paged-page-content' });
-			const textEl = content.createDiv({
+			previousPreviews.delete(previewPage.index);
+			// Grid tracks are rounded by Chromium. Repeating the unrounded page
+			// stride accumulates fractional pixels and makes text move when a preview
+			// becomes the real page. Use the rendered grid coordinates for both.
+			const rect = pageRects[previewIndex];
+			const left = rect?.left ?? firstRect.left + (previewPage.index % columns) * columnStride;
+			const top = rect?.top ?? firstRect.top + Math.floor(previewPage.index / columns) * rowStride;
+			shell.style.left = `${viewport.scrollLeft + left - viewportRect.left - viewport.clientLeft}px`;
+			shell.style.top = `${viewport.scrollTop + top - viewportRect.top - viewport.clientTop}px`;
+			const surface = shell.querySelector<HTMLElement>('.wm-paged-page-surface') ?? shell.createDiv({ cls: 'wm-paged-page-surface' });
+			const content = surface.querySelector<HTMLElement>('.wm-paged-page-content') ?? surface.createDiv({ cls: 'wm-paged-page-content' });
+			const textEl = content.querySelector<HTMLElement>('.wm-paged-page-text') ?? content.createDiv({
 				cls: 'wm-paged-page-text',
 				attr: {
 					'data-from': String(previewPage.from),
 					'data-to': String(previewPage.to),
 				},
 			});
+			textEl.dataset.from = String(previewPage.from);
+			textEl.dataset.to = String(previewPage.to);
 			this.setPageText(
 				textEl,
 				source.slice(previewPage.from, previewPage.to),
@@ -1758,16 +1852,12 @@ export class PagedWritingView extends FileView {
 				source,
 				previewPage.to < source.length,
 			);
-			this.compositionPreviewEls.push(shell);
-			if (selection.head >= previewPage.from
-				&& (selection.head < previewPage.to || previewIndex === overflowPages.length - 1)) {
-				activePreviewShell = shell;
-			}
+			nextPreviews.push(shell);
 		}
-		// The composing caret still belongs to the old editable DOM page. Center the
-		// calculated overflow page immediately instead of waiting for the next key.
-		if (activePreviewShell && this.plugin.settings.enableTypewriterScrolling) {
-			this.centerActivePage(activePreviewShell);
+		for (const shell of previousPreviews.values()) shell.remove();
+		this.compositionPreviewEls = nextPreviews;
+		if (this.plugin.settings.enableTypewriterScrolling) {
+			this.centerActivePage();
 		}
 	}
 
@@ -1794,17 +1884,18 @@ export class PagedWritingView extends FileView {
 	}
 
 	private clearCompositionOverflowPreview(): void {
+		this.compositionScrollPageIndex = null;
 		if (this.compositionPreviewFrame) {
 			window.cancelAnimationFrame(this.compositionPreviewFrame);
 			this.compositionPreviewFrame = 0;
 		}
 		for (const preview of this.compositionPreviewEls) preview.remove();
 		this.compositionPreviewEls = [];
-		for (const shell of this.compositionSuppressedPageEls) shell.removeClass('is-composition-suppressed');
-		this.compositionSuppressedPageEls = [];
 	}
 
 	private readonly handleKeyDown = (event: KeyboardEvent): void => {
+		if (this.composing || isComposingKey(event)) return;
+		if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(event.key)) this.releaseTypewriterScroll();
 		if (this.handleAutocompleteKeyDown(event)) return;
 		const mod = event.ctrlKey || event.metaKey;
 		const shortcutKey = event.code.startsWith('Key')
@@ -2063,7 +2154,18 @@ export class PagedWritingView extends FileView {
 	};
 
 	private readonly handleViewportScroll = (): void => {
+		const viewport = this.viewportEl;
+		if (viewport && this.plugin.settings.enableTypewriterScrolling && this.typewriterScrollTarget !== null && !this.pointerSelecting) {
+			const target = Math.max(0, Math.min(this.typewriterScrollTarget, viewport.scrollHeight - viewport.clientHeight));
+			if (Math.abs(viewport.scrollTop - target) >= 1) viewport.scrollTop = target;
+		}
 		this.scheduleVisiblePageRender();
+	};
+
+	private readonly releaseTypewriterScroll = (): void => {
+		this.typewriterScrollTarget = null;
+		if (this.typewriterScrollFrame) window.cancelAnimationFrame(this.typewriterScrollFrame);
+		this.typewriterScrollFrame = 0;
 	};
 
 	private scheduleVisiblePageRender(): void {
@@ -2275,20 +2377,25 @@ export class PagedWritingView extends FileView {
 
 	private insertSmartPair(from: number, to: number, value: string): boolean {
 		const source = this.getEditableData();
-		const quotePair = this.plugin.settings.enableSmartQuotes
-			? (value === '"' || value === '“'
-				? { open: '“', close: '”' }
-				: value === "'" || value === '‘'
-					? { open: '‘', close: '’' }
-					: null)
-			: null;
+		const autoPair = obsidianConfig(this.app, 'autoPairBrackets') !== false;
+		const quote = this.plugin.settings.enableSmartQuotes ? curvedQuoteAt(source, from, value) : null;
+		const straight = value === '"' || value === "'";
+		const quotePair = straight && autoPair ? (quote
+			? { open: value === '"' ? '“' : '‘', close: value === '"' ? '”' : '’' }
+			: { open: value, close: value }) : null;
+		const next = source.slice(from, from + 1);
+		const canWrapQuote = quotePair && (from !== to || ((!quote || quote === quotePair.open) && (!next || /[\s)\]}:;>,]/u.test(next))));
+		if (quote && !canWrapQuote && !(autoPair && from === to && next === quotePair?.close)) {
+			this.applyEdit(from, to, quote, 'insert');
+			return true;
+		}
 		const bracketPairs: Record<string, { open: string; close: string }> = {
 			'(': { open: '(', close: ')' },
 			'[': { open: '[', close: ']' },
 			'{': { open: '{', close: '}' },
 		};
-		const pair = quotePair ?? bracketPairs[value] ?? null;
-		const typedCloser = [')', ']', '}', '”', '’'].includes(value) ? value : pair?.close;
+		const pair = canWrapQuote ? quotePair : autoPair ? bracketPairs[value] ?? null : null;
+		const typedCloser = autoPair ? (straight ? quotePair?.close : [')', ']', '}'].includes(value) ? value : pair?.close) : null;
 
 		// Auto-inserted closing characters are traversed instead of duplicated.
 		if (from === to && typedCloser && source.slice(from, from + typedCloser.length) === typedCloser) {
@@ -2350,7 +2457,8 @@ export class PagedWritingView extends FileView {
 		if (safeFrom === safeTo && insert.length === 0) return;
 
 		if (recordHistory) this.recordHistory(kind);
-		const startPage = this.findPageIndex(safeFrom);
+		// Edits on the first line can pull text into the preceding page.
+		const startPage = Math.max(0, this.findPageIndex(safeFrom) - 1);
 		this.pendingPaginationReuse = {
 			pages: this.pages.map(page => ({ ...page })),
 			from: safeFrom,
@@ -2564,7 +2672,11 @@ export class PagedWritingView extends FileView {
 
 	private syncSourceFromDom(markChanged = true, omitStableGrowthSnapshot = false): boolean {
 		if (this.pageTextEls.length === 0) return false;
-		const selection = this.readSelection() ?? this.cachedSelection;
+		const session = this.compositionSession;
+		const hasCompositionText = session && session.text !== null && session.from >= session.pageFrom && session.to <= session.pageTo;
+		const selection = hasCompositionText
+			? { anchor: session.from + session.text!.length, head: session.from + session.text!.length }
+			: this.readSelection() ?? this.cachedSelection;
 		const domSelection = this.editRootEl?.ownerDocument.getSelection();
 		const focusElement = domSelection?.focusNode
 			? (domSelection.focusNode.nodeType === Node.ELEMENT_NODE
@@ -2582,7 +2694,11 @@ export class PagedWritingView extends FileView {
 
 		const current = this.getEditableData();
 		const previousChunk = current.slice(page.from, page.to);
-		const chunk = serializePagedText(textEl);
+		// IME event data describes the replacement once. Serializing Chromium's
+		// evolving block DOM can import duplicated preedit nodes at page boundaries.
+		const chunk = hasCompositionText && page.from === session.pageFrom
+			? session.source.slice(session.pageFrom, session.from) + session.text + session.source.slice(session.to, session.pageTo)
+			: serializePagedText(textEl);
 		if (chunk === previousChunk) return false;
 		const change = this.changedTextRange(previousChunk, chunk, page.from);
 		const reuseStartPageIndex = Math.max(0, pageIndex - 1);
@@ -2683,6 +2799,8 @@ export class PagedWritingView extends FileView {
 			reusableByBoundary.set(`${page.from}:${page.to}`, page.index);
 		}
 		const stopAfterReusablePage = reusableByBoundary.size > 0 ? (page: PageRange) => {
+			// An unchanged page before the edit says nothing about the edited suffix.
+			if (reuse && (page.to <= reuse.from || page.to < reuse.from + reuse.insertLength)) return false;
 			const oldPageIndex = reusableByBoundary.get(`${page.from}:${page.to}`);
 			if (oldPageIndex === undefined) return false;
 			matchedOldPageIndex = oldPageIndex;
@@ -2701,9 +2819,11 @@ export class PagedWritingView extends FileView {
 		this.dirtyPageIndex = null;
 		const renderIndices = forceRender
 			? this.getRenderPageIndices(selection)
-			: selection.anchor === selection.head
-				? this.getSelectionPageIndices(selection)
-				: this.getVisibleRenderPageIndices(selection);
+			: this.getVisibleRenderPageIndices(selection);
+		// Finish visible page flow before returning to the next input event. A held
+		// key may start another composition before the scheduled frame, during which
+		// the editing host must stay frozen. Deferring following pages until that
+		// frame leaves them stale for the whole burst and flashes overflow previews.
 		if (forceRender || this.pageEls.length !== this.pages.length) {
 			this.renderPages(selection, renderIndices);
 		} else {
@@ -2761,10 +2881,8 @@ export class PagedWritingView extends FileView {
 	private refreshPageTexts(selection: TextSelection, requestedIndices?: number[]): void {
 		const source = this.getEditableData();
 		const hadFocus = this.editRootEl?.ownerDocument.activeElement === this.editRootEl;
-		let selectionPageChanged = false;
 		this.rendering = true;
 		const renderIndices = requestedIndices ?? this.getRenderPageIndices(selection);
-		const selectionPageIndices = new Set(this.getSelectionPageIndices(selection));
 		this.syncPageMetadata(renderIndices);
 		for (const pageIndex of renderIndices) {
 			const page = this.pages[pageIndex];
@@ -2776,11 +2894,23 @@ export class PagedWritingView extends FileView {
 			const nextText = source.slice(page.from, page.to);
 			const pageChanged = this.setPageText(textEl, nextText, page.from, source, page.index < this.pages.length - 1);
 			if (pageChanged) this.resetPageScroll(shell, textEl);
-			selectionPageChanged = selectionPageChanged || (pageChanged && selectionPageIndices.has(pageIndex));
 		}
 		this.prunePageInteriors(renderIndices, selection);
 		this.cachedSelection = selection;
-		if (selectionPageChanged && hadFocus) this.restoreSelection(selection, true);
+		// The destination page may reuse its DOM even though an edit moved the
+		// caret there. Compare logical positions and page affinity independently of
+		// DOM changes, preserving Chromium's caret after a stable IME commit.
+		if (hadFocus) {
+			const actual = this.readSelection();
+			const nativeFocus = this.editRootEl?.ownerDocument.getSelection()?.focusNode;
+			const focusElement = nativeFocus?.nodeType === Node.ELEMENT_NODE ? nativeFocus as Element : nativeFocus?.parentElement;
+			const focusPage = Number(focusElement?.closest<HTMLElement>('.wm-paged-page-shell')?.dataset.pageIndex ?? -1);
+			const expectedPage = this.cachedSelectionPageIndex ?? this.findPageIndex(selection.head);
+			if (!actual || actual.anchor !== selection.anchor || actual.head !== selection.head
+				|| (selection.anchor === selection.head && focusPage !== expectedPage)) {
+				this.restoreSelection(selection, true);
+			}
+		}
 		this.rendering = false;
 	}
 
@@ -2866,6 +2996,7 @@ export class PagedWritingView extends FileView {
 	}
 
 	private renderPageIfNeeded(pageIndex: number): void {
+		if (this.composing) return;
 		if (pageIndex < 0 || pageIndex >= this.pages.length) return;
 		const page = this.pages[pageIndex];
 		const shell = this.pageEls[pageIndex];
@@ -2880,29 +3011,15 @@ export class PagedWritingView extends FileView {
 	}
 
 	private renderVisiblePages(): void {
-		if (!this.editRootEl || !this.viewportEl) return;
+		if (!this.editRootEl || !this.viewportEl || this.composing) return;
 		const selection = this.readSelection() ?? this.cachedSelection;
 		const hadFocus = this.editRootEl.ownerDocument.activeElement === this.editRootEl;
 		const source = this.getEditableData();
-		const nativeSelection = this.editRootEl.ownerDocument.getSelection();
-		const focusElement = nativeSelection?.focusNode
-			? (nativeSelection.focusNode.nodeType === Node.ELEMENT_NODE
-				? nativeSelection.focusNode as Element
-				: nativeSelection.focusNode.parentElement)
-			: null;
-		const focusShell = focusElement?.closest<HTMLElement>('.wm-paged-page-shell');
-		const composingPageIndex = this.composing
-			? Number(focusShell?.dataset.pageIndex ?? this.cachedSelectionPageIndex ?? -1)
-			: -1;
 		let selectionPageChanged = false;
 		this.rendering = true;
 		const renderIndices = this.getVisibleRenderPageIndices(selection);
 		const selectionPageIndices = new Set(this.getSelectionPageIndices(selection));
 		for (const pageIndex of renderIndices) {
-			// A fast next compositionstart can happen before the visible-page frame
-			// queued by the previous commit. Update every other visible page so later
-			// lines move immediately, but never replace Chromium's composing DOM.
-			if (pageIndex === composingPageIndex) continue;
 			const page = this.pages[pageIndex];
 			if (!page) continue;
 			const shell = this.pageEls[page.index];
@@ -2927,29 +3044,34 @@ export class PagedWritingView extends FileView {
 		source: string,
 		hasFollowingPage: boolean,
 	): boolean {
+		if (this.composing && this.editRootEl?.contains(textEl)) return false;
 		const firstLineStartsParagraph = absoluteFrom === 0 || source[absoluteFrom - 1] === '\n';
 		const styleSignature = this.getPageStyleSignature(absoluteFrom, absoluteFrom + text.length, source);
 		const previous = this.pageRenderStates.get(textEl);
-		const reusableContent = previous?.text === text
+		const nativeEdited = this.nativeEditedPageEls.has(textEl);
+		const reusableContent = !nativeEdited && previous?.text === text
 			&& previous.firstLineStartsParagraph === firstLineStartsParagraph
 			&& previous.hasFollowingPage === hasFollowingPage
 			&& previous.styleVersion === this.textStyleVersion
-			&& previous.styleSignature === styleSignature;
+			&& previous.styleSignature === styleSignature
+			&& serializePagedText(textEl) === text;
 		if (reusableContent && previous) {
+			// Repeated glyphs can leave the canonical page slice unchanged while
+			// native composition adds overflow to its DOM. A matching cached string
+			// alone must not certify that DOM or clear its pending native edit.
 			// Keep the existing page subtree byte-for-byte stable. Descendant offsets
 			// are interpreted relative to data-layout-from, so pages after the edit do
-			// not need a querySelectorAll/write pass merely because their absolute
+			// not need descendant offset writes merely because their absolute
 			// document positions shifted.
 			this.pageRenderStates.set(textEl, {
 				...previous,
 				absoluteFrom,
 			});
-			this.nativeEditedPageEls.delete(textEl);
 			return false;
 		}
 		const nativeEditMetadataMatches = Boolean(
 			previous
-			&& this.nativeEditedPageEls.has(textEl)
+			&& nativeEdited
 			&& previous.firstLineStartsParagraph === firstLineStartsParagraph
 			&& previous.hasFollowingPage === hasFollowingPage
 			&& previous.styleVersion === this.textStyleVersion
@@ -3066,6 +3188,8 @@ export class PagedWritingView extends FileView {
 			paragraph.style.textAlign = alignments.get(paragraphFrom)
 				?? this.plugin.settings.pagedDefaultAlignment
 				?? 'left';
+			paragraph.style.textAlignLast = paragraph.style.textAlign === 'justify'
+				&& cursor + length < source.length && source[cursor + length] !== '\n' ? 'justify' : 'auto';
 			paragraph.toggleClass('wm-paged-custom-divider', isDivider);
 			paragraph.toggleClass('is-svg', isDivider && this.plugin.settings.hrType === 'svg' && !!this.plugin.settings.hrSvg);
 			run.dataset.from = String(cursor);
@@ -3094,7 +3218,8 @@ export class PagedWritingView extends FileView {
 				.map(item => `${item.from - from}:${item.align}`)
 				.join(',');
 		}
-		return `${colors}|${backgrounds}|${formats}|${alignments}`;
+		const continuesParagraph = to < source.length && source[to] !== '\n' && source[to - 1] !== '\n';
+		return `${colors}|${backgrounds}|${formats}|${alignments}|${continuesParagraph}`;
 	}
 
 	private applyPagedStyleDecorations(textEl: HTMLElement, source: string): void {
@@ -3110,6 +3235,10 @@ export class PagedWritingView extends FileView {
 			const paragraphFrom = needsParagraphStart ? this.lineStartInSource(source, fragmentFrom) : fragmentFrom;
 			const align = alignments.get(paragraphFrom) ?? this.plugin.settings.pagedDefaultAlignment ?? 'left';
 			paragraph.style.textAlign = align;
+			// A page fragment is still part of the same source paragraph. Its last
+			// visual line keeps justification until the actual paragraph ends.
+			paragraph.style.textAlignLast = align === 'justify'
+				&& fragmentTo < source.length && source[fragmentTo] !== '\n' ? 'justify' : 'auto';
 			const isDivider = this.plugin.settings.hrEnabled
 				&& fragmentFrom === paragraphFrom
 				&& this.isMarkdownDivider(source.slice(paragraphFrom, this.lineEndInSource(source, paragraphFrom)));
@@ -3203,6 +3332,15 @@ export class PagedWritingView extends FileView {
 		textEl.scrollLeft = 0;
 	}
 
+	private getNativeFocusPageIndex(): number | null {
+		const focus = this.editRootEl?.ownerDocument.getSelection()?.focusNode;
+		const element = focus?.nodeType === Node.ELEMENT_NODE ? focus as Element : focus?.parentElement;
+		const shell = element?.closest<HTMLElement>('.wm-paged-page-shell');
+		if (!shell || !this.editRootEl?.contains(shell)) return null;
+		const index = Number(shell.dataset.pageIndex ?? -1);
+		return Number.isInteger(index) && index >= 0 && index < this.pages.length ? index : null;
+	}
+
 	private readSelection(): TextSelection | null {
 		if (!this.editRootEl) return null;
 		const selection = this.editRootEl.ownerDocument.getSelection();
@@ -3215,13 +3353,20 @@ export class PagedWritingView extends FileView {
 	}
 
 	private readInputSelection(event: InputEvent): TextSelection | null {
+		const selection = this.readSelection();
+		// Chromium's deletion range describes its own block/placeholder DOM. At a
+		// page break it can include the following newline even though the logical
+		// caret is on a blank line. Resolve simple edits from that caret instead.
+		if (selection && selection.anchor === selection.head && [
+			'deleteContentBackward', 'deleteContentForward', 'insertParagraph', 'insertLineBreak',
+		].includes(event.inputType)) return selection;
 		const targetRange = event.getTargetRanges?.()[0];
 		if (targetRange) {
 			const anchor = this.globalOffsetFromDom(targetRange.startContainer, targetRange.startOffset);
 			const head = this.globalOffsetFromDom(targetRange.endContainer, targetRange.endOffset);
 			if (anchor !== null && head !== null) return { anchor, head };
 		}
-		return this.readSelection();
+		return selection;
 	}
 
 	private nodeBelongsToEditor(node: Node): boolean {
@@ -3740,7 +3885,8 @@ export class PagedWritingView extends FileView {
 	}
 
 	private readonly handleZoomWheel = (event: WheelEvent): void => {
-		if ((!event.ctrlKey && !event.metaKey) || event.deltaY === 0) return;
+		if (!event.ctrlKey && !event.metaKey) { this.releaseTypewriterScroll(); return; }
+		if (event.deltaY === 0) return;
 		event.preventDefault();
 		event.stopPropagation();
 		this.setZoom(this.zoom + (event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP));
@@ -3775,7 +3921,7 @@ export class PagedWritingView extends FileView {
 		// native caret and drag range inside those nodes, so replacing them here
 		// makes the caret disappear and cancels selection dragging.
 		this.handleViewportScroll();
-		if (this.plugin.settings.enableTypewriterScrolling) this.centerActivePage(undefined, true);
+		if (this.plugin.settings.enableTypewriterScrolling) this.centerActivePage();
 		this.plugin.toolbarManager.refreshToolbar(this.leaf);
 	}
 
@@ -3847,7 +3993,9 @@ export class PagedWritingView extends FileView {
 
 	private applyGeometryVariables(): void {
 		if (!this.rootEl) return;
+		if (!this.plugin.settings.enableTypewriterScrolling) this.releaseTypewriterScroll();
 		const geometry = this.pageGeometry;
+		this.rootEl.toggleClass('is-typewriter', this.plugin.settings.enableTypewriterScrolling);
 		const pageScale = this.displayScale;
 		const textScale = this.zoom;
 		const configuredFont = this.plugin.settings.fontFamily.trim();
@@ -3856,6 +4004,10 @@ export class PagedWritingView extends FileView {
 			: `"${configuredFont.replace(/["\\]/g, '\\$&')}", var(--font-text), system-ui, sans-serif`;
 		this.rootEl.style.setProperty('--wm-paged-font-family', fontFamily);
 		this.rootEl.style.setProperty('--wm-paged-font-weight', String(this.plugin.settings.fontWeight || 400));
+		// Page packing and both DOM surfaces must use the same geometry even
+		// before the workspace leaf's shared editor styles have been refreshed.
+		this.rootEl.style.setProperty('--wm-line-height', String(geometry.lineHeight));
+		this.rootEl.style.setProperty('--wm-paragraph-spacing', `${geometry.paragraphSpacing}em`);
 		this.rootEl.style.setProperty('--wm-paged-page-width', `${geometry.pageWidth}px`);
 		this.rootEl.style.setProperty('--wm-paged-page-height', `${geometry.pageHeight}px`);
 		this.rootEl.style.setProperty('--wm-paged-page-display-width', `${geometry.pageWidth * pageScale}px`);
@@ -3908,35 +4060,45 @@ export class PagedWritingView extends FileView {
 		this.measurerEl.style.setProperty('--wm-paged-render-indent', `${this.pageGeometry.indentation}px`);
 	}
 
-	private centerActivePage(preferredPage?: HTMLElement, force = false): void {
+	private centerActivePage(): void {
 		if (!this.viewportEl || !this.editRootEl) return;
-		const preferredIndex = Number(preferredPage?.dataset.pageIndex ?? -1);
-		const pageIndex = preferredIndex >= 0
-			? preferredIndex
-			: this.findPageIndex(this.cachedSelection.head);
-		if (!force && this.lastTypewriterPageIndex === pageIndex) return;
-		this.lastTypewriterPageIndex = pageIndex;
 		if (this.typewriterScrollFrame) window.cancelAnimationFrame(this.typewriterScrollFrame);
-		this.typewriterScrollFrame = window.requestAnimationFrame(() => {
-			this.typewriterScrollFrame = 0;
-			if (!this.editRootEl || !this.viewportEl) return;
+		const center = () => {
+			if (!this.editRootEl || !this.viewportEl || !this.plugin.settings.enableTypewriterScrolling || this.pointerSelecting) return;
 			const viewport = this.viewportEl;
-			const pageRow = Math.floor(Math.max(0, pageIndex) / Math.max(1, this.gridColumns));
-			const pageCenter = 16 + pageRow * this.displayedPageRowStride + this.displayedPageHeight / 2;
+			const composingIndex = this.composing ? this.compositionScrollPageIndex ?? this.getNativeFocusPageIndex() : null;
+			const pageIndex = composingIndex ?? this.cachedSelectionPageIndex ?? this.findPageIndex(this.cachedSelection.head);
+			const page = this.pageEls[pageIndex]
+				?? (this.composing ? this.compositionPreviewEls.find(shell => Number(shell.dataset.pageIndex) === pageIndex) : null);
+			if (!page) return;
+			// Measure the current layout after pagination/IME previews settle rather
+			// than retaining a page index and estimating a row from the previous grid.
+			const pageRect = page.getBoundingClientRect();
+			const viewportRect = viewport.getBoundingClientRect();
+			const pageCenter = viewport.scrollTop + pageRect.top + pageRect.height / 2 - viewportRect.top - viewport.clientTop;
 			const maxScrollTop = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
 			const target = Math.max(0, Math.min(maxScrollTop, pageCenter - viewport.clientHeight / 2));
+			this.typewriterScrollTarget = target;
 			if (Math.abs(viewport.scrollTop - target) >= 1) viewport.scrollTop = target;
+		};
+		// Pin immediately for a burst of native input, then verify after layout.
+		// A frame-only correction lets Chromium scroll the overflowing native caret
+		// between keys and repeatedly undo the page's centered position.
+		center();
+		this.typewriterScrollFrame = window.requestAnimationFrame(() => {
+			this.typewriterScrollFrame = 0;
+			center();
 		});
 	}
 
-	private async openInSourceView(): Promise<void> {
+	private async openInSourceView(mode: 'source' | 'preview' = 'source'): Promise<void> {
 		if (!this.file) return;
 		try {
 			await this.save();
 			if (this.fileStore?.hasConflict) { this.conflictBanner?.querySelector('button')?.click(); return; }
 			await this.plugin.toolbarManager.switchWritingView(this.leaf, {
 				type: 'markdown',
-				state: { file: this.file.path, mode: 'source' },
+				state: { file: this.file.path, mode },
 				active: true,
 			});
 		} catch (error) {

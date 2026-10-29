@@ -242,7 +242,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		this.addNavCard(editorBox, wmT("커스텀 구분선"), wmT("마크다운 구분선의 모양과 배치를 설정합니다."), 'minus', 'divider');
 		this.addNavCard(editorBox, wmT("자동 완성"), wmT("트리거와 자동 완성 기호를 관리합니다."), 'keyboard', 'autocomplete');
 		this.addNavCard(editorBox, wmT("텍스트 치환"), wmT("입력 중 자동으로 바꿀 문자열을 관리합니다."), 'replace', 'substitutions');
-		this.addNavCard(editorBox, wmT("복사"), wmT("헤딩과 각주를 제외하는 복사 동작을 설정합니다."), 'copy', 'copy');
+		this.addNavCard(editorBox, wmT("복사"), wmT("헤딩·각주·주석을 제외하는 복사 동작을 설정합니다."), 'copy', 'copy');
 		this.addNavCard(editorBox, wmT("내보내기"), wmT("TXT · DOCX · HWPX 내보내기 기본값을 설정합니다."), 'file-output', 'export');
 
 		this.addGroupTitle(containerEl, wmT("대시보드"));
@@ -649,6 +649,10 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 
 		this.addGroupTitle(containerEl, wmT("복사"));
 		const copyBox = this.createGroupBox(containerEl);
+		addToggle(copyBox, wmT('주석'), wmT('복사할 때 %% 주석과 내용을 포함합니다.'), this.plugin.settings.copyExcludeComments === false, async value => {
+			this.plugin.settings.copyExcludeComments = !value;
+			await this.plugin.saveSettings();
+		});
 		addToggle(copyBox, wmT("헤딩 제외"), wmT("복사할 때 헤딩을 항상 제외합니다."), this.plugin.settings.copyExcludeHeadings, async value => {
 			this.plugin.settings.copyExcludeHeadings = value;
 			await this.plugin.saveSettings();
@@ -811,6 +815,13 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		this.addBackButton(containerEl, wmT("복사"));
 		const copyBox = this.createGroupBox(containerEl);
 		new Setting(copyBox)
+			.setName(wmT('주석'))
+			.setDesc(wmT('복사할 때 %% 주석과 내용을 포함합니다.'))
+			.addToggle(toggle => toggle.setValue(this.plugin.settings.copyExcludeComments === false).onChange(async value => {
+				this.plugin.settings.copyExcludeComments = !value;
+				await this.plugin.saveSettings();
+			}));
+		new Setting(copyBox)
 			.setName(wmT("헤딩 제외"))
 			.setDesc(wmT("복사할 때 헤딩을 항상 제외합니다."))
 			.addToggle(toggle => toggle
@@ -913,6 +924,8 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			.addToggle(toggle => toggle.setValue(this.plugin.settings.exportOverwriteExisting ?? true).onChange(async value => {
 				this.plugin.settings.exportOverwriteExisting = value; await this.plugin.saveSettings();
 			}));
+		new Setting(exportBox).setName(wmT('주석')).setDesc(wmT('%% 주석 구분자와 내용을 포함합니다.'))
+			.addToggle(toggle => toggle.setValue(content.comments === 'keep').onChange(async value => { content.comments = value ? 'keep' : 'exclude'; await save(); }));
 		for (const [key, label, description] of [
 			['properties', wmT('속성'), wmT('문서 속성의 YAML 내용을 텍스트로 포함합니다.')],
 			['headings', wmT('헤딩'), wmT('헤딩의 제목 텍스트를 포함합니다.')],

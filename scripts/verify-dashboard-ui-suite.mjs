@@ -21,5 +21,6 @@ export async function runDashboardChecks() {
 	document.head.appendChild(style);
 	if(globalThis.runOnlyRagSettings){await globalThis.runRagSettingsControlsChecks();return {ok:true,suite:'RAG settings controls',paidRequests:0};}
 	await globalThis.runDashboardCoreChecks();
+	if(globalThis.runOnlyReviewTab)return {ok:true,suite:'Review dashboard tab',paidRequests:0};
 	return { ok: true, suite: 'snapshots / revision / chat', paidRequests: 0 };
 }

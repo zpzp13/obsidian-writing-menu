@@ -15,6 +15,7 @@ class Element {
 	createDiv(options = {}) { const element = new Element(); element.addClass(...(options.cls ?? '').split(' ').filter(Boolean)); element.textContent = options.text ?? ''; element.parentElement = this; this.children.push(element); return element; }
 	createEl() { return this.createDiv(); }
 	querySelectorAll() { return []; }
+	querySelector() { return null; }
 	closest(selector) { for (let element = this; element; element = element.parentElement) if (element.classes.has(selector.slice(1))) return element; return null; }
 	setAttribute() {}
 	addEventListener(type, callback) { this.listeners[type] = callback; }
@@ -32,7 +33,7 @@ class Setting {
 	setDesc(value) { this.desc = value; return this; }
 	setHeading() { return this; }
 	control(callback) {
-		const api = new Proxy({ inputEl: new Element() }, { get(target, key) { if (key in target) return target[key]; return (...args) => { if (key === 'onChange') target.change = args[0]; if (key === 'onClick') target.click = args[0]; if (key === 'setValue') target.value = args[0]; return api; }; } });
+		const api = new Proxy({ inputEl: new Element(), selectEl: { querySelector: () => ({}) } }, { get(target, key) { if (key in target) return target[key]; return (...args) => { if (key === 'onChange') target.change = args[0]; if (key === 'onClick') target.click = args[0]; if (key === 'setValue') target.value = args[0]; return api; }; } });
 		callback(api); this.api = api; (this.controls ??= []).push(api); return this;
 	}
 	addText(callback) { return this.control(callback); }
@@ -41,6 +42,7 @@ class Setting {
 	addExtraButton(callback) { return this.control(callback); }
 	addButton(callback) { return this.control(callback); }
 	addColorPicker(callback) { return this.control(callback); }
+	addToggle(callback) { return this.control(callback); }
 }
 const i18n = loadTsFixture('src/i18n/index.ts');
 const { WritingMenuSettingTab } = loadTsFixture('src/settings/index.ts', {
@@ -162,4 +164,23 @@ const englishSaves = saves;
 await rowsWithin(englishWrapper.settingEl).find(row => row.name === 'Content').api.change('My English divider');
 assert.equal(settings.hrContent, 'My English divider'); assert.equal(saves, englishSaves + 1);
 englishCleanup(); i18n.setLanguage('ko');
+const copyContainer = new Element();
+tab.renderCopyPage(copyContainer);
+const copyComments = rowsWithin(copyContainer).find(row => row.name === '주석');
+assert.equal(copyComments.api.value, false, 'Copy comments must be excluded by default');
+await copyComments.api.change(true); assert.equal(settings.copyExcludeComments, false);
+await copyComments.api.change(false); assert.equal(settings.copyExcludeComments, true);
+const exportContainer = new Element(); exportContainer.ownerDocument = { body: { hasClass: () => false } };
+tab.renderExportPage(exportContainer);
+const exportComments = rowsWithin(exportContainer).find(row => row.name === '주석');
+assert.equal(exportComments.api.value, false, 'Export comments must be excluded by default');
+await exportComments.api.change(true); assert.equal(settings.documentExportDefaults.content.comments, 'keep');
+await exportComments.api.change(false); assert.equal(settings.documentExportDefaults.content.comments, 'exclude');
+settings.documentExportPresets = [{ id: 'test', name: 'Test', content: { ...settings.documentExportDefaults.content }, style: settings.documentExportDefaults.style }];
+settings.documentExportDefaultPreset = 'test';
+const presetContainer = new Element(); presetContainer.ownerDocument = exportContainer.ownerDocument;
+tab.renderExportPage(presetContainer);
+await rowsWithin(presetContainer).find(row => row.name === '주석').api.change(true);
+assert.equal(settings.documentExportPresets[0].content.comments, 'keep', 'Selected preset did not save its comment setting');
+assert.equal(settings.documentExportDefaults.content.comments, 'exclude', 'Editing a preset changed the default policy');
 console.log('PASS legacy/native settings metadata, repeated native refresh and color resets, single grouped proper-noun navigation, inner-label search, saves and API-key exclusion');

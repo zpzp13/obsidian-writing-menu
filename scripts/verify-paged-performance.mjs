@@ -17,7 +17,8 @@ import { assertCssVisualParity } from './css-visual-parity.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const i18nSuite = process.argv.includes('--i18n');
 const ragSettingsSuite = process.argv.includes('--rag-settings');
-const dashboardSuite = process.argv.includes('--dashboard') || ragSettingsSuite;
+const reviewTabSuite = process.argv.includes('--review-tab');
+const dashboardSuite = process.argv.includes('--dashboard') || ragSettingsSuite || reviewTabSuite;
 const plotSuite = !dashboardSuite && (process.argv.includes('--plot') || i18nSuite);
 const suite = i18nSuite ? (await import('./verify-i18n-ui.mjs')).runI18nUiChecks : dashboardSuite ? (await import('./verify-dashboard-ui-suite.mjs')).runDashboardChecks : plotSuite ? (await import('./verify-plot-ui-suite.mjs')).runPlotChecks : runPagedChecks;
 const browserPath = process.env.PAGED_TEST_BROWSER || [
@@ -66,16 +67,20 @@ export const requireApiVersion = () => true;
 export const getLanguage = () => 'en';
 export const moment = { locale: () => 'ko' };
 export class TFile {}
+export class TFolder {}
 export class Component {
 	constructor() { this.cleanups = []; this.children = []; }
 	register(cleanup) { this.cleanups.push(cleanup); }
 	registerEvent(ref) { this.register(() => ref?.off?.()); }
+	registerDomEvent(element, name, action, options) { element.addEventListener(name, action, options); this.register(() => element.removeEventListener(name, action, options)); }
 	load() { this.onload?.(); }
 	unload() { this.onunload?.(); for (const child of this.children.splice(0)) child.unload(); for (const cleanup of this.cleanups.splice(0)) cleanup(); }
 	addChild(child) { this.children.push(child); child.load(); return child; }
 	removeChild(child) { this.children = this.children.filter(item => item !== child); child.unload(); return child; }
 }
 export function parseYaml() { return {}; }
+export function stringifyYaml(value) { return Object.entries(value).map(([key, item]) => key + ': ' + item).join(String.fromCharCode(10)); }
+export function getFrontMatterInfo(source) { const match = /^---\\r?\\n([\\s\\S]*?)\\r?\\n---(?:\\r?\\n|$)/.exec(source); return { exists: !!match, frontmatter: match?.[1] ?? '', contentStart: match?.[0].length ?? 0 }; }
 // Minimal MarkdownRenderer contract double. Real Obsidian supplies the parser;
 // the fixture checks asynchronous DOM/citation integration, not parser fidelity.
 export class MarkdownRenderer {
@@ -219,8 +224,9 @@ export class Menu {
 	onHide(callback) { this.hideCallback = callback; }
 	hide() { const callback = this.hideCallback; this.hideCallback = null; callback?.(); return this; }
 }
-export class TextFileView {
+export class TextFileView extends Component {
 	constructor(leaf) {
+		super();
 		this.leaf = leaf;
 		this.app = leaf.app;
 		this.containerEl = leaf.containerEl;
@@ -276,7 +282,10 @@ const bundle = await build({
 			import { PaginationEngine } from './src/paged/PaginationEngine';
 			import { serializePagedText } from './src/paged/textLayout';
 			import { runPagedDocumentChecks } from './scripts/verify-paged-document.mjs';
-			Object.assign(globalThis, { PagedWritingView, PaginationEngine, serializePagedText, runPagedDocumentChecks });` + (dashboardSuite ? `import { runDashboardCoreChecks, runRagSettingsControlsChecks } from './scripts/verify-dashboard-overhaul.mjs'; Object.assign(globalThis, {runDashboardCoreChecks,runRagSettingsControlsChecks,runOnlyRagSettings:${ragSettingsSuite}});` : ''),
+			import { installNativePagedInputChecks } from './scripts/verify-paged-native-input.mjs';
+			import { runZenFullscreenChecks } from './scripts/verify-zen-fullscreen.mjs';
+			globalThis.runZenFullscreenChecks = runZenFullscreenChecks;
+			Object.assign(globalThis, { PagedWritingView, PaginationEngine, serializePagedText, runPagedDocumentChecks, installNativePagedInputChecks, pagedNativeOnly:${process.argv.some(flag=>['--native-input-only','--same-line-input-only','--stability-only'].includes(flag))} });` + (dashboardSuite ? `import { runDashboardCoreChecks, runRagSettingsControlsChecks } from './scripts/verify-dashboard-overhaul.mjs'; Object.assign(globalThis, {runDashboardCoreChecks,runRagSettingsControlsChecks,runOnlyRagSettings:${ragSettingsSuite},runOnlyReviewTab:${reviewTabSuite}});` : ''),
 		resolveDir: root,
 		loader: 'js',
 	},
@@ -334,6 +343,7 @@ async function runPagedChecks() {
 	Object.assign(HTMLElement.prototype, helpers);
 	globalThis.activeDocument = document;
 	globalThis.activeWindow = window;
+	if(globalThis.pagedNativeOnly){globalThis.installNativePagedInputChecks();return {nativeOnly:true};}
 	await globalThis.runPagedDocumentChecks();
 	const settings = {
 		fontFamily: 'Arial', fontSize: 16, fontWeight: 400, lineHeight: 1.9,
@@ -619,12 +629,270 @@ try {
 	const result = await command('Runtime.evaluate', { expression: 'window.runPagedChecks()', awaitPromise: true, returnByValue: true });
 	if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || JSON.stringify(result.exceptionDetails));
 	console.log(JSON.stringify(result.result.value, null, 2));
+	if (!plotSuite && !dashboardSuite) {
+		await command('Emulation.setDeviceMetricsOverride',{width:2600,height:1000,deviceScaleFactor:1,mobile:false});
+		const evaluate = async expression => {const r=await command('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw new Error(r.exceptionDetails.exception?.description);return r.result.value;};
+		try {
+			await evaluate('runZenFullscreenChecks()');
+			const inserted=(state,text)=>state.expected.slice(0,state.position)+text+state.expected.slice(state.position+1);
+			for(const zoom of [0.7,1,1.6])for(const typewriter of [false,true]){
+				await evaluate(`nativePagedProbe.begin(${zoom},false,false,true)`);
+				await evaluate(`nativePagedProbe.setTypewriter(${typewriter})`);
+				await evaluate('nativePagedProbe.startStability()');
+				for(let i=0;i<70;i++){
+					await command('Input.imeSetComposition',{text:'ㄴ',selectionStart:1,selectionEnd:1});
+					await evaluate('new Promise(resolve=>setTimeout(resolve,10))');
+					await command('Input.insertText',{text:'ㄴ'});
+				}
+				await evaluate('new Promise(resolve=>setTimeout(resolve,40))');
+				const trace=await evaluate('nativePagedProbe.stability()');
+				const tops=trace.map(s=>s.textTop),spread=Math.max(...tops)-Math.min(...tops);
+				console.log(JSON.stringify({scenario:'soft-wrap-stability',zoom,typewriter,spread,inner:trace.filter(s=>s.inner.some(n=>n!==0)).slice(0,4),positions:trace.filter((s,i)=>i&&Math.abs(s.top-trace[i-1].top)>0.5).slice(0,8)}));
+				if(spread>1)throw new Error(`Wrapping native input moved an unchanged page up/down (${zoom},typewriter=${typewriter}): ${spread}px`);
+			}
+			for(const zoom of [0.7,1,1.6]){
+				await evaluate(`nativePagedProbe.begin(${zoom},false,false,true)`);
+				await evaluate('nativePagedProbe.longBoundary()');
+				await command('Input.imeSetComposition',{text:'ㅇ'.repeat(20),selectionStart:20,selectionEnd:20});
+				await evaluate('new Promise(resolve=>setTimeout(resolve,30))');
+				const state=await evaluate('nativePagedProbe.snapshot()'),refs=await evaluate('nativePagedProbe.previewGlyphs()');
+				if(!refs.length)throw new Error('Missing the page handoff preview');
+				await command('Input.insertText',{text:'ㅇ'.repeat(20)});
+				await evaluate('new Promise(resolve=>setTimeout(resolve,30))');
+				const committed=await evaluate(`nativePagedProbe.committedGlyphs(${JSON.stringify(refs)})`);
+				const drift=Math.max(...refs.map((ref,i)=>Math.abs(ref.top-committed[i].top)));
+				console.log(JSON.stringify({scenario:'preview-to-page-stability',zoom,previewOffset:state.previewOffsetError,drift}));
+				if(state.previewOffsetError>0.02||drift>0.02)throw new Error(`Composition handoff shifted text vertically (${zoom}): preview=${state.previewOffsetError}px,glyph=${drift}px`);
+			}
+			if(!process.argv.includes('--stability-only')){
+			await evaluate('nativePagedProbe.begin(1,false,false,true)');
+			await evaluate('nativePagedProbe.uniformLastLine()');
+			await command('Input.imeSetComposition',{text:'ㄴ',selectionStart:1,selectionEnd:1});
+			await command('Input.insertText',{text:'ㄴ'});
+			const uniformMismatch=await evaluate('nativePagedProbe.cachedDomMismatches()');
+			if(uniformMismatch.length)throw new Error(`A full repeated-consonant page reused stale native composition DOM: ${JSON.stringify(uniformMismatch)}`);
+			const retired=await evaluate('nativePagedProbe.retiredCompositionDom()');
+			if(!retired.cleanBefore||retired.text!=='ㄴ'.repeat(3001)||retired.mismatches.length)throw new Error(`Late retired composition DOM survived a matching clean cache: ${JSON.stringify(retired.mismatches)}`);
+			for(const blank of [false,true])for(const typewriter of [false,true])for(const zoom of [1,0.7,1.6]){
+				await evaluate(`nativePagedProbe.begin(${zoom},${blank},false,true)`);
+				await evaluate(`nativePagedProbe.setTypewriter(${typewriter})`);
+				if(!blank)await evaluate('nativePagedProbe.lastLineStart()');
+				const initial=await evaluate('nativePagedProbe.snapshot()');
+				for(let i=0;i<8;i++){
+					await command('Input.imeSetComposition',{text:'ㅇ',selectionStart:1,selectionEnd:1});
+					await command('Input.insertText',{text:'ㅇ'});
+				}
+				let expected=inserted(initial,'ㅇ'.repeat(8));
+				const point=await evaluate(`nativePagedProbe.caretPoint(${initial.position+4})`);
+				await command('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...point});
+				await command('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...point});
+				const selected=await evaluate('nativePagedProbe.snapshot()');
+				if(selected.text!==expected||!selected.selection)throw new Error(`Cannot set up the last-line same-row input case (${blank},${typewriter},${zoom})`);
+				const at=selected.selection.head;
+				for(let i=0;i<320;i++){
+					await command('Input.imeSetComposition',{text:'ㄴ',selectionStart:1,selectionEnd:1});
+					await command('Input.insertText',{text:'ㄴ'});
+					expected=expected.slice(0,at+i)+'ㄴ'+expected.slice(at+i);
+					const state=await evaluate('nativePagedProbe.snapshot()');
+					if(state.text!==expected)throw new Error(`Same last-row ㅇ then ㄴ input duplicated text (blank=${blank},typewriter=${typewriter},zoom=${zoom},key=${i}): actual=${state.text.length},expected=${expected.length},events=${JSON.stringify(await evaluate('nativePagedProbe.diagnostics()'))}`);
+					const mismatches=await evaluate('nativePagedProbe.cachedDomMismatches()');
+					if(mismatches.length)throw new Error(`Same last-row repeated ㄴ left duplicate native text behind (blank=${blank},typewriter=${typewriter},zoom=${zoom},key=${i}): ${JSON.stringify(mismatches)}`);
+				}
+			}
+			console.log('Last visual line: repeated ㅇ then repeated ㄴ inside that same line preserves exact source at all zooms with typewriter off/on');
+			if(!process.argv.includes('--same-line-input-only')){
+			for(const zoom of [0.7,1,1.6]){
+				await evaluate(`nativePagedProbe.begin(${zoom},false,false,true)`);
+				let crossed=false;
+				for(let i=1;i<=32;i++){
+					await command('Input.imeSetComposition',{text:'ㅇ'.repeat(i),selectionStart:i,selectionEnd:i});
+					await evaluate('new Promise(resolve=>setTimeout(resolve,25))');
+					const caret=await evaluate('nativePagedProbe.visualCaret()');
+					if(caret.pageIndex>caret.nativePageIndex){
+						crossed=true;
+						if(Math.abs(caret.centerError)>2)throw new Error(`First glyph entering the next row did not center that page (${zoom}): ${JSON.stringify(caret)}`);
+						await evaluate('nativePagedProbe.forceNativeCaretScroll()');
+						const pinned=await evaluate('nativePagedProbe.visualCaret()');
+						if(Math.abs(pinned.centerError)>2)throw new Error(`Native caret scrolling pulled the first overflow glyph out of center (${zoom}): ${JSON.stringify(pinned)}`);
+						await command('Input.insertText',{text:'ㅇ'.repeat(i)});break;
+					}
+				}
+				if(!crossed)throw new Error(`Missing a third-column to first-column overflow glyph (${zoom})`);
+			}
+			console.log('The first IME glyph crossing from column three to the next row centers immediately at 70/100/160%');
+			for(const typewriter of [false,true])for(const zoom of [0.7,1,1.6]){
+				await evaluate(`nativePagedProbe.begin(${zoom},false,false,true)`);
+				await evaluate(`nativePagedProbe.setTypewriter(${typewriter})`);
+				const initial=await evaluate('nativePagedProbe.snapshot()');
+				for(let i=0;i<120;i++){
+					await command('Input.imeSetComposition',{text:'ㅇ',selectionStart:1,selectionEnd:1});
+					await command('Input.insertText',{text:'ㅇ'});
+				}
+				await command('Input.imeSetComposition',{text:'ㅇ',selectionStart:1,selectionEnd:1});
+				await evaluate('new Promise(resolve=>setTimeout(resolve,25))');
+				const point=await evaluate(`nativePagedProbe.caretPoint(${initial.position+40})`);
+				await command('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...point});
+				await command('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...point});
+				// CDP supplies the platform IME commit separately from the mouse event.
+				// Deliver it after the click, as a delayed Windows commit can arrive.
+				await command('Input.insertText',{text:'ㅇ'});
+				const selected=await evaluate('nativePagedProbe.snapshot()');
+				let expected=inserted(initial,'ㅇ'.repeat(121));
+				if(selected.composing||selected.text!==expected)throw new Error(`Clicking back into held text while the final glyph is composing changed source (typewriter=${typewriter},zoom=${zoom}): actual=${selected.text.length},expected=${expected.length},composing=${selected.composing},events=${JSON.stringify(await evaluate('nativePagedProbe.diagnostics()'))}`);
+				const at=selected.selection.head;
+				for(let i=0;i<60;i++){
+					await command('Input.imeSetComposition',{text:'한',selectionStart:1,selectionEnd:1});
+					await command('Input.insertText',{text:'한'});
+					expected=expected.slice(0,at+i)+'한'+expected.slice(at+i);
+					if((await evaluate('nativePagedProbe.snapshot()')).text!==expected)throw new Error(`Re-entering before the last IME glyph committed duplicated source (typewriter=${typewriter},zoom=${zoom},key=${i})`);
+				}
+			}
+			console.log('Moving back into held text before its final IME glyph commits preserves exact source with typewriter off/on at 70/100/160%');
+			for(const typewriter of [false,true])for(const zoom of [0.7,1,1.6]){
+				await evaluate(`nativePagedProbe.begin(${zoom},false,false,true)`);
+				await evaluate(`nativePagedProbe.setTypewriter(${typewriter})`);
+				const initial=await evaluate('nativePagedProbe.snapshot()');
+				for(let i=0;i<160;i++){
+					await command('Input.imeSetComposition',{text:'ㅇ',selectionStart:1,selectionEnd:1});
+					await command('Input.insertText',{text:'ㅇ'});
+				}
+				let expected=inserted(initial,'ㅇ'.repeat(160));
+				if((await evaluate('nativePagedProbe.snapshot()')).text!==expected)throw new Error(`Initial held input differs before re-entering (typewriter=${typewriter},zoom=${zoom})`);
+				for(const relative of [90,5,140]){
+					const point=await evaluate(`nativePagedProbe.caretPoint(${initial.position+relative})`);
+					await command('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...point});
+					await command('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...point});
+					const selected=await evaluate('nativePagedProbe.snapshot()');
+					if(selected.text!==expected)throw new Error(`Moving the caret changed text (typewriter=${typewriter},zoom=${zoom},relative=${relative})`);
+					const at=selected.selection.head;
+					for(let i=0;i<100;i++){
+						const char=['ㅇ','ㄹ','한','a'][i%4];
+						await command('Input.imeSetComposition',{text:char,selectionStart:1,selectionEnd:1});
+						await command('Input.insertText',{text:char});
+						expected=expected.slice(0,at+i)+char+expected.slice(at+i);
+						const state=await evaluate('nativePagedProbe.snapshot()');
+						if(state.text!==expected){let diff=0;while(state.text[diff]===expected[diff]&&diff<expected.length)diff++;throw new Error(`Typing inside held input duplicated or lost text (typewriter=${typewriter},zoom=${zoom},relative=${relative},key=${i},at=${at}): actual=${state.text.length},expected=${expected.length},diff=${diff},context=${JSON.stringify([state.text.slice(diff-15,diff+40),expected.slice(diff-15,diff+40)])},events=${JSON.stringify(await evaluate('nativePagedProbe.diagnostics()'))}`);}
+					}
+				}
+			}
+			console.log('Re-entering the middle of page-bottom held input preserves exact source with typewriter off/on at 70/100/160%');
+			for(const zoom of [0.7,1,1.6]){
+				await evaluate(`nativePagedProbe.begin(${zoom},false,false,true,0)`);
+				for(let i=0;i<100;i++){
+					await command('Input.imeSetComposition',{text:'ㅇ',selectionStart:1,selectionEnd:1});
+					await command('Input.insertText',{text:'ㅇ'});
+				}
+				const state=await evaluate('nativePagedProbe.snapshot()');
+				if(state.staleFlow.length)throw new Error(`First-column held IME keys left visible following pages stale (${zoom}): ${JSON.stringify(state.staleFlow)}`);
+				const flow=await evaluate('nativePagedProbe.visibleFlow(true)');
+				if(flow.stale.length||!flow.boundariesMatch)throw new Error(`Held IME page flow differs from a fresh layout (${zoom}): ${JSON.stringify(flow)}`);
+				if(state.text!==inserted(state,'ㅇ'.repeat(100)))throw new Error(`First-column held IME keys changed untyped text (${zoom})`);
+				await evaluate(`nativePagedProbe.begin(${zoom},false,false,true,0)`);
+				for(let i=1;i<=80;i+=8){
+					await command('Input.imeSetComposition',{text:'ㅇ'.repeat(i),selectionStart:i,selectionEnd:i});
+					await evaluate('new Promise(resolve=>setTimeout(resolve,20))');
+					const preview=await evaluate('nativePagedProbe.previewFlow()');
+					if(preview.stale.length)throw new Error(`First-column ongoing IME preview left following pages stale (${zoom}): ${JSON.stringify(preview)}`);
+				}
+				await command('Input.insertText',{text:'ㅇ'.repeat(73)});
+				await evaluate(`nativePagedProbe.begin(${zoom},false,false,true,0)`);
+				const latinKeys=[];
+				for(let i=0;i<100;i++)latinKeys.push(command('Input.dispatchKeyEvent',{type:'keyDown',key:'a',code:'KeyA',text:'a',unmodifiedText:'a',autoRepeat:i>0}));
+				await Promise.all(latinKeys);
+				await command('Input.dispatchKeyEvent',{type:'keyUp',key:'a',code:'KeyA'});
+				const latinState=await evaluate('nativePagedProbe.snapshot()');
+				if(latinState.staleFlow.length)throw new Error(`First-column held Latin keys left visible following pages stale (${zoom}): ${JSON.stringify(latinState.staleFlow)}`);
+				if(latinState.text!==inserted(latinState,'a'.repeat(100)))throw new Error(`First-column held Latin keys changed untyped text (${zoom})`);
+			}
+			console.log('First-column held IME/Latin keys and ongoing composition update every visible following page at 70/100/160%');
+			for(const zoom of [0.7,1,1.6]){
+				await evaluate(`nativePagedProbe.begin(${zoom},false,false,true)`);
+				for(let i=1;i<=80;i++){
+					await command('Input.imeSetComposition',{text:'ㅇ'.repeat(i),selectionStart:i,selectionEnd:i});
+					if(i%8===0){
+						await evaluate('new Promise(resolve=>setTimeout(resolve,20))');
+						await evaluate('nativePagedProbe.forceNativeCaretScroll()');
+						const state=await evaluate('nativePagedProbe.snapshot()');
+						if(state.columns!==3||state.previewOffsetError>1)throw new Error(`Preview layout lost the three-column page grid (${zoom}): ${state.previewOffsetError}px`);
+						if(state.previewInEditor||state.foreignMutations.length||state.rootPages!==state.pages)throw new Error(`Composition changed the native editing tree outside its active page: ${JSON.stringify({columns:state.columns,previews:state.previews,foreignMutations:state.foreignMutations.slice(0,10)})}`);
+						const caret=await evaluate('nativePagedProbe.visualCaret()');
+						if(Math.abs(caret.centerError)>2)throw new Error(`Visible composing glyph lost centering (${zoom}): ${JSON.stringify(caret)}`);
+					}
+				}
+				await command('Input.insertText',{text:'ㅇ'.repeat(80)});
+				await evaluate('new Promise(resolve=>setTimeout(resolve,60))');
+				let state=await evaluate('nativePagedProbe.snapshot()');
+				if(state.text!==inserted(state,'ㅇ'.repeat(80)))throw new Error(`Continuous composition changed untyped text at ${zoom}`);
+				await evaluate(`nativePagedProbe.begin(${zoom},false,false,true)`);
+				const pending=[],characters=['ㅇ','ㄹ','a','한'];let text='';
+				for(let i=0;i<120;i++){
+					const character=characters[i%characters.length];text+=character;
+					pending.push(command('Input.imeSetComposition',{text:character,selectionStart:1,selectionEnd:1}));
+					pending.push(command('Input.insertText',{text:character}));
+				}
+				await Promise.all(pending);
+				await evaluate('new Promise(resolve=>setTimeout(resolve,60))');
+				state=await evaluate('nativePagedProbe.snapshot()');
+				if(state.text!==inserted(state,text))throw new Error(`An unpaced 120-key mixed input burst changed untyped text at ${zoom}`);
+				await evaluate(`nativePagedProbe.begin(${zoom},false,false,true)`);
+				const keys=[];let latin='';
+				for(let i=0;i<120;i++){
+					const character='abcxyz'[i%6];latin+=character;
+					keys.push(command('Input.dispatchKeyEvent',{type:'keyDown',key:character,code:'Key'+character.toUpperCase(),text:character,unmodifiedText:character,autoRepeat:i>0}));
+				}
+				await Promise.all(keys);
+				await command('Input.dispatchKeyEvent',{type:'keyUp',key:'z',code:'KeyZ'});
+				await evaluate('new Promise(resolve=>setTimeout(resolve,60))');
+				state=await evaluate('nativePagedProbe.snapshot()');
+				if(state.text!==inserted(state,latin))throw new Error(`An unpaced 120-key Latin keyboard burst changed untyped text at ${zoom}`);
+				const pinned=state.scrollTop;
+				await evaluate('nativePagedProbe.manualScroll()');
+				state=await evaluate('nativePagedProbe.snapshot()');
+				if(state.expectedScrollTop!==null||Math.abs(state.scrollTop-pinned)<10)throw new Error('Manual wheel scrolling could not release typewriter pinning');
+			}
+			console.log('All input helpers enabled: 3-column row-end IME tree stability, in-progress page centering, 80-character preedit, unpaced 120-key mixed IME and 120-key Latin keyboard bursts passed at 70/100/160%');
+			for (const zoom of [0.7,1,1.6]) for (const blank of [false,true]) {
+				await evaluate(`nativePagedProbe.begin(${zoom},${blank})`);
+				for(let i=0;i<8;i++) {
+					await command('Input.imeSetComposition',{text:'ㅇ',selectionStart:1,selectionEnd:1});
+					await evaluate('new Promise(resolve=>setTimeout(resolve,25))');
+				}
+				await command('Input.insertText',{text:'ㅇ'});
+				await evaluate('new Promise(resolve=>setTimeout(resolve,60))');
+				const state=await evaluate('nativePagedProbe.snapshot()');
+				if(state.text!==state.expected || (state.domText.match(/ㅇ/g)||[]).length!==1) throw new Error(`Native IME duplicated or lost input at justified boundary (${zoom},blank=${blank}): source=${state.text.length}, expected=${state.expected.length}`);
+			}
+			await evaluate('nativePagedProbe.begin(1,true)');
+			await command('Input.imeSetComposition',{text:'ㅇ',selectionStart:1,selectionEnd:1});
+			await evaluate('nativePagedProbe.duplicatePreeditDom()');
+			await command('Input.insertText',{text:'ㅇ'});
+			await evaluate('new Promise(resolve=>setTimeout(resolve,60))');
+			let state=await evaluate('nativePagedProbe.snapshot()');
+			if(state.text!==state.expected||(state.domText.match(/ㅇ/g)||[]).length!==1)throw new Error('Retired IME DOM nodes were imported as repeated ㅇ text');
+			for(const zoom of [0.7,1,1.6]){
+				await evaluate(`nativePagedProbe.begin(${zoom},false,true)`);
+				for(let i=0;i<50;i++){
+					await command('Input.imeSetComposition',{text:'ㅇ',selectionStart:1,selectionEnd:1});
+					if(i%3===0)await evaluate('new Promise(resolve=>setTimeout(resolve,20))');
+					await command('Input.insertText',{text:'ㅇ'});
+				}
+				await evaluate('new Promise(resolve=>setTimeout(resolve,100))');
+				state=await evaluate('nativePagedProbe.snapshot()');
+				if(state.text!==state.expected.slice(0,-1)+'ㅇ'.repeat(50))throw new Error('Fast final-page IME input duplicated or lost characters');
+				if(state.scrollTrace.some((top,index)=>index>0&&top<state.scrollTrace[index-1]-2))throw new Error(`Final-page typewriter scroll moved backwards at ${zoom}: ${JSON.stringify(state.scrollTrace)}`);
+			}
+			console.log('Trusted Chromium IME: one ㅇ at justified page/blank boundaries at 70/100/160% passed');
+			console.log('Retired preedit DOM recovery and 50 fast final-page IME keys without scroll reversal at 70/100/160% passed');
+			}
+			}
+		} finally {await evaluate('nativePagedProbe.dispose()');}
+	}
 	if (i18nSuite) {
 		const output = path.join(root, '.codex-tmp', 'i18n-ui'); await mkdir(output, { recursive: true });
 		const shot = await command('Page.captureScreenshot', { format: 'png' });
 		await writeFile(path.join(output, 'english-desktop.png'), Buffer.from(shot.data, 'base64'));
 	}
-	if (dashboardSuite && !ragSettingsSuite) {
+	if (dashboardSuite && !ragSettingsSuite && !reviewTabSuite) {
 		const evaluate = async expression => { const result = await command('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true}); if(result.exceptionDetails)throw new Error(result.exceptionDetails.exception?.description); return result.result.value; };
 		const output = path.join(root,'.codex-tmp','dashboard-overhaul'); await mkdir(output,{recursive:true});
 		const capture = async name => {

@@ -13,8 +13,9 @@ const core = [
 	['i18n', 'scripts/verify-i18n.mjs'],
 	['font-settings', 'scripts/verify-font-settings.mjs'],
 	['writing-frontmatter', 'scripts/verify-writing-frontmatter.mjs'],
+	['comments', 'scripts/verify-comments.mjs'],
 	['browser-runtime', 'scripts/verify-browser-runtime.mjs'],
-	...['warning-policy', 'settings-compatibility', 'statistics-scope', 'hwpx', 'document-codecs', 'kordoc-engine', 'export-boundaries', 'release-artifacts', 'input-boundaries', 'smart-quotes', 'morph-worker', 'paged-zoom', 'chat-stream', 'chat-legacy', 'deus-skills', 'deus-cli', 'rag-api', 'model-free-search', 'rag-navigation', 'episode-retrieval', 'character-research'].map(name => [name, `scripts/verify-${name}.mjs`]),
+	...['warning-policy', 'settings-compatibility', 'statistics-scope', 'hwpx', 'document-codecs', 'kordoc-engine', 'export-boundaries', 'release-artifacts', 'input-boundaries', 'smart-quotes', 'morph-worker', 'paged-zoom', 'paged-pane-menu', 'chat-stream', 'chat-legacy', 'deus-skills', 'deus-cli', 'rag-api', 'model-free-search', 'rag-navigation', 'episode-retrieval', 'character-research'].map(name => [name, `scripts/verify-${name}.mjs`]),
 ];
 const browser = [
 	['export-ui', 'scripts/verify-export-ui.mjs'],

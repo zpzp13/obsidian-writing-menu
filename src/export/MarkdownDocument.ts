@@ -1,4 +1,5 @@
 import MarkdownIt from 'markdown-it';
+import { projectObsidianComments } from '../comments/ObsidianComments';
 import footnote from 'markdown-it-footnote';
 import type Token from 'markdown-it/lib/token.mjs';
 import type { ContentPolicy, DocumentBlock, DocumentStyle, ParagraphBlock, SourceRange, TextRun, TransferDocument } from './DocumentModel';
@@ -59,8 +60,21 @@ export function stripFrontmatter(source: string): { text: string; offset: number
 	const frontmatter = /^(?:\uFEFF)?---[ \t]*\n(?:.*?\n)?---[ \t]*(?:\n|$)/s.exec(normalized);
 	return { text: normalized.slice(frontmatter?.[0].length ?? 0), offset: frontmatter?.[0].length ?? 0 };
 }
-export function parseMarkdownDocument(source: string, path = '', formatting: SourceFormatting = {}): TransferDocument {
-	const { text, offset } = stripFrontmatter(source), lines = text.split('\n');
+export function parseMarkdownDocument(source: string, path = '', formatting: SourceFormatting = {}, comments: 'keep' | 'exclude' = 'keep'): TransferDocument {
+	if (comments === 'exclude') {
+		// Export source formatting already uses the parser's normalized newline coordinates.
+		const projection = projectObsidianComments(source.replace(/\r\n?/g, '\n'));
+		const spans = <T extends { from: number; to: number }>(values?: T[]): T[] | undefined => values?.map(value => ({ ...value, from: projection.projectedOffset(value.from), to: projection.projectedOffset(value.to) })).filter(value => value.to > value.from);
+		const projected: SourceFormatting = { inline: spans(formatting.inline), colors: spans(formatting.colors), backgrounds: spans(formatting.backgrounds), alignments: formatting.alignments?.map(value => ({ ...value, from: projection.projectedOffset(value.from) })) };
+		const document = parseVisibleMarkdownDocument(projection.text, path, projected, /^\uFEFF?---[ \t]*\r?\n/.test(source));
+		for (const block of document.blocks) if (block.source) block.source = { ...block.source, from: projection.originalOffset(block.source.from), to: projection.originalOffset(block.source.to, 'left') };
+		return document;
+	}
+	return parseVisibleMarkdownDocument(source, path, formatting, true);
+}
+
+function parseVisibleMarkdownDocument(source: string, path: string, formatting: SourceFormatting, allowProperties: boolean): TransferDocument {
+	const { text, offset } = allowProperties ? stripFrontmatter(source) : { text: source.replace(/\r\n?/g, '\n'), offset: 0 }, lines = text.split('\n');
 	const starts = [offset];
 	for (const line of lines) starts.push(starts.at(-1)! + line.length + 1);
 	const range = (from: number, to: number): SourceRange => ({ path, from: starts[from], to: Math.min(starts[to] ?? starts.at(-1)!, offset + text.length) });

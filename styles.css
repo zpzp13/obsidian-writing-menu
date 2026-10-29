@@ -537,7 +537,11 @@ body.writing-menu-focus-enabled .wm-focus-typing .cm-line.wm-focus-active-line {
 
 /* Typewriter Scrolling Styles */
 .writing-menu-typewriter-active .wm-styled-document[data-writing-menu-id] .cm-scroller {
-    padding-bottom: 80vh;
+    scroll-behavior: auto;
+}
+
+.writing-menu-typewriter-active .wm-styled-document[data-writing-menu-id] .cm-content {
+    padding-bottom: 50vh;
 }
 
 /* Dark Mode: Outline Plugin Heading Selection Visibility */
@@ -1044,7 +1048,7 @@ body:not(.is-mobile) .workspace-leaf-content > :is(.wm-cal-content, .wm-plotbook
     max-width: 100%;
     flex-wrap: nowrap;
     justify-content: space-evenly;
-    gap: 28px;
+    gap: 8px;
     align-items: center;
     height: var(--wm-toolbar-control-size);
     padding: 0;
@@ -9168,6 +9172,8 @@ input.slider.wm-writing-format-slider::-moz-range-thumb {
 	min-height: 0;
 	overflow: auto;
 	overscroll-behavior: contain;
+	overflow-anchor: none;
+	scroll-behavior: auto;
 	scrollbar-gutter: stable;
 }
 
@@ -9197,6 +9203,10 @@ input.slider.wm-writing-format-slider::-moz-range-thumb {
 	user-select: text;
 }
 
+.wm-paged-view.is-typewriter .wm-paged-grid {
+	padding-bottom: max(16px, 50vh);
+}
+
 .wm-paged-editor-root:focus,
 .wm-paged-editor-root:focus-visible {
 	outline: none;
@@ -9218,11 +9228,9 @@ input.slider.wm-writing-format-slider::-moz-range-thumb {
 	user-select: text;
 }
 
-.wm-paged-page-shell.is-composition-suppressed {
-	display: none;
-}
-
 .wm-paged-composition-preview {
+	position: absolute;
+	z-index: 1;
 	pointer-events: none;
 }
 
@@ -10730,6 +10738,13 @@ input.wm-plotbook-date-picker {
 	flex: 1 1 auto;
 	overflow: auto;
 }
+
+.wm-plotbook-foreshadow-list,
+.wm-plotbook-foreshadow-memo-field textarea,
+.wm-plotbook-foreshadow-timeline { --no-tooltip: true; }
+/* Keep tooltip suppression on the containers without affecting their controls. */
+.wm-plotbook-foreshadow-list > *,
+.wm-plotbook-foreshadow-timeline > * { --no-tooltip: false; }
 
 .wm-plotbook-foreshadow-list-item { margin-bottom: 8px; padding: 0; }
 .wm-plotbook-foreshadow-card {
@@ -12876,9 +12891,9 @@ body > .wm-export-bases-portal { z-index: calc(var(--layer-menu) + var(--wm-expo
 .wm-export-alignment { justify-content: flex-end; gap: 14px; width: 100%; }
 .wm-export-alignment .wm-paged-alignment-option { position: relative; width: 16px; min-width: 16px; padding: 0; }
 .wm-export-alignment .wm-paged-alignment-option::after { position: absolute; inset: 0 -7px; content: ''; }
-.wm-export-alignment .wm-paged-alignment-option,
-.wm-export-alignment .wm-paged-alignment-option:is(:hover, .is-active) { background: transparent; color: var(--text-muted); }
-.wm-export-alignment .wm-paged-alignment-option:is(:hover, .is-active) { color: var(--text-normal); }
+.wm-export-alignment button.wm-paged-alignment-option,
+.wm-export-alignment button.wm-paged-alignment-option:is(:hover, .is-active) { background: transparent; color: var(--text-muted); }
+.wm-export-alignment button.wm-paged-alignment-option:is(:hover, .is-active) { color: var(--text-normal); }
 .wm-export-alignment .wm-paged-alignment-option.is-active svg { stroke-width: 3; }
 .wm-export-row-value.wm-export-native-color { gap: var(--size-4-2); overflow: visible; padding-block: 4px; }
 .wm-export-native-color input[type="color"] { height: calc(var(--swatch-height) + 4px); overflow: visible; }

@@ -25,6 +25,7 @@ import { DailyCharStore } from './src/dashboard/data/DailyCharStore';
 import { stripTrackedTimeFieldsFromPaste } from './src/utils/timeUtils';
 import { MusicPlayer } from './src/dashboard/MusicPlayer';
 import { LeafStyleManager } from './src/editor/LeafStyleManager';
+import { shouldExitZenOnEscape } from './src/editor/ZenFullscreen';
 import { ToolbarManager } from './src/toolbar/ToolbarManager';
 import { StopwatchManager } from './src/dashboard/StopwatchManager';
 import { SpellCheckerService } from './src/spellcheck/index';
@@ -511,8 +512,9 @@ export default class WritingMenuPlugin extends Plugin {
 			},
 		});
 
-		activeDocument.addEventListener('fullscreenchange', () => {
-			if (activeDocument.fullscreenElement) {
+		const fullscreenWindow = activeWindow;
+		const handleFullscreenChange = () => {
+			if (this.leafStyleManager.isFullscreen()) {
 				if (this.zenState === 'focus') this.leafStyleManager.activateFocusMode();
 			} else {
 				if (activeDocument.body.classList.contains('wm-focus-mode') || this.zenState === 'focus') {
@@ -520,6 +522,13 @@ export default class WritingMenuPlugin extends Plugin {
 					this.exitZenFocus();
 				}
 			}
+		};
+		fullscreenWindow.addEventListener('fullscreenchange', handleFullscreenChange);
+		this.register(() => fullscreenWindow.removeEventListener('fullscreenchange', handleFullscreenChange));
+		this.registerDomEvent(activeWindow, 'keydown', event => {
+			if (this.zenState !== 'focus' || !shouldExitZenOnEscape(event, activeDocument)) return;
+			event.preventDefault();
+			this.leafStyleManager.applyZenState('off');
 		});
 
 		this.app.workspace.onLayoutReady(() => {
@@ -712,6 +721,7 @@ export default class WritingMenuPlugin extends Plugin {
 		if (runtimeWindow.__writingMenuPluginInstance === this) {
 			delete runtimeWindow.__writingMenuPluginInstance;
 		}
+		this.leafStyleManager?.exitZenFocus();
 		this.stopwatchManager?.destroy();
 		this.toolbarManager?.destroy();
 		this.charStore?.destroy();

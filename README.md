@@ -23,6 +23,8 @@ A writing workspace for fiction and serial stories in Obsidian. Draft manuscript
 
 ## Write your manuscript
 
+Obsidian `%%…%%` comments are excluded from character counts and REVISION analysis. Copy excludes comments by default; turn on Comments in the export content controls to include them.
+
 - Use a shared writing toolbar in Markdown and the desktop-only paged view.
 - Adjust fonts, spacing, paragraphs, and text color. Work with focus mode, typewriter scrolling, smart quotes, and text replacements.
 - Check character counts, copy your text, and export to TXT, DOCX or HWPX from a document-selection and formatting preview dialog. Windows and macOS generation and HWPX template formatting work without Python, Word or Hancom Hangul.

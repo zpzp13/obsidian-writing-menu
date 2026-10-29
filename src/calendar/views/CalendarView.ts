@@ -17,7 +17,7 @@ import { showDatePickerPopup } from '../components/DatePickerPopup';
 
 export const VIEW_TYPE_CALENDAR = 'writing-menu-calendar';
 
-type DashTab = 'main' | 'wiki' | 'revision' | 'ai';
+type DashTab = 'main' | 'wiki' | 'revision' | 'review' | 'ai';
 
 interface TaskDayStats {
 	total: number;
@@ -29,6 +29,7 @@ const TABS: Array<{ id: DashTab; icon: string; label: string }> = [
 	{ id: 'main',    icon: 'house',              label: 'MAIN' },
 	{ id: 'wiki',    icon: 'git-graph',          label: 'WIKI' },
 	{ id: 'revision', icon: 'shield',             label: 'REVISION' },
+	{ id: 'review', icon: 'star', label: 'Review' },
 	{ id: 'ai',      icon: 'bot',               label: 'DEUS' },
 ];
 
@@ -296,6 +297,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 	// ── Dashboard panel ──────────────────────────────────────────────
 
 	private renderDashboardPanel(container: HTMLElement) {
+		if (this.revisionPanel) { this.removeChild(this.revisionPanel); this.revisionPanel = null; }
 		const panel = container.createDiv({ cls: 'wm-dash-panel' });
 		switch (this.dashTab) {
 			case 'main':
@@ -304,6 +306,9 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 				break;
 			case 'wiki':    this.renderWikiPanel(panel);    break;
 			case 'revision': this.renderRevisionPanel(panel); break;
+			case 'review':
+				panel.addClass('wm-dash-panel-single');
+				break;
 			case 'ai':      this.renderAiChatPanel(panel);  break;
 		}
 	}

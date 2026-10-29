@@ -55,7 +55,7 @@ try {
 		const date = moment().format('YYYY-MM-DD'), reads = [], records = new Map();
 		const paths = [manuscriptPath, ...internalPaths];
 		const files = new Map(paths.map(path => [path, new TFile(path, path === manuscriptPath ? 160 : 2000)]));
-		const stored = { charMode: 'munpia', today: { date,
+		const stored = { countPolicyVersion: 1, charMode: 'munpia', today: { date,
 			start: Object.fromEntries(paths.map(path => [path, 100])),
 			current: Object.fromEntries(paths.map(path => [path, path === manuscriptPath ? 150 : 900])),
 			carried: Object.fromEntries(paths.map(path => [path, path === manuscriptPath ? 7 : 300])),

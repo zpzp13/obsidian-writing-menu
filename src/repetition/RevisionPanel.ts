@@ -8,6 +8,7 @@ import { analyzeSentences } from './SentenceAnalysis';
 import { analyzeText, isMorphAnalysisSupported } from './MorphAnalyzer';
 import { getGaruAssetStatus, downloadGaruAssets } from './GaruAssets';
 import { classifyTokens } from './analyzer';
+import { projectObsidianComments } from '../comments/ObsidianComments';
 import { RevisionDashboard, type RevisionFile } from './RevisionDashboard';
 
 interface Result { files: RevisionFile[]; signature: string; morph: boolean; scope: 'document' | 'project'; context: string }
@@ -86,7 +87,11 @@ export class RevisionPanel extends Component {
 				const cached = previousFiles.get(source.path), previous = cached?.source === source.source ? cached : undefined;
 				const paragraphs = previous?.paragraphs ?? analyzeParagraphs(source.source, options);
 				const sentences = previous?.sentences ?? analyzeSentences(source.source, paragraphs, options.countSpaces);
-				const repetition = morph ? classifyTokens(await analyzeText(paragraphs.analysisText, this.plugin), source.source, scope === 'project' ? { minCount: 1, limit: 50000 } : {}) : previous?.repetition;
+				const projection = projectObsidianComments(source.source);
+				const repetition = morph ? classifyTokens(await analyzeText(projection.projectMask(paragraphs.analysisText), this.plugin), projection.text, scope === 'project' ? { minCount: 1, limit: 50000 } : {}) : previous?.repetition;
+				if (morph && repetition && projection.ranges.length) for (const kind of ['word', 'eojeol', 'eomi'] as const) for (const entry of repetition[kind]) for (const occurrence of entry.occurrences) {
+					occurrence.start = projection.originalOffset(occurrence.start); occurrence.end = projection.originalOffset(occurrence.end, 'left');
+				}
 				files.push({ ...source, paragraphs, sentences, repetition });
 				if (morph) this.dashboard.progress(wmT("분석 중 {0} / {1}", files.length, sources.length));
 			}

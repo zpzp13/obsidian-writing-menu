@@ -40,12 +40,12 @@ export class ExportService {
 		const fs = await getFs(); if (!fs.existsSync(path)) throw new Error(wmT('템플릿 파일을 찾을 수 없습니다.'));
 		return this.engine.template(new Uint8Array(fs.readFileSync(path)));
 	}
-	private async source(file: TFile, imagePolicy?: ContentPolicy): Promise<{ document: TransferDocument; signature: string }> {
+	private async source(file: TFile, policy: ContentPolicy, loadImages: boolean): Promise<{ document: TransferDocument; signature: string }> {
 		const vault = this.plugin.app.vault, settings = this.plugin.settings, text = await vault.read(file);
 		const formatting: SourceFormatting = { inline: settings.pagedInlineFormats?.[file.path], colors: settings.pagedTextColors?.[file.path], backgrounds: settings.pagedTextBackgrounds?.[file.path], alignments: settings.pagedParagraphAlignments?.[file.path] };
-		const document = parseMarkdownDocument(text, file.path, formatting), images = new Map<string, DocumentResource>(), imageStamps: string[] = [];
-		if (imagePolicy) {
-			const visible = applyContentPolicy(document, imagePolicy, 'hwpx');
+		const document = parseMarkdownDocument(text, file.path, formatting, policy.comments !== 'keep' ? 'exclude' : 'keep'), images = new Map<string, DocumentResource>(), imageStamps: string[] = [];
+		if (loadImages) {
+			const visible = applyContentPolicy(document, policy, 'hwpx');
 			const visibleImages = new Set(visible.blocks.flatMap(block => block.kind === 'table' ? block.rows.flat(2) : block.runs).concat(Object.values(visible.footnotes).flat()).map(run => run.image).filter(Boolean));
 			const allRuns: TextRun[] = document.blocks.flatMap(block => block.kind === 'table' ? block.rows.flat(2) : block.runs).concat(Object.values(document.footnotes).flat());
 			for (const run of allRuns) {
@@ -88,7 +88,7 @@ export class ExportService {
 			signal?.throwIfAborted(); effectiveOptions.fontFaces = resolved.fontFaces; notices = resolved.notices;
 		}
 		const snapshots = [];
-		for (const file of files) { signal?.throwIfAborted(); snapshots.push(await this.source(file, policy.images === 'keep' && format !== 'txt' ? policy : undefined)); }
+		for (const file of files) { signal?.throwIfAborted(); snapshots.push(await this.source(file, policy, policy.images === 'keep' && format !== 'txt')); }
 		const jobs = merged ? [{ file: null, name: mergedName, document: mergeDocuments(snapshots.map(item => item.document)), signature: snapshots.map(item => item.signature).join('\u0000') }]
 			: snapshots.map((snapshot, index) => ({ file: files[index], name: files.length === 1 && mergedName ? mergedName : files[index].basename, ...snapshot }));
 		const artifacts: ExportArtifact[] = [];

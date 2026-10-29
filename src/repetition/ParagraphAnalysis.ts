@@ -1,4 +1,5 @@
 import { wmT } from '../i18n/index';
+import { projectObsidianComments } from '../comments/ObsidianComments';
 import type { WritingMenuSettings } from '../types';
 
 export type ParagraphKind = 'narration' | 'dialogue' | 'monologue' | 'special';
@@ -48,11 +49,18 @@ export function proseLine(raw: string, mask = ' '): { text: string; masked: stri
 }
 
 export function analyzeParagraphs(source: string, options: ParagraphOptions): ParagraphResult {
+	const projection = projectObsidianComments(source);
+	const result = analyzeVisibleParagraphs(projection.text, options, /^\uFEFF?---\s*\r?\n/.test(source));
+	if (!projection.ranges.length) return result;
+	return { ...result, units: result.units.map(unit => ({ ...unit, from: projection.originalOffset(unit.from), to: projection.originalOffset(unit.to, 'left') })), analysisText: projection.restoreMask(result.analysisText) };
+}
+
+function analyzeVisibleParagraphs(source: string, options: ParagraphOptions, hasProperties: boolean): ParagraphResult {
 	const counts = { narration: 0, dialogue: 0, monologue: 0, special: 0 };
 	const characters = { ...counts };
 	const result: ParagraphResult = { units: [], empty: 0, chars: 0, average: 0, mobileLines: 0, counts, characters, analysisText: '' };
 	const masked: string[] = [];
-	let offset = 0, properties = /^\uFEFF?---\s*\r?\n/.test(source), fence: { character: string; length: number } | null = null;
+	let offset = 0, properties = hasProperties, fence: { character: string; length: number } | null = null;
 	let block: { from: number; to: number; text: string } | null = null;
 	const add = (from: number, to: number, text: string) => {
 		text = text.trim(); if (!text) return;

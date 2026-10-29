@@ -1,9 +1,19 @@
 import { proseLine, type ParagraphKind, type ParagraphResult } from './ParagraphAnalysis';
+import { projectObsidianComments } from '../comments/ObsidianComments';
 
 export interface SentenceUnit { from: number; to: number; text: string; chars: number; kind: ParagraphKind }
 
 /** Punctuation-based prose units, not visual lines. Offsets always address the original Markdown. */
 export function analyzeSentences(source: string, paragraphs: ParagraphResult, countSpaces: boolean): SentenceUnit[] {
+	const projection = projectObsidianComments(source);
+	if (projection.ranges.length) {
+		const visible = { ...paragraphs, units: paragraphs.units.map(unit => ({ ...unit, from: projection.projectedOffset(unit.from), to: projection.projectedOffset(unit.to) })) };
+		return analyzeVisibleSentences(projection.text, visible, countSpaces).map(unit => ({ ...unit, from: projection.originalOffset(unit.from), to: projection.originalOffset(unit.to, 'left') }));
+	}
+	return analyzeVisibleSentences(source, paragraphs, countSpaces);
+}
+
+function analyzeVisibleSentences(source: string, paragraphs: ParagraphResult, countSpaces: boolean): SentenceUnit[] {
 	const sentences: SentenceUnit[] = [];
 	for (const paragraph of paragraphs.units) {
 		// NUL distinguishes removed Markdown syntax from real, countable spaces.

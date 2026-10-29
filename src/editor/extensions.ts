@@ -1,8 +1,9 @@
 import { EditorView, ViewPlugin, Decoration, DecorationSet, ViewUpdate, keymap } from '@codemirror/view';
-import { Extension, RangeSetBuilder, Prec, Transaction } from '@codemirror/state';
+import { EditorState, Extension, RangeSetBuilder, Prec, Transaction } from '@codemirror/state';
 import { MarkdownView } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { HeadingRawWidget } from './HeadingRawWidget';
+import { curvedQuoteAt } from './curvedQuotes';
 
 function appliesToEditor(plugin: WritingMenuPlugin, editor: EditorView): boolean {
 	const leaf = plugin.app.workspace.getLeavesOfType('markdown')
@@ -74,66 +75,101 @@ export function getSmartEnterExtension(plugin: WritingMenuPlugin): Extension {
 
 export function getSmartQuoteExtension(plugin: WritingMenuPlugin): Extension {
 	if (!plugin.settings.enableSmartQuotes) return [];
-	// Obsidian's auto-pair handler is registered first and otherwise consumes quotes.
-	return Prec.highest(EditorView.inputHandler.of((view, from, to, text) => {
-		if (!appliesToEditor(plugin, view)) return false;
-		const pair = text === '"' || text === '“'
-			? { open: '“', close: '”' }
-			: text === "'" || text === '‘'
-				? { open: '‘', close: '’' }
-				: null;
-		if (!pair) return false;
-
-		// Typing the closing key while immediately before an auto-inserted closer
-		// moves over it instead of producing another quote pair.
-		if (from === to && view.state.doc.sliceString(from, from + pair.close.length) === pair.close) {
-			view.dispatch({ selection: { anchor: from + pair.close.length }, scrollIntoView: true });
-			return true;
+	const editors = new WeakMap<EditorState, EditorView>();
+	const applies = (state: EditorState): boolean => {
+		const view = editors.get(state);
+		return Boolean(view && plugin.settings.enableSmartQuotes && appliesToEditor(plugin, view));
+	};
+	// Extend the host's own bracket configuration. Its handler still decides
+	// whether to pair, wrap a selection, skip a closer or delete an empty pair.
+	const languageData: Parameters<typeof EditorState.languageData.of>[0] = (state, pos, side) => {
+		if (!applies(state)) return [];
+		for (const provider of state.facet(EditorState.languageData)) {
+			if (provider === languageData) continue;
+			for (const data of provider(state, pos, side)) {
+				const config = data.closeBrackets as { brackets?: string[] } | undefined;
+				if (!config?.brackets) continue;
+				const brackets = [...config.brackets];
+				if (brackets.includes('"')) brackets.push('“');
+				if (brackets.includes("'")) brackets.push('‘');
+				return [{ closeBrackets: { ...config, brackets } }];
+			}
 		}
-
-		const selected = view.state.doc.sliceString(from, to);
-		const insert = pair.open + selected + pair.close;
-		view.dispatch({
-			changes: { from, to, insert },
-			selection: selected
-				? { anchor: from + pair.open.length, head: from + pair.open.length + selected.length }
-				: { anchor: from + pair.open.length },
-			scrollIntoView: true,
-			userEvent: 'input.type',
-		});
-		return true;
-	}));
+		return [];
+	};
+	const input: Parameters<typeof EditorView.inputHandler.of>[0] = (view, from, to, text, insert) => {
+		editors.set(view.state, view);
+		if (!applies(view.state) || from !== to || (text !== '"' && text !== "'")) return false;
+		const close = text === '"' ? '”' : '’';
+		if (view.state.sliceDoc(from, from + 1) !== close) return false;
+		// Give the existing host handler the curved closing character so its own
+		// tracked pair can be traversed. Untracked quotes are ordinary input.
+		for (const handler of view.state.facet(EditorView.inputHandler)) {
+			if (handler !== input && handler(view, from, to, close, insert)) return true;
+		}
+		return false;
+	};
+	return [
+		Prec.highest(EditorView.inputHandler.of(input)),
+		Prec.highest(EditorState.languageData.of(languageData)),
+		EditorView.updateListener.of(update => { editors.set(update.state, update.view); }),
+		EditorState.transactionFilter.of(tr => {
+			if (!applies(tr.startState) || !tr.docChanged || !tr.isUserEvent('input.type')) return tr;
+			let changed = false;
+			const source = tr.newDoc.toString();
+			const changes: { from: number; to: number; insert: string }[] = [];
+			tr.changes.iterChanges((from, to, fromB, _toB, inserted) => {
+				const value = inserted.toString();
+				const converted = value.replace(/["']/g, (quote, index: number) => {
+					changed = true;
+					const open = quote === '"' ? '“' : '‘', close = quote === '"' ? '”' : '’';
+					if (value === quote + quote && tr.newSelection.ranges.some(range => range.from === fromB + 1)) return index === 0 ? open : close;
+					const selected = tr.startState.selection.ranges.find(range => !range.empty && (from === range.from || from === range.to));
+					if (selected && value === quote) return from === selected.from ? open : close;
+					return curvedQuoteAt(source, fromB + index, quote) ?? quote;
+				});
+				changes.push({ from, to, insert: converted });
+			});
+			// Rewrite only the inserted glyphs in the original spec. Keeping the
+			// original effects/annotations preserves the native pair positions and
+			// makes conversion part of the same undo record as the host's insertion.
+			return changed ? Object.assign({}, tr, { changes, selection: tr.newSelection, scrollIntoView: tr.scrollIntoView }) : tr;
+		}),
+	];
 }
 
 export function getTypewriterExtension(plugin: WritingMenuPlugin): Extension {
 	if (!plugin.settings.enableTypewriterScrolling) return [];
 	return ViewPlugin.fromClass(class {
+		private pendingState: ViewUpdate['state'] | null = null;
+		private scheduled = false;
+		private destroyed = false;
+
 		update(update: ViewUpdate) {
-			if (!appliesToEditor(plugin, update.view)) return;
 			const isUserInput = update.transactions.some((tr: Transaction) => tr.isUserEvent("input") || tr.isUserEvent("delete"));
+			if (!appliesToEditor(plugin, update.view) || !update.state.selection.main.empty) {
+				this.pendingState = null;
+				return;
+			}
+			if (update.selectionSet && !isUserInput) this.pendingState = null;
 			if (!update.docChanged || !isUserInput) return;
-			const head = update.view.state.selection.main.head;
-			if (!update.view.state.selection.main.empty) return;
-			update.view.requestMeasure({
-				key: 'wm-typewriter-center',
-				read: (view) => {
-					if (!appliesToEditor(plugin, view) || head > view.state.doc.length) return null;
-					const cursorCoords = view.coordsAtPos(head);
-					if (!cursorCoords) return null;
-					const scroller = view.scrollDOM;
-					const scrollerRect = scroller.getBoundingClientRect();
-					const diff = cursorCoords.top - (scrollerRect.top + scrollerRect.height / 2);
-					return { diff, scroller };
-				},
-				write: (measure) => {
-					if (!measure || !appliesToEditor(plugin, update.view)) return;
-					const { diff, scroller } = measure;
-					if (Math.abs(diff) > 10) {
-						scroller.scrollTo({ top: scroller.scrollTop + diff, behavior: 'auto' });
-					}
-				}
+			this.pendingState = update.state;
+			if (this.scheduled) return;
+			this.scheduled = true;
+			// Merge centering into CodeMirror's pending scroll target before its layout
+			// pass. Writing scrollTop in requestMeasure fights its native scrolling
+			// and scroll anchoring, and can use an already outdated cursor position.
+			queueMicrotask(() => {
+				this.scheduled = false;
+				const view = update.view;
+				const state = this.pendingState;
+				this.pendingState = null;
+				if (this.destroyed || !state || view.state !== state || !appliesToEditor(plugin, view)) return;
+				view.dispatch({ effects: EditorView.scrollIntoView(state.selection.main.head, { y: 'center' }) });
 			});
 		}
+
+		destroy() { this.destroyed = true; this.pendingState = null; }
 	});
 }
 

@@ -6,6 +6,7 @@ import type { ContentPolicy, DocumentStyle, ExportDefaults } from './DocumentMod
 export function exportContentPolicy(content?: Partial<ContentPolicy>): ContentPolicy {
 	const included = (value: unknown): 'text' | 'exclude' => value === 'text' || value === 'keep' ? 'text' : 'exclude';
 	return { ...DEFAULT_CONTENT, ...content, properties: content?.properties === 'text' ? 'text' : 'exclude',
+		comments: content?.comments === 'keep' ? 'keep' : 'exclude',
 		headings: included(content?.headings), tables: included(content?.tables), footnotes: included(content?.footnotes),
 		images: content?.images === 'keep' ? 'keep' : 'exclude', formatting: content?.formatting === true, spaceIndent: false };
 }

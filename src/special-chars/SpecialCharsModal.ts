@@ -538,16 +538,7 @@ export class SpecialCharsModal extends Modal {
 	private insert(ch: string) {
 		const editor = this.editor ?? this.app.workspace.activeEditor?.editor;
 		if (editor) {
-			const closeQuote = this.plugin.settings.enableSmartQuotes
-				? (ch === '“' ? '”' : ch === '‘' ? '’' : '')
-				: '';
-			if (closeQuote && !editor.somethingSelected()) {
-				const cursor = editor.getCursor();
-				editor.replaceSelection(ch + closeQuote);
-				editor.setCursor({ line: cursor.line, ch: cursor.ch + ch.length });
-			} else {
-				editor.replaceSelection(closeQuote ? ch + editor.getSelection() + closeQuote : ch);
-			}
+			editor.replaceSelection(ch);
 		}
 		if (this.plugin.settings.specialCharCloseOnInsert ?? true) {
 			this.close();

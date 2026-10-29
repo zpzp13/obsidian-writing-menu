@@ -24,7 +24,7 @@ export default [...obsidianmd.configs.recommended, {
 		'@typescript-eslint/prefer-promise-reject-errors': ['error', { allowEmptyReject: false, allowThrowingAny: false, allowThrowingUnknown: false }],
 		'no-console': ['error', { allow: ['warn', 'error', 'debug'] }],
 		'obsidianmd/ui/sentence-case': ['warn', {
-			brands: ['Obsidian', 'Markdown', 'Daum', 'NVIDIA Build', 'Google AI Studio', 'Python', 'Lucide', 'Enter', 'Music Library'],
+			brands: ['Obsidian', 'Markdown', 'Daum', 'NVIDIA Build', 'Google AI Studio', 'Python', 'Lucide', 'Enter', 'Music Library', 'kordoc'],
 			acronyms: ['TXT', 'HWP', 'HWPX', 'PC', 'AI', 'API', 'CLI', 'NVIDIA', 'BGM', 'SVG', 'JSON'],
 			ignoreRegex: ['^inherit$', '^YYYY-MM-DD$', '^nvapi-\\.\\.\\.$', '^AIza\\.\\.\\.$', '^Music/BGM$', String.raw`^C:\\Users\\사용자\\Desktop$`],
 			enforceCamelCaseLower: true,

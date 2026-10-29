@@ -1,4 +1,5 @@
 import { wmT } from '../i18n/index';
+import { projectObsidianComments } from '../comments/ObsidianComments';
 import { Platform, TFile, Notice, WorkspaceLeaf, MarkdownView } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { PagedWritingView } from '../paged/PagedWritingView';
@@ -54,7 +55,7 @@ export async function copyWithOptions(plugin: WritingMenuPlugin, leaf: Workspace
     if (!(view instanceof MarkdownView) && !(view instanceof PagedWritingView)) return;
     if (!plugin.shouldApplyToFile(view.file)) return;
     const source = view instanceof MarkdownView ? view.editor.getValue() : view.getEditableData();
-    let bodyText = plugin.cleanMarkdownFrontmatter(source);
+    let bodyText = plugin.cleanMarkdownFrontmatter(plugin.settings.copyExcludeComments !== false ? projectObsidianComments(source).text : source);
     if (plugin.settings.copyExcludeHeadings) bodyText = stripMarkdownHeadings(bodyText);
     let lines = bodyText.split('\n');
     if (plugin.settings.copyExcludeFootnotes) {

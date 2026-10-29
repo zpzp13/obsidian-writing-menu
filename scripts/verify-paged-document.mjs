@@ -1,10 +1,15 @@
 import { PagedWritingView } from '../src/paged/PagedWritingView';
 import { DEFAULT_SETTINGS } from '../src/types';
 import { runPagedStoreChecks } from './verify-paged-store.mjs';
+import { runPagedBoundaryChecks } from './verify-paged-boundaries.mjs';
+import { runEditorScrollingChecks } from './verify-editor-scrolling.mjs';
+import { installNativePagedInputChecks } from './verify-paged-native-input.mjs';
 
 // Real contenteditable DOM and virtual workspace events; no vault writes.
 export async function runPagedDocumentChecks() {
 	await runPagedStoreChecks();
+	await runEditorScrollingChecks();
+	installNativePagedInputChecks();
 	const assert=(value,message)=>{if(!value)throw new Error(message);};
 	const callbacks=new Map();
 	const workspace={on(name,action){const ref={name,action};callbacks.set(ref,action);return ref;},offref(ref){callbacks.delete(ref);},
@@ -49,6 +54,7 @@ export async function runPagedDocumentChecks() {
 			assert(down.defaultPrevented&&view.cachedSelectionPageIndex===index+1,'Empty last line still needs two Down presses');tested=true;break;
 		}
 		assert(tested,'The page-boundary fixture lacks a trailing blank line');
+		await runPagedBoundaryChecks(view, plugin);
 		const batchSource = prefix+'첫 문장\n보존할 문장\n마지막 문장';
 		view.setViewData(batchSource,true);
 		const adapter=view.getEditorAdapter();
@@ -67,18 +73,22 @@ export async function runPagedDocumentChecks() {
 		for (const [straight, open, close] of [['"','“','”'], ["'",'‘','’']]) {
 			view.setViewData('',true);view.placeCaretInPage(0,0,false);
 			const input = text => view.editRootEl.dispatchEvent(new InputEvent('beforeinput',{inputType:'insertText',data:text,bubbles:true,cancelable:true}));
-			input(straight);assert(view.getEditableData()===open+close,'Paged smart quote did not create a curly pair');
+			input(straight);assert(view.getEditableData()===open+close,'Paged quote conversion lost native automatic closing');
 			input('한글');input(straight);
 			assert(view.getEditableData()===open+'한글'+close&&view.readSelection().head===4,'Paged closing quote duplicated its closer or lost the Korean text');
 			view.setViewData('선택',true);view.restoreSelection({anchor:0,head:2},true);input(straight);
-			assert(view.getEditableData()===open+'선택'+close,'Paged smart quote did not wrap selected text');
+			assert(view.getEditableData()===open+'선택'+close,'Paged quote conversion lost native selection wrapping');
 		}
 		plugin.settings.enableSmartQuotes = false;
 		view.setViewData('',true);view.placeCaretInPage(0,0,false);
 		view.editRootEl.dispatchEvent(new InputEvent('beforeinput',{inputType:'insertText',data:'"',bubbles:true,cancelable:true}));
-		assert(view.getEditableData()==='"','Paged smart quote toggle did not disable replacement');
+		assert(view.getEditableData()==='""','Disabling smart quotes disabled native automatic closing');
+		view.app.vault={getConfig:()=>false};plugin.settings.enableSmartQuotes=true;
+		view.setViewData('',true);view.placeCaretInPage(0,0,false);
+		view.editRootEl.dispatchEvent(new InputEvent('beforeinput',{inputType:'insertText',data:'"',bubbles:true,cancelable:true}));
+		assert(view.getEditableData()==='“','Paged quotes ignored the disabled native automatic closing setting');
 		plugin.settings.enableSmartQuotes = savedSmartQuotes;
-		console.info('Paged double/single smart quotes, Korean text, closing traversal, selection wrapping and disabling passed');
+		console.info('Paged smart quote glyphs, native automatic-closing setting, Korean text, wrapping and disabling passed');
 		view.setViewData(source,true);
 		let disk=source;const backups=new Map(),folders=new Set();
 		view.app.vault={async read(){return disk;},async process(file,action){disk=action(disk);return disk;},adapter:{

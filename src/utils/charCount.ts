@@ -1,5 +1,7 @@
+import { markdownBodyStart, projectObsidianComments } from '../comments/ObsidianComments';
+
 function preprocessContent(text: string): string {
-	const body = text.replace(/^---\s*\n.*?\n---\s*\n?/s, '').trim();
+	const body = projectObsidianComments(text.slice(markdownBodyStart(text))).text.trim();
 	const kept: string[] = [];
 	for (const rawLine of body.split('\n')) {
 		let line = rawLine.trim();

@@ -25,6 +25,7 @@ import { runPagedDocumentChecks } from './verify-paged-document.mjs';
 import { runWorktimePaletteChecks } from './verify-worktime-palette.mjs';
 import { verifySnapshotStatus } from './verify-snapshot-status.mjs';
 import { verifyChatAvatars } from './verify-chat-avatar.mjs';
+import { CalendarView } from '../src/calendar/views/CalendarView';
 
 export async function runDashboardCoreChecks() {
 	const assert = (value, message) => { if (!value) throw new Error(message); };
@@ -74,6 +75,16 @@ export async function runDashboardCoreChecks() {
 	const cm = new EditorView({parent:host,state:EditorState.create({doc:currentSource,extensions:[history()]})});
 	view.editor = {cm,getValue:()=>cm.state.doc.toString(),offsetToPos(offset){const line=cm.state.doc.lineAt(offset);return {line:line.number-1,ch:offset-line.from};},getSelection:()=>'',transaction(){throw new Error('CM-backed restore must use isolated native history');},focus(){cm.focus();},setSelection(){},scrollIntoView(){}};
 	const documentPlugin = {...plugin,app,registerEvent(ref){this.refs??=[];this.refs.push(ref);},projectContext:{getProjectForFile:()=>({rootFolder:'Project',manuscriptFolder:'Project',characterFolder:'Project/Characters'})}};
+	const reviewHost = document.body.createDiv(); reviewHost.createDiv(); reviewHost.createDiv();
+	const reviewCalendar = new CalendarView({ containerEl: reviewHost, app }, documentPlugin);
+	const reviewWrap = reviewHost.children[1].createDiv({ cls: 'wm-cal-wrapper' });
+	reviewCalendar.renderDashboardTabBar(reviewWrap);
+	const reviewTab = reviewWrap.querySelector('[aria-label="Review"]');
+	assert(reviewWrap.querySelectorAll('[role="tab"]').length === 5 && reviewTab?.querySelector('svg')?.dataset.icon === 'star', 'Review tab or its star icon is missing');
+	reviewTab.click();
+	assert(reviewTab.getAttribute('aria-selected') === 'true' && reviewWrap.querySelector('.wm-dash-panel')?.childElementCount === 0, 'Review placeholder did not open as an empty panel');
+	await reviewCalendar.onClose(); reviewHost.remove();
+	if (globalThis.runOnlyReviewTab) { cm.destroy(); host.remove(); return; }
 	const commandPlugin = {...documentPlugin,projectContext:{getProjectForFile:file=>file.path.startsWith('Project/')?{id:'project'}:null,getProjects:()=>[{id:'project'}]}};
 	assert(snapshotTarget(commandPlugin,{view})?.kind==='manuscript','Snapshot command did not resolve the explicit manuscript');
 	assert(snapshotTarget(commandPlugin,{view:{}})===null,'Snapshot command fell back to a remembered manuscript from an unrelated view');

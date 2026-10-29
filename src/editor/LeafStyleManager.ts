@@ -7,6 +7,7 @@ import { PagedWritingView, PAGED_WRITING_VIEW_TYPE } from '../paged/PagedWriting
 import type { EditorView } from '@codemirror/view';
 import { setRepetitionHighlights } from './repetitionHighlight';
 import { setSpellcheckHighlights } from './spellcheckHighlight';
+import { ZenFullscreen } from './ZenFullscreen';
 
 type PlatformCharCounts = { munpia: number; novelpia: number };
 
@@ -15,6 +16,7 @@ const LARGE_PAGED_COUNT_IDLE_DELAY = 500;
 
 export class LeafStyleManager {
 	private charCountCache: { path: string; text: string; counts: PlatformCharCounts } | null = null;
+	private readonly fullscreen = new ZenFullscreen();
 
 	constructor(private plugin: WritingMenuPlugin) {}
 
@@ -236,16 +238,12 @@ export class LeafStyleManager {
 	}
 
 	applyZenState(state: 'off' | 'wide' | 'focus', leaf?: WorkspaceLeaf) {
-		const prevState = this.plugin.zenState;
 		this.plugin.zenState = state;
 
 		if (state === 'off') {
 			// 전체화면 이벤트를 기다리지 않고 먼저 UI를 복원한다. Electron/브라우저가
 			// fullscreenchange를 누락해도 탭이 숨겨진 채 남지 않아야 한다.
 			this.exitZenFocus();
-			if (prevState === 'focus' && activeDocument.fullscreenElement) {
-				void activeDocument.exitFullscreen().catch(() => {});
-			}
 			return;
 		}
 
@@ -253,7 +251,7 @@ export class LeafStyleManager {
 			activeDocument.body.classList.remove('wm-focus-mode');
 			this.clearZenLeaf();
 			if (this.plugin.zenLeafEventRef) { this.plugin.app.workspace.offref(this.plugin.zenLeafEventRef); this.plugin.zenLeafEventRef = null; }
-			if (prevState === 'focus' && activeDocument.fullscreenElement) void activeDocument.exitFullscreen().catch(() => {});
+			this.fullscreen.exit();
 			activeDocument.body.classList.add('wm-wide-mode');
 			this.plugin.toolbarManager.refreshZenModeButtons();
 			return;
@@ -261,10 +259,10 @@ export class LeafStyleManager {
 
 		// 집중 UI는 전체화면 성공 여부와 무관하게 즉시 적용한다. 전체화면은 부가 효과다.
 		this.activateFocusMode(leaf);
-		if (!activeDocument.fullscreenElement) {
-			void activeDocument.documentElement.requestFullscreen().catch(() => {});
-		}
+		this.fullscreen.enter(activeDocument);
 	}
+
+	isFullscreen(): boolean { return this.fullscreen.isActive(activeDocument); }
 
 	exitZenFocus() {
 		this.plugin.zenState = 'off';
@@ -274,6 +272,7 @@ export class LeafStyleManager {
 			this.plugin.app.workspace.offref(this.plugin.zenLeafEventRef);
 			this.plugin.zenLeafEventRef = null;
 		}
+		this.fullscreen.exit();
 		this.plugin.toolbarManager.refreshZenModeButtons();
 	}
 

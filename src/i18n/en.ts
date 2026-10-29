@@ -1,5 +1,9 @@
 // English UI catalog. Korean source messages are stable translation keys.
 export const en = {
+	'주석': 'Comments',
+	'복사할 때 %% 주석과 내용을 포함합니다.': 'Include %% comments and their content when copying.',
+	'%% 주석 구분자와 내용을 포함합니다.': 'Include %% comment delimiters and their content.',
+	'헤딩·각주·주석을 제외하는 복사 동작을 설정합니다.': 'Configure copying without headings, footnotes, and comments.',
 	"양식": "Formatting",
 	"문서": "Documents",
 	"문서 내보내기: TXT·DOCX·HWPX 미리보기에서 원고를 선택·정렬하고 개별 저장하거나 하나로 병합합니다.": "Document export: select and reorder manuscripts in TXT, DOCX and HWPX previews, then save separately or merge into one document.",

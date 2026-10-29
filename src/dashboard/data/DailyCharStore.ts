@@ -20,6 +20,7 @@ interface TodayData {
 
 interface TodayStorage {
 	today: TodayData | null;
+	countPolicyVersion?: number;
 	trackingFolder?: string;
 	charMode?: string;
 }
@@ -51,10 +52,11 @@ export class DailyCharStore {
 			if (this.storage.today) await this.compactDay(this.storage.today);
 			this.storage.today = { date: todayStr, start: await this.snapshotAll(), current: {}, carried: {} };
 			this.scheduleSave();
-		} else if (modeChanged) {
+		} else if (modeChanged || this.storage.countPolicyVersion !== 1) {
 			await this.rollCurrentDeltasIntoCarried();
 			this.scheduleSave();
 		}
+		if (this.storage.countPolicyVersion !== 1) { this.storage.countPolicyVersion = 1; this.scheduleSave(); }
 
 		await this.computeAvg();
 		this.ready = true;
@@ -402,6 +404,7 @@ export class DailyCharStore {
 				today:          parsed.today ?? null,
 				trackingFolder: parsed.trackingFolder,
 				charMode:       parsed.charMode,
+				countPolicyVersion: parsed.countPolicyVersion,
 			};
 		} catch {
 			this.storage = { today: null };

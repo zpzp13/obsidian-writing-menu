@@ -175,6 +175,7 @@ export class ExportControls {
     private render(): void {
         this.dispose(); this.host.addClass('wm-export-controls');
         const content = exportSection(this.host, wmT('추출 범위'));
+        exportToggle(content, wmT('주석'), this.draft.content.comments === 'keep', value => { this.draft.content.comments = value ? 'keep' : 'exclude'; this.changed(); }, 'message-square');
         exportToggle(content, wmT('속성'), this.draft.content.properties === 'text', value => { this.draft.content.properties = value ? 'text' : 'exclude'; this.changed(); }, 'list-filter');
         for (const [key, label, icon] of [['headings', wmT('헤딩'), 'heading'], ['tables', wmT('표'), 'table'], ['footnotes', wmT('각주'), 'superscript']] as const) {
             exportToggle(content, label, this.draft.content[key] !== 'exclude', value => { this.draft.content[key] = value ? 'text' : 'exclude'; this.changed(); }, icon);

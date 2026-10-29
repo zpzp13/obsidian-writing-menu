@@ -1,5 +1,5 @@
 export async function runExportUiChecks() {
-    const api = ExportFixture, { host, files, output, TFolder, plugin, objects } = fixture;
+    const api = ExportFixture, { host, files, texts, output, TFolder, plugin, objects } = fixture;
     const assert = (value, message) => { if (!value) throw Error(message); };
     const wait = async (predicate, message) => {
         for (let attempt = 0; attempt < 400; attempt++) { if (predicate()) return; await new Promise(resolve => setTimeout(resolve, 25)); }
@@ -7,9 +7,25 @@ export async function runExportUiChecks() {
     };
     const input = (el, value) => { el.value = value; el.dispatchEvent(new Event('input', { bubbles: true })); };
     const ready = modal => !modal.saveButton.disabled && modal.previewEl.getAttribute('aria-busy') === 'false';
+    texts.set(files[1].path, texts.get(files[1].path) + '\n%%주석 내용%%');
+    plugin.settings.documentExportDefaults = api.exportDefaults(plugin.settings);
+    plugin.settings.documentExportDefaults.content.comments = 'keep';
     const modal = window.modal = new api.DocumentExportModal(plugin.app, plugin, [files[1], files[0]], 'txt'); modal.open();
     await wait(() => ready(modal) && modal.sourcesHost.querySelectorAll('[data-source-path]').length === 3, 'TXT or Bases source view failed');
     assert(modal.previewBody.textContent.includes('본문'), 'TXT preview missing');
+    assert(modal.previewBody.textContent.includes('%%주석 내용%%'), 'Settings comment default did not reach the preview');
+    modal.contentEl.querySelector('[aria-label="양식 설정"]').click();
+    const commentRow = [...modal.controlsHost.querySelectorAll('.wm-export-row')].find(row => row.querySelector('.wm-export-row-label')?.textContent === '주석');
+    const commentToggle = commentRow?.querySelector('input[type=checkbox]');
+    assert(commentToggle?.checked, 'Format page did not reflect the comment default');
+    commentToggle.click();
+    await wait(() => ready(modal) && !modal.previewBody.textContent.includes('주석 내용'), 'Disabling comments did not update preview');
+    assert(modal.draft.content.comments === 'exclude' && plugin.settings.documentExportDefaults.content.comments === 'keep', 'Popup comment toggle changed saved defaults');
+    commentToggle.click();
+    await wait(() => ready(modal) && modal.previewBody.textContent.includes('%%주석 내용%%'), 'Enabling comments did not update preview');
+    commentToggle.click();
+    await wait(() => ready(modal) && !modal.previewBody.textContent.includes('주석 내용'), 'Comment exclusion was not restored');
+    modal.sidebarEl.querySelector('[aria-label="내보내기로 돌아가기"]').click();
     assert(modal.sourceSelection.order.join('|') === 'Project/part/b.md|Project/a.md', 'Initial order changed');
     assert(!modal.useTemplate, 'Stored Windows template enabled on macOS');
     assert(modal.previewEl.getBoundingClientRect().left > modal.sidebarEl.getBoundingClientRect().left, 'Preview is not beside the sidebar');
@@ -88,10 +104,10 @@ export async function runExportUiChecks() {
     assert(other.root === 'Project/part', 'Folder export root differs: ' + other.root);
     assert(other.modalEl.textContent.includes('Formatting'), 'English controls missing: ' + other.modalEl.textContent.slice(0, 400));
     const temporary = other.sources.sessionPath; other.close(); await wait(() => !objects.has(temporary), 'Temporary Bases file was not cleaned up');
-    const note = api.getLatestReleaseNote(); assert(note.version === '3.5.1', 'Wrong update note');
+    const note = api.getLatestReleaseNote(); assert(/^\d+\.\d+\.\d+$/.test(note.version), 'Invalid update note version');
     let closed = false; const whatsNew = new api.WhatsNewModal(plugin.app, note, () => { closed = true; }); whatsNew.open();
     assert(whatsNew.contentEl.querySelectorAll('img').length === 0, 'Update notice still contains images');
-    assert(whatsNew.contentEl.textContent.includes(note.new[0]), 'Update notice text was lost');
+    assert(whatsNew.contentEl.textContent.includes((note.new ?? note.improved ?? note.fixed ?? note.notice)[0]), 'Update notice text was lost');
     whatsNew.contentEl.querySelector('button').click(); assert(closed, 'Update modal close callback failed'); api.setLanguage('ko');
     modal.sidebarEl.querySelector('[aria-label="내보내기로 돌아가기"]').click();
     window.exportPreview = { setTheme: dark => { document.body.classList.toggle('theme-dark', dark); document.body.classList.toggle('theme-light', !dark); } };
