@@ -12,6 +12,17 @@ interface ReleaseNote {
 
 const RELEASE_NOTES: ReleaseNote[] = [
 	{
+		version: '3.5.4',
+		date: '2026-10-29',
+		new: [
+			wmT('Obsidian %%…%% 주석을 글자 수와 퇴고 분석에서 제외하고, 복사·문서 내보내기에 포함할지 설정할 수 있습니다.'),
+		],
+		improved: [
+			wmT('여러 쪽 보기의 입력·한글 조합·타자기 스크롤과 창 메뉴·집중 모드 전체 화면 동작을 개선했습니다.'),
+			wmT('스마트 따옴표와 특수문자 입력, HWPX 문서 엔진 설정을 다듬었습니다.'),
+		],
+	},
+	{
 		version: '3.5.2',
 		date: '2026-10-26',
 		improved: [wmT('기존 디자인을 유지하며 플러그인 검사 기준에 맞게 코드를 정리했습니다.')],
