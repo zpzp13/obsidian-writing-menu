@@ -7,6 +7,7 @@ import type WritingMenuPlugin from '../../main';
 import { PagedWritingView } from '../paged/PagedWritingView';
 import { splitPagedFrontmatter } from '../paged/PagedFileStore';
 import { textEdits } from '../utils/TextEdits';
+import { parseInlineMarkdown, sourceOffsetToVisible } from '../paged/MarkdownInlineFormat';
 
 type WritingView = MarkdownView | PagedWritingView;
 const recentViews = new WeakMap<WritingMenuPlugin, WritingView>();
@@ -76,11 +77,14 @@ function documentForView(view: WritingView): WritingDocument {
 		},
 		select(expected, from, to) {
 			assert(expected);
-			const prefix = view instanceof PagedWritingView ? splitPagedFrontmatter(expected).prefix.length : 0;
+			const paged = view instanceof PagedWritingView;
+			const { prefix: properties, body } = splitPagedFrontmatter(expected);
+			const prefix = paged ? properties.length : 0;
 			if (from < prefix) throw new Error(wmT("속성 영역은 마크다운 편집기에서 확인해 주세요."));
 			editor.focus();
-			const start = editor.offsetToPos(Math.max(0, from - prefix));
-			const end = editor.offsetToPos(Math.max(0, to - prefix));
+			const parsed = paged ? parseInlineMarkdown(body) : null;
+			const start = editor.offsetToPos(parsed ? sourceOffsetToVisible(parsed, from - prefix) : from);
+			const end = editor.offsetToPos(parsed ? sourceOffsetToVisible(parsed, to - prefix) : to);
 			editor.setSelection(start, end);
 			editor.scrollIntoView({ from: start, to: end }, true);
 		},

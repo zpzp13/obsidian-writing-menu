@@ -12,14 +12,8 @@ import { getDnConfig } from '../utils/dailyNoteUtils';
 import { toHMS } from '../utils/timeUtils';
 import { WritingTimeChart, type DailyModeTime } from './WritingTimeChart';
 import { processWritingFrontmatter } from '../writing/WritingFrontmatter';
+import { getModeIcon } from './timeModes';
 
-const getModeIcon = (mode: TimeModeConfig): string => {
-	if (mode.icon) return mode.icon;
-	const defaults: Record<string, string> = {
-		draft: 'lightbulb', writing: 'pencil', editing: 'spell-check',
-	};
-	return defaults[mode.id] ?? 'clock';
-};
 
 interface ModeCardEls {
 	timeEl: HTMLElement;
@@ -316,6 +310,7 @@ export class WritingTimeSection {
 					selectedMode = mode.id;
 					plugin.settings.currentTimeMode = mode.id;
 					plugin.saveSettings().catch(() => {});
+					plugin.toolbarManager.refreshAllToolbars();
 					const f = getTimeFile();
 					if (f) {
 						const t = WritingTimeStore.getFileTime(app, f, modes, totalKey, plugin.pendingTimeUpdates);

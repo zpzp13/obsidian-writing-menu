@@ -3,8 +3,38 @@ import { projectObsidianComments } from '../comments/ObsidianComments';
 import footnote from 'markdown-it-footnote';
 import type Token from 'markdown-it/lib/token.mjs';
 import type { ContentPolicy, DocumentBlock, DocumentStyle, ParagraphBlock, SourceRange, TextRun, TransferDocument } from './DocumentModel';
+import { highlightExportColor, readHighlightPrefix } from '../utils/ObsidianHighlights';
 
-const markdown = new MarkdownIt({ html: false, linkify: false, typographer: false }).use(footnote);
+const markdown = new MarkdownIt({ html: true, linkify: false, typographer: false }).disable('html_block').use(footnote);
+markdown.inline.ruler.before('emphasis', 'wm-highlight', (state, silent) => {
+	if (silent || !state.src.startsWith('==', state.pos)) return false;
+	const scanned = state.scanDelims(state.pos, true);
+	// Same rule as Obsidian (and the paged editor): `==` opens before non-space
+	// and closes after non-space, even inside a word or before a color emoji.
+	const before = state.pos > 0 ? state.src[state.pos - 1] : '', after = state.src[state.pos + scanned.length] ?? '';
+	const canOpen = after !== '' && !/\s/u.test(after), canClose = before !== '' && !/\s/u.test(before);
+	let offset = 0;
+	if (scanned.length % 2) { state.push('text', '', 0).content = '='; offset++; }
+	for (; offset < scanned.length; offset += 2) {
+		state.push('text', '', 0).content = '==';
+		state.delimiters.push({ marker: 61, length: 0, token: state.tokens.length - 1, end: -1, open: canOpen, close: canClose });
+	}
+	state.pos += scanned.length;
+	return true;
+});
+markdown.inline.ruler2.before('fragments_join', 'wm-highlight', state => {
+	for (const delimiters of [state.delimiters, ...state.tokens_meta.flatMap(meta => meta?.delimiters ? [meta.delimiters] : [])]) {
+		for (const delimiter of delimiters) if (delimiter.marker === 61 && delimiter.end >= 0) {
+			const open = state.tokens[delimiter.token], close = state.tokens[delimiters[delimiter.end].token];
+			open.type = 'wm_highlight_open'; close.type = 'wm_highlight_close'; open.content = ''; close.content = '';
+			const content = state.tokens[delimiter.token + 1];
+			const prefix = readHighlightPrefix(content?.type === 'text' ? content.content : '');
+			open.meta = { color: prefix.color };
+			if (prefix.length) content.content = content.content.slice(prefix.length);
+		}
+	}
+	return true;
+});
 // CommonMark trims indentation and whitespace around soft breaks for HTML. A
 // document transfer must keep those characters, including tabs, in its text.
 markdown.inline.ruler.at('newline', (state, silent) => {
@@ -25,6 +55,7 @@ function footnoteId(token: Token): string {
 }
 function inlineRuns(tokens: Token[], inherited: Partial<TextRun> = {}): TextRun[] {
 	const runs: TextRun[] = [], flags: Partial<TextRun> = { ...inherited };
+	const htmlStack: Array<{ tag: string; flags: Partial<TextRun> }> = [], highlights: Array<TextRun['background']> = [];
 	const append = (text: string): void => {
 		// Obsidian embeds have no CommonMark token. Resolve them without rewriting source offsets.
 		const pattern = /!\[\[([^\]\n]+)\]\]|\[\[([^\]\n]+)\]\]/g;
@@ -45,13 +76,39 @@ function inlineRuns(tokens: Token[], inherited: Partial<TextRun> = {}): TextRun[
 		else if (token.type === 'em_close') delete flags.italic;
 		else if (token.type === 's_open') flags.strike = true;
 		else if (token.type === 's_close') delete flags.strike;
+		else if (token.type === 'wm_highlight_open') { highlights.push(flags.background); flags.background = highlightExportColor((token.meta as { color?: string } | null)?.color); }
+		else if (token.type === 'wm_highlight_close') { flags.background = highlights.pop(); }
+		else if (token.type === 'html_inline') {
+			const tag = token.content, closing = /^<\/(u|span|strong|em|mark)\s*>$/i.exec(tag);
+			const simple = /^<(u|strong|em)\s*>$/i.exec(tag);
+			const span = /^<span\s+style\s*=\s*["']\s*(color|background-color)\s*:\s*(#[0-9a-f]{6})\s*;?\s*["']\s*>$/i.exec(tag);
+			// <mark> is the HTML form of a highlight (used where it overlaps <span>/<u>).
+			const mark = /^<mark\b[^>]*>$/i.exec(tag);
+			if (mark) {
+				htmlStack.push({ tag: 'mark', flags: { ...flags } });
+				flags.background = highlightExportColor(/data-highlight\s*=\s*["']([a-z]+)["']/i.exec(tag)?.[1]?.toLowerCase());
+			} else if (closing && htmlStack.at(-1)?.tag === closing[1].toLowerCase()) {
+				const previous = htmlStack.pop()!.flags;
+				for (const key of ['underline', 'bold', 'italic', 'color', 'background'] as const) {
+					delete flags[key]; Object.assign(flags, { [key]: previous[key] });
+				}
+			} else if (simple || span) {
+				htmlStack.push({ tag: simple ? simple[1].toLowerCase() : 'span', flags: { ...flags } });
+				if (simple) {
+					if (simple[1].toLowerCase() === 'u') flags.underline = true;
+					else if (simple[1].toLowerCase() === 'strong') flags.bold = true;
+					else flags.italic = true;
+				} else if (span![1].toLowerCase() === 'color') flags.color = span![2].toLowerCase();
+				else flags.background = '#ffff00';
+			} else append(tag);
+		}
 		else if (token.type === 'link_open') flags.href = attribute(token, 'href');
 		else if (token.type === 'link_close') delete flags.href;
 		else if (token.type === 'softbreak' || token.type === 'hardbreak') append('\n');
 		else if (token.type === 'image') runs.push({ ...flags, text: token.content, image: attribute(token, 'src') });
 		else if (token.type === 'footnote_ref') runs.push({ ...flags, text: '', footnote: footnoteId(token) });
 		else if (token.type === 'footnote_inline') append(token.content);
-		else if (token.type === 'text' || token.type === 'code_inline' || token.type === 'html_inline') append(token.content);
+		else if (token.type === 'text' || token.type === 'code_inline') append(token.content);
 	}
 	return runs;
 }

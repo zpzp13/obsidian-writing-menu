@@ -8,8 +8,10 @@ import type WritingMenuPlugin from '../../../main';
 import { calcSnapshotCharCount } from '../../utils/charCount';
 import { formatDateKey } from '../../utils/dateUtils';
 import { getDnConfig } from '../../utils/dailyNoteUtils';
+import { hasDailyCharRecord, readDailyCharCount, writeDailyCharCount } from './DailyCharRecord';
 
 const STORE_PATH = '.writing-menu-today.json';
+const COUNT_POLICY_VERSION = 2;
 
 interface TodayData {
 	date: string;
@@ -52,11 +54,11 @@ export class DailyCharStore {
 			if (this.storage.today) await this.compactDay(this.storage.today);
 			this.storage.today = { date: todayStr, start: await this.snapshotAll(), current: {}, carried: {} };
 			this.scheduleSave();
-		} else if (modeChanged || this.storage.countPolicyVersion !== 1) {
+		} else if (modeChanged || this.storage.countPolicyVersion !== COUNT_POLICY_VERSION) {
 			await this.rollCurrentDeltasIntoCarried();
 			this.scheduleSave();
 		}
-		if (this.storage.countPolicyVersion !== 1) { this.storage.countPolicyVersion = 1; this.scheduleSave(); }
+		if (this.storage.countPolicyVersion !== COUNT_POLICY_VERSION) { this.storage.countPolicyVersion = COUNT_POLICY_VERSION; this.scheduleSave(); }
 
 		await this.computeAvg();
 		this.ready = true;
@@ -258,8 +260,8 @@ export class DailyCharStore {
 			if (!parsedDate.isValid()) continue;
 			const fm = this.plugin.app.metadataCache.getFileCache(file)?.frontmatter;
 			if (!fm) continue;
-			const v: unknown = fm[key];
-			if (typeof v === 'number' && v > 0) {
+			const v = readDailyCharCount(fm, parsedDate.format('YYYY-MM-DD'), key);
+			if (v !== null && v > 0) {
 				values.push(v);
 				this.dailyHistory.set(parsedDate.format('YYYY-MM-DD'), v);
 			}
@@ -312,6 +314,7 @@ export class DailyCharStore {
 	}
 
 	private async writeCharCountToDailyNote(dateStr: string, charCount: number) {
+		if (!Number.isSafeInteger(charCount) || charCount < 0) return;
 		const key    = this.plugin.settings.dailyCharCountKey || '글자수';
 		const { folder, format } = getDnConfig(this.plugin);
 		const name   = moment(dateStr, 'YYYY-MM-DD').format(format);
@@ -324,8 +327,12 @@ export class DailyCharStore {
 		// 현재 편집 중인 파일과 같으면 병합 충돌 유발 — 저장 건너뜀
 		const activeFile = this.plugin.app.workspace.getActiveFile();
 		if (activeFile?.path === dnFile.path) return;
+		const cached = this.plugin.app.metadataCache.getFileCache(dnFile)?.frontmatter;
+		if (cached && hasDailyCharRecord(cached, dateStr, key, charCount)) return;
 		try {
-			await this.plugin.app.fileManager.processFrontMatter(dnFile, (fm: Record<string, unknown>) => { fm[key] = charCount; });
+			await this.plugin.app.fileManager.processFrontMatter(dnFile, (fm: Record<string, unknown>) => {
+				writeDailyCharCount(fm, dateStr, key, charCount);
+			});
 		} catch { /* intentional */ }
 	}
 

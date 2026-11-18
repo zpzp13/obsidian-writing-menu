@@ -18,7 +18,7 @@ export interface TextSubstitution {
 	enabled: boolean;
 }
 
-export type WritingWidgetId = 'munpia' | 'novelpia' | 'timer';
+export type WritingWidgetId = 'munpia' | 'novelpia' | 'mode' | 'timer';
 
 export type ColorThemeMode = 'light' | 'dark';
 
@@ -104,9 +104,13 @@ export interface WritingMenuSettings {
 	pagedTextBackgrounds: Record<string, PagedTextColorRange[]>;
 	pagedInlineFormats: Record<string, PagedInlineFormatRange[]>;
 	pagedParagraphAlignments: Record<string, PagedParagraphAlignment[]>;
+	/** Frontmatter length the stored paged style offsets were written against, per file. */
+	pagedStyleFrontmatterLengths: Record<string, number>;
 	pagedDefaultAlignment: PagedParagraphAlignmentValue;
 	pagedLastTextColor: string;
 	pagedLastBackgroundColor: string;
+	/** Custom text colors, most recent first (max 10). */
+	pagedRecentTextColors: string[];
 	plotWorkbookLastTextColor: ThemeAwareColor;
 	plotWorkbookLastBackgroundColor: ThemeAwareColor;
 	plotCharacterLinkOpenMode: 'tab' | 'current' | 'sidebar';
@@ -136,7 +140,9 @@ export interface WritingMenuSettings {
 	showMunpiaWidget: boolean;
 	showNovelpiaWidget: boolean;
 	showTimerWidget: boolean;
+	showModeWidget: boolean;
 	writingWidgetOrder: WritingWidgetId[];
+	writingWidgetAlignment: 'left' | 'center' | 'right';
 	markdownToolbarAutoHide: boolean;
 	pagedToolbarAutoHide: boolean;
 	statCardDisplay: 'munpia' | 'novelpia' | 'both';
@@ -284,9 +290,11 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	pagedTextBackgrounds: {},
 	pagedInlineFormats: {},
 	pagedParagraphAlignments: {},
+	pagedStyleFrontmatterLengths: {},
 	pagedDefaultAlignment: 'left',
 	pagedLastTextColor: '',
 	pagedLastBackgroundColor: '',
+	pagedRecentTextColors: [],
 	plotWorkbookLastTextColor: { light: '#202020', dark: '#f1f1f1' },
 	plotWorkbookLastBackgroundColor: { light: '#fef3c7', dark: '#514719' },
 	plotCharacterLinkOpenMode: 'sidebar',
@@ -337,7 +345,9 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	showMunpiaWidget: true,
 	showNovelpiaWidget: false,
 	showTimerWidget: false,
-	writingWidgetOrder: ['munpia', 'novelpia', 'timer'],
+	showModeWidget: false,
+	writingWidgetOrder: ['munpia', 'novelpia', 'mode', 'timer'],
+	writingWidgetAlignment: 'center',
 	markdownToolbarAutoHide: false,
 	pagedToolbarAutoHide: false,
 	statCardDisplay: 'both',

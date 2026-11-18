@@ -1,4 +1,5 @@
 import { markdownBodyStart, projectObsidianComments } from '../comments/ObsidianComments';
+import { parseInlineMarkdown } from '../paged/MarkdownInlineFormat';
 
 function preprocessContent(text: string): string {
 	const body = projectObsidianComments(text.slice(markdownBodyStart(text))).text.trim();
@@ -21,7 +22,7 @@ function countBase(base: string, mode: 'munpia' | 'novelpia'): number {
 }
 
 export function calcSnapshotCharCount(text: string, mode: 'munpia' | 'novelpia'): number {
-	return countBase(preprocessContent(text), mode);
+	return countBase(preprocessContent(parseInlineMarkdown(text.slice(markdownBodyStart(text))).visible), mode);
 }
 
 /** 전처리를 한 번만 수행하고 두 플랫폼 글자수를 함께 반환 */

@@ -292,9 +292,11 @@ export function createSelectionExtension(plugin: WritingMenuPlugin): Extension {
 		if (!update.selectionSet) return;
 		const selection = update.state.selection.main;
 		const currentLength = selection.to - selection.from;
-		if (currentLength === lastSelectionLength && currentLength === 0) return;
+		const previousLength = lastSelectionLength;
 		lastSelectionLength = currentLength;
-		if (currentLength > 0 || lastSelectionLength > 0) {
+		// Compare with the previous length (not the just-updated one) so clearing a
+		// selection also refreshes the widget and drops the "selected / total" count.
+		if (currentLength > 0 || previousLength > 0) {
 			const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
 			if (activeView?.leaf) {
 				plugin.updateCharCountDebounced(activeView.leaf);

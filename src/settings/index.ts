@@ -17,6 +17,8 @@ import { renderDeusSettings } from '../aichat/DeusSettings';
 import { configureApiKeyInput } from './ApiKeyInput';
 import { MOBILE_WEB_FONTS } from '../fonts/MobileFontManager';
 import { createToolbarFontSettingsPage, renderToolbarFontSettings } from './FontSettings';
+import { normalizeWidgetOrder } from '../toolbar/widgetOrder';
+import type { WritingWidgetId } from '../types';
 
 
 export class WritingMenuSettingTab extends PluginSettingTab {
@@ -125,6 +127,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			case 'misc':             this.renderMiscPage(pageContainerEl); break;
 			case 'divider':          this.renderDividerPage(pageContainerEl); break;
 			case 'tools':            this.renderToolsPage(pageContainerEl); break;
+			case 'widgets':          this.renderWidgetsPage(pageContainerEl); break;
 			case 'fonts':            this.renderFontsPage(pageContainerEl); break;
 			case 'mobile-fonts':     this.renderMobileFontsPage(pageContainerEl); break;
 			case 'autocomplete':     this.renderAutocompletePage(pageContainerEl); break;
@@ -237,6 +240,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		this.addGroupTitle(containerEl, wmT("편집기"));
 		const editorBox = this.createGroupBox(containerEl);
 		this.addNavCard(editorBox, wmT("도구"), wmT("에디터 툴바의 도구를 관리합니다."), 'wrench', 'tools');
+		this.addNavCard(editorBox, wmT("위젯"), wmT("툴바 아래 위젯 줄의 위치와 순서를 설정합니다."), 'layout-panel-top', 'widgets');
 		this.addNavCard(editorBox, wmT("플롯 매니저"), wmT("프로젝트별 플롯 시트와 기존 데이터 가져오기를 관리합니다."), 'table-2', 'plot');
 		if (Platform.isMobile) this.addNavCard(editorBox, wmT("모바일 글꼴"), wmT("PC와 별도로 사용할 웹폰트를 선택하고 내려받습니다."), 'type', 'mobile-fonts');
 		this.addNavCard(editorBox, wmT("커스텀 구분선"), wmT("마크다운 구분선의 모양과 배치를 설정합니다."), 'minus', 'divider');
@@ -264,6 +268,62 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			const box = this.createGroupBox(containerEl);
 			this.addNavCard(box, wmT("글꼴"), wmT("툴바에 표시할 글꼴을 추가하거나 삭제하고 순서를 바꿉니다."), 'type', 'fonts');
 		}
+	}
+
+	private renderWidgetsPage(containerEl: HTMLElement): void {
+		this.addBackButton(containerEl, wmT("위젯"));
+		const refreshToolbars = () => this.plugin.toolbarManager.refreshAllToolbars();
+		this.addGroupTitle(containerEl, wmT("위치"));
+		const alignmentBox = this.createGroupBox(containerEl);
+		new Setting(alignmentBox)
+			.setName(wmT("정렬"))
+			.setDesc(wmT("툴바 아래 위젯 줄의 정렬 위치를 정합니다."))
+			.addDropdown(dropdown => dropdown
+				.addOption('left', wmT("왼쪽"))
+				.addOption('center', wmT("가운데"))
+				.addOption('right', wmT("오른쪽"))
+				.setValue(this.plugin.settings.writingWidgetAlignment ?? 'center')
+				.onChange(async value => {
+					this.plugin.settings.writingWidgetAlignment = value as 'left' | 'center' | 'right';
+					await this.plugin.saveSettings();
+					refreshToolbars();
+				}));
+
+		this.addGroupTitle(containerEl, wmT("위젯 순서"));
+		const orderBox = this.createGroupBox(containerEl);
+		// Same native list style as the toolbar font order (tighter rows for name-only items).
+		orderBox.parentElement?.addClass('mod-list');
+		const labels: Record<WritingWidgetId, string> = {
+			munpia: wmT("문피아 글자수"), novelpia: wmT("노벨피아 글자수"), mode: wmT("작업모드"), timer: wmT("타이머/스톱워치"),
+		};
+		const renderOrder = () => {
+			orderBox.empty();
+			const order = normalizeWidgetOrder(this.plugin.settings.writingWidgetOrder);
+			const move = async (index: number, offset: number) => {
+				const next = [...order];
+				[next[index], next[index + offset]] = [next[index + offset], next[index]];
+				// Saved as-is and restored as-is on the next start (normalizeWidgetOrder).
+				this.plugin.settings.writingWidgetOrder = next;
+				await this.plugin.saveSettings();
+				refreshToolbars();
+				renderOrder();
+			};
+			order.forEach((id, index) => {
+				new Setting(orderBox)
+					.setName(`${index + 1}. ${labels[id]}`)
+					.addExtraButton(button => button
+						.setIcon('arrow-up')
+						.setTooltip(wmT("위로 이동"))
+						.setDisabled(index === 0)
+						.onClick(() => { if (index > 0) void move(index, -1); }))
+					.addExtraButton(button => button
+						.setIcon('arrow-down')
+						.setTooltip(wmT("아래로 이동"))
+						.setDisabled(index === order.length - 1)
+						.onClick(() => { if (index < order.length - 1) void move(index, 1); }));
+			});
+		};
+		renderOrder();
 	}
 
 	private renderFontsPage(containerEl: HTMLElement): void {
@@ -635,10 +695,15 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			this.plugin.settings.showNovelpiaWidget = value;
 			await this.plugin.saveSettings();
 		});
+		addToggle(widgetBox, wmT("작업모드"), wmT("편집기 위젯에 현재 작업모드를 아이콘과 함께 표시합니다. 누르면 작업모드를 바꿀 수 있습니다."), this.plugin.settings.showModeWidget ?? false, async value => {
+			this.plugin.settings.showModeWidget = value;
+			await this.plugin.saveSettings();
+		});
 		addToggle(widgetBox, wmT("타이머/스톱워치"), wmT("편집기 위젯에 타이머 또는 스톱워치를 표시합니다."), this.plugin.settings.showTimerWidget, async value => {
 			this.plugin.settings.showTimerWidget = value;
 			await this.plugin.saveSettings();
 		});
+		// Widget alignment and order live under 편집기 → 위젯 → 위치.
 
 		this.addGroupTitle(containerEl, wmT("통계"));
 		const statisticsBox = this.createGroupBox(containerEl);

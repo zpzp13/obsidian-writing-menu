@@ -85,7 +85,7 @@ export class PaginationEngine {
 		source: string,
 		startOffset = 0,
 		startIndex = 0,
-		stopAfterPage?: (page: PageRange) => boolean,
+		stopAfterPage?: (page: PageRange, usedHeight: number) => boolean,
 		editHint?: PaginationEditHint,
 	): PageRange[] {
 		if (source.length === 0) return [{ index: 0, from: 0, to: 0 }];
@@ -141,7 +141,7 @@ export class PaginationEngine {
 						to: lineFrom,
 					};
 					pages.push(page);
-					if (stopAfterPage?.(page)) return pages;
+					if (stopAfterPage?.(page, usedHeight)) return pages;
 					pageFrom = lineFrom;
 					usedHeight = 0;
 					pageHasLine = false;
@@ -262,20 +262,24 @@ export class PaginationEngine {
 			?? this.prefixCache.get(prefixKey)
 			?? this.sliceContainingMeasurement(absoluteFrom, startsParagraph, formatSignature);
 		let lineStarts: number[];
-		if (candidate?.text === text) {
+		if (candidate?.text === text && candidate.layoutFormatSignature === formatSignature) {
 			lineStarts = candidate.lineStarts;
 		} else if (candidate) {
 			const hintedBounds = this.localEditBounds(candidate, text, absoluteFrom, editHint);
 			const commonPrefix = hintedBounds?.prefix
 				?? this.commonPrefixLength(candidate.text, text);
-			lineStarts = this.measureChangedTail(
+			const commonSuffix = hintedBounds?.suffix ?? this.commonSuffixLength(candidate.text, text, commonPrefix);
+			// Prefix keys only cover the first 32 characters. Repeated text can
+			// therefore find a measurement with different later bold/italic spans,
+			// even when the text is identical. Reuse only equally styled stable text.
+			lineStarts = this.stableFormatsMatch(candidate, text, formatSignature, commonPrefix, commonSuffix) ? this.measureChangedTail(
 				text,
 				startsParagraph,
 				candidate,
 				commonPrefix,
 				absoluteFrom,
-				hintedBounds?.suffix,
-			);
+				commonSuffix,
+			) : this.measureAllLines(text, startsParagraph, absoluteFrom);
 		} else {
 			lineStarts = this.measureAllLines(text, startsParagraph, absoluteFrom);
 		}
@@ -283,6 +287,18 @@ export class PaginationEngine {
 		const measurement = { text, startsParagraph, lineStarts, absoluteFrom, layoutFormatSignature: formatSignature };
 		this.rememberMeasurement(exactKey, prefixKey, positionKey, measurement);
 		return lineStarts;
+	}
+
+	private stableFormatsMatch(candidate: ParagraphMeasurement, text: string, signature: string, prefix: number, suffix: number): boolean {
+		if (!candidate.layoutFormatSignature && !signature) return true;
+		const region = (value: string, from: number, to: number): string => value.split(',').flatMap(item => {
+			const match = /^(bold|italic):(\d+)-(\d+)$/.exec(item);
+			if (!match) return [];
+			const start = Math.max(from, Number(match[2])), end = Math.min(to, Number(match[3]));
+			return start < end ? [`${match[1]}:${start - from}-${end - from}`] : [];
+		}).sort().join(',');
+		return region(candidate.layoutFormatSignature, 0, prefix) === region(signature, 0, prefix)
+			&& region(candidate.layoutFormatSignature, candidate.text.length - suffix, candidate.text.length) === region(signature, text.length - suffix, text.length);
 	}
 
 	private sliceContainingMeasurement(
@@ -488,7 +504,7 @@ export class PaginationEngine {
 	private characterTop(run: HTMLElement, offsets: number[], codePointIndex: number): number {
 		const from = offsets[codePointIndex] ?? 0;
 		const to = offsets[codePointIndex + 1] ?? from;
-		const start = this.domPointAtOffset(run, from);
+		const start = this.domPointAtOffset(run, from, true);
 		const end = this.domPointAtOffset(run, Math.max(from, to));
 		this.range.setStart(start.node, start.offset);
 		this.range.setEnd(end.node, end.offset);
@@ -496,7 +512,7 @@ export class PaginationEngine {
 		return rect.top;
 	}
 
-	private domPointAtOffset(run: HTMLElement, offset: number): { node: Text; offset: number } {
+	private domPointAtOffset(run: HTMLElement, offset: number, preferNext = false): { node: Text; offset: number } {
 		const onlyChild = run.childNodes.length === 1 ? run.firstChild : null;
 		if (onlyChild?.nodeType === Node.TEXT_NODE) {
 			const text = onlyChild as Text;
@@ -508,7 +524,9 @@ export class PaginationEngine {
 		let current = walker.nextNode() as Text | null;
 		while (current) {
 			last = current;
-			if (remaining <= current.length) return { node: current, offset: remaining };
+			// At a style boundary, starting a glyph range at the preceding node's
+			// end can yield that previous line's empty rect before the actual glyph.
+			if (remaining < current.length || (!preferNext && remaining === current.length)) return { node: current, offset: remaining };
 			remaining -= current.length;
 			current = walker.nextNode() as Text | null;
 		}

@@ -53,32 +53,81 @@ export async function runPlotChecks() {
 		projectContext: { getProjectForPath(path) { return path.startsWith('Project/') ? { id: 'project' } : null; }, getProjectForFile(file) { return file ? this.getProjectForPath(file.path) : null; } },
 		leafStyleVersions: new Map(), cssSettingsVersion: 1, leafIdCounter: 1,
 		toolbarElements: new Map(), charCountElements: new Map(),
+		formatCharCount: value => String(value),
 	};
 	plugin.toolbarManager = new ToolbarManager(plugin);
 	const styles = new LeafStyleManager(plugin);
 	plugin.shouldApplyToFile = file => styles.shouldApplyToFile(file);
+	const nativeToolbarCss=document.head.createEl('link',{attr:{rel:'stylesheet',href:'/native-snapshot.css'}});
+	await new Promise((resolve,reject)=>{nativeToolbarCss.onload=resolve;nativeToolbarCss.onerror=reject;});
+	document.body.classList.add('theme-light');
 	// Mount the real shared toolbar, not the ToolbarManager isolation stub.
 	for (const kind of ['paged', 'markdown']) {
 		const host = document.body.createDiv();
 		let opened = 0, zoom = 1;
+		const appliedColors=[];
 		const writingPlugin = { ...plugin, settings: { ...DEFAULT_SETTINGS, writingWidgetOrder:[] },
 			stopwatchManager: { subscribeWidget: () => () => {} }, openSettings() { opened++; },
 			calculateAllCharCounts: text => ({ munpia:text.length, novelpia:text.length }) };
 		const surface = { kind, leaf:{}, getFile:() => null, getText:() => '검증', focus() {}, undo() {}, redo() {},
-			toggleFormat() {}, isFormatActive:() => false, getAlignment:() => 'left', setAlignment() {}, applyTextColor() {}, clearTextColors() {},
+			toggleFormat() {}, isFormatActive:() => false, getAlignment:() => 'left', setAlignment() {}, applyTextColor:(...args)=>appliedColors.push(args), clearTextColors() {},
 			getRecentTextColor:() => '', switchView() {}, getZoom:() => zoom, setZoom:value => { zoom = value; } };
 		const toolbar = new WritingToolbar(writingPlugin, host, surface);
 		const settings = toolbar.toolbarEl.querySelector('.is-settings');
-		assert(settings.previousElementSibling?.matches('.wm-paged-toolbar-spacer') && (kind === 'paged' ? settings.nextElementSibling?.matches('.is-zoom') : !settings.nextElementSibling), `${kind} settings/zoom placement is incorrect`);
+		assert(!toolbar.toolbarEl.querySelector('.wm-paged-toolbar-spacer') && settings.previousElementSibling?.matches('.wm-paged-toolbar-group') && (kind === 'paged' ? settings.nextElementSibling?.matches('.is-zoom') : !settings.nextElementSibling), `${kind} settings/zoom placement is incorrect`);
 		toolbar.toolbarEl.querySelector('[aria-label="글꼴 두께"]').click();
 		assert(toolbar.activePopover?.querySelector('[role="menuitemradio"][aria-checked="true"]'), 'Shared toolbar options lost their checked/role semantics');
 		settings.querySelector('button').click();
 		assert(opened === 1 && !toolbar.activePopover, `${kind} settings button lost its click action or popup cleanup`);
+		toolbar.toolbarEl.querySelector('[aria-label="색상 메뉴 열기"]').click();
+		const popover=toolbar.activePopover, labels=[...popover.querySelectorAll('.wm-paged-color-row-label, .wm-paged-color-custom > span')];
+		const rows=[...popover.querySelectorAll('.wm-paged-color-row')],rowSlots=rows.map(row=>[...row.querySelectorAll('.wm-writing-color-palette > *')]);
+		assert(!popover.querySelector('.wm-paged-color-custom')&&rows.length===3&&rowSlots[0].length===5,'Text color popover must have preset, custom and recent rows');
+		assert(rowSlots[1].length===2&&rowSlots[1][0].matches('.wm-paged-color-reset')&&rowSlots[1][1].matches('input[type=color]')&&Math.abs(rowSlots[1][1].getBoundingClientRect().right-rowSlots[0][4].getBoundingClientRect().right)<1,'Custom row must right-align its clear button and color picker');
+		assert(rowSlots[2].length===10&&new Set(rowSlots[2].map(el=>Math.round(el.getBoundingClientRect().top))).size===2,'Recent colors must show 10 slots in two rows');
+		const slotSizes=rowSlots.flat().map(el=>Math.round(el.getBoundingClientRect().width));
+		assert(slotSizes.every(size=>size===slotSizes[0]),`Color popover swatches differ in size: ${slotSizes}`);
+		assert(labels.length===3&&labels.every(label=>Math.abs(label.getBoundingClientRect().left-labels[0].getBoundingClientRect().left)<1),'Color popup labels are not aligned');
+		assert(!popover.querySelector('.wm-writing-highlight-palette'),'Highlights moved to their own toolbar button');
+		const highlightButton=toolbar.toolbarEl.querySelector('.is-formatting [aria-label="하이라이트"]');
+		assert(highlightButton&&highlightButton.nextElementSibling?.matches('.wm-paged-text-color-control'),'Highlight button must sit left of the recent text color button');
+		const openHighlights=()=>{toolbar.closePopover();highlightButton.click();return [...toolbar.activePopover.querySelectorAll('.wm-writing-highlight-palette button')];};
+		let swatches=openHighlights();
+		assert(swatches.length===7,'Native highlight palette must offer default and all six colors');
+		const bounds=toolbar.activePopover.getBoundingClientRect();
+		for(const swatch of swatches){const rect=swatch.getBoundingClientRect();assert(rect.left>=bounds.left&&rect.right<=bounds.right&&rect.width>=20,'Highlight swatch overflowed the popup');}
+		for(let index=0;index<7;index++) {
+			const swatch=openHighlights()[index];
+			swatch.click();assert(appliedColors.at(-1)[0]===['','red','orange','yellow','green','blue','purple'][index]&&appliedColors.at(-1)[1]==='background','Highlight swatch applied the wrong native color');
+		}
+		swatches=openHighlights();
+		for(const dark of [false,true]) {
+			document.body.classList.toggle('theme-light',!dark);
+			document.body.classList.toggle('theme-dark',dark);
+			assert(getComputedStyle(swatches[0]).boxShadow!=='none','Default highlight swatch lost its native outline');
+			const reference=document.body.createSpan();
+			for(const swatch of swatches.slice(1)) {
+				reference.style.backgroundColor=`var(--color-${swatch.dataset.highlight})`;
+				assert(getComputedStyle(swatch).backgroundColor===getComputedStyle(reference).backgroundColor,'Native highlight swatch lost its theme color');
+			}
+			reference.remove();
+		}
+		document.body.classList.remove('theme-dark');document.body.classList.add('theme-light');toolbar.closePopover();
+		if(kind==='paged') {
+			let preview, demo;
+			globalThis.showWritingHighlightPreview=()=>{
+				demo?.destroy();preview?.remove();
+				preview=document.body.createDiv();preview.setCssStyles({position:'fixed',inset:'20px',zIndex:'10000',background:'var(--background-primary)'});
+				demo=new WritingToolbar(writingPlugin,preview,surface);demo.toolbarEl.querySelector('[aria-label="색상 메뉴 열기"]').click();return demo.activePopover.getBoundingClientRect().toJSON();
+			};
+		}
 		const zoomIn = toolbar.toolbarEl.querySelector('[aria-label="확대 (Ctrl/Cmd+마우스 휠 위)"]');
 		assert(kind === 'markdown' ? !zoomIn : zoomIn && !zoomIn.disabled, 'Markdown must not expose paged zoom controls');
 		if (kind === 'paged') { zoomIn.click(); assert(zoom === 1.1, 'Paged zoom button no longer works'); }
 		toolbar.destroy(); assert(!host.querySelector('.wm-writing-toolbar, .wm-writing-widget-dock'), 'Toolbar destroy left UI behind'); host.remove();
 	}
+	nativeToolbarCss.remove();
+	document.body.classList.remove('theme-light');
 	const mobileWritingHost = document.body.createDiv();
 	const mobileWritingPlugin = { ...plugin, settings:{...DEFAULT_SETTINGS,writingWidgetOrder:[]},
 		stopwatchManager:{subscribeWidget:()=>()=>{}}, calculateAllCharCounts:text=>({munpia:text.length,novelpia:text.length}) };
@@ -632,6 +681,14 @@ export async function runPlotChecks() {
 			return { top: native.viewport.scrollTop, left: native.viewport.scrollLeft, autoScrolling: Boolean(native.autoScroll), trustedWheels };
 		};
 		globalThis.endNativePlotScrollCheck = () => { native.destroy(); nativeHost.remove(); };
+		globalThis.nativePlotAutoScrollPoint = () => {
+			const box=native.viewport.getBoundingClientRect();
+			for(const y of [.5,.35,.65])for(const x of [.5,.35,.65]) {
+				const point={x:box.left+box.width*x,y:box.top+box.height*y},hit=document.elementFromPoint(point.x,point.y);
+				if(hit&&native.viewport.contains(hit)&&!hit.closest('input, textarea, select, button, a'))return point;
+			}
+			throw new Error('No non-interactive plot surface for the trusted autoscroll check');
+		};
 		return globalThis.nativePlotScrollSnapshot();
 	};
 	globalThis.beginNativePlotPreviewDragCheck = async (zoom = 1, vertical = false) => {

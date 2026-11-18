@@ -145,6 +145,21 @@ export const SETTINGS_SEARCH_PAGES = [
 		]
 	},
 	{
+		"id": "widgets",
+		"name": "위젯",
+		"desc": "툴바 아래 위젯 줄의 위치와 순서를 설정합니다.",
+		"parent": "main",
+		"group": "편집기",
+		"visible": true,
+		"mobile": false,
+		"aliases": [
+			"위치",
+			"툴바 아래 위젯 줄의 정렬 위치를 정합니다.",
+			"정렬",
+			"위젯 순서"
+		]
+	},
+	{
 		"id": "plot",
 		"name": "플롯 매니저",
 		"desc": "프로젝트별 플롯 시트와 기존 데이터 가져오기를 관리합니다.",

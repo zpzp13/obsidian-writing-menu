@@ -14,6 +14,8 @@ const core = [
 	['font-settings', 'scripts/verify-font-settings.mjs'],
 	['writing-frontmatter', 'scripts/verify-writing-frontmatter.mjs'],
 	['comments', 'scripts/verify-comments.mjs'],
+	['daily-char-sync', 'scripts/verify-daily-char-sync.mjs'],
+	['inline-markdown', 'scripts/verify-inline-markdown.mjs'],
 	['browser-runtime', 'scripts/verify-browser-runtime.mjs'],
 	...['warning-policy', 'settings-compatibility', 'statistics-scope', 'hwpx', 'document-codecs', 'kordoc-engine', 'export-boundaries', 'release-artifacts', 'input-boundaries', 'smart-quotes', 'morph-worker', 'paged-zoom', 'paged-pane-menu', 'chat-stream', 'chat-legacy', 'deus-skills', 'deus-cli', 'rag-api', 'model-free-search', 'rag-navigation', 'episode-retrieval', 'character-research'].map(name => [name, `scripts/verify-${name}.mjs`]),
 ];

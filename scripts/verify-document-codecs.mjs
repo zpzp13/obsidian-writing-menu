@@ -28,6 +28,30 @@ for(const [i,sample] of samples.entries()){
 }
 const source='# 제목\n\n**굵게** *기울임* ~~취소~~ ![그림](pic.png)\n\n| A | B |\n| - | - |\n| 한글 | English |\n\n각주[^one].\n\n[^one]: 각주 본문\n';
 const parsed=parse(source);
+const inlineDocument=parse('<u>밑줄</u> <span style="color: #ff0000">빨강 **굵게**</span> ==강조== <span style="background-color: #abcdef">이전 배경</span>');
+const inlineRuns=inlineDocument.blocks.flatMap(block=>block.runs??[]);
+assert(inlineRuns.some(run=>run.text==='밑줄'&&run.underline),'Underline HTML was exported as literal tags');
+assert(inlineRuns.some(run=>run.text==='굵게'&&run.bold&&run.color==='#ff0000'),'Nested Markdown/color HTML export lost formatting');
+assert(inlineRuns.some(run=>run.text==='강조'&&run.background==='#ffff00'),'Native highlight export did not use yellow');
+// `==` inside words / before a color emoji, and the <mark> form used where a highlight overlaps <span>.
+const markRuns=parse('글==🟣보라==끝 <mark data-highlight="orange" style="background-color: var(--highlight-background-orange); color: inherit"><span style="color: #2b7339">주황</span></mark>').blocks.flatMap(block=>block.runs??[]);
+assert(markRuns.some(run=>run.text==='보라'&&run.background==='#800080')&&!markRuns.some(run=>/==|🟣|<mark|<\/mark>/.test(run.text)),'Intraword colored highlight was exported as literal markers');
+assert(markRuns.some(run=>run.text==='주황'&&run.background==='#ffa500'&&run.color==='#2b7339'),'HTML <mark> highlight lost its color or the text color');
+assert(inlineRuns.some(run=>run.text==='이전 배경'&&run.background==='#ffff00'),'Legacy background HTML did not export as highlight');
+assert.equal(text(inlineDocument),'밑줄 빨강 굵게 강조 이전 배경');
+const nativeHighlights=parse('==🔴빨강== ==🟠주황== ==🟡노랑== ==🟢초록== ==🔵파랑== ==🟣보라== ==🟥**굵은 빨강**==');
+assert.equal(text(nativeHighlights),'빨강 주황 노랑 초록 파랑 보라 굵은 빨강','Native color markers leaked into export text');
+const highlightRuns=nativeHighlights.blocks.flatMap(block=>block.runs??[]).filter(run=>run.background);
+assert.deepEqual(highlightRuns.map(run=>run.background),['#ff0000','#ffa500','#ffff00','#00ff00','#0000ff','#800080','#ff0000']);
+assert(highlightRuns.at(-1).bold,'Colored highlight lost nested Markdown emphasis');
+for(const format of ['docx','hwpx']) {
+	const result=await api.generateDocument(inlineDocument,format,options),body=xml(result.bytes,format==='docx'?'word/document.xml':'Contents/section0.xml');
+	assert.equal(format==='docx'?docxText(result.bytes):hwpxText(result.bytes),text(inlineDocument));
+	assert(!body.includes('&lt;span')&&!body.includes('&lt;u&gt;'),'Formatting tags leaked into exported document text');
+	assert(body.includes(format==='docx'?'w:u':'hp:run'),'Inline formatting was missing from the encoded document');
+	const coloredOutput=await api.generateDocument(nativeHighlights,format,options);
+	assert.equal(format==='docx'?docxText(coloredOutput.bytes):hwpxText(coloredOutput.bytes),text(nativeHighlights));
+}
 assert.equal(parsed.blocks[0].kind,'heading');assert(parsed.blocks.some(b=>b.kind==='table'));assert.equal(text({blocks:[{kind:'paragraph',runs:parsed.footnotes.one}]}),'각주 본문');
 for(const mode of ['keep','text','exclude']){
     const doc=policy(parsed,{...content,headings:mode,tables:mode,footnotes:mode,images:mode,emphasis:mode==='keep',formatting:mode==='keep'},'hwpx');

@@ -4,6 +4,8 @@ import { runPagedStoreChecks } from './verify-paged-store.mjs';
 import { runPagedBoundaryChecks } from './verify-paged-boundaries.mjs';
 import { runEditorScrollingChecks } from './verify-editor-scrolling.mjs';
 import { installNativePagedInputChecks } from './verify-paged-native-input.mjs';
+import { getWritingDocumentForView } from '../src/writing/WritingDocument';
+import { PaginationEngine } from '../src/paged/PaginationEngine';
 
 // Real contenteditable DOM and virtual workspace events; no vault writes.
 export async function runPagedDocumentChecks() {
@@ -55,6 +57,57 @@ export async function runPagedDocumentChecks() {
 		}
 		assert(tested,'The page-boundary fixture lacks a trailing blank line');
 		await runPagedBoundaryChecks(view, plugin);
+		const repeated='평범한 시작 문장입니다. '.repeat(4)+('Wide WWW iii 한글 문장입니다. ').repeat(180);
+		const cachedEngine=new PaginationEngine(view.measurerEl,view.getPaginationGeometry());
+		for (const from of [60,180,300,120]) {
+			const formats=[{from,to:from+90,kind:'bold'}];cachedEngine.updateInlineFormats(formats);
+			const freshEngine=new PaginationEngine(view.measurerEl,view.getPaginationGeometry());freshEngine.updateInlineFormats(formats);
+			assert(JSON.stringify(cachedEngine.paginate(repeated))===JSON.stringify(freshEngine.paginate(repeated)),'Repeated text reused page measurements with different later inline formatting');
+		}
+		const formattedSource=prefix+'__굵게__ <span style="color: #ff0000">빨강</span> ==강조== <u>밑줄</u>';
+		view.setViewData(formattedSource,true);
+		assert(view.getEditableData()==='굵게 빨강 강조 밑줄','Paged canvas exposed inline Markdown markers');
+		assert(view.getViewData()===formattedSource,'Opening a formatted document rewrote its original syntax');
+		assert(view.pageTextEls[0].querySelector('[style*="font-weight: 700"]'),'Parsed bold did not reach the DOM');
+		assert(view.pageTextEls[0].querySelector('[style*="color: rgb(255, 0, 0)"]'),'Parsed text color did not reach the DOM');
+		assert(view.pageTextEls[0].querySelector('[style*="var(--highlight-background, var(--text-highlight-bg))"]'),'Highlight did not use the Obsidian theme variable');
+		const projectedAdapter=view.getEditorAdapter();
+		assert(projectedAdapter.getValue()===view.getEditableData()&&projectedAdapter.posToOffset({line:0,ch:3})===3,'Editor adapter mixed source and visible coordinates');
+		const documentAdapter=getWritingDocumentForView(view),sourceColorFrom=formattedSource.indexOf('빨강');
+		documentAdapter.select(formattedSource,sourceColorFrom,sourceColorFrom+2);
+		assert(view.getSelectedText()==='빨강','Source-based snapshot/diff navigation selected raw markup offsets on the visible canvas');
+		const legacyBackground=prefix+'<span style="background-color: #abcdef">강조</span>';
+		view.setViewData(legacyBackground,true);view.restoreSelection({anchor:0,head:2},true);view.toggleFormatFromToolbar('bold');view.undo();
+		assert(view.getViewData()===legacyBackground,'Undo rewrote the original legacy highlight spelling');
+		view.setViewData(prefix+'하나 둘 셋',true);view.restoreSelection({anchor:0,head:2},true);
+		view.toggleFormatFromToolbar('bold');
+		assert(markdown===prefix+'**하나** 둘 셋','Toolbar formatting did not broadcast Markdown to the peer view');
+		view.undo();assert(view.getViewData()===prefix+'하나 둘 셋','Format-only undo failed');
+		view.redo();assert(view.getViewData()===prefix+'**하나** 둘 셋','Format-only redo failed');
+		view.restoreSelection({anchor:3,head:4},true);view.applyTextColorFromToolbar('#ff0000','text');
+		assert(markdown.includes('<span style="color: #ff0000">둘</span>'),'Paged text color stayed in settings');
+		view.restoreSelection({anchor:5,head:6},true);view.applyTextColorFromToolbar('#123456','background');
+		assert(markdown.endsWith('==셋=='),'Background toolbar action did not write native highlight markup');
+		view.applyTextColorFromToolbar('#654321','background');assert(!view.getViewData().includes('=='),'Highlight did not toggle off');
+		for (const [color, marker] of [['red','🔴'],['orange','🟠'],['yellow','🟡'],['green','🟢'],['blue','🔵'],['purple','🟣']]) {
+			view.restoreSelection({anchor:5,head:6},true);view.applyTextColorFromToolbar(color,'background');
+			assert(view.getViewData().endsWith(`==${marker}셋==`),'Colored highlight did not use native source markup');
+			assert(view.pageTextEls[0].querySelector(`[style*="var(--highlight-background-${color})"]`),'Colored highlight did not use the native theme color');
+			view.undo();assert(!view.getViewData().includes('=='),'Highlight undo lost the previous color');
+			view.redo();assert(view.getViewData().endsWith(`==${marker}셋==`),'Highlight redo lost its color');
+			view.setViewData(view.getViewData(),true);assert(view.getEditableData()==='하나 둘 셋','Reload exposed the highlight color marker');
+			view.restoreSelection({anchor:5,head:6},true);view.applyTextColorFromToolbar(color==='red'?'blue':'red','background');
+			assert(view.getViewData().endsWith(`==${color==='red'?'🔵':'🔴'}셋==`),'Choosing another color removed the highlight');
+			view.applyTextColorFromToolbar('','background');assert(view.getViewData().endsWith('==셋=='),'Default highlight did not replace the selected color');
+			view.applyTextColorFromToolbar('','background');assert(!view.getViewData().includes('=='),'Default highlight did not toggle off');
+		}
+		const beforeSnapshot=view.getViewData(), styledSnapshot=prefix+'__새 원문__\n==강조==';
+		view.replaceSourceSnapshot(beforeSnapshot,styledSnapshot);
+		assert(view.getEditableData()==='새 원문\n강조'&&view.getViewData()===styledSnapshot,'Snapshot replacement failed to parse text and formatting together');
+		view.undo();assert(view.getViewData()===beforeSnapshot,'Snapshot undo lost source spelling or formatting');
+		view.redo();assert(view.getViewData()===styledSnapshot,'Snapshot redo lost source spelling or formatting');
+		assert(!plugin.settings.pagedInlineFormats?.[file.path]&&!plugin.settings.pagedTextColors?.[file.path],'New inline formatting was written to settings');
+		console.info('Inline Markdown DOM styles, live exchange, visible adapter offsets, highlight toggle and format/snapshot undo-redo passed');
 		const batchSource = prefix+'첫 문장\n보존할 문장\n마지막 문장';
 		view.setViewData(batchSource,true);
 		const adapter=view.getEditorAdapter();
@@ -68,6 +121,19 @@ export async function runPagedDocumentChecks() {
 		assert(view.getViewData()===changedProperties,'Full-source snapshot replacement lost properties or body');
 		view.undo();assert(view.getViewData()===batchResult,'Snapshot undo did not restore the old properties with the body');
 		view.redo();assert(view.getViewData()===changedProperties,'Snapshot redo did not restore the new properties with the body');
+		// Markdown view round trip: properties (e.g. writing time) grow while the
+		// paged view is unloaded, then the file is reopened with clear=true.
+		const alignedBody='가\n나\n다';
+		view.setViewData('---\n시간: 0:00:05\n---\n'+alignedBody,true);
+		view.restoreSelection({anchor:2,head:2},true);view.applyParagraphAlignment('center');
+		assert(view.getParagraphAlignments().some(item=>item.from===2&&item.align==='center'),'Fixture alignment was not applied');
+		view.clear();
+		view.setViewData('---\n시간: 0:00:05\n작업 시간: 1:23:45\n---\n'+alignedBody,true);
+		const reopened=view.getParagraphAlignments();
+		assert(reopened.length===1&&reopened[0].from===2&&reopened[0].align==='center',`Paragraph alignment drifted after properties changed outside the paged view: ${JSON.stringify(reopened)}`);
+		view.clear();view.setViewData(alignedBody,true);
+		assert(view.getParagraphAlignments()[0]?.from===2,'Removing properties outside the paged view lost paragraph alignment');
+		console.info('Paged paragraph alignment survives Markdown-view property changes and reopening');
 		const savedSmartQuotes = plugin.settings.enableSmartQuotes;
 		plugin.settings.enableSmartQuotes = true;
 		for (const [straight, open, close] of [['"','“','”'], ["'",'‘','’']]) {
@@ -96,6 +162,22 @@ export async function runPagedDocumentChecks() {
 			async write(path,text){backups.set(path,text);},async read(path){return backups.get(path);}}};
 		deviceSettings.set(`writing-menu:paged-zoom:${file.path}`,1.6);
 		await view.onLoadFile(file);assert(view.zoom===1.6,'Reopening a document reset its device-local zoom');
+		const legacyPrefix='---\n옛 속성: 값\n---\n', legacyBody='**가나** 다라';
+		plugin.settings.pagedTextColors[file.path]=[{from:legacyPrefix.length+2,to:legacyPrefix.length+4,color:'#123456'}];
+		plugin.settings.pagedInlineFormats[file.path]=[{from:legacyPrefix.length+7,to:legacyPrefix.length+9,kind:'underline'}];
+		plugin.settings.pagedTextBackgrounds[file.path]=[{from:legacyPrefix.length+7,to:legacyPrefix.length+9,color:'#abcdef'}];
+		plugin.settings.pagedStyleFrontmatterLengths[file.path]=legacyPrefix.length;
+		view.fileStore.dispose();view.fileStore=null;view.clear();disk=prefix+legacyBody;await view.onLoadFile(file);
+		assert(view.getEditableData()==='가나 다라'&&view.getTextColorRanges()[0]?.from===0,'Legacy source offsets were not projected through Markdown and old properties');
+		const process=view.app.vault.process;view.app.vault.process=async()=>{throw new Error('simulated write failure');};
+		let failed=false;try{await view.save();}catch{failed=true;}
+		assert(failed&&plugin.settings.pagedTextColors[file.path]?.length,'Failed migration save discarded the legacy settings');
+		view.app.vault.process=process;await view.save();
+		// The legacy highlight overlaps the underline (HTML), so it is written as <mark>, not ==.
+		assert(disk.includes('<span style="color: #123456">')&&disk.includes('<mark ')&&disk.includes('<u>'),'Migration did not write all legacy inline styles to Markdown');
+		assert(!plugin.settings.pagedTextColors[file.path]&&!plugin.settings.pagedTextBackgrounds[file.path]&&!plugin.settings.pagedInlineFormats[file.path],'Successful migration retained duplicate settings');
+		disk=source;await view.fileStore.refresh();
+		console.info('Legacy formatting migration maps old frontmatter/source offsets and preserves settings until the file save succeeds');
 		view.setZoom(0.7);assert(deviceSettings.get(`writing-menu:paged-zoom:${file.path}`)===0.7,'Zoom changes were not persisted per document');
 		view.placeCaretInPage(0,0,false);view.editRootEl.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));
 		const composingRun=view.pageTextEls[0].querySelector('.wm-paged-text-run');composingRun.firstChild.nodeValue+='입력중';

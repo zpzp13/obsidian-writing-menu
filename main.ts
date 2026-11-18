@@ -27,6 +27,7 @@ import { MusicPlayer } from './src/dashboard/MusicPlayer';
 import { LeafStyleManager } from './src/editor/LeafStyleManager';
 import { shouldExitZenOnEscape } from './src/editor/ZenFullscreen';
 import { ToolbarManager } from './src/toolbar/ToolbarManager';
+import { normalizeWidgetOrder } from './src/toolbar/widgetOrder';
 import { StopwatchManager } from './src/dashboard/StopwatchManager';
 import { SpellCheckerService } from './src/spellcheck/index';
 import { initializeWritingDocuments } from './src/writing/WritingDocument';
@@ -804,10 +805,7 @@ export default class WritingMenuPlugin extends Plugin {
 		if (savedData.showTimerWidget === undefined) {
 			this.settings.showTimerWidget = savedData.showTimeInStatusBar === true;
 		}
-		const widgetOrder = this.settings.writingWidgetOrder ?? [];
-		this.settings.writingWidgetOrder = ['munpia', 'novelpia', 'timer']
-			.filter(id => widgetOrder.includes(id as 'munpia' | 'novelpia' | 'timer'))
-			.concat(['munpia', 'novelpia', 'timer'].filter(id => !widgetOrder.includes(id as 'munpia' | 'novelpia' | 'timer'))) as WritingMenuSettings['writingWidgetOrder'];
+		this.settings.writingWidgetOrder = normalizeWidgetOrder(this.settings.writingWidgetOrder);
 		delete savedData.showTimeInStatusBar;
 		delete (this.settings as WritingMenuSettings & { showTimeInStatusBar?: boolean }).showTimeInStatusBar;
 		const legacyAiSettings = this.settings as WritingMenuSettings & {

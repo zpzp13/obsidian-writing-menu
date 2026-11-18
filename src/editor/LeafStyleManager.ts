@@ -8,6 +8,8 @@ import type { EditorView } from '@codemirror/view';
 import { setRepetitionHighlights } from './repetitionHighlight';
 import { setSpellcheckHighlights } from './spellcheckHighlight';
 import { ZenFullscreen } from './ZenFullscreen';
+import { parseInlineMarkdown } from '../paged/MarkdownInlineFormat';
+import { splitPagedFrontmatter } from '../paged/PagedFileStore';
 
 type PlatformCharCounts = { munpia: number; novelpia: number };
 
@@ -32,11 +34,11 @@ export class LeafStyleManager {
 	}
 
 	private getViewText(view: MarkdownView | PagedWritingView): string {
-		return view instanceof MarkdownView ? view.editor.getValue() : view.getEditableData();
+		return view instanceof MarkdownView ? parseInlineMarkdown(splitPagedFrontmatter(view.editor.getValue()).body).visible : view.getEditableData();
 	}
 
 	private getSelectedText(view: MarkdownView | PagedWritingView): string {
-		return view instanceof MarkdownView ? view.editor.getSelection() : view.getSelectedText();
+		return view instanceof MarkdownView ? parseInlineMarkdown(view.editor.getSelection()).visible : view.getSelectedText();
 	}
 
 	shouldApplyToFile(file: { path: string } | null): boolean {

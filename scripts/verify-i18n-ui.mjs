@@ -32,6 +32,7 @@ export async function runI18nUiChecks() {
 	const settings = structuredClone(DEFAULT_SETTINGS); settings.showMunpiaWidget = false;
 	const originalSettings = JSON.stringify(settings);
 	const plugin = { settings, app: { workspace: {} }, stopwatchManager: { subscribeWidget: () => () => {} },
+		formatCharCount: value => String(value),
 		calculateAllCharCounts: text => ({ munpia: text.length, novelpia: text.length }), saveSettings: async () => {} };
 	const surface = { kind: 'paged', leaf: {}, getFile: () => null, getText: () => 'English manuscript',
 		focus() {}, undo() {}, redo() {}, toggleFormat() {}, isFormatActive: () => false, getAlignment: () => 'left', setAlignment() {},
@@ -51,6 +52,10 @@ export async function runI18nUiChecks() {
 		assert(toolbar.weightLabelEl.textContent === weights[index], 'Toolbar weight label did not refresh');
 	}
 	settings.fontWeight = initialWeight; toolbar.refresh();
+	toolbar.closePopover();
+	toolbar.toolbarEl.querySelector('[aria-label="Open color menu"]').click();
+	assert(toolbar.activePopover.querySelector('[aria-label="Highlight Default"]')&&toolbar.activePopover.querySelector('[aria-label="Highlight Purple"]'),'Native highlight palette was not translated');
+	assert(!/[가-힣]/.test(toolbar.activePopover.textContent),'Korean leaked into the English color popup');
 	toolbar.closePopover();
 	assert(!/[가-힣]/.test(toolbar.toolbarEl.textContent), 'Korean text leaked into the English toolbar');
 	const calendar = preview.createEl('section'); MonthCalendar.render(calendar, new Map(), plugin);

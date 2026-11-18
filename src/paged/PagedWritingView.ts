@@ -37,6 +37,8 @@ import { textEdits, validatedEdits, type TextEdit } from '../utils/TextEdits';
 import { loadPagedZoom, savePagedZoom } from './PagedZoomStorage';
 import { curvedQuoteAt } from '../editor/curvedQuotes';
 import { obsidianConfig } from '../utils/obsidianConfig';
+import { inlineRangesCover, parseInlineMarkdown, serializeInlineMarkdown, sourceOffsetToVisible, visibleOffsetToSource, type InlineFormatState, type LineSource } from './MarkdownInlineFormat';
+import { highlightBackground, normalizeHighlightColor } from '../utils/ObsidianHighlights';
 
 export const PAGED_WRITING_VIEW_TYPE = 'writing-menu-paged-writing';
 
@@ -68,6 +70,7 @@ interface HistorySnapshot extends TextSelection {
 	textBackgrounds: PagedTextColorRange[];
 	inlineFormats: PagedInlineFormatRange[];
 	paragraphAlignments: PagedParagraphAlignment[];
+	sourceLines: LineSource[];
 }
 
 interface PageRenderState {
@@ -106,6 +109,10 @@ export class PagedWritingView extends FileView {
 	private readonly plugin: WritingMenuPlugin;
 	private frontmatterPrefix = '';
 	private editableData = '';
+	private inlineState: InlineFormatState = parseInlineMarkdown('');
+	private serializedInlineCache: { state: InlineFormatState; visible: string; inline: PagedInlineFormatRange[]; colors: PagedTextColorRange[]; highlights: InlineFormatState['highlights']; markdown: string } | null = null;
+	private paragraphAlignmentRanges: PagedParagraphAlignment[] = [];
+	private legacyStyleMigration: { key: string; colors: PagedTextColorRange[] | undefined; backgrounds: PagedTextColorRange[] | undefined; inline: PagedInlineFormatRange[] | undefined } | null = null;
 	private hasLoadedDocument = false;
 	private projectScopeRedirecting = false;
 	private pageGeometry: PageGeometry;
@@ -120,6 +127,8 @@ export class PagedWritingView extends FileView {
 	private compositionPreviewEls: HTMLElement[] = [];
 	private compositionPreviewFrame = 0;
 	private compositionScrollPageIndex: number | null = null;
+	private compositionClippedTextEl: HTMLElement | null = null;
+	private compositionCaretEl: HTMLElement | null = null;
 	private readonly pageRenderStates = new WeakMap<HTMLElement, PageRenderState>();
 	private readonly nativeEditedPageEls = new WeakSet<HTMLElement>();
 	private cachedSelection: TextSelection = { anchor: 0, head: 0 };
@@ -133,7 +142,7 @@ export class PagedWritingView extends FileView {
 	private pendingPaginationReuse: PaginationReuseHint | null = null;
 	private composing = false;
 	private compositionSession: { source: string; from: number; to: number; pageFrom: number; pageTo: number; text: string | null; targetCaptured: boolean } | null = null;
-	private compositionCommit: { text: string; source: string; selection: TextSelection } | null = null;
+	private compositionCommit: { text: string; source: string; selection: TextSelection; released?: boolean } | null = null;
 	private pointerSelecting = false;
 	private rendering = false;
 	private visibleRenderFrame = 0;
@@ -283,7 +292,9 @@ export class PagedWritingView extends FileView {
 	}
 	async save(): Promise<void> {
 		if ((this.composing || this.compositionDirty) && this.syncSourceFromDom(false)) this.fileStore?.changed();
-		await this.fileStore?.save();
+		const store = this.fileStore;
+		await store?.save();
+		if (store && store === this.fileStore && !store.hasConflict && !store.hasLocalEdits) await this.finishLegacyStyleMigration();
 	}
 	private reportSaveError(error: unknown): void {
 		console.error('[Writing Menu] Paged document save failed', error);
@@ -384,8 +395,12 @@ export class PagedWritingView extends FileView {
 	}
 
 	getViewData(): string {
-		// The editable buffer is independent from any pending disk write.
-		return this.frontmatterPrefix + this.editableData;
+		this.inlineState.visible = this.editableData;
+		const state = this.inlineState, cached = this.serializedInlineCache;
+		if (cached?.state === state && cached.visible === state.visible && cached.inline === state.inline && cached.colors === state.colors && cached.highlights === state.highlights) return this.frontmatterPrefix + cached.markdown;
+		const markdown = serializeInlineMarkdown(state);
+		this.serializedInlineCache = { state, visible: state.visible, inline: state.inline, colors: state.colors, highlights: state.highlights, markdown };
+		return this.frontmatterPrefix + markdown;
 	}
 
 	/** Text exposed by the paged canvas. YAML properties stay outside its selection model. */
@@ -670,33 +685,37 @@ export class PagedWritingView extends FileView {
 
 	setViewData(data: string, clear: boolean): void {
 		const { prefix, body } = splitFrontmatter(data);
-		if (
-			!clear
-			&& body === this.getEditableData()
-			&& prefix === this.frontmatterPrefix
-			&& this.pageTextEls.length > 0
-		) return;
-		const previousData = this.getEditableData();
-		if (!clear && this.hasLoadedDocument && prefix.length !== this.frontmatterPrefix.length) {
-			this.shiftStoredStyleOffsets(prefix.length - this.frontmatterPrefix.length);
-		}
+		if (!clear && data === this.getViewData() && this.pageTextEls.length > 0) return;
+		const previousData = this.getEditableData(), firstLoad = clear || !this.hasLoadedDocument;
+		const legacyOffset = this.plugin.settings.pagedStyleFrontmatterLengths?.[this.getTextColorKey() ?? ''] ?? prefix.length;
+		if (firstLoad) this.realignStoredStylesToFrontmatter(prefix.length);
+		else if (prefix.length !== this.frontmatterPrefix.length) this.shiftStoredStyleOffsets(prefix.length - this.frontmatterPrefix.length);
 		this.frontmatterPrefix = prefix;
+		this.inlineState = parseInlineMarkdown(body);
+		this.setEditableData(this.inlineState.visible);
+		if (firstLoad) {
+			const stored = this.plugin.settings.pagedParagraphAlignments?.[this.getTextColorKey() ?? ''] ?? [];
+			this.paragraphAlignmentRanges = this.normalizeParagraphAlignments(stored.map(item => ({ ...item, from: sourceOffsetToVisible(this.inlineState, item.from - prefix.length) })));
+			this.migrateLegacyInlineStyles(legacyOffset);
+		} else {
+			let before = previousData;
+			for (const edit of textEdits(previousData, this.getEditableData())) {
+				const after = before.slice(0, edit.from) + edit.text + before.slice(edit.to);
+				this.remapParagraphAlignments(before, after, edit.from, edit.to, edit.text.length);
+				before = after;
+			}
+		}
 		this.hasLoadedDocument = true;
 		if (this.file && !this.plugin.projectContext.getProjectForFile(this.file)) {
-			this.setEditableData(body);
 			this.enforceProjectScope();
 			return;
 		}
 		this.pendingPaginationReuse = null;
-		this.setEditableData(body);
-		if (!clear && body !== previousData) this.remapPagedStylesForSourceChange(previousData, body);
-		if (clear) this.textStyleVersion++;
-		this.cachedSelection = clear
-			? { anchor: 0, head: 0 }
-			: {
-				anchor: Math.min(this.cachedSelection.anchor, body.length),
-				head: Math.min(this.cachedSelection.head, body.length),
-			};
+		this.textStyleVersion++;
+		const length = this.getEditableData().length;
+		this.cachedSelection = clear ? { anchor: 0, head: 0 } : {
+			anchor: Math.min(this.cachedSelection.anchor, length), head: Math.min(this.cachedSelection.head, length),
+		};
 		if (clear) {
 			this.cachedSelectionPageIndex = 0;
 			this.clearHistory();
@@ -707,6 +726,8 @@ export class PagedWritingView extends FileView {
 		if (this.editRootEl) this.paginateNow(false, this.cachedSelection);
 		if (this.rootEl) this.plugin.toolbarManager.mountPagedToolbar(this.rootEl, this);
 		this.refreshToolbarSelection();
+		this.persistParagraphAlignments();
+		if (this.legacyStyleMigration) this.markDocumentChanged();
 	}
 
 	clear(): void {
@@ -716,6 +737,9 @@ export class PagedWritingView extends FileView {
 		this.compositionCommit = null;
 		this.composing = false;
 		this.frontmatterPrefix = '';
+		this.inlineState = parseInlineMarkdown('');
+		this.paragraphAlignmentRanges = [];
+		this.legacyStyleMigration = null;
 		this.setEditableData('');
 		this.hasLoadedDocument = false;
 		this.pages = [{ index: 0, from: 0, to: 0 }];
@@ -1010,16 +1034,16 @@ export class PagedWritingView extends FileView {
 		this.setTextColorRanges(removeSelection(this.getTextColorRanges()));
 		this.setTextBackgroundRanges(removeSelection(this.getTextBackgroundRanges()));
 		this.plugin.settings.pagedLastTextColor = '';
+		this.scheduleTextStyleSave();
+		this.markDocumentChanged();
 		this.cachedSelection = selection;
 		this.refreshPageTexts(selection);
 		this.restoreSelection(selection, true);
 	}
 
 	private applySelectedTextColor(color: string, target: 'text' | 'background'): void {
-		const normalizedColor = this.toColorInputValue(
-			color,
-			target === 'text' ? this.getLastTextColor() : this.getLastBackgroundColor(),
-		);
+		const normalizedColor = target === 'background' ? normalizeHighlightColor(color) || '#ffff00'
+			: this.toColorInputValue(color, this.getLastTextColor());
 		const selection = this.readSelection() ?? this.cachedSelection;
 		const from = Math.min(selection.anchor, selection.head);
 		const to = Math.max(selection.anchor, selection.head);
@@ -1033,7 +1057,7 @@ export class PagedWritingView extends FileView {
 				this.editRootEl?.focus({ preventScroll: true });
 				this.restoreSelection(selection, true);
 			} else {
-				new Notice(wmT("배경색을 적용할 텍스트를 선택해 주세요."));
+				new Notice(wmT("하이라이트를 적용할 텍스트를 선택해 주세요."));
 			}
 			return;
 		}
@@ -1042,6 +1066,7 @@ export class PagedWritingView extends FileView {
 		this.redoStack = [];
 		this.lastHistoryKind = null;
 		const ranges = target === 'text' ? this.getTextColorRanges() : this.getTextBackgroundRanges();
+		const removeHighlight = target === 'background' && inlineRangesCover(this.getEditableData(), ranges.filter(range => range.color === normalizedColor), from, to);
 		const next: PagedTextColorRange[] = [];
 		for (const range of ranges) {
 			if (range.to <= from || range.from >= to) {
@@ -1051,15 +1076,15 @@ export class PagedWritingView extends FileView {
 			if (range.from < from) next.push({ ...range, to: from });
 			if (range.to > to) next.push({ ...range, from: to });
 		}
-		next.push({ from, to, color: normalizedColor });
+		if (!removeHighlight) next.push({ from, to, color: normalizedColor });
 		if (target === 'text') {
 			this.plugin.settings.pagedLastTextColor = normalizedColor;
 			this.setTextColorRanges(next);
 		} else {
-			this.plugin.settings.pagedLastBackgroundColor = normalizedColor;
 			this.setTextBackgroundRanges(next);
 		}
 		this.scheduleTextStyleSave();
+		this.markDocumentChanged();
 		this.cachedSelection = selection;
 		this.refreshPageTexts(selection);
 		this.restoreSelection(selection, true);
@@ -1098,6 +1123,7 @@ export class PagedWritingView extends FileView {
 		}
 		if (!remove) next.push({ from, to, kind });
 		this.setInlineFormatRanges(next);
+		this.markDocumentChanged();
 		this.cachedSelection = selection;
 		this.dirtyPageIndex = Math.max(0, this.findPageIndex(from) - 1);
 		this.paginateNow(false, selection);
@@ -1106,14 +1132,7 @@ export class PagedWritingView extends FileView {
 	}
 
 	private isInlineFormatRangeCovered(kind: PagedInlineFormatKind, from: number, to: number): boolean {
-		let cursor = from;
-		for (const range of this.getInlineFormatRanges().filter(item => item.kind === kind)) {
-			if (range.to <= cursor) continue;
-			if (range.from > cursor) return false;
-			cursor = Math.max(cursor, range.to);
-			if (cursor >= to) return true;
-		}
-		return false;
+		return inlineRangesCover(this.getEditableData(), this.getInlineFormatRanges().filter(item => item.kind === kind), from, to);
 	}
 
 	private refreshToolbarSelection(): void {
@@ -1183,29 +1202,49 @@ export class PagedWritingView extends FileView {
 		);
 	}
 
-	private getLastBackgroundColor(): string {
-		return this.toColorInputValue(this.plugin.settings.pagedLastBackgroundColor, '#fef3c7');
-	}
-
 	private getTextColorKey(): string | null {
 		return this.file?.path ?? null;
 	}
 
-	private shiftStoredStyleOffsets(delta: number): void {
+	private hasStoredStyles(key: string): boolean {
+		const settings = this.plugin.settings;
+		return [settings.pagedParagraphAlignments]
+			.some(store => Array.isArray(store?.[key]) && store[key].length > 0);
+	}
+
+	/** Record which frontmatter length the stored absolute style offsets assume. */
+	private rememberStyleFrontmatterLength(prefixLength = this.frontmatterPrefix.length): void {
+		const key = this.getTextColorKey();
+		if (!key) return;
+		const lengths = this.plugin.settings.pagedStyleFrontmatterLengths ?? {};
+		if (this.hasStoredStyles(key)) {
+			if (lengths[key] === prefixLength) return;
+			lengths[key] = prefixLength;
+		} else {
+			if (!(key in lengths)) return;
+			delete lengths[key];
+		}
+		this.plugin.settings.pagedStyleFrontmatterLengths = lengths;
+	}
+
+	private realignStoredStylesToFrontmatter(prefixLength: number): void {
+		const key = this.getTextColorKey();
+		if (!key) return;
+		const recorded = this.plugin.settings.pagedStyleFrontmatterLengths?.[key];
+		if (typeof recorded === 'number' && Number.isFinite(recorded) && recorded !== prefixLength && this.hasStoredStyles(key)) {
+			this.shiftStoredStyleOffsets(prefixLength - recorded, prefixLength);
+			return;
+		}
+		// Files styled before this record existed start tracking from now on.
+		if (recorded === undefined && this.hasStoredStyles(key)) {
+			this.rememberStyleFrontmatterLength(prefixLength);
+			this.scheduleTextStyleSave();
+		}
+	}
+
+	private shiftStoredStyleOffsets(delta: number, nextPrefixLength?: number): void {
 		const key = this.getTextColorKey();
 		if (!key || delta === 0) return;
-		const shiftRanges = <T extends { from: number; to: number }>(store?: Record<string, T[]>) => {
-			const ranges = store?.[key];
-			if (!Array.isArray(ranges)) return;
-			store![key] = ranges.map(range => ({
-				...range,
-				from: Math.max(0, range.from + delta),
-				to: Math.max(0, range.to + delta),
-			}));
-		};
-		shiftRanges(this.plugin.settings.pagedTextColors);
-		shiftRanges(this.plugin.settings.pagedTextBackgrounds);
-		shiftRanges(this.plugin.settings.pagedInlineFormats);
 		const alignments = this.plugin.settings.pagedParagraphAlignments?.[key];
 		if (Array.isArray(alignments)) {
 			this.plugin.settings.pagedParagraphAlignments[key] = alignments.map(item => ({
@@ -1213,6 +1252,7 @@ export class PagedWritingView extends FileView {
 				from: Math.max(0, item.from + delta),
 			}));
 		}
+		this.rememberStyleFrontmatterLength(nextPrefixLength ?? this.frontmatterPrefix.length + delta);
 		this.scheduleTextStyleSave();
 	}
 
@@ -1221,85 +1261,30 @@ export class PagedWritingView extends FileView {
 	}
 
 	private getTextColorRanges(): PagedTextColorRange[] {
-		const key = this.getTextColorKey();
-		if (!key) return [];
-		const store = this.plugin.settings.pagedTextColors ?? {};
-		const ranges = store[key];
-		if (!Array.isArray(ranges)) return [];
-		return ranges
-			.filter(range => Number.isFinite(range.from)
-				&& Number.isFinite(range.to)
-				&& range.from >= 0
-				&& range.to > range.from
-				&& /^#[0-9a-f]{6}$/i.test(range.color))
-			.map(range => ({
-				...range,
-				from: Math.max(0, range.from - this.stylePositionOffset),
-				to: Math.max(0, range.to - this.stylePositionOffset),
-			}))
-			.filter(range => range.to > range.from);
+		return this.inlineState.colors;
 	}
 
 	private getTextBackgroundRanges(): PagedTextColorRange[] {
-		const key = this.getTextColorKey();
-		if (!key) return [];
-		const store = this.plugin.settings.pagedTextBackgrounds ?? {};
-		const ranges = store[key];
-		if (!Array.isArray(ranges)) return [];
-		return ranges
-			.filter(range => Number.isFinite(range.from)
-				&& Number.isFinite(range.to)
-				&& range.from >= 0
-				&& range.to > range.from
-				&& /^#[0-9a-f]{6}$/i.test(range.color))
-			.map(range => ({
-				...range,
-				from: Math.max(0, range.from - this.stylePositionOffset),
-				to: Math.max(0, range.to - this.stylePositionOffset),
-			}))
-			.filter(range => range.to > range.from);
+		return this.inlineState.highlights.map(range => ({ ...range, color: range.color || '#ffff00' }));
 	}
 
 	private getInlineFormatRanges(): PagedInlineFormatRange[] {
-		const key = this.getTextColorKey();
-		if (!key) return [];
-		const ranges = (this.plugin.settings.pagedInlineFormats ?? {})[key];
-		if (!Array.isArray(ranges)) return [];
-		const kinds: PagedInlineFormatKind[] = ['bold', 'italic', 'underline', 'strikethrough'];
-		return ranges
-			.filter(range => Number.isFinite(range.from)
-				&& Number.isFinite(range.to)
-				&& range.from >= 0
-				&& range.to > range.from
-				&& kinds.includes(range.kind))
-			.map(range => ({
-				...range,
-				from: Math.max(0, range.from - this.stylePositionOffset),
-				to: Math.max(0, range.to - this.stylePositionOffset),
-			}))
-			.filter(range => range.to > range.from);
+		return this.inlineState.inline;
 	}
 
 	private getParagraphAlignments(): PagedParagraphAlignment[] {
-		const key = this.getTextColorKey();
-		if (!key) return [];
-		const alignments = (this.plugin.settings.pagedParagraphAlignments ?? {})[key];
-		if (!Array.isArray(alignments)) return [];
-		const values: PagedParagraphAlignmentValue[] = ['left', 'center', 'right', 'justify'];
-		return alignments
-			.filter(item => Number.isFinite(item.from) && item.from >= 0 && values.includes(item.align))
-			.map(item => ({ ...item, from: Math.max(0, item.from - this.stylePositionOffset) }));
+		return this.paragraphAlignmentRanges;
 	}
 
-	private normalizeTextColorRanges(ranges: PagedTextColorRange[]): PagedTextColorRange[] {
+	private normalizeTextColorRanges(ranges: PagedTextColorRange[], highlight = false): PagedTextColorRange[] {
 		const sourceLength = this.getEditableData().length;
 		const sorted = ranges
 			.map(range => ({
 				from: Math.max(0, Math.min(sourceLength, Math.round(range.from))),
 				to: Math.max(0, Math.min(sourceLength, Math.round(range.to))),
-				color: this.toColorInputValue(range.color, ''),
+				color: highlight ? normalizeHighlightColor(range.color) || '#ffff00' : this.toColorInputValue(range.color, ''),
 			}))
-			.filter((range): range is PagedTextColorRange => range.to > range.from && /^#[0-9a-f]{6}$/i.test(range.color))
+			.filter((range): range is PagedTextColorRange => range.to > range.from && (highlight || /^#[0-9a-f]{6}$/i.test(range.color)))
 			.sort((left, right) => left.from - right.from || left.to - right.to);
 		const normalized: PagedTextColorRange[] = [];
 		for (const range of sorted) {
@@ -1372,74 +1357,80 @@ export class PagedWritingView extends FileView {
 	}
 
 	private setTextColorRanges(ranges: PagedTextColorRange[], invalidateRenderedStyles = true): void {
-		const key = this.getTextColorKey();
-		if (!key) return;
 		const normalized = this.normalizeTextColorRanges(ranges);
-		const stored = normalized.map(range => ({
-			...range,
-			from: range.from + this.stylePositionOffset,
-			to: range.to + this.stylePositionOffset,
-		}));
-		const store = this.plugin.settings.pagedTextColors ?? {};
-		if (this.textColorRangesEqual(store[key] ?? [], stored)) return;
-		if (stored.length > 0) store[key] = stored;
-		else delete store[key];
-		this.plugin.settings.pagedTextColors = store;
+		if (this.textColorRangesEqual(this.inlineState.colors, normalized)) return;
+		this.inlineState.colors = normalized;
 		if (invalidateRenderedStyles) this.textStyleVersion++;
-		this.scheduleTextStyleSave();
 	}
 
 	private setTextBackgroundRanges(ranges: PagedTextColorRange[], invalidateRenderedStyles = true): void {
-		const key = this.getTextColorKey();
-		if (!key) return;
-		const normalized = this.normalizeTextColorRanges(ranges);
-		const stored = normalized.map(range => ({
-			...range,
-			from: range.from + this.stylePositionOffset,
-			to: range.to + this.stylePositionOffset,
-		}));
-		const store = this.plugin.settings.pagedTextBackgrounds ?? {};
-		if (this.textColorRangesEqual(store[key] ?? [], stored)) return;
-		if (stored.length > 0) store[key] = stored;
-		else delete store[key];
-		this.plugin.settings.pagedTextBackgrounds = store;
+		const normalized = this.normalizeTextColorRanges(ranges, true);
+		if (this.textColorRangesEqual(this.getTextBackgroundRanges(), normalized)) return;
+		this.inlineState.highlights = normalized.map(({ from, to, color }) => {
+			const highlightColor = normalizeHighlightColor(color);
+			return { from, to, ...(highlightColor ? { color: highlightColor } : {}) };
+		});
 		if (invalidateRenderedStyles) this.textStyleVersion++;
-		this.scheduleTextStyleSave();
 	}
 
 	private setInlineFormatRanges(ranges: PagedInlineFormatRange[], invalidateRenderedStyles = true): void {
-		const key = this.getTextColorKey();
-		if (!key) return;
 		const normalized = this.normalizeInlineFormatRanges(ranges);
-		const stored = normalized.map(range => ({
-			...range,
-			from: range.from + this.stylePositionOffset,
-			to: range.to + this.stylePositionOffset,
-		}));
-		const store = this.plugin.settings.pagedInlineFormats ?? {};
-		if (this.inlineFormatRangesEqual(store[key] ?? [], stored)) return;
-		if (stored.length > 0) store[key] = stored;
-		else delete store[key];
-		this.plugin.settings.pagedInlineFormats = store;
+		if (this.inlineFormatRangesEqual(this.inlineState.inline, normalized)) return;
+		this.inlineState.inline = normalized;
 		if (invalidateRenderedStyles) this.textStyleVersion++;
-		this.scheduleTextStyleSave();
 	}
 
 	private setParagraphAlignments(alignments: PagedParagraphAlignment[], invalidateRenderedStyles = true): void {
+		const normalized = this.normalizeParagraphAlignments(alignments);
+		if (this.paragraphAlignmentsEqual(this.paragraphAlignmentRanges, normalized)) return;
+		this.paragraphAlignmentRanges = normalized;
+		if (invalidateRenderedStyles) this.textStyleVersion++;
+		this.persistParagraphAlignments();
+	}
+
+	private persistParagraphAlignments(): void {
 		const key = this.getTextColorKey();
 		if (!key) return;
-		const normalized = this.normalizeParagraphAlignments(alignments);
-		const stored = normalized.map(item => ({
-			...item,
-			from: item.from + this.stylePositionOffset,
-		}));
 		const store = this.plugin.settings.pagedParagraphAlignments ?? {};
+		if (!this.paragraphAlignmentRanges.length && !store[key]?.length) return;
+		const state = parseInlineMarkdown(this.getViewData().slice(this.frontmatterPrefix.length));
+		const stored = this.paragraphAlignmentRanges.map(item => ({ ...item, from: visibleOffsetToSource(state, item.from) + this.stylePositionOffset }));
 		if (this.paragraphAlignmentsEqual(store[key] ?? [], stored)) return;
-		if (stored.length > 0) store[key] = stored;
-		else delete store[key];
+		if (stored.length) store[key] = stored; else delete store[key];
 		this.plugin.settings.pagedParagraphAlignments = store;
-		if (invalidateRenderedStyles) this.textStyleVersion++;
+		this.rememberStyleFrontmatterLength();
 		this.scheduleTextStyleSave();
+	}
+
+	private migrateLegacyInlineStyles(offset: number): void {
+		const key = this.getTextColorKey();
+		if (!key) return;
+		const settings = this.plugin.settings;
+		const colors = settings.pagedTextColors?.[key], backgrounds = settings.pagedTextBackgrounds?.[key], inline = settings.pagedInlineFormats?.[key];
+		if (!colors?.length && !backgrounds?.length && !inline?.length) return;
+		const convert = <T extends { from: number; to: number }>(range: T): T => ({ ...range,
+			from: sourceOffsetToVisible(this.inlineState, range.from - offset), to: sourceOffsetToVisible(this.inlineState, range.to - offset),
+		});
+		this.setTextColorRanges([...this.getTextColorRanges(), ...(colors ?? []).map(convert)]);
+		this.setTextBackgroundRanges([...this.getTextBackgroundRanges(), ...(backgrounds ?? []).map(convert)]);
+		this.setInlineFormatRanges([...this.getInlineFormatRanges(), ...(inline ?? []).map(convert)]);
+		this.legacyStyleMigration = { key, colors, backgrounds, inline };
+	}
+
+	private async finishLegacyStyleMigration(): Promise<void> {
+		const migration = this.legacyStyleMigration;
+		if (!migration) return;
+		const settings = this.plugin.settings, { key } = migration;
+		const entries = [[settings.pagedTextColors, migration.colors], [settings.pagedTextBackgrounds, migration.backgrounds], [settings.pagedInlineFormats, migration.inline]] as const;
+		for (const [store, original] of entries) if (store?.[key] === original) delete store[key];
+		try { await this.plugin.saveData(settings); }
+		catch (error) {
+			if (migration.colors) (settings.pagedTextColors ??= {})[key] ??= migration.colors;
+			if (migration.backgrounds) (settings.pagedTextBackgrounds ??= {})[key] ??= migration.backgrounds;
+			if (migration.inline) (settings.pagedInlineFormats ??= {})[key] ??= migration.inline;
+			throw error;
+		}
+		if (this.legacyStyleMigration === migration) this.legacyStyleMigration = null;
 	}
 
 	private scheduleTextStyleSave(): void {
@@ -1501,7 +1492,24 @@ export class PagedWritingView extends FileView {
 
 	private readonly handleBeforeInput = (event: InputEvent): void => {
 		if (this.rendering) return;
-		if (this.composing || event.isComposing || event.inputType === 'insertCompositionText') {
+		let releasedComposition = false;
+		if (this.composing && event.cancelable && (
+			(event.inputType.startsWith('delete') && event.inputType !== 'deleteCompositionText')
+			|| event.inputType === 'insertParagraph' || event.inputType === 'insertLineBreak'
+		)) {
+			// A normal Backspace/Enter can precede the platform's compositionend.
+			// Let Chromium release its IME range before a controlled edit repaginates
+			// the host. Otherwise it can join page shells, while the stale preedit
+			// snapshot brings the deleted text back at the next preview/commit.
+			event.preventDefault();
+			const selection = this.readSelection();
+			this.editRootEl?.blur();
+			if (this.composing) this.handleCompositionEnd(new CompositionEvent('compositionend', { data: this.compositionSession?.text ?? '' }));
+			if (this.compositionCommit) this.compositionCommit.released = true;
+			if (selection) this.restoreSelection(selection, true);
+			releasedComposition = true;
+		}
+		if (this.composing || (event.isComposing && !releasedComposition) || event.inputType === 'insertCompositionText') {
 			const session = this.compositionSession;
 			if (session && !session.targetCaptured) {
 				const range = event.getTargetRanges?.()[0];
@@ -1626,16 +1634,19 @@ export class PagedWritingView extends FileView {
 			return;
 		}
 		const commit = this.compositionCommit;
-		if (commit && event.inputType === 'insertText' && event.data === commit.text && this.getEditableData() === commit.source) {
+		if (commit && event.inputType === 'insertText' && event.data === commit.text
+			&& (this.getEditableData() === commit.source || commit.released)) {
 			// Some Windows IMEs deliver a final DOM insertion after compositionend.
 			// The composition data is already committed; reconcile its DOM once rather
 			// than importing a second copy from a retired page fragment.
 			this.compositionCommit = null;
-			for (const index of this.getSelectionPageIndices(commit.selection)) {
+			const selection = commit.released ? this.cachedSelection : commit.selection;
+			const source = this.getEditableData();
+			for (const index of this.getSelectionPageIndices(selection)) {
 				const textEl = this.pageTextEls[index];
-				if (textEl && serializePagedText(textEl) !== commit.source.slice(this.pages[index].from, this.pages[index].to)) this.pageRenderStates.delete(textEl);
+				if (textEl && serializePagedText(textEl) !== source.slice(this.pages[index].from, this.pages[index].to)) this.pageRenderStates.delete(textEl);
 			}
-			this.refreshPageTexts(commit.selection, this.getSelectionPageIndices(commit.selection));
+			this.refreshPageTexts(selection, this.getSelectionPageIndices(selection));
 			return;
 		}
 		this.clearCompositionOverflowPreview();
@@ -1675,6 +1686,7 @@ export class PagedWritingView extends FileView {
 	};
 
 	private readonly handleCompositionEnd = (event: CompositionEvent): void => {
+		if (!this.composing && !this.compositionSession) return;
 		if (this.compositionSession) this.compositionSession.text = event.data;
 		this.composing = false;
 		this.editRootEl?.removeClass('is-composing');
@@ -1773,7 +1785,9 @@ export class PagedWritingView extends FileView {
 			const candidate = this.pages[index];
 			reusableByBoundary.set(`${candidate.from}:${candidate.to}`, index);
 		}
-		const stopAfterReusablePage = (candidate: PageRange) => {
+		let activePageHeight = 0;
+		const stopAfterReusablePage = (candidate: PageRange, usedHeight: number) => {
+			if (candidate.index === page.index) activePageHeight = usedHeight;
 			const oldPageIndex = reusableByBoundary.get(`${candidate.from}:${candidate.to}`);
 			if (oldPageIndex !== undefined) {
 				return true;
@@ -1792,6 +1806,15 @@ export class PagedWritingView extends FileView {
 		);
 		const overflowPages = calculated.slice(1);
 		if (overflowPages.length === 0) { this.clearCompositionOverflowPreview(); return; }
+		if (activeTextEl && activePageHeight > 0) {
+			if (this.compositionClippedTextEl !== activeTextEl) this.compositionClippedTextEl?.style.removeProperty('clip-path');
+			this.compositionClippedTextEl = activeTextEl;
+			// The physical content box can leave part of another line visible. The
+			// IME still owns that overflow in its DOM, but it is painted by the next
+			// page's preview. Clip at the paginator's full-line height, including gaps,
+			// without moving/replacing the native composing subtree.
+			activeTextEl.style.clipPath = `inset(0px 0px max(0px, calc(100% - ${activePageHeight * this.zoom}px)) 0px)`;
+		}
 
 		const viewport = this.viewportEl;
 		const firstPage = this.pageEls[0];
@@ -1813,6 +1836,8 @@ export class PagedWritingView extends FileView {
 			? this.compositionSession.from + this.compositionSession.text.length : selection.head;
 		const glyphPosition = Math.max(0, compositionHead - 1);
 		this.compositionScrollPageIndex = calculated.find(candidate => glyphPosition >= candidate.from && glyphPosition < candidate.to)?.index ?? null;
+		let caretTextEl: HTMLElement | null = null;
+		let caretPage: PageRange | null = null;
 		for (let previewIndex = 0; previewIndex < overflowPages.length; previewIndex++) {
 			const previewPage = overflowPages[previewIndex];
 			// Previews are siblings of the editing host. Adding/removing even a
@@ -1853,12 +1878,39 @@ export class PagedWritingView extends FileView {
 				previewPage.to < source.length,
 			);
 			nextPreviews.push(shell);
+			if (compositionHead > previewPage.from && compositionHead <= previewPage.to) {
+				caretTextEl = textEl;
+				caretPage = previewPage;
+			}
 		}
 		for (const shell of previousPreviews.values()) shell.remove();
 		this.compositionPreviewEls = nextPreviews;
+		this.renderCompositionCaret(caretTextEl, caretPage, compositionHead);
 		if (this.plugin.settings.enableTypewriterScrolling) {
 			this.centerActivePage();
 		}
+	}
+
+	private renderCompositionCaret(textEl: HTMLElement | null, page: PageRange | null, head: number): void {
+		const point = textEl && page ? this.pageLocalDomPoint(textEl, head - page.from) : null;
+		const content = textEl?.parentElement;
+		if (!point || !content) {
+			this.compositionCaretEl?.remove();
+			this.compositionCaretEl = null;
+			return;
+		}
+		const range = content.ownerDocument.createRange();
+		range.setStart(point.node, point.offset);
+		range.collapse(true);
+		const rect = range.getBoundingClientRect();
+		if (rect.height === 0) { this.compositionCaretEl?.remove(); this.compositionCaretEl = null; return; }
+		const bounds = content.getBoundingClientRect();
+		const caret = this.compositionCaretEl ?? content.createDiv({ cls: 'wm-paged-composition-caret', attr: { 'aria-hidden': 'true' } });
+		if (caret.parentElement !== content) content.appendChild(caret);
+		caret.style.left = `${Math.max(0, Math.min(content.clientWidth - 1, rect.left - bounds.left))}px`;
+		caret.style.top = `${rect.top - bounds.top}px`;
+		caret.style.height = `${rect.height}px`;
+		this.compositionCaretEl = caret;
 	}
 
 	private activeNativePageFits(): boolean {
@@ -1871,6 +1923,12 @@ export class PagedWritingView extends FileView {
 			: null;
 		const textEl = focusElement?.closest<HTMLElement>('.wm-paged-page-text');
 		const contentEl = textEl?.parentElement;
+		const pageIndex = Number(textEl?.closest<HTMLElement>('.wm-paged-page-shell')?.dataset.pageIndex ?? -1);
+		const page = this.pages[pageIndex];
+		// Native insertion can inherit a neighboring span's bold/italic even when
+		// the projected range ends at the caret. Reconcile metric styles before
+		// certifying a page boundary from that provisional DOM.
+		if (page && this.getInlineFormatRanges().some(range => (range.kind === 'bold' || range.kind === 'italic') && range.from < page.to && range.to > page.from)) return false;
 		return Boolean(textEl && contentEl && contentEl.clientHeight > 0
 			&& textEl.scrollHeight <= contentEl.clientHeight + 1);
 	}
@@ -1884,6 +1942,10 @@ export class PagedWritingView extends FileView {
 	}
 
 	private clearCompositionOverflowPreview(): void {
+		this.compositionClippedTextEl?.style.removeProperty('clip-path');
+		this.compositionClippedTextEl = null;
+		this.compositionCaretEl?.remove();
+		this.compositionCaretEl = null;
 		this.compositionScrollPageIndex = null;
 		if (this.compositionPreviewFrame) {
 			window.cancelAnimationFrame(this.compositionPreviewFrame);
@@ -2441,13 +2503,9 @@ export class PagedWritingView extends FileView {
 	replaceSourceSnapshot(expected: string, next: string): void {
 		if (this.getViewData() !== expected) throw new Error(wmT("원고가 변경되었습니다. 다시 비교해 주세요."));
 		if (next === expected) return;
-		const { prefix, body } = splitFrontmatter(next);
-		const edits = textEdits(this.getEditableData(), body);
 		this.recordHistory('other');
-		if (prefix.length !== this.frontmatterPrefix.length) this.shiftStoredStyleOffsets(prefix.length - this.frontmatterPrefix.length);
-		this.frontmatterPrefix = prefix;
-		if (edits.length) this.applyTextEdits(edits, false);
-		else { this.markDocumentChanged(); this.refreshToolbarSelection(); }
+		this.setViewData(next, false);
+		this.markDocumentChanged();
 	}
 
 	private applyEdit(from: number, to: number, insert: string, kind: EditKind, recordHistory = true, refresh = true): void {
@@ -2494,6 +2552,7 @@ export class PagedWritingView extends FileView {
 	}
 
 	private markDocumentChanged(): void {
+		this.persistParagraphAlignments();
 		this.fileStore?.changed();
 		if (this.findBarEl && !this.findBarEl.hidden && this.findInputEl?.value) {
 			this.refreshFindMatches(false);
@@ -2800,7 +2859,10 @@ export class PagedWritingView extends FileView {
 		}
 		const stopAfterReusablePage = reusableByBoundary.size > 0 ? (page: PageRange) => {
 			// An unchanged page before the edit says nothing about the edited suffix.
-			if (reuse && (page.to <= reuse.from || page.to < reuse.from + reuse.insertLength)) return false;
+			// A boundary exactly at the edit end proves nothing either: inserting or
+			// removing a newline there turns the following text into (or out of) a
+			// paragraph start, so its indent rewraps every later line of that page.
+			if (reuse && page.to <= reuse.from + reuse.insertLength) return false;
 			const oldPageIndex = reusableByBoundary.get(`${page.from}:${page.to}`);
 			if (oldPageIndex === undefined) return false;
 			matchedOldPageIndex = oldPageIndex;
@@ -2824,12 +2886,19 @@ export class PagedWritingView extends FileView {
 		// key may start another composition before the scheduled frame, during which
 		// the editing host must stay frozen. Deferring following pages until that
 		// frame leaves them stale for the whole burst and flashes overflow previews.
-		if (forceRender || this.pageEls.length !== this.pages.length) {
+		const pageCountChanged = this.pageEls.length !== this.pages.length;
+		if (forceRender || pageCountChanged) {
 			this.renderPages(selection, renderIndices);
 		} else {
 			this.refreshPageTexts(selection, renderIndices);
 		}
-		if (!forceRender) this.scheduleVisiblePageRender();
+		if (!forceRender) {
+			// Adding/removing shells can clamp scrollTop and expose a different
+			// window than renderIndices described. Hydrate it before the next IME
+			// freezes the host, so old offscreen snapshots cannot reappear on screen.
+			if (pageCountChanged) this.renderVisiblePages();
+			this.scheduleVisiblePageRender();
+		}
 	}
 
 	private renderPages(selection: TextSelection, requestedIndices?: number[]): void {
@@ -2955,8 +3024,8 @@ export class PagedWritingView extends FileView {
 		if (!viewport || this.pages.length === 0) return [...indices];
 		const columns = Math.max(1, this.gridColumns);
 		const rowStride = this.displayedPageRowStride;
-		const firstRow = Math.max(0, Math.floor((viewport.scrollTop - 16) / rowStride) - 1);
-		const lastRow = Math.max(firstRow, Math.floor((viewport.scrollTop + viewport.clientHeight - 16) / rowStride) + 1);
+		const firstRow = Math.max(0, Math.floor((viewport.scrollTop - this.gridPaddingTop) / rowStride) - 1);
+		const lastRow = Math.max(firstRow, Math.floor((viewport.scrollTop + viewport.clientHeight - this.gridPaddingTop) / rowStride) + 1);
 		for (let row = firstRow; row <= lastRow; row++) {
 			const firstIndex = row * columns;
 			if (firstIndex >= this.pages.length) break;
@@ -3280,7 +3349,8 @@ export class PagedWritingView extends FileView {
 				const from = points[index];
 				const to = points[index + 1];
 				if (to <= from) continue;
-				const color = matchingColors.find(range => range.from <= from && range.to >= to)?.color;
+				const color = matchingColors.filter(range => range.from <= from && range.to >= to)
+					.sort((a, b) => b.from - a.from || a.to - b.to)[0]?.color;
 				const backgroundColor = matchingBackgrounds.find(range => range.from <= from && range.to >= to)?.color;
 				const activeFormats = new Set(matchingFormats
 					.filter(range => range.from <= from && range.to >= to)
@@ -3294,7 +3364,7 @@ export class PagedWritingView extends FileView {
 				const formatted = detachedEl(run.ownerDocument, 'span');
 				formatted.className = 'wm-paged-formatted-text';
 				if (color) formatted.style.color = color;
-				if (backgroundColor) formatted.style.backgroundColor = backgroundColor;
+				if (backgroundColor) formatted.setCssStyles({ backgroundColor: highlightBackground(backgroundColor) });
 				if (activeFormats.has('bold')) formatted.setCssStyles({ fontWeight: '700' });
 				if (activeFormats.has('italic')) formatted.setCssStyles({ fontStyle: 'italic' });
 				const decorationLines: string[] = [];
@@ -3754,6 +3824,7 @@ export class PagedWritingView extends FileView {
 			textBackgrounds: this.getTextBackgroundRanges(),
 			inlineFormats: this.getInlineFormatRanges(),
 			paragraphAlignments: this.getParagraphAlignments(),
+			sourceLines: this.inlineState.lines,
 		};
 	}
 
@@ -3775,10 +3846,11 @@ export class PagedWritingView extends FileView {
 
 	private restoreSnapshot(snapshot: HistorySnapshot): void {
 		const prefix = snapshot.frontmatterPrefix ?? this.frontmatterPrefix;
-		const dataChanged = snapshot.data !== this.getEditableData() || prefix !== this.frontmatterPrefix;
 		if (prefix.length !== this.frontmatterPrefix.length) this.shiftStoredStyleOffsets(prefix.length - this.frontmatterPrefix.length);
 		this.frontmatterPrefix = prefix;
+		this.inlineState = { visible: snapshot.data, colors: snapshot.textColors, highlights: [], inline: snapshot.inlineFormats, lines: snapshot.sourceLines };
 		this.setEditableData(snapshot.data);
+		this.textStyleVersion++;
 		this.setTextColorRanges(snapshot.textColors);
 		this.setTextBackgroundRanges(snapshot.textBackgrounds);
 		this.setInlineFormatRanges(snapshot.inlineFormats);
@@ -3787,7 +3859,7 @@ export class PagedWritingView extends FileView {
 		this.lastHistoryKind = null;
 		this.dirtyPageIndex = 0;
 		this.paginateNow(true, this.cachedSelection);
-		if (dataChanged) this.markDocumentChanged();
+		this.markDocumentChanged();
 		this.refreshToolbarSelection();
 	}
 
@@ -3862,6 +3934,11 @@ export class PagedWritingView extends FileView {
 			const entry = entries.find(item => item.target === this.viewportEl);
 			if (entry) this.viewportWidth = entry.contentRect.width;
 			this.updateGridColumns(this.viewportWidth);
+			// Preview shells live outside the native editing host. A leaf resize can
+			// reflow its grid without another IME event, leaving those shells at the
+			// old columns and pinning scrolling to an obsolete row.
+			if (this.composing) this.renderCompositionOverflowPreview();
+			else if (this.typewriterScrollTarget !== null) this.centerActivePage();
 			this.handleViewportScroll();
 		});
 		this.resizeObserver.observe(this.viewportEl);
@@ -3869,6 +3946,7 @@ export class PagedWritingView extends FileView {
 
 	private updateGridColumns(measuredWidth?: number): void {
 		if (!this.viewportEl || !this.editRootEl) return;
+		this.measureGridPaddingTop();
 		// The shell uses content-box, so its one-pixel border on both sides is part
 		// of the grid track. Omitting it lets the virtual row/column model drift
 		// away from the real DOM over a large page count.
@@ -3898,7 +3976,7 @@ export class PagedWritingView extends FileView {
 		const oldStride = this.displayedPageRowStride;
 		const caretPageIndex = this.findPageIndex(this.cachedSelection.head);
 		const viewportRow = viewport
-			? Math.max(0, Math.floor((viewport.scrollTop + viewport.clientHeight / 2 - 16) / oldStride))
+			? Math.max(0, Math.floor((viewport.scrollTop + viewport.clientHeight / 2 - this.gridPaddingTop) / oldStride))
 			: 0;
 		const anchorPageIndex = this.plugin.settings.enableTypewriterScrolling
 			? caretPageIndex
@@ -3914,7 +3992,7 @@ export class PagedWritingView extends FileView {
 		this.updateGridColumns();
 		if (viewport) {
 			const row = Math.floor(Math.max(0, anchorPageIndex) / Math.max(1, this.gridColumns));
-			const pageCenter = 16 + row * this.displayedPageRowStride + this.displayedPageHeight / 2;
+			const pageCenter = this.gridPaddingTop + row * this.displayedPageRowStride + this.displayedPageHeight / 2;
 			viewport.scrollTop = Math.max(0, pageCenter - viewport.clientHeight / 2);
 		}
 		// Never rebuild page DOM synchronously during zoom. Chromium keeps the
@@ -3935,6 +4013,15 @@ export class PagedWritingView extends FileView {
 
 	private get displayedPageHeight(): number {
 		return this.pageGeometry.pageHeight * this.displayScale + PAGE_BORDER_SIZE;
+	}
+
+	/** Grid top padding (16px, or 0 while the widget row sits above the viewport). */
+	private gridPaddingTop = 16;
+
+	private measureGridPaddingTop(): void {
+		const grid = this.editRootEl;
+		const value = grid ? parseFloat(grid.ownerDocument.defaultView?.getComputedStyle(grid).paddingTop ?? '') : NaN;
+		this.gridPaddingTop = Number.isFinite(value) ? value : 16;
 	}
 
 	private get displayedPageRowStride(): number {

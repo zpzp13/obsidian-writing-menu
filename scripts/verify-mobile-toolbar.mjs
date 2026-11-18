@@ -36,7 +36,7 @@ export function installMobileToolbarChecks() {
 		const plugin = {settings:{...structuredClone(DEFAULT_SETTINGS),fontFamily:'serif',customFonts:['monospace'],writingWidgetOrder:[]},
 			app:{workspace:{getLeavesOfType:type=>type === 'markdown' ? [leaf] : [],getMostRecentLeaf:()=>leaf}},
 			projectContext:{getProjectForPath:()=>({id:'project'})},leafStyleVersions:new Map(),cssSettingsVersion:1,leafIdCounter:1,
-			stopwatchManager:{subscribeWidget:()=>()=>{}},calculateAllCharCounts:()=>({munpia:0,novelpia:0})};
+			stopwatchManager:{subscribeWidget:()=>()=>{}},calculateAllCharCounts:()=>({munpia:0,novelpia:0}),formatCharCount:value=>String(value)};
 		const styles = new LeafStyleManager(plugin);
 		plugin.mobileFonts = { ensureSelected:async () => {}, cssFamily:() => plugin.settings.mobileFontFamily === 'maruburi' ? 'monospace' : 'inherit' };
 		plugin.saveSettings = async () => {styles.regenerateCSSTemplate();styles.updateAllLeafStyles();};
@@ -90,9 +90,18 @@ export function installMobileToolbarChecks() {
 		const heights = new Set(), editorHeights = new Set();
 		let fullyOpaqueWhileMoving = 0;
 		try {
-			await settle();outer.addClass('is-hidden-header');await new Promise(resolve=>setTimeout(resolve,360));
+			await settle();outer.addClass('is-hidden-header');header.getBoundingClientRect();
+			for(const animation of header.getAnimations())animation.finish();
+			header.getBoundingClientRect();
 			outer.removeClass('is-hidden-header');
+			header.getBoundingClientRect();
+			const animations=header.getAnimations();
+			assert(animations.length>0,'Native header transitions were not created');
+			for(const animation of animations)animation.pause();
 			for(let index=0;index<25;index++) {
+				// Sample the real CSS transitions at known times. Hidden Windows
+				// Chromium can skip the entire 100ms diagnostic interval between rAFs.
+				for(const animation of animations)animation.currentTime=index*15;
 				await new Promise(resolve=>requestAnimationFrame(resolve));
 				const style=getComputedStyle(header), transform=new DOMMatrixReadOnly(style.transform);
 				if(Number(style.opacity) === 1 && Math.abs(transform.m42) > .5)fullyOpaqueWhileMoving++;

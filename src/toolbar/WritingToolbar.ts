@@ -12,6 +12,8 @@ import { TimerStopwatchWidget } from '../dashboard/TimerStopwatchWidget';
 import { FONT_COLOR_ICON_PATH, FONT_COLOR_ICON_VIEWBOX } from '../assets/fontColorIcon';
 import { MARKDOWN_ICON_SVG } from '../assets/markdownIcon';
 import { MUNPIA_SVG, NOVELPIA_SVG } from '../assets/platformLogos';
+import { getCurrentTimeMode, getModeIcon, getModeSeriesColor } from '../dashboard/timeModes';
+import { WIDGET_IDS, normalizeWidgetOrder } from './widgetOrder';
 import type { PagedInlineFormatKind, PagedParagraphAlignmentValue, WritingWidgetId } from '../types';
 import { appendToolbarChevron, createToolbarIconButton, createToolbarOption, createToolbarSelect } from './toolbarUi';
 import { InstalledFontCache } from './InstalledFontCache';
@@ -21,6 +23,10 @@ import { MOBILE_WEB_FONTS, mobileFontName } from '../fonts/MobileFontManager';
 import { fontWeightOptions } from '../fonts/FontWeights';
 import { openSnapshotManager } from '../snapshots/SnapshotManager';
 import { CSS_PX_PER_MM as PX_PER_MM, CSS_PX_PER_PT, formatTypographyNumber, pixelsToPoints } from '../utils/typography';
+
+/** Line icon like the work-mode icons, tinted orange in CSS. */
+const TIMER_WIDGET_ICON = 'hourglass';
+const MAX_RECENT_TEXT_COLORS = 10;
 
 export interface WritingToolbarSurface {
 	kind: 'markdown' | 'paged';
@@ -54,6 +60,7 @@ export class WritingToolbar {
 	private textColorButtonEl: HTMLButtonElement | null = null;
 	private widgetDockEl: HTMLElement | null = null;
 	private timerWidgetValueEl: HTMLElement | null = null;
+	private modeWidgetEls: { icon: HTMLElement; value: HTMLElement; signature: string } | null = null;
 	private zoomValueEl: HTMLElement | null = null;
 	private readonly formatButtons = new Map<PagedInlineFormatKind, HTMLButtonElement>();
 	private readonly widgetCharCountElements = new Map<'munpia' | 'novelpia', HTMLElement>();
@@ -112,6 +119,7 @@ export class WritingToolbar {
 		this.timerModeUnsubscribe = null;
 		this.widgetDockEl?.remove();
 		this.widgetDockEl = null;
+		this.mountEl.removeClass('has-widget-dock');
 		this.toolbarEl.remove();
 	}
 
@@ -127,6 +135,7 @@ export class WritingToolbar {
 		this.renderWidgetDock();
 		this.updateWidgetCharCounts(this.plugin.calculateAllCharCounts(this.surface.getText()));
 		this.refreshTimerWidget();
+		this.refreshModeWidget();
 		this.refreshZenModeButtons();
 		if (this.zoomValueEl) this.zoomValueEl.setText(`${Math.round(this.surface.getZoom() * 100)}%`);
 	}
@@ -194,11 +203,28 @@ export class WritingToolbar {
 			this.formatButtons.set(kind, button);
 		}
 
+		const highlight = this.createIconButton(formatting, 'highlighter', wmT("하이라이트"), () => {});
+		highlight.setAttribute('aria-haspopup', 'menu');
+		highlight.addEventListener('pointerdown', event => this.preserveSelection(event));
+		highlight.addEventListener('click', event => { event.stopPropagation(); this.openHighlightPopover(highlight); });
 		this.createTextColorControl(formatting);
 
 		const actions = this.toolbarEl.createDiv({ cls: 'wm-paged-toolbar-group is-document' });
 		const layout = this.createIconButton(actions, 'panels-top-left', wmT("레이아웃"), () => {});
 		layout.addEventListener('click', event => { event.stopPropagation(); this.openLayoutPopover(layout); });
+		// Markdown ↔ paged view switch sits next to the layout control.
+		if (!Platform.isMobile) {
+			const switchButton = this.createIconButton(
+				actions,
+				null,
+				this.surface.kind === 'markdown' ? wmT("여러 쪽 보기로 전환") : wmT("Markdown으로 전환"),
+				() => { void this.surface.switchView(); },
+			);
+			switchButton.addClass('wm-writing-toolbar-switch');
+			switchButton.addClass(this.surface.kind === 'markdown' ? 'is-paged-target' : 'is-markdown-target');
+			if (this.surface.kind === 'markdown') setIcon(switchButton, 'layout-grid');
+			else switchButton.appendChild(sanitizeHTMLToDom(MARKDOWN_ICON_SVG));
+		}
 
 		this.createIconButton(actions, 'copy', wmT("복사하기"), () => { void this.plugin.copyWithOptions(this.surface.leaf); });
 		const exportButton = this.createIconButton(actions, 'file-output', wmT("내보내기"), () => {});
@@ -226,20 +252,8 @@ export class WritingToolbar {
 		tower.addEventListener('click', event => { event.stopPropagation(); this.openControlTowerPopover(tower); });
 
 		this.createIconButton(actions, 'camera', wmT("스냅샷 관리"), () => openSnapshotManager(this.plugin, this.surface.leaf));
-		if (!Platform.isMobile) {
-			const switchButton = this.createIconButton(
-				actions,
-				null,
-				this.surface.kind === 'markdown' ? wmT("여러 쪽 보기로 전환") : wmT("Markdown으로 전환"),
-				() => { void this.surface.switchView(); },
-			);
-			switchButton.addClass('wm-writing-toolbar-switch');
-			switchButton.addClass(this.surface.kind === 'markdown' ? 'is-paged-target' : 'is-markdown-target');
-			if (this.surface.kind === 'markdown') setIcon(switchButton, 'layout-grid');
-			else switchButton.appendChild(sanitizeHTMLToDom(MARKDOWN_ICON_SVG));
-		}
 
-		this.toolbarEl.createDiv({ cls: 'wm-paged-toolbar-spacer', attr: { 'aria-hidden': 'true' } });
+		// No spacer: settings and zoom follow the other controls in one centered run.
 		const settingsGroup = this.toolbarEl.createDiv({ cls: 'wm-paged-toolbar-group is-settings' });
 		const settings = this.createIconButton(settingsGroup, 'settings', wmT("플러그인 설정"), () => {});
 		settings.addEventListener('click', event => {
@@ -249,10 +263,12 @@ export class WritingToolbar {
 		});
 
 		if (!Platform.isMobile && this.surface.kind === 'paged') this.renderZoomControls();
+		// Its own row between the toolbar and the editor, not an overlay on the pages.
 		this.widgetDockEl = this.mountEl.createDiv({
 			cls: `wm-writing-widget-dock is-${this.surface.kind}`,
 			attr: { 'aria-label': wmT("작성 위젯") },
 		});
+		this.toolbarEl.after(this.widgetDockEl);
 	}
 
 	private renderZoomControls(): void {
@@ -278,17 +294,27 @@ export class WritingToolbar {
 		}
 	}
 
+	/** Keep the widget row directly below the toolbar after the host moves the toolbar. */
+	placeWidgetDock(): void {
+		if (this.widgetDockEl && this.toolbarEl.nextElementSibling !== this.widgetDockEl) this.toolbarEl.after(this.widgetDockEl);
+	}
+
 	private getWidgetOrder(): WritingWidgetId[] {
-		const configured = this.plugin.settings.writingWidgetOrder ?? [];
-		return (['munpia', 'novelpia', 'timer'] as WritingWidgetId[])
-			.filter(id => configured.includes(id))
-			.sort((left, right) => configured.indexOf(left) - configured.indexOf(right));
+		return normalizeWidgetOrder(this.plugin.settings.writingWidgetOrder);
 	}
 
 	private isWidgetVisible(id: WritingWidgetId): boolean {
 		if (id === 'munpia') return this.plugin.settings.showMunpiaWidget;
 		if (id === 'novelpia') return this.plugin.settings.showNovelpiaWidget;
+		if (id === 'mode') return this.plugin.settings.showModeWidget ?? false;
 		return this.plugin.settings.showTimerWidget;
+	}
+
+	private widgetLabel(id: WritingWidgetId): string {
+		if (id === 'munpia') return wmT("문피아 글자수");
+		if (id === 'novelpia') return wmT("노벨피아 글자수");
+		if (id === 'mode') return wmT("작업모드");
+		return wmT("타이머/스톱워치");
 	}
 
 	private renderWidgetDock(): void {
@@ -296,12 +322,19 @@ export class WritingToolbar {
 		if (!dock) return;
 		const order = this.getWidgetOrder();
 		const visible = order.filter(id => this.isWidgetVisible(id));
+		this.placeWidgetDock();
+		const alignment = this.plugin.settings.writingWidgetAlignment ?? 'center';
+		for (const value of ['left', 'center', 'right'] as const) dock.toggleClass(`is-align-${value}`, value === alignment);
+		// The paged grid drops its own top padding so the gaps above and below the
+		// widget row stay equal.
+		this.mountEl.toggleClass('has-widget-dock', visible.length > 0);
 		const signature = visible.join('|');
 		if (dock.dataset.signature === signature) return;
 		dock.dataset.signature = signature;
 		dock.empty();
 		this.widgetCharCountElements.clear();
 		this.timerWidgetValueEl = null;
+		this.modeWidgetEls = null;
 		dock.toggleAttribute('hidden', visible.length === 0);
 
 		for (const id of visible) {
@@ -311,17 +344,25 @@ export class WritingToolbar {
 					type: 'button',
 					draggable: 'true',
 					'data-widget-id': id,
-					'aria-label': wmT("{0} 위젯. 드래그하여 순서 변경", id === 'munpia' ? wmT("문피아 글자수") : id === 'novelpia' ? wmT("노벨피아 글자수") : wmT("타이머/스톱워치")),
+					'aria-label': wmT("{0} 위젯. 드래그하여 순서 변경", this.widgetLabel(id)),
 				},
 			});
-			if (id !== 'timer') {
-				const icon = card.createSpan({ cls: 'wm-writing-widget-icon', attr: { 'aria-hidden': 'true' } });
-				icon.appendChild(sanitizeHTMLToDom(id === 'munpia' ? MUNPIA_SVG : NOVELPIA_SVG));
-			}
+			const icon = card.createSpan({ cls: 'wm-writing-widget-icon', attr: { 'aria-hidden': 'true' } });
+			// The work mode uses the user's own Lucide icon, sized like the badges.
+			if (id === 'munpia' || id === 'novelpia') icon.appendChild(sanitizeHTMLToDom(id === 'munpia' ? MUNPIA_SVG : NOVELPIA_SVG));
+			else if (id === 'timer') { card.addClass('is-timer'); setIcon(icon, TIMER_WIDGET_ICON); this.fitIconToGlyph(icon); }
 
 			const value = card.createSpan({ cls: 'wm-writing-widget-value' });
 			if (id === 'munpia' || id === 'novelpia') this.widgetCharCountElements.set(id, value);
-			else {
+			else if (id === 'mode') {
+				card.addClass('is-mode');
+				this.modeWidgetEls = { icon, value, signature: '' };
+				card.addEventListener('click', event => {
+					if (this.widgetDragActive) return;
+					event.stopPropagation();
+					this.openModePopover(card);
+				});
+			} else {
 				this.timerWidgetValueEl = value;
 				card.addEventListener('click', event => {
 					if (this.widgetDragActive) return;
@@ -354,13 +395,82 @@ export class WritingToolbar {
 			event.preventDefault();
 			event.stopPropagation();
 			const source = event.dataTransfer?.getData('text/plain') as WritingWidgetId | undefined;
-			if (!source || source === id || !['munpia', 'novelpia', 'timer'].includes(source)) return;
+			if (!source || source === id || !(WIDGET_IDS as readonly string[]).includes(source)) return;
 			const next = this.getWidgetOrder().filter(widgetId => widgetId !== source);
 			let targetIndex = next.indexOf(id);
 			if (event.clientX > card.getBoundingClientRect().left + card.offsetWidth / 2) targetIndex += 1;
 			next.splice(Math.max(0, targetIndex), 0, source);
 			this.plugin.settings.writingWidgetOrder = next;
 			void this.plugin.saveSettings();
+		});
+	}
+
+	private refreshModeWidget(): void {
+		const els = this.modeWidgetEls;
+		if (!els) return;
+		const mode = getCurrentTimeMode(this.plugin.settings);
+		const iconName = mode ? getModeIcon(mode) : 'clock';
+		const label = mode?.label || wmT("작업모드");
+		const color = mode ? getModeSeriesColor(this.plugin.settings, mode) : '';
+		const signature = `${iconName}|${label}|${color}`;
+		if (els.signature === signature) return;
+		els.signature = signature;
+		setIcon(els.icon, iconName);
+		this.fitIconToGlyph(els.icon);
+		if (color) els.icon.style.setProperty('--wm-wt-series', color);
+		else els.icon.style.removeProperty('--wm-wt-series');
+		els.value.setText(label);
+	}
+
+	/**
+	 * Lucide glyphs leave different empty margins inside their 24px grid (a narrow
+	 * hourglass leaves ~3px per side). Crop the viewBox to the drawn width so the
+	 * visible gap to the label equals the widget gap for every icon.
+	 */
+	private fitIconToGlyph(icon: HTMLElement, attempt = 0): void {
+		const svg = icon.querySelector('svg');
+		if (!svg) return;
+		let bbox: DOMRect | null = null;
+		try { bbox = svg.getBBox(); } catch { bbox = null; }
+		const height = svg.getBoundingClientRect().height;
+		if (!bbox || bbox.width <= 0 || height <= 0) {
+			// Not laid out yet (hidden leaf, first frame): try again shortly.
+			if (attempt < 3) window.requestAnimationFrame(() => this.fitIconToGlyph(icon, attempt + 1));
+			return;
+		}
+		const viewBox = svg.viewBox.baseVal;
+		const stroke = parseFloat(getComputedStyle(svg).strokeWidth) || 2;
+		const x = bbox.x - stroke / 2;
+		const width = bbox.width + stroke;
+		svg.setAttribute('viewBox', `${x} ${viewBox.y} ${width} ${viewBox.height}`);
+		const pixels = height * width / viewBox.height;
+		svg.style.width = `${pixels}px`;
+		icon.style.width = `${pixels}px`;
+		icon.style.flexBasis = `${pixels}px`;
+		icon.addClass('is-glyph-fit');
+	}
+
+	private openModePopover(anchor: HTMLElement): void {
+		this.openPopover(anchor, 'wm-writing-mode-popover', popover => {
+			popover.createDiv({ cls: 'wm-paged-popover-heading', text: wmT("작업모드") });
+			const current = getCurrentTimeMode(this.plugin.settings);
+			for (const mode of this.plugin.settings.timeModes ?? []) {
+				const item = popover.createEl('button', { cls: 'wm-paged-popover-item', attr: { type: 'button' } });
+				item.toggleClass('is-active', mode.id === current?.id);
+				const icon = item.createSpan({ cls: 'wm-paged-popover-item-icon', attr: { 'aria-hidden': 'true' } });
+				setIcon(icon, getModeIcon(mode));
+				icon.style.setProperty('--wm-wt-series', getModeSeriesColor(this.plugin.settings, mode));
+				item.createSpan({ text: mode.label });
+				if (mode.id === current?.id) setIcon(item.createSpan({ cls: 'wm-paged-popover-check', attr: { 'aria-hidden': 'true' } }), 'check');
+				item.addEventListener('click', () => {
+					this.closePopover();
+					if (this.plugin.settings.currentTimeMode === mode.id) return;
+					this.plugin.settings.currentTimeMode = mode.id;
+					void this.plugin.saveSettings();
+					// Other editors and the dashboard follow the same setting.
+					this.plugin.toolbarManager.refreshAllToolbars();
+				});
+			}
 		});
 	}
 
@@ -634,59 +744,104 @@ export class WritingToolbar {
 	}
 
 	private openTextColorPopover(anchor: HTMLElement): void {
-		this.openPopover(anchor, 'wm-paged-color-popover', popover => {
+		this.openPopover(anchor, 'wm-paged-color-popover wm-writing-color-popover', popover => {
+			// Every row shares one 5-column grid of equal circles: presets, then
+			// "custom" (clear + any-color picker, right-aligned), then the last 10
+			// custom colors in two rows.
 			const textColors = ['#111111', '#6b7280', '#ef4444', '#3b82f6', '#8b5cf6'];
-			const backgroundColors = ['#fef3c7', '#fed7aa', '#fecaca', '#bfdbfe', '#bbf7d0'];
-			const createRow = (label: string, colors: string[], target: 'text' | 'background') => {
-				const row = popover.createDiv({ cls: 'wm-paged-color-row' });
-				row.createSpan({ cls: 'wm-paged-color-row-label', text: label });
-				const palette = row.createDiv({ cls: 'wm-paged-color-row-palette' });
-				for (const color of colors) {
-					const swatch = palette.createEl('button', {
-						cls: 'wm-paged-color-swatch wm-writing-color-swatch',
-						attr: { type: 'button', 'aria-label': `${label} ${color}` },
-					});
-					swatch.style.backgroundColor = color;
-					swatch.addEventListener('pointerdown', event => this.preserveSelection(event));
-					swatch.addEventListener('click', () => {
-						if (target === 'background') {
-							this.plugin.settings.pagedLastBackgroundColor = color;
-							void this.plugin.saveSettings();
-						}
-						this.surface.applyTextColor(color, target);
-						this.refresh();
-					});
-				}
-			};
-			createRow(wmT("글자색"), textColors, 'text');
-			createRow(wmT("배경색"), backgroundColors, 'background');
-			const custom = popover.createDiv({ cls: 'wm-paged-color-custom' });
-			custom.createSpan({ text: wmT("사용자 색상") });
-			const actions = custom.createDiv({ cls: 'wm-paged-color-custom-actions' });
-			const reset = actions.createEl('button', {
+			const textRow = popover.createDiv({ cls: 'wm-paged-color-row' });
+			textRow.createSpan({ cls: 'wm-paged-color-row-label', text: wmT("글자색") });
+			const textPalette = textRow.createDiv({ cls: 'wm-paged-color-row-palette wm-writing-color-palette' });
+			for (const color of textColors) {
+				const swatch = textPalette.createEl('button', {
+					cls: 'wm-paged-color-swatch wm-writing-color-swatch',
+					attr: { type: 'button', 'aria-label': `${wmT("글자색")} ${color}` },
+				});
+				swatch.style.backgroundColor = color;
+				swatch.addEventListener('pointerdown', event => this.preserveSelection(event));
+				swatch.addEventListener('click', () => { this.surface.applyTextColor(color, 'text'); this.refresh(); });
+			}
+			const customRow = popover.createDiv({ cls: 'wm-paged-color-row' });
+			customRow.createSpan({ cls: 'wm-paged-color-row-label', text: wmT("사용자 지정") });
+			const customPalette = customRow.createDiv({ cls: 'wm-paged-color-row-palette wm-writing-color-palette wm-writing-custom-palette' });
+			const reset = customPalette.createEl('button', {
 				cls: 'wm-paged-color-reset clickable-icon',
 				attr: { type: 'button', 'aria-label': wmT("선택한 색상 서식 되돌리기") },
 			});
 			setIcon(reset, 'rotate-ccw');
 			reset.addEventListener('pointerdown', event => this.preserveSelection(event));
 			reset.addEventListener('click', () => { this.surface.clearTextColors(); this.refresh(); });
-			for (const [label, target, value] of [
-				[wmT("사용자 글자색"), 'text', this.surface.getRecentTextColor()],
-				[wmT("사용자 배경색"), 'background', this.getRecentBackgroundColor()],
-			] as const) {
-				const input = actions.createEl('input', {
-					cls: 'wm-compact-color-input wm-paged-color-custom-input',
-					type: 'color',
-					attr: { 'aria-label': wmT("{0} 선택", label) },
-				});
-				input.value = value;
-				input.addEventListener('pointerdown', event => this.preserveSelection(event));
-				this.trackColorInput(input, selectedColor => {
-					if (target === 'background') {
-						this.plugin.settings.pagedLastBackgroundColor = selectedColor;
-						void this.plugin.saveSettings();
+			// A plain swatch showing the current custom color; it opens the picker.
+			const customInput = customPalette.createEl('input', {
+				cls: 'wm-compact-color-input wm-paged-color-custom-input wm-writing-color-swatch',
+				type: 'color',
+				attr: { 'aria-label': wmT("{0} 선택", wmT("사용자 글자색")) },
+			});
+			customInput.value = this.surface.getRecentTextColor();
+			customInput.addEventListener('pointerdown', event => this.preserveSelection(event));
+
+			const recentRow = popover.createDiv({ cls: 'wm-paged-color-row' });
+			recentRow.createSpan({ cls: 'wm-paged-color-row-label', text: wmT("최근 색상") });
+			const recentPalette = recentRow.createDiv({ cls: 'wm-paged-color-row-palette wm-writing-color-palette wm-writing-recent-palette' });
+			const renderRecent = () => {
+				recentPalette.empty();
+				const recent = this.getRecentTextColors();
+				for (let index = 0; index < MAX_RECENT_TEXT_COLORS; index++) {
+					const color = recent[index];
+					if (!color) {
+						// Empty slots show how many eyedropper colors are kept.
+						recentPalette.createSpan({ cls: 'wm-writing-color-swatch is-empty', attr: { 'aria-hidden': 'true' } });
+						continue;
 					}
-					this.surface.applyTextColor(selectedColor, target);
+					const swatch = recentPalette.createEl('button', {
+						cls: 'wm-paged-color-swatch wm-writing-color-swatch',
+						attr: { type: 'button', 'aria-label': `${wmT("최근 색상")} ${color}` },
+					});
+					swatch.style.backgroundColor = color;
+					swatch.addEventListener('pointerdown', event => this.preserveSelection(event));
+					swatch.addEventListener('click', () => { this.surface.applyTextColor(color, 'text'); this.refresh(); });
+				}
+			};
+			renderRecent();
+			this.trackColorInput(customInput, selectedColor => {
+				this.surface.applyTextColor(selectedColor, 'text');
+				this.rememberRecentTextColor(selectedColor);
+				renderRecent();
+				this.refresh();
+			});
+		});
+	}
+
+	private getRecentTextColors(): string[] {
+		return (this.plugin.settings.pagedRecentTextColors ?? [])
+			.filter(color => /^#[0-9a-f]{6}$/i.test(color))
+			.slice(0, MAX_RECENT_TEXT_COLORS);
+	}
+
+	private rememberRecentTextColor(color: string): void {
+		if (!/^#[0-9a-f]{6}$/i.test(color)) return;
+		const normalized = color.toLowerCase();
+		this.plugin.settings.pagedRecentTextColors = [normalized, ...this.getRecentTextColors().filter(item => item.toLowerCase() !== normalized)]
+			.slice(0, MAX_RECENT_TEXT_COLORS);
+		void this.plugin.saveSettings();
+	}
+
+	private openHighlightPopover(anchor: HTMLElement): void {
+		this.openPopover(anchor, 'wm-paged-color-popover wm-writing-highlight-popover', popover => {
+			const palette = popover.createDiv({ cls: 'wm-paged-color-row-palette wm-writing-color-palette wm-writing-highlight-palette' });
+			for (const [color, label] of [
+				['', wmT("기본값")], ['red', wmT("빨간색")], ['orange', wmT("주황색")],
+				['yellow', wmT("노란색")], ['green', wmT("초록색")], ['blue', wmT("파란색")], ['purple', wmT("보라색")],
+			]) {
+				const swatch = palette.createEl('button', {
+					cls: 'wm-paged-color-swatch wm-writing-color-swatch highlight-swatch',
+					attr: { type: 'button', 'aria-label': `${wmT("하이라이트")} ${label}` },
+				});
+				if (color) swatch.setAttribute('data-highlight', color);
+				swatch.addEventListener('pointerdown', event => this.preserveSelection(event));
+				swatch.addEventListener('click', () => {
+					this.surface.applyTextColor(color, 'background');
+					this.closePopover();
 					this.refresh();
 				});
 			}
@@ -949,7 +1104,9 @@ export class WritingToolbar {
 			popover.createDiv({ cls: 'wm-paged-popover-heading', text: wmT("위젯") });
 			this.createWidgetVisibilityToggle(popover, 'munpia', 'MUNPIA', MUNPIA_SVG);
 			this.createWidgetVisibilityToggle(popover, 'novelpia', 'NOVELPIA', NOVELPIA_SVG);
-			this.createWidgetVisibilityToggle(popover, 'timer', wmT("타이머/스톱워치 표시"), 'timer');
+			const mode = getCurrentTimeMode(this.plugin.settings);
+			this.createWidgetVisibilityToggle(popover, 'mode', wmT("작업모드 표시"), mode ? getModeIcon(mode) : 'clock');
+			this.createWidgetVisibilityToggle(popover, 'timer', wmT("타이머/스톱워치 표시"), TIMER_WIDGET_ICON);
 		});
 	}
 
@@ -974,6 +1131,7 @@ export class WritingToolbar {
 			const enabled = !this.isWidgetVisible(id);
 			if (id === 'munpia') this.plugin.settings.showMunpiaWidget = enabled;
 			else if (id === 'novelpia') this.plugin.settings.showNovelpiaWidget = enabled;
+			else if (id === 'mode') this.plugin.settings.showModeWidget = enabled;
 			else this.plugin.settings.showTimerWidget = enabled;
 			toggle.toggleClass('is-enabled', enabled);
 			toggle.setAttribute('aria-checked', String(enabled));
@@ -1103,8 +1261,4 @@ export class WritingToolbar {
 
 	private readonly formatNumber = formatTypographyNumber;
 
-	private getRecentBackgroundColor(): string {
-		const configured = this.plugin.settings.pagedLastBackgroundColor;
-		return /^#[0-9a-f]{6}$/i.test(configured) ? configured : '#fef3c7';
-	}
 }

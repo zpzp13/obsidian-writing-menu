@@ -285,7 +285,7 @@ const bundle = await build({
 			import { installNativePagedInputChecks } from './scripts/verify-paged-native-input.mjs';
 			import { runZenFullscreenChecks } from './scripts/verify-zen-fullscreen.mjs';
 			globalThis.runZenFullscreenChecks = runZenFullscreenChecks;
-			Object.assign(globalThis, { PagedWritingView, PaginationEngine, serializePagedText, runPagedDocumentChecks, installNativePagedInputChecks, pagedNativeOnly:${process.argv.some(flag=>['--native-input-only','--same-line-input-only','--stability-only'].includes(flag))} });` + (dashboardSuite ? `import { runDashboardCoreChecks, runRagSettingsControlsChecks } from './scripts/verify-dashboard-overhaul.mjs'; Object.assign(globalThis, {runDashboardCoreChecks,runRagSettingsControlsChecks,runOnlyRagSettings:${ragSettingsSuite},runOnlyReviewTab:${reviewTabSuite}});` : ''),
+			Object.assign(globalThis, { PagedWritingView, PaginationEngine, serializePagedText, runPagedDocumentChecks, installNativePagedInputChecks, pagedNativeOnly:${process.argv.some(flag=>['--native-input-only','--same-line-input-only','--stability-only','--overflow-visibility-only','--boundary-edit-only','--korean-boundary-only'].includes(flag))} });` + (dashboardSuite ? `import { runDashboardCoreChecks, runRagSettingsControlsChecks } from './scripts/verify-dashboard-overhaul.mjs'; Object.assign(globalThis, {runDashboardCoreChecks,runRagSettingsControlsChecks,runOnlyRagSettings:${ragSettingsSuite},runOnlyReviewTab:${reviewTabSuite}});` : ''),
 		resolveDir: root,
 		loader: 'js',
 	},
@@ -302,7 +302,7 @@ const bundle = await build({
 			if (plotSuite) {
 				builder.onResolve({ filter: /^(\.\/WritingToolbar|\.\.\/export)$/ }, args => ({ path: args.path, namespace: 'toolbar-test' }));
 				builder.onLoad({ filter: /.*/, namespace: 'toolbar-test' }, args => ({ loader: 'js', contents: args.path.endsWith('WritingToolbar')
-					? 'export class WritingToolbar { constructor(plugin, container) { this.toolbarEl = container.createDiv({cls:"wm-writing-toolbar wm-paged-toolbar"}); } destroy() { this.toolbarEl.remove(); } }'
+					? 'export class WritingToolbar { constructor(plugin, container) { this.toolbarEl = container.createDiv({cls:"wm-writing-toolbar wm-paged-toolbar"}); } placeWidgetDock() {} destroy() { this.toolbarEl.remove(); } }'
 					: 'export class HwpxExportModal {} export class TxtExportModal {} export class DocxExportModal {} export class DocumentExportModal {} export function setExportIcon() {} export function registerExportIcons() {}' }));
 			}
 		},
@@ -442,6 +442,16 @@ async function runPagedChecks() {
 		metrics.push({ scenario: '80-IME-middle', maxMs: Math.round(Math.max(...durations)), meanMs: +(durations.reduce((a, b) => a + b, 0) / durations.length).toFixed(2), measuredMaxChars: Math.max(0, ...measurements) });
 		console.info(JSON.stringify(metrics[metrics.length - 1]));
 		checkPages(view);
+		const styledView=await makeView(source.slice(0,80)+'**'+source.slice(80,200)+'**'+source.slice(200));
+		selectOffset(styledView,styledView.pages[Math.floor(styledView.pages.length/2)].from+20);
+		const styledTimes=[];
+		for(let index=0;index<20;index++) {
+			const start=performance.now();imeInsert(styledView,'한');styledView.getViewData();styledTimes.push(performance.now()-start);await frame();
+		}
+		checkPages(styledView);
+		assert(styledView.getViewData().includes('**'),'Large styled-document serialization lost inline formatting');
+		metrics.push({scenario:'styled-200k-IME-serialization',maxMs:Math.round(Math.max(...styledTimes)),meanMs:+(styledTimes.reduce((a,b)=>a+b,0)/styledTimes.length).toFixed(2)});
+		console.info(JSON.stringify(metrics[metrics.length-1]));
 
 		for (const zoom of [0.7, 1.6, 1]) {
 			view.setZoom(zoom);
@@ -629,10 +639,166 @@ try {
 	const result = await command('Runtime.evaluate', { expression: 'window.runPagedChecks()', awaitPromise: true, returnByValue: true });
 	if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || JSON.stringify(result.exceptionDetails));
 	console.log(JSON.stringify(result.result.value, null, 2));
-	if (!plotSuite && !dashboardSuite) {
+	if (!plotSuite && !dashboardSuite && !process.argv.includes('--document-only')) {
 		await command('Emulation.setDeviceMetricsOverride',{width:2600,height:1000,deviceScaleFactor:1,mobile:false});
 		const evaluate = async expression => {const r=await command('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw new Error(r.exceptionDetails.exception?.description);return r.result.value;};
 		try {
+			// Real Korean IME rhythm: ㄱ→가→간, then 가 commits while 나 starts.
+			// Edit right at page boundaries, including Backspace/Enter between
+			// syllables, and require the source and every visible page to match.
+			const koreanKeys=[['ㄱ','가','간'],['가','나'],['ㄴ','나','날'],['나','라'],['ㅅ','사','삭'],['사','가']];
+			let fuzzSeed=7;const random=()=>(fuzzSeed=(Math.imul(fuzzSeed,1103515245)+12345)>>>0)/4294967296;
+			const koreanFailures=[];
+			// Deterministic: Enter with the caret at the first glyph of a page.
+			if(process.argv.includes('--korean-boundary-only'))for(const [fontSize,lineHeight] of [[16,1.9],[20,2],[22,1.5],[18,1.8],[14,1.6]])for(const zoom of [1,1.3])for(const mode of ['start','end']){
+				await evaluate(`nativePagedProbe.begin(${zoom},false,false,true,2)`);
+				const prepared=await evaluate(`nativePagedProbe.prepareKoreanBoundary(${fontSize},${lineHeight},0,'${mode}',${process.argv.includes('--formatted')})`);
+				await command('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13,text:'\r',unmodifiedText:'\r'});
+				await command('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});
+				await evaluate('new Promise(resolve=>setTimeout(resolve,40))');
+				const state=await evaluate('nativePagedProbe.boundaryState()');
+				if(state.pageDiff||state.text.length!==prepared.length+1)koreanFailures.push({label:`enter-at-page-${mode},font=${fontSize},lh=${lineHeight},zoom=${zoom}`,prepared,pageDiff:state.pageDiff});
+			}
+			if(process.argv.includes('--korean-boundary-only'))for(const [fontSize,lineHeight,spacing] of (process.env.KOREAN_FONTS?JSON.parse(process.env.KOREAN_FONTS):[[16,1.9,0],[12,1.9,0],[14,1.6,0],[18,1.8,0.5],[20,2,0],[22,1.5,0],[13,1.7,0.3]]))for(const mode of ['end','start','paragraphs'])for(const zoom of [1,1.3]){
+				const label=`font=${fontSize},lh=${lineHeight},gap=${spacing},mode=${mode},zoom=${zoom}`;
+				await evaluate(`nativePagedProbe.begin(${zoom},false,false,true,2)`);
+				await evaluate(`nativePagedProbe.prepareKoreanBoundary(${fontSize},${lineHeight},${spacing},'${mode}',${process.argv.includes('--formatted')})`);
+				const initialState=await evaluate('nativePagedProbe.boundaryState()');
+				let model=initialState.text,caret=initialState.head,composing=false;
+				const commitPending=async text=>{await command('Input.insertText',{text});model=model.slice(0,caret)+text+model.slice(caret);caret+=text.length;composing=false;};
+				for(let step=0;step<40&&!koreanFailures.some(f=>f.label===label);step++){
+					const action=random();let actionKind=action<0.6?'ime':action<0.85?'backspace':'enter';
+					if(action<0.6){
+						const word=koreanKeys[Math.floor(random()*koreanKeys.length)];
+						for(const [i,text] of word.entries()){
+							if(i===word.length-1&&word.length===2){await commitPending(word[0]);await command('Input.imeSetComposition',{text,selectionStart:1,selectionEnd:1});composing=true;}
+							else {await command('Input.imeSetComposition',{text,selectionStart:text.length,selectionEnd:text.length});composing=true;}
+							await evaluate('new Promise(resolve=>setTimeout(resolve,20))');
+							const live=await evaluate('nativePagedProbe.boundaryState()');
+							if(live.strayGlyph)koreanFailures.push({label,step,kind:'stray-composing-glyph',detail:live.strayGlyph});
+						}
+						if(random()<0.5)await commitPending(word[word.length-1]);
+					}else if(action<0.85){
+						if(composing)await commitPending((await evaluate('nativePagedProbe.diagnostics()')).session?.text??'');
+						const count=1+Math.floor(random()*4);
+						for(let i=0;i<count&&caret>0;i++){
+							await command('Input.dispatchKeyEvent',{type:'keyDown',key:'Backspace',code:'Backspace',windowsVirtualKeyCode:8});
+							await command('Input.dispatchKeyEvent',{type:'keyUp',key:'Backspace',code:'Backspace',windowsVirtualKeyCode:8});
+							model=model.slice(0,caret-1)+model.slice(caret);caret--;
+						}
+					}else{
+						if(composing)await commitPending((await evaluate('nativePagedProbe.diagnostics()')).session?.text??'');
+						await command('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13,text:'\r',unmodifiedText:'\r'});
+						await command('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});
+						model=model.slice(0,caret)+'\n'+model.slice(caret);caret++;
+					}
+					if(composing)continue;
+					await evaluate('new Promise(resolve=>setTimeout(resolve,40))');
+					const state=await evaluate('nativePagedProbe.boundaryState()');
+					if(state.text!==model){
+						let at=0;while(at<model.length&&model[at]===state.text[at])at++;
+						koreanFailures.push({label,step,actionKind,kind:'source',at,expected:model.slice(Math.max(0,at-10),at+20),actual:state.text.slice(Math.max(0,at-10),at+20),events:await evaluate('nativePagedProbe.diagnostics()')});
+					}else if(state.stale.length||state.mismatches.length||!state.boundariesMatch){
+						koreanFailures.push({label,step,actionKind,kind:'dom',stale:state.stale,mismatches:state.mismatches,pageDiff:state.pageDiff});
+					}
+					if(state.head!==null&&state.head!==caret){koreanFailures.push({label,step,kind:'caret',expected:caret,actual:state.head});caret=state.head;}
+					model=state.text;
+				}
+				if(composing)await commitPending((await evaluate('nativePagedProbe.diagnostics()')).session?.text??'');
+			}
+			if(koreanFailures.length)throw new Error(`Korean IME page-boundary editing failed ${koreanFailures.length} times: ${JSON.stringify(koreanFailures.slice(0,8),null,1)}`);
+			if(process.argv.includes("--korean-boundary-only"))console.log('Korean syllable IME, Backspace and Enter at page boundaries keep source, caret and visible pages exact across font sizes, line heights and gaps');
+			if(!process.argv.includes('--korean-boundary-only')){
+			if(!process.argv.includes('--overflow-visibility-only')){
+			for(const zoom of [0.7,1,1.2,1.5,1.6])for(const typewriter of [false,true])for(const lastPage of [false,true]){
+				await evaluate(`nativePagedProbe.begin(${zoom},false,false,true,2)`);
+				await evaluate(`nativePagedProbe.setTypewriter(${typewriter});nativePagedProbe.prepareDeletionBoundary(12,2,${lastPage})`);
+				await command('Input.imeSetComposition',{text:'ㅇ'.repeat(80),selectionStart:80,selectionEnd:80});
+				await evaluate('new Promise(resolve=>setTimeout(resolve,30))');
+				const initial=await evaluate('nativePagedProbe.snapshot()');
+				let expected=initial.expected.slice(0,initial.position)+'ㅇ'.repeat(80)+initial.expected.slice(initial.position+1);
+				for(let i=0;i<100;i++){
+					await command('Input.dispatchKeyEvent',{type:'keyDown',key:'Backspace',code:'Backspace',windowsVirtualKeyCode:8});
+					await command('Input.dispatchKeyEvent',{type:'keyUp',key:'Backspace',code:'Backspace',windowsVirtualKeyCode:8});
+					expected=expected.slice(0,initial.position+80-i-1)+expected.slice(initial.position+80-i);
+					const state=await evaluate('nativePagedProbe.snapshot()');
+					if(state.text!==expected||!state.validPageTree||state.previews||state.compositionPaint)throw new Error(`Backspace revived text or broke the page tree (${zoom},typewriter=${typewriter},lastPage=${lastPage},key=${i}): actual=${state.text.length},expected=${expected.length}`);
+				}
+				await evaluate('new Promise(resolve=>setTimeout(resolve,40))');
+				const flow=await evaluate('nativePagedProbe.visibleFlow(true)');
+				if(flow.stale.length||!flow.boundariesMatch)throw new Error(`Backspace page cache differs from a fresh layout: ${JSON.stringify(flow)}`);
+				await command('Input.imeSetComposition',{text:'한',selectionStart:1,selectionEnd:1});
+				await command('Input.insertText',{text:'한'});
+				const at=initial.position-20;
+				if((await evaluate('nativePagedProbe.snapshot()')).text!==expected.slice(0,at)+'한'+expected.slice(at))throw new Error('Typing after boundary deletion restored old source');
+			}
+			console.log('12pt pending IME + 100 Backspaces preserve deleted source, page shells and fresh layout at 70/100/120/150/160%, with typewriter off/on, including the final page');
+			for(const zoom of [0.7,1.2,1.5,1.6]){
+				await evaluate(`nativePagedProbe.begin(${zoom},false,false,true,2)`);
+				await evaluate('nativePagedProbe.prepareDeletionBoundary()');
+				await command('Input.imeSetComposition',{text:'ㅇ'.repeat(80),selectionStart:80,selectionEnd:80});
+				await evaluate('new Promise(resolve=>setTimeout(resolve,30))');
+				for(const columns of [2,1,3,2]){
+					await evaluate(`nativePagedProbe.resizeColumns(${columns});new Promise(resolve=>setTimeout(resolve,40))`);
+					const resized=await evaluate('nativePagedProbe.snapshot()');
+					if(resized.previewOffsetError>1||!resized.validPageTree||Math.abs(resized.scrollTop-resized.expectedScrollTop)>1)throw new Error(`Composition pages escaped their grid or scroll pin after resize (${zoom},columns=${columns}): ${resized.previewOffsetError}px`);
+					const paint=await evaluate('nativePagedProbe.previewFlow()');
+					if(paint.stale.length)throw new Error(`A newly visible page painted an old source snapshot during IME (${zoom},columns=${columns}): ${JSON.stringify(paint.stale)}`);
+					if(zoom===1.2&&columns===2){await mkdir(path.join(root,'.codex-tmp'),{recursive:true});const shot=await command('Page.captureScreenshot',{format:'png',clip:await evaluate('nativePagedProbe.viewportCrop()')});await writeFile(path.join(root,'.codex-tmp','paged-resize-composition-after.png'),Buffer.from(shot.data,'base64'));}
+				}
+				await command('Input.insertText',{text:'ㅇ'.repeat(80)});
+				for(const key of ['Delete','Enter']){
+					const beforeKey=await evaluate('nativePagedProbe.snapshot()'),at=beforeKey.selection.head;
+					let expected=beforeKey.text.slice(0,at)+'ㄴ'+beforeKey.text.slice(at);
+					expected=expected.slice(0,at+1)+(key==='Enter'?'\n'+expected.slice(at+1):expected.slice(at+2));
+					await command('Input.imeSetComposition',{text:'ㄴ',selectionStart:1,selectionEnd:1});
+					await command('Input.dispatchKeyEvent',{type:'keyDown',key,code:key,windowsVirtualKeyCode:key==='Enter'?13:46,...(key==='Enter'?{text:'\r',unmodifiedText:'\r'}:{})});
+					await command('Input.dispatchKeyEvent',{type:'keyUp',key,code:key,windowsVirtualKeyCode:key==='Enter'?13:46});
+					const afterKey=await evaluate('nativePagedProbe.snapshot()');
+					if(afterKey.text!==expected||!afterKey.validPageTree||afterKey.previews)throw new Error(`Pending composition + ${key} corrupted the paged document (${zoom}): actual=${afterKey.text.length},expected=${expected.length},events=${JSON.stringify(await evaluate('nativePagedProbe.diagnostics()'))}`);
+				}
+			}
+			console.log('In-progress IME previews follow 1/2/3-column resize without leaving their grid or scroll pin');
+			await evaluate('nativePagedProbe.begin(1,false,false,true,2)');
+			await evaluate('nativePagedProbe.prepareDeletionBoundary()');
+			await command('Input.imeSetComposition',{text:'ㅇ'.repeat(80),selectionStart:80,selectionEnd:80});
+			await evaluate('new Promise(resolve=>setTimeout(resolve,30))');
+			const beforeRelease=await evaluate('nativePagedProbe.snapshot()');
+			await evaluate('nativePagedProbe.releasedCommitDom()');
+			const afterRelease=await evaluate('nativePagedProbe.snapshot()');
+			if(afterRelease.text!==beforeRelease.expected.slice(0,beforeRelease.position)+'ㅇ'.repeat(79)+beforeRelease.expected.slice(beforeRelease.position+1)||(await evaluate('nativePagedProbe.cachedDomMismatches()')).length)throw new Error('A late IME insertion restored the pre-deletion snapshot');
+			console.log('Late platform insertion after an IME-releasing deletion cannot restore the pre-deletion snapshot');
+			}
+			if(!process.argv.includes('--boundary-edit-only')){
+			for(const zoom of [1,0.7,1.6])for(const typewriter of [false,true])for(const gap of [0,0.5]){
+				await evaluate(`nativePagedProbe.begin(${zoom},false,false,true,0)`);
+				await evaluate(`nativePagedProbe.setTypewriter(${typewriter});nativePagedProbe.prepareOverflowVisibility(${gap})`);
+				await command('Input.imeSetComposition',{text:'ㅇ'.repeat(20),selectionStart:20,selectionEnd:20});
+				await evaluate('new Promise(resolve=>setTimeout(resolve,30))');
+				const state=await evaluate('nativePagedProbe.overflowVisibility()');
+				if(state.missingPreview||state.nativeVisible||!state.previewVisible||!state.caret){
+					if(state.crop){await mkdir(path.join(root,'.codex-tmp'),{recursive:true});const shot=await command('Page.captureScreenshot',{format:'png',clip:state.crop});await writeFile(path.join(root,'.codex-tmp','paged-double-input-before.png'),Buffer.from(shot.data,'base64'));}
+					throw new Error(`Composing overflow appears in both the native page and next-page preview (${zoom},typewriter=${typewriter},gap=${gap}): ${JSON.stringify(state)}`);
+				}
+				if(zoom===1&&!typewriter&&gap===0){await mkdir(path.join(root,'.codex-tmp'),{recursive:true});const shot=await command('Page.captureScreenshot',{format:'png',clip:state.crop});await writeFile(path.join(root,'.codex-tmp','paged-double-input-after.png'),Buffer.from(shot.data,'base64'));}
+				await command('Input.imeSetComposition',{text:'ㅇ',selectionStart:1,selectionEnd:1});
+				await evaluate('new Promise(resolve=>setTimeout(resolve,30))');
+				const shrunk=await evaluate('nativePagedProbe.snapshot()');
+				if(shrunk.previews||shrunk.compositionPaint)throw new Error('Composition clipping survived shrinking the preedit back onto its original page');
+				await command('Input.imeSetComposition',{text:'ㅇ'.repeat(20),selectionStart:20,selectionEnd:20});
+				await evaluate('new Promise(resolve=>setTimeout(resolve,30))');
+				await command('Input.insertText',{text:'ㅇ'.repeat(20)});
+				const committed=await evaluate('nativePagedProbe.snapshot()');
+				if(committed.previews||committed.compositionPaint||committed.text!==committed.expected.slice(0,committed.position)+'ㅇ'.repeat(20)+committed.expected.slice(committed.position+1))throw new Error('Overflow clipping changed source or survived composition commit');
+				await evaluate(`nativePagedProbe.prepareOverflowVisibility(${gap})`);
+				await command('Input.imeSetComposition',{text:'ㅇ'.repeat(20),selectionStart:20,selectionEnd:20});
+				await evaluate('new Promise(resolve=>setTimeout(resolve,30))');
+				await command('Input.imeSetComposition',{text:'',selectionStart:0,selectionEnd:0});
+				const cancelled=await evaluate('nativePagedProbe.snapshot()');
+				if(cancelled.previews||cancelled.compositionPaint||cancelled.text!==cancelled.expected.slice(0,cancelled.position)+cancelled.expected.slice(cancelled.position+1))throw new Error('Overflow clipping changed source or survived cancelling composition');
+			}
+			console.log('Native composing overflow is painted only on its paginated page at 70/100/160%, with typewriter off/on and paragraph gaps');
+			if(!process.argv.includes('--overflow-visibility-only')){
 			await evaluate('runZenFullscreenChecks()');
 			const inserted=(state,text)=>state.expected.slice(0,state.position)+text+state.expected.slice(state.position+1);
 			for(const zoom of [0.7,1,1.6])for(const typewriter of [false,true]){
@@ -885,6 +1051,9 @@ try {
 			console.log('Retired preedit DOM recovery and 50 fast final-page IME keys without scroll reversal at 70/100/160% passed');
 			}
 			}
+			}
+			}
+			}
 		} finally {await evaluate('nativePagedProbe.dispose()');}
 	}
 	if (i18nSuite) {
@@ -1036,11 +1205,14 @@ try {
 				const state = await evaluate('window.nativePlotScrollSnapshot()');
 				if (state.top <= start.top || !state.trustedWheels) throw new Error('Trusted wheel input did not scroll the grid');
 			}
-			await command('Input.dispatchMouseEvent', { type: 'mousePressed', x: 500, y: 300, button: 'middle', clickCount: 1 });
-			await command('Input.dispatchMouseEvent', { type: 'mouseReleased', x: 500, y: 300, button: 'middle', clickCount: 1 });
+			// A fixed coordinate can land on a link after a wheel fling; links
+			// intentionally keep native middle-click behavior instead of autoscroll.
+			const autoScrollPoint=await evaluate('window.nativePlotAutoScrollPoint()');
+			await command('Input.dispatchMouseEvent', { type: 'mousePressed', ...autoScrollPoint, button: 'middle', clickCount: 1 });
+			await command('Input.dispatchMouseEvent', { type: 'mouseReleased', ...autoScrollPoint, button: 'middle', clickCount: 1 });
 			const beforeAuto = await evaluate('window.nativePlotScrollSnapshot()');
 			if (!beforeAuto.autoScrolling) throw new Error('Trusted middle-click did not start synchronized autoscroll');
-			await command('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 600, y: 560 });
+			await command('Input.dispatchMouseEvent', { type: 'mouseMoved', x: autoScrollPoint.x+100, y: autoScrollPoint.y+150 });
 			await evaluate('new Promise(resolve => setTimeout(resolve, 100))');
 			const afterAuto = await evaluate('window.nativePlotScrollSnapshot()');
 			if (afterAuto.top <= beforeAuto.top) throw new Error('Trusted middle-click autoscroll did not move');
@@ -1099,6 +1271,13 @@ try {
 			await writeFile(path.join(root,'.codex-tmp','plot-snapshot-restore-mobile.png'),Buffer.from(restoreMobileScreenshot.data,'base64'));
 			await evaluate('window.snapshotRestorePreview.close()');
 			await evaluate(`window.snapshotPreviewModal.close(); document.body.removeClass('is-mobile','is-phone')`);
+			for(const [name,width,dark] of [['light',1100,false],['dark',1100,true],['narrow',320,false]]) {
+				await command('Emulation.setDeviceMetricsOverride',{width,height:850,deviceScaleFactor:1,mobile:false});
+				const bounds=await evaluate(`document.body.toggleClass('theme-light',${!dark});document.body.toggleClass('theme-dark',${dark});window.showWritingHighlightPreview()`);
+				if(bounds.left<0||bounds.right>width)throw new Error('Native highlight popup overflowed the viewport');
+				const shot=await command('Page.captureScreenshot',{format:'png',clip:{x:Math.max(0,Math.floor(bounds.x)-8),y:Math.max(0,Math.floor(bounds.y)-8),width:Math.min(width,bounds.width+16),height:bounds.height+16,scale:1}});
+				await writeFile(path.join(root,'.codex-tmp',`writing-highlight-${name}.png`),Buffer.from(shot.data,'base64'));
+			}
 		}
 	}
 } finally {

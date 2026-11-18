@@ -1,13 +1,13 @@
 [
   {
-    "selector": ".writing-menu-typewriter-active [data-writing-menu-id] .cm-scroller",
+    "selector": ".writing-menu-typewriter-active .wm-styled-document[data-writing-menu-id] .cm-content",
     "declarations": [
       {
         "property": "padding-bottom",
-        "value": "80vh"
+        "value": "50vh"
       }
     ],
-    "outcome": "removed: owned component/state/variable cascade; verified against native CSS"
+    "outcome": "replaced: native CodeMirror content owns the typewriter scroll space; verified by verify-editor-scrolling.mjs"
   },
   {
     "selector": "body.theme-dark [data-writing-menu-id] .cm-active.cm-header-1, body.theme-dark [data-writing-menu-id] .cm-active.cm-header-2, body.theme-dark [data-writing-menu-id] .cm-active.cm-header-3, body.theme-dark [data-writing-menu-id] .cm-active.cm-header-4, body.theme-dark [data-writing-menu-id] .cm-active.cm-header-5, body.theme-dark [data-writing-menu-id] .cm-active.cm-header-6, body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-1, body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-2, body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-3, body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-4, body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-5, body.theme-dark [data-writing-menu-id] .cm-activeLine .cm-header-6",

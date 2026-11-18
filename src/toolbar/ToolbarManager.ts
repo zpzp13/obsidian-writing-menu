@@ -1,12 +1,15 @@
 import { wmT } from '../i18n/index';
 import { MarkdownView, WorkspaceLeaf, setIcon, Platform, Notice, App } from 'obsidian';
-import type { Editor, EditorPosition, ViewState } from 'obsidian';
+import type { Editor, ViewState } from 'obsidian';
 import { DocumentExportModal, setExportIcon } from '../export';
 import type WritingMenuPlugin from '../../main';
 import { PagedWritingView, PAGED_WRITING_VIEW_TYPE } from '../paged/PagedWritingView';
 import { WritingToolbar, type WritingToolbarSurface } from './WritingToolbar';
 import { bindMobileToolbarLayout } from './MobileToolbarLayout';
 import type { PagedInlineFormatKind } from '../types';
+import { inlineRangesCover, parseInlineMarkdown, serializeInlineMarkdown, sourceOffsetToVisible, visibleOffsetToSource, type InlineFormatState } from '../paged/MarkdownInlineFormat';
+import { splitPagedFrontmatter } from '../paged/PagedFileStore';
+import { highlightOpeningMarker, normalizeHighlightColor } from '../utils/ObsidianHighlights';
 
 interface SettingTabLike {
 	searchInputEl?: HTMLInputElement;
@@ -21,6 +24,7 @@ export class ToolbarManager {
 	private readonly writingToolbars = new Map<WorkspaceLeaf, WritingToolbar>();
 	private readonly mobileLayoutCleanups = new Map<WorkspaceLeaf, () => void>();
 	private readonly switchingLeaves = new WeakSet<WorkspaceLeaf>();
+	private readonly markdownProjections = new WeakMap<Editor, { source: string; prefixLength: number; state: InlineFormatState }>();
 
 	constructor(private plugin: WritingMenuPlugin) {}
 
@@ -33,7 +37,16 @@ export class ToolbarManager {
 	}
 
 	private getViewText(view: MarkdownView | PagedWritingView): string {
-		return view instanceof MarkdownView ? view.editor.getValue() : view.getEditableData();
+		return view instanceof MarkdownView ? this.markdownProjection(view.editor).state.visible : view.getEditableData();
+	}
+
+	private markdownProjection(editor: Editor): { prefixLength: number; state: InlineFormatState } {
+		const source = editor.getValue(), cached = this.markdownProjections.get(editor);
+		if (cached?.source === source) return cached;
+		const { prefix, body } = splitPagedFrontmatter(source);
+		const next = { source, prefixLength: prefix.length, state: parseInlineMarkdown(body) };
+		this.markdownProjections.set(editor, next);
+		return next;
 	}
 
 	private getMarkdownContent(view: MarkdownView): HTMLElement | null {
@@ -140,11 +153,13 @@ export class ToolbarManager {
 		const existing = this.plugin.toolbarElements.get(view.leaf);
 		if (existing?.isConnected) {
 			if (existing.parentElement === container && container.firstElementChild !== existing) container.prepend(existing);
+			this.writingToolbars.get(view.leaf)?.placeWidgetDock();
 			return;
 		}
 		this.forgetToolbar(view.leaf);
 		const toolbar = new WritingToolbar(this.plugin, container, this.createPagedSurface(view));
 		container.prepend(toolbar.toolbarEl);
+		toolbar.placeWidgetDock();
 		this.writingToolbars.set(view.leaf, toolbar);
 		this.plugin.toolbarElements.set(view.leaf, toolbar.toolbarEl);
 	}
@@ -213,16 +228,17 @@ export class ToolbarManager {
 			kind: 'markdown',
 			leaf,
 			getFile: () => view.file,
-			getText: () => view.editor.getValue(),
+			getText: () => this.markdownProjection(view.editor).state.visible,
 			focus: () => view.editor.focus(),
 			undo: () => { view.editor.focus(); view.editor.undo(); },
 			redo: () => { view.editor.focus(); view.editor.redo(); },
 			toggleFormat: kind => this.toggleMarkdownFormat(view.editor, kind),
-			isFormatActive: () => false,
+			isFormatActive: kind => this.isMarkdownFormatActive(view.editor, kind),
 			getAlignment: () => null,
 			setAlignment: () => {},
 			applyTextColor: (color, target) => this.applyMarkdownColor(view.editor, color, target),
 			clearTextColors: () => {
+				if (view.editor.somethingSelected()) this.editMarkdownFormatting(view.editor, 'clear');
 				this.plugin.settings.pagedLastTextColor = '';
 				void this.plugin.saveData(this.plugin.settings);
 			},
@@ -265,63 +281,77 @@ export class ToolbarManager {
 			underline: ['<u>', '</u>'],
 			strikethrough: ['~~', '~~'],
 		};
+		if (editor.somethingSelected()) { this.editMarkdownFormatting(editor, kind); return; }
 		const [open, close] = markers[kind];
-		const from = editor.getCursor('from');
-		const to = editor.getCursor('to');
-		const selected = editor.getRange(from, to);
-		const replacement = `${open}${selected}${close}`;
-		editor.replaceRange(replacement, from, to);
-		if (selected) {
-			editor.setSelection(
-				this.advancePosition(from, open),
-				this.advancePosition(from, `${open}${selected}`),
-			);
-		} else {
-			editor.setCursor(this.advancePosition(from, open));
+		this.toggleMarkdownMarkers(editor, open, close);
+	}
+
+	private isMarkdownFormatActive(editor: Editor, kind: PagedInlineFormatKind): boolean {
+		const from = editor.posToOffset(editor.getCursor('from')), to = editor.posToOffset(editor.getCursor('to'));
+		if (from === to) return false;
+		const { state: parsed, prefixLength } = this.markdownProjection(editor);
+		if (from < prefixLength) return false;
+		const start = sourceOffsetToVisible(parsed, from - prefixLength), end = sourceOffsetToVisible(parsed, to - prefixLength);
+		return start < end && inlineRangesCover(parsed.visible, parsed.inline.filter(range => range.kind === kind), start, end);
+	}
+
+	private editMarkdownFormatting(editor: Editor, kind: PagedInlineFormatKind | 'highlight' | 'color' | 'clear', color = ''): void {
+		const source = editor.getValue(), { prefix, body } = splitPagedFrontmatter(source);
+		const start = editor.posToOffset(editor.getCursor('from')) - prefix.length, end = editor.posToOffset(editor.getCursor('to')) - prefix.length;
+		if (start < 0) return;
+		const state = parseInlineMarkdown(body), from = sourceOffsetToVisible(state, start), to = sourceOffsetToVisible(state, end);
+		if (from === to) return;
+		const ranges = kind === 'highlight' ? state.highlights : kind === 'color' || kind === 'clear' ? state.colors : state.inline.filter(range => range.kind === kind);
+		const highlightColor = normalizeHighlightColor(color);
+		const covered = inlineRangesCover(state.visible, kind === 'highlight' ? state.highlights.filter(range => (range.color ?? '') === highlightColor) : ranges, from, to);
+		const remove = <T extends { from: number; to: number }>(items: T[]): T[] => items.flatMap(range => {
+			if (range.to <= from || range.from >= to) return [range];
+			return [...(range.from < from ? [{ ...range, to: from }] : []), ...(range.to > to ? [{ ...range, from: to }] : [])];
+		});
+		if (kind === 'color') state.colors = [...remove(state.colors), { from, to, color }];
+		else if (kind === 'clear') { state.colors = remove(state.colors); state.highlights = remove(state.highlights); }
+		else if (kind === 'highlight') state.highlights = [...remove(state.highlights), ...(!covered ? [{ from, to, ...(highlightColor ? { color: highlightColor } : {}) }] : [])];
+		else state.inline = [...state.inline.filter(range => range.kind !== kind), ...remove(state.inline.filter(range => range.kind === kind)), ...(!covered ? [{ from, to, kind }] : [])];
+		const markdown = serializeInlineMarkdown(state), next = parseInlineMarkdown(markdown);
+		editor.replaceRange(prefix + markdown, { line: 0, ch: 0 }, editor.offsetToPos(source.length));
+		editor.setSelection(editor.offsetToPos(prefix.length + visibleOffsetToSource(next, from, 'right')), editor.offsetToPos(prefix.length + visibleOffsetToSource(next, to)));
+		editor.focus();
+	}
+
+	private toggleMarkdownMarkers(editor: Editor, open: string, close: string): void {
+		const source = editor.getValue(), from = editor.posToOffset(editor.getCursor('from')), to = editor.posToOffset(editor.getCursor('to'));
+		const selected = source.slice(from, to);
+		let start = from, end = to, text = selected, prefix = open, suffix = close;
+		if (selected.startsWith(open) && selected.endsWith(close) && selected.length >= open.length + close.length) {
+			text = selected.slice(open.length, -close.length); prefix = ''; suffix = '';
+		} else if (source.slice(from - open.length, from) === open && source.slice(to, to + close.length) === close) {
+			start -= open.length; end += close.length; prefix = ''; suffix = '';
 		}
+		editor.replaceRange(prefix + text + suffix, editor.offsetToPos(start), editor.offsetToPos(end));
+		editor.setSelection(editor.offsetToPos(start + prefix.length), editor.offsetToPos(start + prefix.length + text.length));
 		editor.focus();
 	}
 
 	private applyMarkdownColor(editor: Editor, color: string, target: 'text' | 'background'): void {
-		const recent = target === 'text'
-			? this.getRecentTextColor(activeDocument)
-			: this.getRecentBackgroundColor();
-		const normalized = /^#[0-9a-f]{6}$/i.test(color) ? color : recent;
-		if (target === 'text') this.plugin.settings.pagedLastTextColor = normalized;
-		else this.plugin.settings.pagedLastBackgroundColor = normalized;
-		const from = editor.getCursor('from');
-		const to = editor.getCursor('to');
-		const selected = editor.getRange(from, to);
-		if (!selected) {
-			void this.plugin.saveData(this.plugin.settings);
-			editor.focus();
+		if (target === 'background') {
+			const highlightColor = normalizeHighlightColor(color);
+			if (editor.somethingSelected()) this.editMarkdownFormatting(editor, 'highlight', highlightColor);
+			else this.toggleMarkdownMarkers(editor, highlightOpeningMarker(highlightColor), '==');
 			return;
 		}
-		const property = target === 'text' ? 'color' : 'background-color';
-		const open = `<span style="${property}: ${normalized}">`;
-		const close = '</span>';
-		editor.replaceRange(`${open}${selected}${close}`, from, to);
-		editor.setSelection(this.advancePosition(from, open), this.advancePosition(from, `${open}${selected}`));
+		const recent = this.getRecentTextColor(activeDocument);
+		const normalized = /^#[0-9a-f]{6}$/i.test(color) ? color : recent;
+		this.plugin.settings.pagedLastTextColor = normalized;
+		if (editor.somethingSelected()) this.editMarkdownFormatting(editor, 'color', normalized);
 		void this.plugin.saveData(this.plugin.settings);
 		editor.focus();
 	}
 
-	private advancePosition(start: EditorPosition, text: string): EditorPosition {
-		const lines = text.split('\n');
-		return lines.length === 1
-			? { line: start.line, ch: start.ch + lines[0].length }
-			: { line: start.line + lines.length - 1, ch: lines[lines.length - 1].length };
-	}
 
 	private getRecentTextColor(ownerDocument: Document): string {
 		const configured = this.plugin.settings.pagedLastTextColor;
 		if (/^#[0-9a-f]{6}$/i.test(configured)) return configured;
 		return ownerDocument.body.classList.contains('theme-dark') ? '#e5e7eb' : '#111111';
-	}
-
-	private getRecentBackgroundColor(): string {
-		const configured = this.plugin.settings.pagedLastBackgroundColor;
-		return /^#[0-9a-f]{6}$/i.test(configured) ? configured : '#fef3c7';
 	}
 
 	showDropdown(button: HTMLElement, leaf: WorkspaceLeaf) {

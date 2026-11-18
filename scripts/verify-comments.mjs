@@ -102,7 +102,7 @@ try {
 	assert.equal(store.getTodayTotal(), 7, 'Upgrade changed accumulated writing');
 	store.updateLiveCount(file, count(source).munpia); assert.equal(store.getTodayTotal(), 7, 'Memo text counted as new writing');
 	store.updateLiveCount(file, count(source).munpia + 1); assert.equal(store.getTodayTotal(), 8);
-	await store.save(); assert.equal(stored.countPolicyVersion, 1);
+	await store.save(); assert.equal(stored.countPolicyVersion, 2);
 	const again = new DailyCharStore(tracking); await again.init(); assert.equal(again.getTodayTotal(), 8, 'Policy migration ran twice');
 	assert.equal(sourceReads, 1, 'A modern count policy unnecessarily rebaselined the manuscripts');
 } finally { globalThis.window = previousWindow; globalThis.moment = previousMoment; }

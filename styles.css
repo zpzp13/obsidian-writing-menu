@@ -696,7 +696,7 @@ body.theme-dark .wm-styled-document[data-writing-menu-id] .cm-activeLine .cm-hea
 	box-sizing: border-box;
 	min-height: var(--wm-toolbar-height);
 	margin: 0;
-	padding: 6px 10px;
+	padding: 6px 10px 0;
 	border-bottom: 1px solid transparent;
 	font-family: var(--font-interface);
 }
@@ -3605,8 +3605,9 @@ input.slider.wm-music-vol-slider::-webkit-slider-thumb {
     .wm-archive-music-art-image { animation: none; }
 }
 
-/* Shared, theme-stable flat palette for Revision and working-time charts. */
-.wm-wt-card, .wm-revision-root {
+/* Shared, theme-stable flat palette for Revision and working-time charts
+   (also the editor work-mode widget, so its icon matches the dashboard). */
+.wm-wt-card, .wm-revision-root, .wm-writing-widget-dock, .wm-writing-mode-popover {
     --wm-chart-sky: #60bcfc;
     --wm-chart-violet: #7b75c9;
     --wm-chart-mint: #1ad1a1;
@@ -3615,8 +3616,8 @@ input.slider.wm-music-vol-slider::-webkit-slider-thumb {
     --wm-chart-gold: #f2c572;
     --wm-chart-apricot: #ff9f6b;
 }
-/* ── 집필 시간 섹션 ── */
-.wm-wt-card {
+/* Work-mode series colors: dashboard mode cards/chart and the editor mode widget. */
+.wm-wt-card, .wm-writing-widget-dock, .wm-writing-mode-popover {
     --wm-wt-series-1: var(--wm-chart-rose);
     --wm-wt-series-2: var(--wm-chart-apricot);
     --wm-wt-series-3: var(--wm-chart-gold);
@@ -3624,6 +3625,9 @@ input.slider.wm-music-vol-slider::-webkit-slider-thumb {
     --wm-wt-series-5: var(--wm-chart-sky);
     --wm-wt-series-6: var(--wm-chart-violet);
     --wm-wt-series-7: var(--wm-chart-lilac);
+}
+/* ── 집필 시간 섹션 ── */
+.wm-wt-card {
     margin: 0 4px;
     background: transparent;
     display: flex;
@@ -8213,6 +8217,11 @@ button.wm-toolbar-select.is-open {
 	font-variant-numeric: tabular-nums;
 }
 .wm-paged-toolbar-group.is-zoom { gap: 14px; }
+.wm-writing-toolbar .wm-paged-toolbar-group.is-zoom { gap: 6px; }
+/* Writing toolbar: every control sits in one centered run with the same gap.
+   Auto margins (not justify-content) keep the start reachable when it scrolls. */
+.wm-writing-toolbar > :first-child { margin-left: auto; }
+.wm-writing-toolbar > :last-child { margin-right: auto; }
 .wm-paged-toolbar button.wm-paged-zoom-reset,
 .wm-paged-toolbar button.wm-paged-zoom-reset:hover,
 .wm-paged-toolbar button.wm-paged-zoom-reset:focus {
@@ -8409,6 +8418,8 @@ button.wm-paged-alignment-option.is-active:hover {
 }
 
 .wm-paged-color-popover { width: 264px; padding: 8px; }
+/* Shrink to the label column + swatch grid instead of a fixed width. */
+.wm-writing-color-popover { width: max-content; max-width: calc(100vw - 16px); }
 .wm-paged-color-row,
 .wm-paged-color-custom {
 	display: flex;
@@ -8438,6 +8449,51 @@ button.wm-paged-alignment-option.is-active:hover {
 .wm-paged-color-swatch:hover,
 .wm-paged-color-swatch:focus-visible {
 	transform: scale(1.08);
+}
+/* Writing toolbar color popover: every row shares one 5-column grid of equal
+   21px circles (presets / custom: clear + picker, right-aligned / 10 recent
+   colors in two rows). The highlight dropdown uses 7 columns. */
+.wm-paged-color-row-palette.wm-writing-color-palette {
+	grid-template-columns: repeat(5, 21px);
+	width: 121px;
+	gap: 4px;
+}
+.wm-paged-color-row-palette.wm-writing-color-palette.wm-writing-highlight-palette {
+	grid-template-columns: repeat(7, 21px);
+	width: 171px;
+}
+.wm-writing-custom-palette > .wm-paged-color-reset { grid-column: 4; }
+/* Two-row recent palette: keep its label on the first row. */
+.wm-paged-color-row:has(> .wm-writing-recent-palette) { align-items: flex-start; }
+.wm-paged-color-row:has(> .wm-writing-recent-palette) > .wm-paged-color-row-label { line-height: 21px; }
+.wm-writing-color-palette > .wm-writing-color-swatch,
+.wm-writing-color-palette > .wm-paged-color-reset {
+	width: 21px;
+	height: 21px;
+	min-width: 21px;
+	min-height: 21px;
+}
+.wm-writing-color-palette > .wm-paged-color-reset svg { width: 19px; height: 19px; }
+/* Custom color: a plain circle showing the current custom color. */
+.wm-paged-color-popover .wm-writing-custom-palette > input[type="color"].wm-compact-color-input {
+	width: 21px;
+	height: 21px;
+	min-width: 21px;
+	min-height: 21px;
+	border-radius: 50%;
+}
+/* Unused recent-color slots. */
+.wm-writing-recent-palette > .wm-writing-color-swatch.is-empty {
+	border: 1px dashed var(--background-modifier-border);
+	background: transparent;
+}
+/* Highlight dropdown from its own toolbar button: just the swatch row. */
+.wm-paged-color-popover.wm-writing-highlight-popover {
+	width: auto;
+	min-width: 0;
+}
+.wm-writing-highlight-palette .highlight-swatch:not([data-highlight]) {
+	background: transparent;
 }
 .wm-paged-color-custom {
 	margin-top: 0;
@@ -8718,6 +8774,7 @@ body:not(.is-mobile) .wm-markdown-toolbar-content { padding: 0; }
 
 .wm-writing-toolbar {
 	width: 100%;
+	border-bottom: 0;
 	font-family: var(--font-interface);
 }
 
@@ -8796,18 +8853,46 @@ body:not(.is-mobile) .wm-markdown-toolbar-content { padding: 0; }
 	white-space: nowrap;
 }
 
+/* Widget row: its own line between the toolbar and the editor, with the same
+   gap above (to the toolbar) and below (to the pages / Markdown text). */
+.wm-paged-view,
+.wm-markdown-toolbar-host {
+	--wm-widget-dock-gap: 4px;
+	--wm-timer-widget-color: #ff7a1a;
+	/* One gap everywhere in the widget row: icon → label → next icon. */
+	--wm-widget-item-gap: 14px;
+	/* Same icon size as the toolbar above. */
+	--wm-toolbar-icon-size: 16px;
+}
+
 .wm-writing-widget-dock {
-	position: absolute;
-	top: 52px;
-	right: 16px;
+	position: relative;
 	z-index: 18;
 	display: flex;
+	flex: 0 0 auto;
 	align-items: center;
-	justify-content: flex-end;
-	gap: 6px;
-	max-width: calc(100% - 32px);
+	justify-content: center;
+	gap: var(--wm-widget-item-gap);
+	box-sizing: border-box;
+	min-width: 0;
+	/* The toolbar already centers its 30px controls in 38px (44px − 6px top
+	   padding), leaving 4px under them. Add nothing above so the gap from the
+	   controls to the widgets equals the gap from the widgets to the editor. */
+	padding: 0 16px var(--wm-widget-dock-gap);
 	font-family: var(--font-interface);
 	pointer-events: none;
+}
+
+.wm-writing-widget-dock.is-align-left {
+	justify-content: flex-start;
+}
+
+.wm-writing-widget-dock.is-align-right {
+	justify-content: flex-end;
+}
+
+.wm-paged-view.has-widget-dock > .wm-paged-viewport > .wm-paged-grid {
+	padding-top: 0;
 }
 
 .wm-writing-widget-dock[hidden] {
@@ -8818,14 +8903,14 @@ button.wm-writing-widget-card {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	gap: 7px;
+	gap: var(--wm-widget-item-gap);
 	box-sizing: border-box;
 	width: auto;
-	height: 30px;
+	height: 22px;
 	min-width: 0;
-	min-height: 30px;
+	min-height: 22px;
 	margin: 0;
-	padding: 0 5px;
+	padding: 0;
 	border: 0;
 	border-radius: var(--radius-m);
 	background: transparent;
@@ -8863,23 +8948,64 @@ button.wm-writing-widget-card.is-running {
 	color: var(--interactive-accent);
 }
 
+button.wm-writing-widget-card.is-timer.is-running {
+	color: var(--wm-timer-widget-color);
+}
+
 .wm-writing-widget-icon {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	flex: 0 0 18px;
-	width: 18px;
-	height: 18px;
+	flex: 0 0 var(--wm-toolbar-icon-size, 16px);
+	width: var(--wm-toolbar-icon-size, 16px);
+	height: var(--wm-toolbar-icon-size, 16px);
 }
 
 .wm-writing-widget-icon svg {
 	display: block;
-	width: 18px;
-	height: 18px;
+	width: 100%;
+	height: 100%;
 }
+
+/* Work-mode icons use the dashboard's color for that mode. */
+.wm-writing-widget-card.is-mode .wm-writing-widget-icon,
+.wm-writing-mode-popover .wm-paged-popover-item-icon {
+	color: var(--wm-wt-series, currentColor);
+}
+
+/* Timer: the same kind of line icon, in its own orange (also its running color). */
+.wm-writing-widget-card.is-timer .wm-writing-widget-icon {
+	color: var(--wm-timer-widget-color);
+}
+
+/* The hourglass fills Lucide's full grid height, so it reads larger than the
+   other icons at the same size. Draw it smaller inside the same 16px slot. */
+.wm-writing-widget-card.is-timer .wm-writing-widget-icon svg {
+	width: 14px;
+	height: 14px;
+	margin: 1px;
+}
+
+/* Work-mode icons drawn 1px smaller (15px) so they match the hourglass;
+   fitIconToGlyph then crops the width from this height. */
+.wm-writing-widget-card.is-mode .wm-writing-widget-icon svg {
+	height: 15px;
+	margin: 0.5px 0;
+}
+
+/* Line icons cropped to their drawn width (fitIconToGlyph): no side margins,
+   so the visible gap to the label is exactly the widget gap. */
+.wm-writing-widget-card .wm-writing-widget-icon.is-glyph-fit svg {
+	margin-right: 0;
+	margin-left: 0;
+}
+
 
 .wm-writing-widget-value {
 	line-height: 1;
+	/* Center by the visible letters, not the line box (whose extra ascent put
+	   the text ~1px below the icon's center). */
+	text-box: trim-both cap alphabetic;
 }
 
 .wm-writing-toolbar .wm-paged-toolbar-group.is-formatting,
@@ -8939,9 +9065,19 @@ button.wm-writing-widget-card.is-running {
 	--wm-dash-warn: #eda100;
 	--wm-dash-down: #b3261e;
 	--wm-dash-ease: cubic-bezier(.2, .8, .2, 1);
-	width: 380px;
+	/* Same content width as before; the popover itself is now the card. */
+	width: 350px;
 	max-width: calc(100% - 16px);
 	padding: 14px;
+}
+
+/* The dashboard clock card keeps its own frame on the dashboard, but here the
+   popover is the frame: no inner border, background or extra padding. */
+.wm-writing-timer-popover .wm-dash-clock-widget.wm-dash-note-card {
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
 }
 
 .theme-dark .wm-writing-timer-popover {
@@ -9231,6 +9367,14 @@ input.slider.wm-writing-format-slider::-moz-range-thumb {
 .wm-paged-composition-preview {
 	position: absolute;
 	z-index: 1;
+	pointer-events: none;
+}
+
+.wm-paged-composition-caret {
+	position: absolute;
+	z-index: 1;
+	width: 1px;
+	background: var(--wm-font-color, var(--text-normal));
 	pointer-events: none;
 }
 
