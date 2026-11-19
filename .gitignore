@@ -22,3 +22,6 @@ dist/
 
 # research material containing third-party posts (never publish)
 docs/research/
+
+# private planning and implementation notes (never publish)
+docs/
