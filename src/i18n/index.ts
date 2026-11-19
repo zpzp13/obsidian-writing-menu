@@ -19,8 +19,10 @@ export function getLocale(): string {
 
 /** Korean source keys retain the existing UI and provide a fallback for missing translations. */
 export function wmT(source: string, ...values: Array<string | number | boolean | null | undefined>): string {
+	// "context\u0004text" (gettext style) gives one Korean word several English
+	// translations; untranslated, only the text after the separator is shown.
 	const message = language === 'en' && Object.prototype.hasOwnProperty.call(en, source)
-		? en[source as keyof typeof en] : source;
+		? en[source as keyof typeof en] : source.slice(source.indexOf('\u0004') + 1);
 	// A callback keeps dollar signs and braces in filenames and user values literal.
 	return message.replace(/\{(\d+)\}/g, (placeholder: string, index: string) => {
 		const value = values[Number(index)];

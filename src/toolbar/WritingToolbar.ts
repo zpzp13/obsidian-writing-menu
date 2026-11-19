@@ -1,3 +1,5 @@
+import { goalProgress, goalRingSvg } from './goalWidget';
+import { createGoalBar, dashboardGoalTarget, goalCurrent, type GoalBar } from '../dashboard/goalBar';
 import { wmT } from '../i18n/index';
 import {
 	Platform,
@@ -24,7 +26,7 @@ import { fontWeightOptions } from '../fonts/FontWeights';
 import { openSnapshotManager } from '../snapshots/SnapshotManager';
 import { CSS_PX_PER_MM as PX_PER_MM, CSS_PX_PER_PT, formatTypographyNumber, pixelsToPoints } from '../utils/typography';
 
-/** Line icon like the work-mode icons, tinted orange in CSS. */
+/** Line icon like the work-mode icons, tinted gold in CSS. */
 const TIMER_WIDGET_ICON = 'hourglass';
 const MAX_RECENT_TEXT_COLORS = 10;
 
@@ -60,6 +62,9 @@ export class WritingToolbar {
 	private textColorButtonEl: HTMLButtonElement | null = null;
 	private widgetDockEl: HTMLElement | null = null;
 	private timerWidgetValueEl: HTMLElement | null = null;
+	private goalWidgetEls: { card: HTMLElement; icon: HTMLElement; value: HTMLElement; dots: number } | null = null;
+	private goalCounts = { munpia: 0, novelpia: 0 };
+	private goalPopoverBar: GoalBar | null = null;
 	private modeWidgetEls: { icon: HTMLElement; value: HTMLElement; signature: string } | null = null;
 	private zoomValueEl: HTMLElement | null = null;
 	private readonly formatButtons = new Map<PagedInlineFormatKind, HTMLButtonElement>();
@@ -152,6 +157,7 @@ export class WritingToolbar {
 				? `${this.plugin.formatCharCount(selectedCounts[mode])} / ${total}`
 				: total);
 		}
+		this.refreshGoalWidget(counts);
 	}
 
 	refreshSelectionState(): void {
@@ -306,15 +312,9 @@ export class WritingToolbar {
 	private isWidgetVisible(id: WritingWidgetId): boolean {
 		if (id === 'munpia') return this.plugin.settings.showMunpiaWidget;
 		if (id === 'novelpia') return this.plugin.settings.showNovelpiaWidget;
+		if (id === 'goal') return this.plugin.settings.showGoalWidget ?? false;
 		if (id === 'mode') return this.plugin.settings.showModeWidget ?? false;
 		return this.plugin.settings.showTimerWidget;
-	}
-
-	private widgetLabel(id: WritingWidgetId): string {
-		if (id === 'munpia') return wmT("문피아 글자수");
-		if (id === 'novelpia') return wmT("노벨피아 글자수");
-		if (id === 'mode') return wmT("작업모드");
-		return wmT("타이머/스톱워치");
 	}
 
 	private renderWidgetDock(): void {
@@ -335,25 +335,32 @@ export class WritingToolbar {
 		this.widgetCharCountElements.clear();
 		this.timerWidgetValueEl = null;
 		this.modeWidgetEls = null;
+		this.goalWidgetEls = null;
 		dock.toggleAttribute('hidden', visible.length === 0);
 
 		for (const id of visible) {
 			const card = dock.createEl('button', {
+				// No aria-label/title: the visible value is the label, and Obsidian would
+				// turn either into a hover tooltip.
 				cls: 'wm-writing-widget-card',
 				attr: {
 					type: 'button',
 					draggable: 'true',
 					'data-widget-id': id,
-					'aria-label': wmT("{0} 위젯. 드래그하여 순서 변경", this.widgetLabel(id)),
 				},
 			});
 			const icon = card.createSpan({ cls: 'wm-writing-widget-icon', attr: { 'aria-hidden': 'true' } });
 			// The work mode uses the user's own Lucide icon, sized like the badges.
 			if (id === 'munpia' || id === 'novelpia') icon.appendChild(sanitizeHTMLToDom(id === 'munpia' ? MUNPIA_SVG : NOVELPIA_SVG));
+			else if (id === 'goal') { card.addClass('is-goal'); icon.appendChild(sanitizeHTMLToDom(goalRingSvg(0))); }
 			else if (id === 'timer') { card.addClass('is-timer'); setIcon(icon, TIMER_WIDGET_ICON); this.fitIconToGlyph(icon); }
 
 			const value = card.createSpan({ cls: 'wm-writing-widget-value' });
 			if (id === 'munpia' || id === 'novelpia') this.widgetCharCountElements.set(id, value);
+			else if (id === 'goal') {
+				this.goalWidgetEls = { card, icon, value, dots: -1 };
+				card.addEventListener('click', event => { if (this.widgetDragActive) return; event.stopPropagation(); this.openGoalPopover(card); });
+			}
 			else if (id === 'mode') {
 				card.addClass('is-mode');
 				this.modeWidgetEls = { icon, value, signature: '' };
@@ -374,6 +381,37 @@ export class WritingToolbar {
 			}
 			this.installWidgetDragHandlers(card, id);
 		}
+	}
+
+	/** Same goal as the dashboard: the current note against writingGoalChars. */
+	private goalState() {
+		return goalProgress(goalCurrent(this.goalCounts, this.plugin.settings), dashboardGoalTarget(this.plugin.settings));
+	}
+
+	private refreshGoalWidget(counts: { munpia: number; novelpia: number }): void {
+		this.goalCounts = counts;
+		const p = this.goalState();
+		this.goalPopoverBar?.update(p.current, p.goal);
+		const els = this.goalWidgetEls;
+		if (!els) return;
+		// formatCharCount already appends the unit.
+		els.value.setText(p.reached ? wmT('목표 달성') : wmT('목표까지 {0}', this.plugin.formatCharCount(p.remaining)));
+		els.card.toggleClass('is-reached', p.reached);
+		const dots = Math.round(p.ratio * 12);
+		if (dots !== els.dots) { els.icon.empty(); els.icon.appendChild(sanitizeHTMLToDom(goalRingSvg(p.ratio))); els.dots = dots; }
+	}
+
+	private openGoalPopover(card: HTMLElement): void {
+		this.openPopover(card, 'wm-writing-goal-popover', popover => {
+			const head = popover.createDiv({ cls: 'wm-writing-goal-popover-head' });
+			head.createSpan({ cls: 'wm-writing-goal-popover-title', text: wmT('목표 글자수') });
+			const settings = head.createEl('button', { cls: 'clickable-icon wm-writing-goal-popover-settings', attr: { type: 'button', 'aria-label': wmT('목표 글자수 설정') } });
+			setIcon(settings, 'settings');
+			settings.addEventListener('click', () => { this.closePopover(); this.plugin.openSettings('char-count'); });
+			this.goalPopoverBar = createGoalBar(popover);
+			const p = this.goalState();
+			this.goalPopoverBar.update(p.current, p.goal);
+		});
 	}
 
 	private installWidgetDragHandlers(card: HTMLButtonElement, id: WritingWidgetId): void {
@@ -780,7 +818,7 @@ export class WritingToolbar {
 			customInput.value = this.surface.getRecentTextColor();
 			customInput.addEventListener('pointerdown', event => this.preserveSelection(event));
 
-			const recentRow = popover.createDiv({ cls: 'wm-paged-color-row' });
+			const recentRow = popover.createDiv({ cls: 'wm-paged-color-row is-recent-colors' });
 			recentRow.createSpan({ cls: 'wm-paged-color-row-label', text: wmT("최근 색상") });
 			const recentPalette = recentRow.createDiv({ cls: 'wm-paged-color-row-palette wm-writing-color-palette wm-writing-recent-palette' });
 			const renderRecent = () => {
@@ -1104,6 +1142,7 @@ export class WritingToolbar {
 			popover.createDiv({ cls: 'wm-paged-popover-heading', text: wmT("위젯") });
 			this.createWidgetVisibilityToggle(popover, 'munpia', 'MUNPIA', MUNPIA_SVG);
 			this.createWidgetVisibilityToggle(popover, 'novelpia', 'NOVELPIA', NOVELPIA_SVG);
+			this.createWidgetVisibilityToggle(popover, 'goal', wmT('목표 글자수'), goalRingSvg(0.5));
 			const mode = getCurrentTimeMode(this.plugin.settings);
 			this.createWidgetVisibilityToggle(popover, 'mode', wmT("작업모드 표시"), mode ? getModeIcon(mode) : 'clock');
 			this.createWidgetVisibilityToggle(popover, 'timer', wmT("타이머/스톱워치 표시"), TIMER_WIDGET_ICON);
@@ -1119,7 +1158,7 @@ export class WritingToolbar {
 		const row = container.createDiv({ cls: 'writing-menu-control wm-writing-widget-toggle-row' });
 		const labelGroup = row.createDiv({ cls: 'writing-menu-control-label-group' });
 		const icon = labelGroup.createSpan({ cls: 'writing-menu-icon wm-writing-widget-toggle-icon', attr: { 'aria-hidden': 'true' } });
-		if (id === 'munpia' || id === 'novelpia') icon.appendChild(sanitizeHTMLToDom(iconValue));
+		if (id === 'munpia' || id === 'novelpia' || id === 'goal') icon.appendChild(sanitizeHTMLToDom(iconValue));
 		else setIcon(icon, iconValue);
 		labelGroup.createEl('label', { text: label });
 		const toggle = row.createDiv({
@@ -1131,6 +1170,7 @@ export class WritingToolbar {
 			const enabled = !this.isWidgetVisible(id);
 			if (id === 'munpia') this.plugin.settings.showMunpiaWidget = enabled;
 			else if (id === 'novelpia') this.plugin.settings.showNovelpiaWidget = enabled;
+			else if (id === 'goal') this.plugin.settings.showGoalWidget = enabled;
 			else if (id === 'mode') this.plugin.settings.showModeWidget = enabled;
 			else this.plugin.settings.showTimerWidget = enabled;
 			toggle.toggleClass('is-enabled', enabled);
@@ -1189,6 +1229,7 @@ export class WritingToolbar {
 		this.activePopover?.remove();
 		this.activePopover = null;
 		this.activeAnchor = null;
+		this.goalPopoverBar = null;
 		this.scheduleAutoHideCollapse();
 	}
 

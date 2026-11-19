@@ -113,7 +113,7 @@ export class DocumentExportModal extends Modal {
         if (!Platform.isDesktop) { this.contentEl.createEl('p', { text: wmT('데스크톱 전용 기능입니다.') }); return; }
         if (this.plugin.settings.documentExportDefaults?.version !== 2) {
             this.plugin.settings.documentExportDefaults = structuredClone(this.baseDefaults);
-            this.plugin.settings.exportDefaultSpaceIndent = false; this.plugin.settings.exportDefaultExcludeHeadings = this.baseDefaults.content.headings === 'exclude';
+            this.plugin.settings.exportDefaultSpaceIndent = false;
             void this.plugin.saveSettings();
         }
         this.bodyEl = this.contentEl.createDiv({ cls: 'wm-export-body' });

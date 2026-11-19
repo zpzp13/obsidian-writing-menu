@@ -51,7 +51,7 @@ const { WritingMenuSettingTab } = loadTsFixture('src/settings/index.ts', {
 	obsidian: { App: class {}, Notice: class {}, PluginSettingTab: class { constructor(app) { this.app = app; this.containerEl = new Element(); } update() { updates++; refresh(); } }, Setting, setIcon() {}, Platform: { isMobile: false }, ToggleComponent: class {}, requireApiVersion: () => modern },
 	'../wiki/WikiSettings': {}, '../plot-workbook/PlotWorkbookSettings': {}, '../wiki/WikiModals': {}, '../repetition/GaruAssets': {}, '../repetition/MorphAnalyzer': {}, '../aichat/DeusSettings': {}, '../fonts/MobileFontManager': { MOBILE_WEB_FONTS: [] },
 });
-const routes = [], settings = { hrContent: '✦ ✦ ✦', hrColor: '#123' };
+const routes = [], settings = { copyIncludeComments: false, hrContent: '✦ ✦ ✦', hrColor: '#123' };
 let styleUpdates = 0;
 const plugin = { manifest: { id: 'writing-menu' }, settings, saveSettings: async () => { saves++; }, leafStyleManager: { updateDynamicStyles: () => { styleUpdates++; } } };
 const app = { vault: new Proxy({}, { get() { throw Error('Metadata must not touch the vault'); } }), setting: { openPagePath: (...args) => routes.push(args) } };
@@ -168,8 +168,8 @@ const copyContainer = new Element();
 tab.renderCopyPage(copyContainer);
 const copyComments = rowsWithin(copyContainer).find(row => row.name === '주석');
 assert.equal(copyComments.api.value, false, 'Copy comments must be excluded by default');
-await copyComments.api.change(true); assert.equal(settings.copyExcludeComments, false);
-await copyComments.api.change(false); assert.equal(settings.copyExcludeComments, true);
+await copyComments.api.change(true); assert.equal(settings.copyIncludeComments, true);
+await copyComments.api.change(false); assert.equal(settings.copyIncludeComments, false);
 const exportContainer = new Element(); exportContainer.ownerDocument = { body: { hasClass: () => false } };
 tab.renderExportPage(exportContainer);
 const exportComments = rowsWithin(exportContainer).find(row => row.name === '주석');
@@ -184,3 +184,13 @@ await rowsWithin(presetContainer).find(row => row.name === '주석').api.change(
 assert.equal(settings.documentExportPresets[0].content.comments, 'keep', 'Selected preset did not save its comment setting');
 assert.equal(settings.documentExportDefaults.content.comments, 'exclude', 'Editing a preset changed the default policy');
 console.log('PASS legacy/native settings metadata, repeated native refresh and color resets, single grouped proper-noun navigation, inner-label search, saves and API-key exclusion');
+
+const { migrateCopySettings } = loadTsFixture('src/export/CopySettings.ts');
+const { DEFAULT_SETTINGS: copyDefaults } = loadTsFixture('src/types.ts');
+for (const saved of [{}, { copyExcludeHeadings: false }, { copyExcludeComments: true, copyIncludeComments: true }]) {
+ const value = { ...copyDefaults, ...saved }; migrateCopySettings(saved, value);
+ assert.equal(value.copyIncludeHeadings, saved.copyExcludeHeadings === false);
+ assert.equal(value.copyIncludeComments, saved.copyIncludeComments ?? false);
+ assert(!Object.keys(value).some(key => key.startsWith('copyExclude')));
+ assert(!Object.hasOwn(value, 'exportDefaultExcludeHeadings'));
+}

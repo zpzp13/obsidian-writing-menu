@@ -17,8 +17,9 @@ import { assertCssVisualParity } from './css-visual-parity.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const i18nSuite = process.argv.includes('--i18n');
 const ragSettingsSuite = process.argv.includes('--rag-settings');
+const commentsGoalSuite = process.argv.includes('--comments-goal');
 const reviewTabSuite = process.argv.includes('--review-tab');
-const dashboardSuite = process.argv.includes('--dashboard') || ragSettingsSuite || reviewTabSuite;
+const dashboardSuite = process.argv.includes('--dashboard') || ragSettingsSuite || reviewTabSuite || commentsGoalSuite;
 const plotSuite = !dashboardSuite && (process.argv.includes('--plot') || i18nSuite);
 const suite = i18nSuite ? (await import('./verify-i18n-ui.mjs')).runI18nUiChecks : dashboardSuite ? (await import('./verify-dashboard-ui-suite.mjs')).runDashboardChecks : plotSuite ? (await import('./verify-plot-ui-suite.mjs')).runPlotChecks : runPagedChecks;
 const browserPath = process.env.PAGED_TEST_BROWSER || [
@@ -45,6 +46,8 @@ if (plotSuite) {
 }
 
 const obsidianStub = obsidianSearchStub + `
+import { StateField } from '@codemirror/state';
+export const editorInfoField = StateField.define({create:()=>({}),update:value=>value});
 export class Scope { register() {} }
 // Native SDK contract double; dropdown styling/keymap are supplied by Obsidian.
 export const prepareFuzzySearch = prepareSimpleSearch;
@@ -285,7 +288,7 @@ const bundle = await build({
 			import { installNativePagedInputChecks } from './scripts/verify-paged-native-input.mjs';
 			import { runZenFullscreenChecks } from './scripts/verify-zen-fullscreen.mjs';
 			globalThis.runZenFullscreenChecks = runZenFullscreenChecks;
-			Object.assign(globalThis, { PagedWritingView, PaginationEngine, serializePagedText, runPagedDocumentChecks, installNativePagedInputChecks, pagedNativeOnly:${process.argv.some(flag=>['--native-input-only','--same-line-input-only','--stability-only','--overflow-visibility-only','--boundary-edit-only','--korean-boundary-only'].includes(flag))} });` + (dashboardSuite ? `import { runDashboardCoreChecks, runRagSettingsControlsChecks } from './scripts/verify-dashboard-overhaul.mjs'; Object.assign(globalThis, {runDashboardCoreChecks,runRagSettingsControlsChecks,runOnlyRagSettings:${ragSettingsSuite},runOnlyReviewTab:${reviewTabSuite}});` : ''),
+			Object.assign(globalThis, { PagedWritingView, PaginationEngine, serializePagedText, runPagedDocumentChecks, installNativePagedInputChecks, pagedNativeOnly:${process.argv.some(flag=>['--native-input-only','--same-line-input-only','--stability-only','--overflow-visibility-only','--boundary-edit-only','--korean-boundary-only'].includes(flag))} });` + (dashboardSuite ? `import { runDashboardCoreChecks, runRagSettingsControlsChecks } from './scripts/verify-dashboard-overhaul.mjs'; Object.assign(globalThis, {runDashboardCoreChecks,runRagSettingsControlsChecks,runOnlyRagSettings:${ragSettingsSuite},runOnlyReviewTab:${reviewTabSuite},runOnlyCommentsGoal:${commentsGoalSuite}}); import { runCommentsGoalChecks } from './scripts/verify-comments-goal-ui.mjs'; globalThis.runCommentsGoalChecks=runCommentsGoalChecks;` : ''),
 		resolveDir: root,
 		loader: 'js',
 	},
@@ -298,8 +301,8 @@ const bundle = await build({
 		name: 'minimal-obsidian-host',
 		setup(builder) {
 			builder.onResolve({ filter: /^obsidian$/ }, () => ({ path: 'obsidian', namespace: 'test' }));
-			builder.onLoad({ filter: /.*/, namespace: 'test' }, () => ({ contents: obsidianStub, loader: 'js' }));
-			if (plotSuite) {
+			builder.onLoad({ filter: /.*/, namespace: 'test' }, () => ({ contents: obsidianStub, loader: 'js', resolveDir: root }));
+			if (plotSuite || commentsGoalSuite || dashboardSuite) {
 				builder.onResolve({ filter: /^(\.\/WritingToolbar|\.\.\/export)$/ }, args => ({ path: args.path, namespace: 'toolbar-test' }));
 				builder.onLoad({ filter: /.*/, namespace: 'toolbar-test' }, args => ({ loader: 'js', contents: args.path.endsWith('WritingToolbar')
 					? 'export class WritingToolbar { constructor(plugin, container) { this.toolbarEl = container.createDiv({cls:"wm-writing-toolbar wm-paged-toolbar"}); } placeWidgetDock() {} destroy() { this.toolbarEl.remove(); } }'
@@ -639,6 +642,31 @@ try {
 	const result = await command('Runtime.evaluate', { expression: 'window.runPagedChecks()', awaitPromise: true, returnByValue: true });
 	if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || JSON.stringify(result.exceptionDetails));
 	console.log(JSON.stringify(result.result.value, null, 2));
+	if (commentsGoalSuite && process.env.WM_COMMENTS_SHOT) {
+		// Opt-in visual check of the REVISION comments panel at sidebar width.
+		await command('Runtime.evaluate', { expression: `(() => { const { panel, service } = commentsGoalPreview; const root = document.querySelector('.wm-hlc-root'); root.style.width = '360px'; root.style.height = '640px';
+			service.appendComment(service.threads[0].id, '두 번째 답글: 이 장면 앞에 복선 한 줄'); panel.update(true); })()` });
+		const hover = await command('Runtime.evaluate', { expression: `(() => { const r = document.querySelector('.wm-hlc-item').getBoundingClientRect(); return { x: r.left + 200, y: r.top + 12 }; })()`, returnByValue: true });
+		await command('Input.dispatchMouseEvent', { type: 'mouseMoved', x: hover.result.value.x, y: hover.result.value.y });
+		if (process.env.WM_REVIEW_SHOT) {
+			await command('Runtime.evaluate', { expression: `(() => { document.querySelectorAll('.wm-hlc-root, .wm-markdown-toolbar-host').forEach(el => el.style.display = 'none'); return renderReviewChartsPreview(); })()` });
+			for (const dark of [false, true]) {
+				await command('Runtime.evaluate', { expression: `setCommentsGoalTheme(${dark})` });
+				const box = (await command('Runtime.evaluate', { expression: `(() => { const r = document.querySelector('.wm-rv-preview').getBoundingClientRect(); return { x: r.left, y: r.top, width: r.width, height: r.height }; })()`, returnByValue: true })).result.value;
+				const shot = await command('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip: { x: Math.max(0, box.x - 10), y: Math.max(0, box.y - 10), width: box.width + 20, height: box.height + 20, scale: 1 } });
+				await mkdir(path.join(root, '.codex-tmp'), { recursive: true });
+				await writeFile(path.join(root, '.codex-tmp', `review-${dark ? 'dark' : 'light'}.png`), Buffer.from(shot.data, 'base64'));
+			}
+		}
+		else for (const dark of [false, true]) {
+			await command('Runtime.evaluate', { expression: `setCommentsGoalTheme(${dark})` });
+			await command('Runtime.evaluate', { expression: `document.querySelector('.wm-hlc-chip.is-colors, .wm-hlc-color-pop-head')?.click()` });
+			await new Promise(resolve => setTimeout(resolve, 300));
+			const shot = await command('Page.captureScreenshot', { format: 'png', clip: { x: 0, y: 0, width: 520, height: 760, scale: 1 } });
+			await mkdir(path.join(root, '.codex-tmp'), { recursive: true });
+			await writeFile(path.join(root, '.codex-tmp', `comments-${dark ? 'dark' : 'light'}.png`), Buffer.from(shot.data, 'base64'));
+		}
+	}
 	if (!plotSuite && !dashboardSuite && !process.argv.includes('--document-only')) {
 		await command('Emulation.setDeviceMetricsOverride',{width:2600,height:1000,deviceScaleFactor:1,mobile:false});
 		const evaluate = async expression => {const r=await command('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw new Error(r.exceptionDetails.exception?.description);return r.result.value;};
@@ -1061,7 +1089,7 @@ try {
 		const shot = await command('Page.captureScreenshot', { format: 'png' });
 		await writeFile(path.join(output, 'english-desktop.png'), Buffer.from(shot.data, 'base64'));
 	}
-	if (dashboardSuite && !ragSettingsSuite && !reviewTabSuite) {
+	if (dashboardSuite && !ragSettingsSuite && !reviewTabSuite && !commentsGoalSuite) {
 		const evaluate = async expression => { const result = await command('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true}); if(result.exceptionDetails)throw new Error(result.exceptionDetails.exception?.description); return result.result.value; };
 		const output = path.join(root,'.codex-tmp','dashboard-overhaul'); await mkdir(output,{recursive:true});
 		const capture = async name => {
@@ -1280,6 +1308,15 @@ try {
 			}
 		}
 	}
+    if (commentsGoalSuite) {
+        const evaluate = async expression => {const r=await command('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw new Error(r.exceptionDetails.exception?.description);return r.result.value;};
+        for (const dark of [false,true]) {
+            await evaluate(`setCommentsGoalTheme(${dark})`);
+            const shot = await command('Page.captureScreenshot', {format:'png',captureBeyondViewport:false});
+            await writeFile(path.join(root,'.codex-tmp',`comments-goal-${dark?'dark':'light'}.png`),Buffer.from(shot.data,'base64'));
+        }
+    }
+
 } finally {
 	socket?.close();
 	browser.kill();

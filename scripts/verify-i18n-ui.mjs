@@ -31,7 +31,7 @@ export async function runI18nUiChecks() {
 	preview.createEl('h2', { text: 'Writing Menu · English' });
 	const settings = structuredClone(DEFAULT_SETTINGS); settings.showMunpiaWidget = false;
 	const originalSettings = JSON.stringify(settings);
-	const plugin = { settings, app: { workspace: {} }, stopwatchManager: { subscribeWidget: () => () => {} },
+	const plugin = { settings, app: { workspace: {}, metadataCache: { on: () => ({}), offref() {} } }, stopwatchManager: { subscribeWidget: () => () => {} },
 		formatCharCount: value => String(value),
 		calculateAllCharCounts: text => ({ munpia: text.length, novelpia: text.length }), saveSettings: async () => {} };
 	const surface = { kind: 'paged', leaf: {}, getFile: () => null, getText: () => 'English manuscript',
@@ -53,7 +53,7 @@ export async function runI18nUiChecks() {
 	}
 	settings.fontWeight = initialWeight; toolbar.refresh();
 	toolbar.closePopover();
-	toolbar.toolbarEl.querySelector('[aria-label="Open color menu"]').click();
+	toolbar.toolbarEl.querySelector('[aria-label="Highlight"]').click();
 	assert(toolbar.activePopover.querySelector('[aria-label="Highlight Default"]')&&toolbar.activePopover.querySelector('[aria-label="Highlight Purple"]'),'Native highlight palette was not translated');
 	assert(!/[가-힣]/.test(toolbar.activePopover.textContent),'Korean leaked into the English color popup');
 	toolbar.closePopover();

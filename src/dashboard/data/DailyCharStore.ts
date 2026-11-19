@@ -38,6 +38,8 @@ export class DailyCharStore {
 	private ready = false;
 	private readyWaiters = new Set<() => void>();
 	onAvgUpdated?: () => void;
+	private readonly listeners = new Set<() => void>();
+	subscribe(callback: () => void): () => void { this.listeners.add(callback); return () => this.listeners.delete(callback); }
 
 	constructor(private plugin: WritingMenuPlugin) {}
 
@@ -62,6 +64,7 @@ export class DailyCharStore {
 
 		await this.computeAvg();
 		this.ready = true;
+		for (const listener of this.listeners) listener();
 		for (const resolve of this.readyWaiters) resolve();
 		this.readyWaiters.clear();
 	}
@@ -390,6 +393,7 @@ export class DailyCharStore {
 	}
 
 	private scheduleSave() {
+		for (const listener of this.listeners) listener();
 		window.clearTimeout(this.saveTimer);
 		this.saveTimer = window.setTimeout(() => { void this.save(); }, 3000);
 		// 데일리노트 frontmatter 갱신은 vault modify 연쇄 이벤트를 유발하므로

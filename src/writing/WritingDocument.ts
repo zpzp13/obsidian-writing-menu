@@ -7,7 +7,7 @@ import type WritingMenuPlugin from '../../main';
 import { PagedWritingView } from '../paged/PagedWritingView';
 import { splitPagedFrontmatter } from '../paged/PagedFileStore';
 import { textEdits } from '../utils/TextEdits';
-import { parseInlineMarkdown, sourceOffsetToVisible } from '../paged/MarkdownInlineFormat';
+import { parseInlineMarkdown, sourceOffsetToVisible, visibleOffsetToSource } from '../paged/MarkdownInlineFormat';
 
 type WritingView = MarkdownView | PagedWritingView;
 const recentViews = new WeakMap<WritingMenuPlugin, WritingView>();
@@ -32,6 +32,7 @@ export interface WritingDocument {
 	readonly path: string;
 	readonly editor: Editor;
 	read(): string;
+	selectionSourceRange(): { from: number; to: number };
 	isCurrent(expected: string): boolean;
 	replace(expected: string, next: string): void;
 	select(expected: string, from: number, to: number): void;
@@ -60,6 +61,12 @@ function documentForView(view: WritingView): WritingDocument {
 	const assert = (expected: string) => { if (!isCurrent(expected)) throw new Error(wmT("원고가 변경되었습니다. 다시 비교하거나 분석해 주세요.")); };
 	return {
 		file, path, editor, read, isCurrent,
+		selectionSourceRange() {
+			const from = editor.posToOffset(editor.getCursor('from')), to = editor.posToOffset(editor.getCursor('to'));
+			if (!(view instanceof PagedWritingView)) return { from, to };
+			const { prefix, body } = splitPagedFrontmatter(read()), state = parseInlineMarkdown(body);
+			return { from: prefix.length + visibleOffsetToSource(state, from, 'right'), to: prefix.length + visibleOffsetToSource(state, to, from === to ? 'right' : 'left') };
+		},
 		replace(expected, next) {
 			assert(expected);
 			if (view instanceof PagedWritingView) view.replaceSourceSnapshot(expected, next);

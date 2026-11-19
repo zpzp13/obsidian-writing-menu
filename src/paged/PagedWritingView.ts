@@ -3443,6 +3443,11 @@ export class PagedWritingView extends FileView {
 		return !!this.editRootEl && (node === this.editRootEl || this.editRootEl.contains(node));
 	}
 
+	/** Visible-text offset of a DOM point (e.g. the start of a hovered span). */
+	visibleOffsetAt(node: Node, offset: number): number | null {
+		return this.globalOffsetFromDom(node, offset);
+	}
+
 	private globalOffsetFromDom(node: Node, offset: number): number | null {
 		if (!this.editRootEl) return null;
 		if (node === this.editRootEl) {

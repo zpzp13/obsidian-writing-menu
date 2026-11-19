@@ -1,4 +1,8 @@
 import './src/i18n/obsidian';
+import { HighlightCommentService } from './src/comments/HighlightCommentService';
+import { normalizeHighlightComments } from './src/comments/HighlightCommentTypes';
+import { highlightCommentExtension } from './src/editor/highlightCommentDecoration';
+import { startMunpiaTracking } from './src/review/munpiaTracking';
 import { wmT } from './src/i18n/index';
 import { App, Plugin, MarkdownView, WorkspaceLeaf, TFile, TFolder, TAbstractFile, Notice, Platform, EventRef, MenuItem, normalizePath, requireApiVersion } from 'obsidian';
 import type { Editor } from 'obsidian';
@@ -10,7 +14,7 @@ import { MusicLibraryView, MUSIC_LIBRARY_VIEW_TYPE } from './src/views/MusicLibr
 import type { MusicLibraryBases } from './src/views/MusicLibraryBases';
 import { HwpxExportModal, TxtExportModal, DocxExportModal, BatchExportModal, DocumentExportModal, registerExportIcons } from './src/export';
 import { WritingMenuSettingTab } from './src/settings';
-import { openFolderPicker, openTemplatePicker, runPicker, convertToHwpx, getDefaultExportPath, cleanMarkdownFrontmatter, removeHeadings, copyWithOptions, applySpaceIndent, convertToTxt, convertFolderToTxt, convertFilesToTxt, convertFolderToHwpx, convertFilesToHwpx, convertFolderToTxtMerged, convertFilesToTxtMerged, convertFolderToHwpxMerged, convertFilesToHwpxMerged } from './src/export/converterMethods';
+import { openFolderPicker, openTemplatePicker, runPicker, getDefaultExportPath, cleanMarkdownFrontmatter, copyWithOptions, applySpaceIndent } from './src/export/converterMethods';
 import { addCompactControl, addCompactToggle, addCompactStepper, addCompactSlider, addDualColorControl } from './src/ui/controls';
 import { openDictionary } from './src/dictionary';
 import { openSpecialChars } from './src/special-chars/SpecialCharsModal';
@@ -27,6 +31,7 @@ import { MusicPlayer } from './src/dashboard/MusicPlayer';
 import { LeafStyleManager } from './src/editor/LeafStyleManager';
 import { shouldExitZenOnEscape } from './src/editor/ZenFullscreen';
 import { ToolbarManager } from './src/toolbar/ToolbarManager';
+import { migrateCopySettings } from './src/export/CopySettings';
 import { normalizeWidgetOrder } from './src/toolbar/widgetOrder';
 import { StopwatchManager } from './src/dashboard/StopwatchManager';
 import { SpellCheckerService } from './src/spellcheck/index';
@@ -50,8 +55,10 @@ interface WritingMenuRuntimeWindow extends Window {
 }
 
 export default class WritingMenuPlugin extends Plugin {
+	private unloading = false;
 	settings: WritingMenuSettings;
 	charStore: DailyCharStore;
+	highlightComments: HighlightCommentService;
 	settingTab: WritingMenuSettingTab | null = null;
 	wikiPanelRerender: (() => void) | null = null;
 	toolbarElements: Map<WorkspaceLeaf, HTMLElement> = new Map();
@@ -88,6 +95,7 @@ export default class WritingMenuPlugin extends Plugin {
 	mobileFonts: MobileFontManager;
 
 	async onload() {
+		this.unloading = false;
 		registerExportIcons();
 		initializeWritingDocuments(this);
 		const runtimeWindow = window as WritingMenuRuntimeWindow;
@@ -109,6 +117,8 @@ export default class WritingMenuPlugin extends Plugin {
 	private async initialize() {
 		await this.loadSettings();
 		initializeManuscriptSnapshots(this);
+		this.highlightComments = new HighlightCommentService(this);
+		this.addChild(this.highlightComments);
 
 		this.projectContext = new ProjectContextService(this);
 		this.leafStyleManager = new LeafStyleManager(this);
@@ -216,6 +226,8 @@ export default class WritingMenuPlugin extends Plugin {
 		this.registerEditorExtension(createSelectionExtension(this));
 		this.registerEditorExtension(createHeadingLinkFixExtension(this));
 		this.registerEditorExtension(repetitionHighlightExtension());
+		this.registerEditorExtension(highlightCommentExtension(this));
+		startMunpiaTracking(this);
 		this.registerEditorExtension(spellcheckHighlightExtension());
 		this.registerEditorSuggest(new SymbolSuggester(this));
 
@@ -688,6 +700,14 @@ export default class WritingMenuPlugin extends Plugin {
 		}
 	}
 
+	async openHighlightComments(threadId?: string) {
+		const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_CALENDAR)[0] ?? this.app.workspace.getRightLeaf(false);
+		if (!leaf) return;
+		if (!(leaf.view instanceof CalendarView)) await leaf.setViewState({ type: VIEW_TYPE_CALENDAR, active: true });
+		await this.app.workspace.revealLeaf(leaf);
+		if (leaf.view instanceof CalendarView) leaf.view.openHighlightComments(threadId);
+	}
+
 	async openFileInWiki(
 		file: import('obsidian').TFile,
 		target: 'tab' | 'current' | 'sidebar' = 'sidebar',
@@ -718,6 +738,7 @@ export default class WritingMenuPlugin extends Plugin {
 	}
 
 	onunload(): void {
+		this.unloading = true;
 		const runtimeWindow = window as WritingMenuRuntimeWindow;
 		if (runtimeWindow.__writingMenuPluginInstance === this) {
 			delete runtimeWindow.__writingMenuPluginInstance;
@@ -778,6 +799,8 @@ export default class WritingMenuPlugin extends Plugin {
 		const dashboardSettingsMigrated = migrateDashboardSettings(savedData);
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, savedData);
 		const obsoleteSettings = this.settings as unknown as Record<string, unknown>;
+		const copySettingsMigrated = migrateCopySettings(savedData, this.settings);
+		this.settings.highlightComments = normalizeHighlightComments(savedData.highlightComments);
 		const currentTheme = activeDocument.body.classList.contains('theme-dark') ? 'dark' : 'light';
 		for (const key of ['pagedLastTextColor', 'pagedLastBackgroundColor'] as const) {
 			const value = obsoleteSettings[key];
@@ -788,6 +811,9 @@ export default class WritingMenuPlugin extends Plugin {
 			} else obsoleteSettings[key] = '';
 		}
 		delete obsoleteSettings.calendarPreviewItems;
+		delete obsoleteSettings.goalWidgetSource;
+		delete obsoleteSettings.documentGoalChars;
+		delete obsoleteSettings.documentGoalKey;
 		delete obsoleteSettings.timeAvgFolderLevel;
 		delete obsoleteSettings.plotCharFolder;
 		delete obsoleteSettings.plotCharNoteTemplate;
@@ -798,6 +824,10 @@ export default class WritingMenuPlugin extends Plugin {
 		delete obsoleteSettings.plotCellWidth;
 		delete obsoleteSettings.wikiDefaultGroupField;
 		delete obsoleteSettings.enableStopwatchAlarm;
+		// The first REVIEW prototype guessed these; the inspected viewer and comment markup replace them.
+		if (this.settings.reviewMunpiaCommentUrl === 'https://novel.munpia.com/{novel}/page/1/neSrl/{chapter}') this.settings.reviewMunpiaCommentUrl = DEFAULT_SETTINGS.reviewMunpiaCommentUrl;
+		if (this.settings.reviewMunpiaCommentSelector === '.comment-content, .cmt-content, .reply-content, [class*="comment"] [class*="content"], [class*="comment"] p') this.settings.reviewMunpiaCommentSelector = DEFAULT_SETTINGS.reviewMunpiaCommentSelector;
+		if (savedData.goalCharBasis === undefined) this.settings.goalCharBasis = this.settings.charCountMode === 'novelpia' ? 'novelpia' : 'munpia';
 		if (savedData.showMunpiaWidget === undefined && savedData.showNovelpiaWidget === undefined) {
 			this.settings.showMunpiaWidget = this.settings.charCountMode !== 'novelpia';
 			this.settings.showNovelpiaWidget = this.settings.charCountMode === 'novelpia';
@@ -924,10 +954,12 @@ export default class WritingMenuPlugin extends Plugin {
 				seen.add(id);
 			}
 		}
+		if (copySettingsMigrated) await this.saveData(this.settings);
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+		if (this.unloading) return;
 		this.regenerateCSSTemplate();
 		this.updateEditorExtensions();
 		this.updateAllLeafStyles();
@@ -1013,21 +1045,10 @@ export default class WritingMenuPlugin extends Plugin {
 	async openFolderPicker(): Promise<string | null>{ return await openFolderPicker(this); }
 	async openTemplatePicker(): Promise<string | null>{ return await openTemplatePicker(this); }
 	async runPicker(mode: 'folder' | 'file'): Promise<string | null>{ return await runPicker(this, mode); }
-	async convertToHwpx(file: TFile, fileName: string, exportPath: string, useSpaceIndent: boolean, excludeHeadings: boolean = false, useTemplate?: boolean): Promise<boolean>{ return await convertToHwpx(this, file, fileName, exportPath, useSpaceIndent, excludeHeadings, useTemplate); }
 	getDefaultExportPath(): string{ return getDefaultExportPath(this); }
 	cleanMarkdownFrontmatter(content: string): string{ return cleanMarkdownFrontmatter(this, content); }
-	removeHeadings(content: string): string{ return removeHeadings(this, content); }
 	async copyWithOptions(leaf: WorkspaceLeaf){ return await copyWithOptions(this, leaf); }
 	applySpaceIndent(text: string): string{ return applySpaceIndent(this, text); }
-	async convertToTxt(file: TFile, fileName: string, exportPath: string, useSpaceIndent: boolean, excludeHeadings: boolean = false): Promise<boolean>{ return await convertToTxt(this, file, fileName, exportPath, useSpaceIndent, excludeHeadings); }
-	async convertFolderToTxt(folderPath: string, exportPath: string, useSpaceIndent: boolean, excludeHeadings: boolean = false): Promise<void>{ return await convertFolderToTxt(this, folderPath, exportPath, useSpaceIndent, excludeHeadings); }
-	async convertFilesToTxt(files: TFile[], exportPath: string, useSpaceIndent: boolean, excludeHeadings: boolean = false): Promise<void>{ return await convertFilesToTxt(this, files, exportPath, useSpaceIndent, excludeHeadings); }
-	async convertFolderToHwpx(folderPath: string, exportPath: string, useSpaceIndent: boolean, excludeHeadings: boolean = false, useTemplate?: boolean): Promise<void>{ return await convertFolderToHwpx(this, folderPath, exportPath, useSpaceIndent, excludeHeadings, useTemplate); }
-	async convertFilesToHwpx(files: TFile[], exportPath: string, useSpaceIndent: boolean, excludeHeadings: boolean = false, useTemplate?: boolean): Promise<void>{ return await convertFilesToHwpx(this, files, exportPath, useSpaceIndent, excludeHeadings, useTemplate); }
-	async convertFolderToTxtMerged(folderPath: string, exportPath: string, fileName: string, useSpaceIndent: boolean, excludeHeadings: boolean = false): Promise<void>{ return await convertFolderToTxtMerged(this, folderPath, exportPath, fileName, useSpaceIndent, excludeHeadings); }
-	async convertFilesToTxtMerged(files: TFile[], exportPath: string, fileName: string, useSpaceIndent: boolean, excludeHeadings: boolean = false): Promise<void>{ return await convertFilesToTxtMerged(this, files, exportPath, fileName, useSpaceIndent, excludeHeadings); }
-	async convertFolderToHwpxMerged(folderPath: string, exportPath: string, fileName: string, useSpaceIndent: boolean, excludeHeadings: boolean = false, useTemplate?: boolean): Promise<void>{ return await convertFolderToHwpxMerged(this, folderPath, exportPath, fileName, useSpaceIndent, excludeHeadings, useTemplate); }
-	async convertFilesToHwpxMerged(files: TFile[], exportPath: string, fileName: string, useSpaceIndent: boolean, excludeHeadings: boolean = false, useTemplate?: boolean): Promise<void>{ return await convertFilesToHwpxMerged(this, files, exportPath, fileName, useSpaceIndent, excludeHeadings, useTemplate); }
 
 	async addCompactControl(container: HTMLElement, label: string, value: string, callback: (v: string) => void | Promise<void>, icon?: string, type: string = 'text'){ return await addCompactControl(this, container, label, value, callback, icon, type); }
 	async addCompactToggle(container: HTMLElement, label: string, value: boolean, callback: (v: boolean) => void | Promise<void>, icon?: string){ return await addCompactToggle(this, container, label, value, callback, icon); }

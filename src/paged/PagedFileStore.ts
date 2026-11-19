@@ -8,19 +8,8 @@ export interface PagedConflictReview extends PagedFileConflict { base: string; l
 export type PagedConflictChoice = 'local' | 'remote' | { content: string; local: string; remote: string };
 class ChangedOnDisk extends Error { constructor(readonly content: string) { super(wmT("파일이 다른 곳에서 변경되었습니다.")); } }
 
-export function splitPagedFrontmatter(source: string): { prefix: string; body: string } {
-	const firstLineEnd = source.indexOf('\n');
-	if (firstLineEnd < 0 || source.slice(0, firstLineEnd).replace(/\r$/, '').trim() !== '---') return { prefix: '', body: source };
-	let start = firstLineEnd + 1;
-	while (start <= source.length) {
-		const end = source.indexOf('\n', start), line = source.slice(start, end < 0 ? source.length : end).replace(/\r$/, '').trim();
-		if (line === '---' || line === '...') {
-			const offset = end < 0 ? source.length : end + 1; return { prefix: source.slice(0, offset), body: source.slice(offset) };
-		}
-		if (end < 0) break; start = end + 1;
-	}
-	return { prefix: '', body: source };
-}
+import { splitPagedFrontmatter } from './PagedFrontmatter';
+export { splitPagedFrontmatter } from './PagedFrontmatter';
 
 /** Time/version metadata may change independently; never merge competing body edits. */
 export function mergePagedMetadata(base: string, local: string, disk: string): string | null {

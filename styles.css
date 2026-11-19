@@ -8464,8 +8464,8 @@ button.wm-paged-alignment-option.is-active:hover {
 }
 .wm-writing-custom-palette > .wm-paged-color-reset { grid-column: 4; }
 /* Two-row recent palette: keep its label on the first row. */
-.wm-paged-color-row:has(> .wm-writing-recent-palette) { align-items: flex-start; }
-.wm-paged-color-row:has(> .wm-writing-recent-palette) > .wm-paged-color-row-label { line-height: 21px; }
+.wm-paged-color-row.is-recent-colors { align-items: flex-start; }
+.wm-paged-color-row.is-recent-colors > .wm-paged-color-row-label { line-height: 21px; }
 .wm-writing-color-palette > .wm-writing-color-swatch,
 .wm-writing-color-palette > .wm-paged-color-reset {
 	width: 21px;
@@ -8858,7 +8858,7 @@ body:not(.is-mobile) .wm-markdown-toolbar-content { padding: 0; }
 .wm-paged-view,
 .wm-markdown-toolbar-host {
 	--wm-widget-dock-gap: 4px;
-	--wm-timer-widget-color: #ff7a1a;
+	--wm-timer-widget-color: #946c00;
 	/* One gap everywhere in the widget row: icon → label → next icon. */
 	--wm-widget-item-gap: 14px;
 	/* Same icon size as the toolbar above. */
@@ -8953,6 +8953,10 @@ button.wm-writing-widget-card.is-timer.is-running {
 }
 
 .wm-writing-widget-icon {
+	position: relative;
+	/* No vertical nudge: the label is trimmed to cap height/baseline
+	   (text-box below), so plain flex centering already matches the
+	   letters' visual middle. An extra lift put icons ~1.5px high. */
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -13101,3 +13105,372 @@ body > .wm-export-bases-portal { z-index: calc(var(--layer-menu) + var(--wm-expo
     .wm-export-window-actions { gap: 6px; }
     .wm-export-sidebar-header { padding-right: 48px; }
 }
+
+.theme-dark .wm-paged-view, .theme-dark .wm-markdown-toolbar-host {
+    --wm-timer-widget-color: #f0c03a;
+    --wm-goal-widget-color: #9fdfae;
+}
+.theme-light .wm-paged-view, .theme-light .wm-markdown-toolbar-host {
+    --wm-timer-widget-color: #946c00;
+    --wm-goal-widget-color: #1f8f74;
+}
+.wm-writing-widget-card.is-goal .wm-writing-widget-icon circle.is-filled,
+.wm-writing-widget-toggle-icon circle.is-filled { fill: var(--wm-goal-widget-color, #9fdfae); }
+.wm-writing-widget-card.is-goal .wm-writing-widget-icon circle.is-empty,
+.wm-writing-widget-toggle-icon circle.is-empty { fill: currentColor; opacity: 0.3; }
+.wm-writing-widget-card.is-goal.is-reached { color: var(--wm-goal-widget-color); }
+/* The goal popover reuses the dashboard goal row and its tokens. */
+.wm-writing-goal-popover {
+    --wm-dash-ink-1: var(--text-normal);
+    --wm-dash-ink-3: var(--text-faint);
+    --wm-dash-grid: var(--background-modifier-border);
+    --wm-dash-ease: cubic-bezier(.2, .8, .2, 1);
+    width: 260px;
+    max-width: calc(100% - 16px);
+    padding: 12px 14px 16px;
+}
+.wm-writing-goal-popover-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+.wm-writing-goal-popover-title {
+    color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
+    font-weight: var(--font-semibold);
+}
+.wm-writing-goal-popover-settings {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+}
+.wm-writing-goal-popover-settings svg { width: 14px; height: 14px; }
+.wm-writing-goal-popover .wm-dash-char-goal-fill,
+.wm-writing-goal-popover .wm-dash-char-goal-fill::after { background: var(--wm-goal-widget-color, var(--wm-dash-ink-1)); }
+
+/* Highlight comment panels use the revision dashboard theme tokens. */
+/* Sized to read as tall as the "반복 표현" label beside it. */
+.wm-revision-inline-refresh { margin-left: 2px; margin-right: auto; width: 26px; height: 26px; flex-shrink: 0; color: var(--wm-dash-ink-2, var(--text-muted)); opacity: 1; }
+.wm-revision-inline-refresh svg { width: 17px; height: 17px; }
+/* ── Highlight comments (REVISION › comments view) ── */
+/* One gap between every row, so the search field sits evenly between the
+   toolbar and the filter chips. */
+.wm-hlc-root { position: relative; color: var(--text-normal); display: flex; flex-direction: column; min-height: 0; gap: 12px; }
+.wm-hlc-root[hidden], .wm-revision-root[hidden], .wm-hlc-search[hidden] { display: none; }
+.wm-hlc-root > .wm-revision-toolbar { margin-bottom: 0; padding-bottom: 0; }
+.wm-hlc-root .wm-cal-icon-btn.is-active { color: var(--interactive-accent); opacity: 1; }
+.wm-hlc-toolbar-icon { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex-shrink: 0; color: var(--text-muted); }
+.wm-hlc-toolbar-icon svg { width: 16px; height: 16px; }
+.wm-hlc-search.wm-search-field { width: 100%; }
+
+/* Filter chips: status (one at a time) and a highlight-colour drawer. */
+/* One line; centred while it fits, scrolls sideways when the panel is narrow
+   (auto margins centre without clipping the start of an overflowing row). */
+/* flex: none — a scrolling flex child would otherwise shrink and clip the chips' bottom edge. */
+.wm-hlc-chips { display: flex; flex: 0 0 auto; flex-wrap: nowrap; gap: 4px; margin: -2px 0; padding: 2px 0; overflow-x: auto; scrollbar-width: none; }
+.wm-hlc-chips::-webkit-scrollbar { display: none; }
+.wm-hlc-chips > :first-child { margin-left: auto; }
+.wm-hlc-chips > :last-child { margin-right: auto; }
+button.wm-hlc-chip { flex: 0 0 auto; white-space: nowrap; display: inline-flex; align-items: center; line-height: 1; gap: 4px; height: 28px; padding: 0 10px; border: 0; border-radius: 999px; background: var(--background-modifier-hover); box-shadow: none; color: var(--text-muted); font-size: var(--font-ui-smaller); cursor: pointer; }
+button.wm-hlc-chip:hover { background: var(--background-modifier-active-hover); color: var(--text-normal); }
+button.wm-hlc-chip[aria-pressed="true"] { background: var(--interactive-accent); color: var(--text-on-accent); }
+.wm-hlc-chip-count, .wm-hlc-chip > span, .wm-hlc-color-pop-head > span { display: inline-flex; align-items: center; line-height: 1; }
+.wm-hlc-chip-count { font-variant-numeric: tabular-nums; opacity: .7; }
+/* Colour chip: opens in place, growing down from the chip like a dropdown. */
+.wm-hlc-color-pop { position: absolute; z-index: 20; box-sizing: border-box; padding-bottom: 4px; border: 1px solid var(--background-modifier-border); border-radius: 14px; background: var(--background-primary); box-shadow: var(--shadow-l); transform-origin: top; }
+.wm-hlc-color-pop.is-opening { animation: wm-hlc-pop-in .16s ease-out; }
+/* The open menu covers its chip; hide the chip so its pressed colour cannot show at the edges. */
+.wm-hlc-chip.is-colors.is-open { visibility: hidden; }
+@keyframes wm-hlc-pop-in { from { opacity: .4; transform: scaleY(.35); } to { opacity: 1; transform: none; } }
+button.wm-hlc-color-pop-head { display: flex; align-items: center; justify-content: center; gap: 4px; width: 100%; height: 26px; padding: 0 9px; border: 0; background: transparent; box-shadow: none; color: var(--text-normal); font-size: var(--font-ui-smaller); line-height: 1; white-space: nowrap; cursor: pointer; }
+.wm-hlc-color-options { display: flex; flex-direction: column; padding: 2px 3px 0; }
+/* Text only, the chip's own width; the picked colours read in the accent colour. */
+button.wm-hlc-color-option { display: block; width: 100%; height: 26px; padding: 0 4px; overflow: hidden; border: 0; border-radius: 8px; background: transparent; box-shadow: none; color: var(--text-muted); font-size: var(--font-ui-smaller); line-height: 26px; text-align: center; white-space: nowrap; cursor: pointer; }
+button.wm-hlc-color-option:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+button.wm-hlc-color-option[aria-checked="true"] { color: var(--interactive-accent); font-weight: var(--font-semibold); }
+
+/* Timeline: line number | node + rail | quote and replies. */
+.wm-hlc-list { overflow-y: auto; min-height: 0; padding: 4px 4px 16px 0; }
+.wm-hlc-item { position: relative; display: grid; grid-template-columns: 46px 34px minmax(0, 1fr); /* rail column carries the 8px gaps */ padding-bottom: 20px; outline: none; cursor: pointer; }
+.wm-hlc-item.is-missing { cursor: default; }
+.wm-hlc-item:focus-visible .wm-hlc-quote { border-radius: 2px; box-shadow: 0 0 0 2px var(--background-modifier-border-focus); }
+.wm-hlc-gutter { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.wm-hlc-line { color: var(--text-muted); font-size: var(--font-ui-small); font-variant-numeric: tabular-nums; line-height: 22px; white-space: nowrap; }
+.wm-hlc-item.is-missing .wm-hlc-line { color: var(--text-warning); }
+/* Tools live in the free space under the line number, shown on hover. */
+/* Vertical stack under the line number, so the gutter stays narrow. */
+.wm-hlc-tools { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; margin-right: -5px; visibility: hidden; }
+.wm-hlc-item:hover .wm-hlc-tools, .wm-hlc-item:focus-within .wm-hlc-tools, body.is-mobile .wm-hlc-tools { visibility: visible; }
+.wm-hlc-tools .wm-cal-icon-btn { width: 28px; height: 28px; }
+.wm-hlc-comment-tools .wm-cal-icon-btn { width: 26px; height: 26px; }
+.wm-hlc-tools .wm-cal-icon-btn svg, .wm-hlc-comment-tools .wm-cal-icon-btn svg { width: 17px; height: 17px; }
+
+.wm-hlc-rail { position: relative; display: flex; justify-content: center; }
+/* Starts flush under this node (19px overlaps its 20px bottom edge), stops 4px
+   short of the next node, which sits 22px below this item's content. */
+.wm-hlc-rail::after { content: ""; position: absolute; top: 19px; bottom: -18px; left: calc(50% - 1px); border-left: 2px solid var(--background-modifier-border); }
+/* The last item still ends in a line, down to the end of its replies. */
+.wm-hlc-item:last-child .wm-hlc-rail::after { bottom: 0; }
+.wm-hlc-item.is-done .wm-hlc-rail::after { border-color: var(--interactive-accent); }
+button.wm-hlc-dot { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; box-sizing: border-box; width: 18px; height: 18px; margin-top: 2px; padding: 0; border: 2px solid var(--text-faint); border-radius: 50%; background: var(--background-primary); box-shadow: none; cursor: pointer; }
+button.wm-hlc-dot:hover:not(:disabled) { border-color: var(--interactive-accent); }
+button.wm-hlc-dot:disabled { cursor: inherit; opacity: 1; }
+button.wm-hlc-dot svg { width: 12px; height: 12px; stroke-width: 3; }
+.wm-hlc-item.is-done button.wm-hlc-dot { border-color: var(--interactive-accent); background: var(--interactive-accent); color: var(--text-on-accent); }
+/* No comments yet: a dashed node. */
+.wm-hlc-item.is-bare button.wm-hlc-dot { border-style: dashed; }
+/* Removed from the manuscript: the question-mark circle icon is the node. */
+.wm-hlc-item.is-missing button.wm-hlc-dot { border: 0; color: var(--text-faint); }
+.wm-hlc-item.is-missing button.wm-hlc-dot svg { width: 18px; height: 18px; stroke-width: 2; }
+
+.wm-hlc-body { min-width: 0; }
+.wm-hlc-quote { color: var(--text-normal); font-size: var(--font-ui-small); line-height: 22px; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.wm-hlc-quote-mark { padding: 1px 2px; border-radius: 3px; background: var(--wm-hlc-color); }
+.wm-hlc-item.is-missing .wm-hlc-quote-mark { opacity: .6; }
+.wm-hlc-item.is-done .wm-hlc-quote { color: var(--text-muted); text-decoration-line: line-through; }
+.wm-hlc-item.is-missing .wm-hlc-quote { color: var(--text-faint); }
+
+/* Replies: outline cards. */
+.wm-hlc-thread { display: flex; flex-direction: column; margin-top: 2px; }
+/* Each reply: its tools above the card's top-right corner, outside the card.
+   The tool row doubles as the space between cards. */
+.wm-hlc-comment-tools { display: flex; justify-content: flex-end; gap: 2px; height: 26px; margin-right: -4px; visibility: hidden; }
+.wm-hlc-comment-item:hover .wm-hlc-comment-tools, .wm-hlc-comment-item:focus-within .wm-hlc-comment-tools, body.is-mobile .wm-hlc-comment-tools { visibility: visible; }
+.wm-hlc-comment-item.is-editing .wm-hlc-comment-tools { visibility: hidden; }
+.wm-hlc-comment { padding: 8px 12px; border: 1px solid var(--background-modifier-border); border-radius: 10px; background: transparent; cursor: auto; }
+.wm-hlc-comment-item:hover .wm-hlc-comment { border-color: var(--background-modifier-border-hover); }
+.wm-hlc-comment-body { color: var(--text-normal); font-size: var(--font-ui-small); line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.wm-hlc-comment-time { display: block; margin-top: 4px; color: var(--text-faint); font-size: var(--font-ui-smaller); }
+.wm-hlc-comment-item.is-editing .wm-hlc-comment { padding: 0; border: 0; }
+.wm-hlc-comment-item.is-editing .wm-hlc-composer { margin-top: 0; }
+
+.wm-hlc-composer { margin-top: 8px; padding: 8px 12px 6px; border: 1px solid var(--background-modifier-border); border-radius: 10px; background: var(--background-primary); cursor: auto; }
+.wm-hlc-composer:focus-within { border-color: var(--interactive-accent); }
+textarea.wm-hlc-input, textarea.wm-hlc-input:focus, textarea.wm-hlc-input:hover { display: block; width: 100%; min-height: 22px; max-height: 220px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: var(--text-normal); font-size: var(--font-ui-small); line-height: 1.55; resize: none; }
+.wm-hlc-composer-foot { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 6px; }
+button.wm-hlc-button { flex: 0 0 auto; white-space: nowrap; height: 26px; padding: 0 10px; font-size: var(--font-ui-smaller); }
+button.wm-hlc-button.is-ghost { background: transparent; box-shadow: none; color: var(--text-muted); }
+button.wm-hlc-button.is-ghost:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+button.wm-hlc-button:disabled { opacity: .5; cursor: default; }
+
+.wm-hlc-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 36px 16px; color: var(--text-muted); font-size: var(--font-ui-small); line-height: 1.6; text-align: center; }
+.wm-hlc-empty-icon { color: var(--text-faint); }
+.wm-hlc-empty-icon svg { width: 28px; height: 28px; stroke-width: 1.5; }
+.wm-hlc-match { padding: 0 1px; border-radius: 2px; background: rgba(var(--interactive-accent-rgb), .25); color: inherit; }
+
+/* Modal opened from the editor's context menu. */
+.wm-hlc-modal { width: min(460px, 92vw); }
+.wm-hlc-modal-quote { max-height: 7.5em; overflow-y: auto; padding: 10px 12px; border-left: 3px solid var(--wm-hlc-color); border-radius: 0 var(--radius-s) var(--radius-s) 0; background: var(--background-secondary); color: var(--text-normal); font-size: var(--font-ui-small); line-height: 1.6; overflow-wrap: anywhere; }
+.wm-hlc-modal .wm-hlc-thread { max-height: 40vh; overflow-y: auto; }
+.wm-hlc-modal .wm-hlc-composer { margin-top: 12px; }
+.wm-hlc-modal-footer { display: flex; margin-top: 8px; }
+
+/* Hover card over a commented highlight (CM6 tooltip and paged view). */
+.cm-tooltip.wm-hlc-cm-tooltip { padding: 0; border: 0; background: transparent; box-shadow: none; }
+.wm-hlc-floating { position: fixed; z-index: var(--layer-tooltip, 60); pointer-events: none; }
+.wm-hlc-tooltip { box-sizing: border-box; width: max-content; max-width: 300px; padding: 10px 12px; border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m); background: var(--background-primary); box-shadow: var(--shadow-s); color: var(--text-normal); font-family: var(--font-interface); font-size: var(--font-ui-small); line-height: 1.5; animation: wm-hlc-tooltip-in .12s ease-out; }
+@keyframes wm-hlc-tooltip-in { from { opacity: 0; transform: translateY(2px); } }
+.wm-hlc-tooltip-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; color: var(--text-muted); font-size: var(--font-ui-smaller); }
+.wm-hlc-tooltip .wm-hlc-status { margin-left: auto; padding: 0 6px; border-radius: 999px; background: var(--background-modifier-hover); line-height: 18px; }
+.wm-hlc-tooltip-swatch { width: 8px; height: 8px; border-radius: 50%; background: var(--wm-hlc-color); }
+.wm-hlc-tooltip-more { margin-bottom: 4px; color: var(--text-faint); font-size: var(--font-ui-smaller); }
+.wm-hlc-tooltip-comment + .wm-hlc-tooltip-comment { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--background-modifier-border); }
+.wm-hlc-tooltip-body { white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.wm-hlc-tooltip-time { margin-top: 2px; color: var(--text-faint); font-size: var(--font-ui-smaller); }
+
+/* ── REVIEW tab: same card language as REVISION analysis (borderless sections, marker headers) ── */
+/* Chart pair validated for both themes (dataviz validator): cool = up/above baseline, warm = down. */
+.wm-rv-root { --wm-rv-up: #3a95d6; --wm-rv-down: #ee5069; --wm-rv-muted: var(--background-modifier-border-hover, rgba(128, 128, 128, .35)); }
+.wm-rv-toolbar-icon { display: inline-flex; width: 28px; height: 28px; flex-shrink: 0; align-items: center; justify-content: center; color: var(--text-muted); }
+.wm-rv-toolbar-icon svg { width: 16px; height: 16px; }
+.wm-rv-stack { display: flex; flex-direction: column; gap: 32px; padding-bottom: 28px; }
+.wm-rv-section { gap: 10px; }
+.wm-rv-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 2px; margin-left: auto; }
+.wm-rv-section .wm-analysis-card-header .wm-dash-group-label { flex: 0 1 auto; }
+.wm-rv-section .wm-analysis-empty { padding: 4px 0 0; }
+.wm-rv-section .wm-analysis-footnote { margin-top: 2px; }
+.wm-rv-status { color: var(--text-muted); font-size: 13px; }
+.wm-rv-status.is-error { color: var(--text-error); }
+.wm-rv-link-row { display: flex; gap: 6px; }
+.wm-rv-link-row input { flex: 1; min-width: 0; height: 30px; }
+
+/* 작품 정보 */
+
+.wm-rv-episode { color: var(--wm-dash-ink-2, var(--text-muted)); }
+
+/* 연독률 */
+.wm-rv-subhead { color: var(--wm-dash-ink-2, var(--text-muted)); font-size: 13px; }
+
+
+
+/* 댓글 반응 */
+.wm-rv-summary { color: var(--wm-dash-ink-1, var(--text-normal)); line-height: 1.65; }
+.wm-rv-mood { display: flex; gap: 2px; height: 10px; }
+.wm-rv-mood-part { flex: 0 0 calc(var(--wm-rv-share, 0%) - 2px); min-width: 4px; border-radius: 2px; }
+.wm-rv-mood-part:first-child { border-radius: 4px 2px 2px 4px; }
+.wm-rv-mood-part:last-child { border-radius: 2px 4px 4px 2px; }
+.wm-rv-mood-part:only-child { border-radius: 4px; }
+.wm-rv-points { display: flex; flex-direction: column; gap: 8px; }
+.wm-rv-cheer { padding: 10px 12px; border-radius: 10px; background: var(--background-secondary); color: var(--wm-dash-ink-1, var(--text-normal)); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+
+/* Login window: the only place Munpia is ever shown. */
+.wm-rv-login-modal { width: min(820px, 94vw); }
+.wm-rv-login-hint { color: var(--text-muted); font-size: var(--font-ui-small); }
+.wm-rv-login-webview { display: flex; width: 100%; height: min(70vh, 720px); border: 1px solid var(--background-modifier-border); border-radius: 8px; }
+/* Comment pages load off-screen and are never painted for the author. */
+.wm-rv-hidden-webview-host { position: fixed; top: 0; left: -10000px; width: 900px; height: 1400px; overflow: hidden; pointer-events: none; }
+.wm-rv-hidden-webview { display: flex; width: 900px; height: 1400px; }
+
+/* 설정 › 리뷰 */
+/* REVIEW: comment counts, lists, AI verdicts, Mermaid blocks */
+.wm-rv-unread { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.wm-rv-unread-pill { padding: 2px 10px; border-radius: 999px; background: color-mix(in srgb, var(--wm-rv-up) 16%, transparent); color: var(--wm-dash-ink-1, var(--text-normal)); font-size: 12px; font-weight: 600; }
+/* REVIEW: label/value cells. Single 1px lines at any column count: each cell draws its
+   right and bottom line, and the inner grid overflows by 1px so the outer ones are clipped. */
+.wm-rv-grid { overflow: hidden; border: 1px solid var(--background-modifier-border); border-radius: 14px; }
+.wm-rv-grid-inner { display: grid; grid-template-columns: minmax(0, 1fr); margin: 0 -1px -1px 0; }
+@container (min-width: 240px) { .wm-rv-grid.is-2 .wm-rv-grid-inner, .wm-rv-grid.is-4 .wm-rv-grid-inner { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* Three cells step 1 → 2+1 (last cell spans the second row) → 3 columns. */
+@container (min-width: 200px) {
+	.wm-rv-grid.is-3 .wm-rv-grid-inner { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+	.wm-rv-grid.is-3 .wm-rv-cell:last-child { grid-column: 1 / -1; }
+}
+@container (min-width: 300px) {
+	.wm-rv-grid.is-3 .wm-rv-grid-inner { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+	.wm-rv-grid.is-3 .wm-rv-cell:last-child { grid-column: auto; }
+}
+@container (min-width: 520px) { .wm-rv-grid.is-4 .wm-rv-grid-inner { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.wm-rv-cell { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 14px 16px; box-shadow: inset -1px 0 0 var(--background-modifier-border), inset 0 -1px 0 var(--background-modifier-border); }
+.wm-rv-cell-label { color: var(--wm-dash-ink-3, var(--text-faint)); font-size: 12px; }
+.wm-rv-cell-value { color: var(--wm-dash-ink-1, var(--text-normal)); font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+/* Section header info icon (tooltip on hover/focus). */
+
+
+/* Retention curve */
+.wm-rv-chart-host { position: relative; margin-top: 6px; }
+.wm-rv-chart-host svg { display: block; width: 100%; height: auto; overflow: visible; }
+.wm-rv-grid-dash { stroke: var(--background-modifier-border); stroke-width: 1; stroke-dasharray: 3 4; }
+.wm-rv-grid-base { stroke: var(--background-modifier-border-hover, var(--background-modifier-border)); stroke-width: 1; }
+.wm-rv-axis-label { fill: var(--wm-dash-ink-3, var(--text-faint)); font-family: var(--font-interface); font-size: 10px; font-variant-numeric: tabular-nums; }
+.wm-rv-area-top { stop-color: var(--wm-rv-line); stop-opacity: .28; }
+.wm-rv-area-bottom { stop-color: var(--wm-rv-line); stop-opacity: 0; }
+.wm-rv-line { fill: none; stroke: var(--wm-rv-line); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.wm-rv-marker { fill: var(--wm-rv-line); stroke: var(--background-primary); stroke-width: 2; }
+.wm-rv-paid-zone { fill: var(--background-modifier-hover); opacity: .55; }
+.wm-rv-hit { fill: transparent; cursor: pointer; }
+.wm-rv-hit:focus-visible { outline: none; }
+
+/* 댓글 분위기 막대 */
+.wm-rv-mood-part.is-positive { background: var(--wm-rv-up); }
+.wm-rv-mood-part.is-mixed { background: var(--wm-rv-muted); }
+.wm-rv-mood-part.is-negative { background: var(--wm-rv-down); }
+/* REVIEW: the analysis card turns tooltips off (--no-tooltip); headers need them for the icon hints. */
+.wm-rv-section .wm-analysis-card-header { --no-tooltip: false; }
+.wm-rv-info { display: inline-flex; align-self: center; align-items: center; justify-content: center; width: 16px; height: 16px; margin-left: -2px; color: var(--wm-dash-ink-3, var(--text-faint)); cursor: help; }
+.wm-rv-info svg { display: block; width: 14px; height: 14px; }
+.wm-rv-info:hover, .wm-rv-info:focus-visible { color: var(--text-normal); outline: none; }
+
+/* 작품 정보: label column + outlined tags (one height, one gap, so wrapped rows stay even). */
+.wm-rv-meta { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 12px 12px; align-items: start; font-size: 13px; }
+.wm-rv-meta-key { color: var(--wm-dash-ink-3, var(--text-faint)); line-height: 26px; }
+.wm-rv-meta-value { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; color: var(--wm-dash-ink-1, var(--text-normal)); }
+.wm-rv-tag { display: inline-flex; align-items: center; box-sizing: border-box; height: 26px; padding: 0 10px; border: 1px solid var(--background-modifier-border-hover, var(--background-modifier-border)); border-radius: 8px; color: var(--wm-dash-ink-1, var(--text-normal)); font-size: 12px; line-height: 1; white-space: nowrap; }
+
+.wm-rv-stamp { margin-top: -2px; color: var(--wm-dash-ink-3, var(--text-faint)); font-size: 12.5px; font-variant-numeric: tabular-nums; text-align: right; }
+
+
+/* 댓글: themes as ranked bars, the AI's judgment, then a Munpia-style list. */
+.wm-rv-themes { display: flex; flex-direction: column; gap: 8px; }
+.wm-rv-theme { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) 28px; align-items: center; gap: 10px; font-size: 13px; }
+.wm-rv-theme-name { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; color: var(--wm-dash-ink-1, var(--text-normal)); text-overflow: ellipsis; white-space: nowrap; }
+.wm-rv-theme-track { height: 8px; overflow: hidden; border-radius: 4px; background: var(--background-modifier-hover); }
+.wm-rv-theme-fill { width: var(--wm-rv-share, 0%); height: 100%; border-radius: 4px; background: var(--wm-rv-muted); }
+.wm-rv-theme.is-positive .wm-rv-theme-fill { background: var(--wm-rv-up); }
+.wm-rv-theme.is-negative .wm-rv-theme-fill { background: var(--wm-rv-down); }
+.wm-rv-theme-count { color: var(--wm-dash-ink-2, var(--text-muted)); font-variant-numeric: tabular-nums; text-align: right; }
+.wm-rv-tone { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 2px; background: var(--wm-rv-muted); }
+.wm-rv-tone.is-positive { background: var(--wm-rv-up); }
+.wm-rv-tone.is-negative { background: var(--wm-rv-down); }
+.wm-rv-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--wm-dash-ink-2, var(--text-muted)); font-size: 12px; }
+.wm-rv-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.wm-rv-thread { display: flex; flex-direction: column; border-top: 1px solid var(--background-modifier-border); }
+.wm-rv-reply { display: flex; flex-direction: column; gap: 6px; padding: 14px 2px; border-bottom: 1px solid var(--background-modifier-border); }
+.wm-rv-reply-meta { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.wm-rv-reply-nick { color: var(--wm-dash-ink-1, var(--text-normal)); font-weight: 600; }
+.wm-rv-reply-dot, .wm-rv-reply-time { color: var(--wm-dash-ink-3, var(--text-faint)); font-size: 12px; font-variant-numeric: tabular-nums; }
+.wm-rv-reply-text { color: var(--wm-dash-ink-1, var(--text-normal)); font-size: 13px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+.wm-rv-reply-actions { display: flex; justify-content: flex-end; gap: 12px; }
+.wm-rv-reaction { display: inline-flex; align-items: center; gap: 4px; color: var(--wm-dash-ink-3, var(--text-faint)); font-size: 12px; font-variant-numeric: tabular-nums; }
+.wm-rv-reaction-icon { display: inline-flex; }
+.wm-rv-reaction-icon svg { width: 13px; height: 13px; }
+.wm-rv-root { --wm-rv-likes: #13a37f; --wm-rv-comments: #c96f2a; }
+.wm-rv-line-halo { fill: none; stroke: var(--background-primary); stroke-width: 6; stroke-linejoin: round; stroke-linecap: round; opacity: .85; }
+.wm-rv-chart-legend { justify-content: center; margin-top: 2px; }
+/* DEUS judgment: no box, accent header. */
+.wm-rv-judgment { display: flex; flex-direction: column; gap: 6px; }
+.wm-rv-judgment-head { display: flex; align-items: center; gap: 7px; color: var(--interactive-accent); font-size: 14px; font-weight: 700; letter-spacing: .04em; }
+.wm-rv-judgment-icon { display: inline-flex; }
+.wm-rv-judgment-icon svg { width: 18px; height: 18px; }
+.wm-rv-judgment-text { color: var(--wm-dash-ink-1, var(--text-normal)); font-size: 13px; line-height: 1.7; }
+/* Verdict label: same outlined tag as the work metadata, coloured per verdict, on the right. */
+.wm-rv-verdict { display: inline-flex; align-items: center; box-sizing: border-box; height: 24px; margin-left: auto; padding: 0 9px; border: 1px solid var(--wm-rv-verdict, var(--background-modifier-border-hover)); border-radius: 8px; color: var(--wm-rv-verdict, var(--wm-dash-ink-2, var(--text-muted))); font-size: 12px; font-weight: 600; line-height: 1; white-space: nowrap; }
+/* Why the original wording is hidden: the AI's reason, in the accent colour. */
+.wm-rv-reply-reason { color: var(--interactive-accent); font-size: 12px; line-height: 1.55; }
+
+/* Info icons anywhere in REVIEW show Obsidian's tooltip (cards set --no-tooltip). */
+.wm-rv-info { --no-tooltip: false; }
+.wm-rv-subhead-row { display: flex; align-items: center; gap: 6px; }
+.wm-rv-cell-label .wm-rv-tone { display: inline-block; margin-right: 6px; vertical-align: 0; }
+
+/* 줄거리: plain text in the value column. */
+.wm-rv-meta-value.wm-rv-story-text { display: block; padding-top: 4px; font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+/* 댓글 반응: the same air between counts, themes, DEUS and the list as above the counts. */
+.wm-rv-section.is-comments { gap: 22px; }
+.wm-rv-section.is-comments .wm-rv-subhead-row + .wm-rv-thread { margin-top: -12px; }
+
+/* Pastel chart: yellow line, peach bars, the current chapter's bar in a deep peach-brown. Pastels sit outside the
+   validator's lightness/chroma band by design and yellow sits close to peach (normal ΔE 9.7), so mark type
+   (line vs bars) carries the series. */
+.wm-rv-root { --wm-rv-line: #f2c94c; --wm-rv-views-current: #c4703f; }
+/* Section spacing (REVIEW only). */
+.wm-rv-root .wm-analysis-card .wm-analysis-card-header { margin: 0; }
+.wm-rv-judgment { margin: 11px 0; }
+/* Delta cells: label/value/delta in column 1, the Lucide trend icon filling column 2 at the bottom. */
+.wm-rv-cell-body { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; min-width: 0; }
+.wm-rv-cell-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.wm-rv-cell-delta { font-size: 12.5px; font-weight: 600; line-height: 1.45; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.wm-rv-cell-delta.is-down, .wm-rv-cell-trend.is-down { color: var(--wm-rv-down); }
+.wm-rv-cell-delta.is-up, .wm-rv-cell-trend.is-up { color: var(--wm-rv-up); }
+.wm-rv-cell-delta.is-flat { color: var(--wm-dash-ink-3, var(--text-faint)); }
+/* 24-hour change: "직전 화" small and muted, the signed number larger in the tone colour. */
+.wm-rv-cell-delta.is-lead { display: flex; align-items: baseline; gap: 6px; }
+.wm-rv-cell-delta-lead { color: var(--wm-dash-ink-3, var(--text-faint)); font-size: 12px; font-weight: 500; }
+.wm-rv-cell-delta-num { font-size: 15px; font-weight: 600; }
+/* Bottom margin lifts the icon from the line box to the delta text's baseline, inside the cell padding. */
+.wm-rv-cell-trend { display: flex; align-self: end; width: 34px; height: 19px; margin-bottom: 5px; }
+.wm-rv-cell-trend svg { display: block; width: 100%; height: 100%; stroke-width: 1.1; }
+/* Comment verdicts, coloured by what to do with them: accept (green) … ignore (red). */
+.wm-rv-verdict.is-valid { --wm-rv-verdict: #13a37f; }
+.wm-rv-verdict.is-partly { --wm-rv-verdict: #c98500; }
+.wm-rv-verdict.is-taste { --wm-rv-verdict: #3a95d6; }
+.wm-rv-verdict.is-misread { --wm-rv-verdict: #c96f2a; }
+.wm-rv-verdict.is-unfounded { --wm-rv-verdict: #ee5069; }
+/* Munpia logo as the login icon. */
+.wm-rv-munpia-login svg { width: 16px; height: 16px; }
+.wm-rv-link-row { align-items: center; }
+
+/* Views bars behind the retention line (pastel peach). */
+.wm-rv-root { --wm-rv-views: #f5b38a; }
+.wm-rv-bar { fill: var(--wm-rv-views); opacity: .7; }
+.theme-dark .wm-rv-bar { opacity: .62; }
+.wm-rv-bar.is-current, .theme-dark .wm-rv-bar.is-current { fill: var(--wm-rv-views-current); opacity: 1; }
+.wm-rv-legend-glyph { display: inline-flex; }
+.wm-rv-legend-glyph svg { width: 18px; height: 12px; }
+.wm-rv-legend-glyph.is-line { color: var(--wm-rv-line); }
+.wm-rv-legend-glyph.is-views { color: var(--wm-rv-views); }
+
+/* Long chapter runs scroll sideways at a fixed width per chapter. */
+.wm-rv-chart-host.is-scroll { overflow-x: auto; overflow-y: hidden; padding-bottom: 6px; }
+.wm-rv-chart-host.is-scroll svg { width: var(--wm-rv-chart-width); max-width: none; }

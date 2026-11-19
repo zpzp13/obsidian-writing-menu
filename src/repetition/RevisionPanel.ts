@@ -1,3 +1,4 @@
+import { HighlightCommentPanel } from '../comments/HighlightCommentPanel';
 import { wmT } from '../i18n/index';
 import { markdownFilesInFolder } from '../utils/vaultFiles';
 import { Component, Notice } from 'obsidian';
@@ -13,6 +14,8 @@ import { RevisionDashboard, type RevisionFile } from './RevisionDashboard';
 
 interface Result { files: RevisionFile[]; signature: string; morph: boolean; scope: 'document' | 'project'; context: string }
 const cache = new WeakMap<WritingMenuPlugin, Result>();
+const views = new WeakMap<WritingMenuPlugin, 'analysis' | 'comments'>();
+export function rememberRevisionComments(plugin: WritingMenuPlugin): void { views.set(plugin, 'comments'); }
 
 /** Source acquisition and analysis lifecycle are independent of dashboard rendering. */
 export class RevisionPanel extends Component {
@@ -24,9 +27,17 @@ export class RevisionPanel extends Component {
 	private timer = 0;
 	private dirty = false;
 	private dashboard: RevisionDashboard;
+	private analysisRoot: HTMLElement;
+	private commentsRoot: HTMLElement;
+	private comments: HighlightCommentPanel | null = null;
+	private view: 'analysis' | 'comments';
 	constructor(container: HTMLElement, private plugin: WritingMenuPlugin) {
 		super(); this.result = cache.get(plugin) ?? null; this.scope = this.result?.scope ?? 'document';
-		this.dashboard = new RevisionDashboard(container.createDiv({ cls: 'wm-revision-root' }), {
+		this.view = views.get(plugin) ?? 'analysis';
+		this.analysisRoot = container.createDiv({ cls: 'wm-revision-root' });
+		this.commentsRoot = container.createDiv({ cls: 'wm-revision-root' });
+		this.dashboard = new RevisionDashboard(this.analysisRoot, {
+			toggleView: () => this.setView('comments'),
 			scope: value => { if (!this.busy) { this.scope = value; this.result = null; void this.analyze(false); } },
 			refresh: () => void this.analyze(isMorphAnalysisSupported()),
 			settings: () => plugin.openSettings('repetition'),
@@ -37,14 +48,27 @@ export class RevisionPanel extends Component {
 		this.registerEvent(this.plugin.app.workspace.on('active-leaf-change', () => this.schedule()));
 		this.registerEvent(this.plugin.app.workspace.on('editor-change', () => this.schedule()));
 		this.registerEvent(this.plugin.app.workspace.on('quick-preview', () => this.schedule()));
-		this.render(); void this.analyze(false);
+		this.setView(this.view);
+		this.register(this.plugin.onPagedEditorChange(() => this.schedule()));
 	}
-	onunload(): void { this.disposed = true; this.request++; window.clearTimeout(this.timer); this.dashboard.destroy(); }
+	onunload(): void { this.disposed = true; this.request++; window.clearTimeout(this.timer); this.dashboard.destroy(); this.comments?.destroy(); }
+	showComments(threadId?: string): void { this.setView('comments'); if (threadId) this.comments?.focusThread(threadId); }
+	private setView(view: 'analysis' | 'comments'): void {
+		this.view = view; views.set(this.plugin, view);
+		this.analysisRoot.hidden = view !== 'analysis'; this.commentsRoot.hidden = view !== 'comments';
+		if (view === 'comments') {
+			if (this.busy) this.request++;
+			window.clearTimeout(this.timer);
+			if (!this.comments) this.comments = new HighlightCommentPanel(this.commentsRoot, this.plugin, () => this.setView('analysis'));
+			else this.comments.update();
+		} else { this.render(); void this.analyze(false); }
+	}
 	private context(document = getWritingDocument(this.plugin)): string {
 		if (!document) return '';
 		return this.scope === 'document' ? document.path : this.plugin.projectContext.getProjectForFile(document.file)?.rootFolder ?? '';
 	}
 	private schedule(): void {
+		if (this.view === 'comments') { this.comments?.update(); return; }
 		window.clearTimeout(this.timer);
 		if (this.busy) this.dirty = true;
 		this.timer = window.setTimeout(() => {
@@ -73,7 +97,7 @@ export class RevisionPanel extends Component {
 		return out;
 	}
 	private async analyze(morph: boolean): Promise<void> {
-		if (this.busy || this.disposed) return;
+		if (this.busy || this.disposed || this.view === 'comments') return;
 		const document = getWritingDocument(this.plugin);
 		if (!document) { this.result = null; this.render(); return; }
 		const request = ++this.request, scope = this.scope, context = this.context(document), options = { ...this.plugin.settings.paragraphAnalysis }, signature = JSON.stringify(options);

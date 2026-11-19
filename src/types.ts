@@ -1,3 +1,4 @@
+import type { HighlightCommentStore } from './comments/HighlightCommentTypes';
 import type { WikiSavedView, WikiGroupRule, SortRule } from './wiki/WikiTypes';
 import type { ExportDefaults, ExportPreset } from './export/DocumentModel';
 
@@ -18,7 +19,7 @@ export interface TextSubstitution {
 	enabled: boolean;
 }
 
-export type WritingWidgetId = 'munpia' | 'novelpia' | 'mode' | 'timer';
+export type WritingWidgetId = 'munpia' | 'novelpia' | 'goal' | 'mode' | 'timer';
 
 export type ColorThemeMode = 'light' | 'dark';
 
@@ -81,6 +82,20 @@ export interface WritingProject {
 }
 
 export interface WritingMenuSettings {
+	highlightComments: HighlightCommentStore;
+	/** REVIEW tab: Munpia work id per project (project id, or 'default'). */
+	reviewMunpiaNovels: Record<string, string>;
+	/** Comment page address; {novel} and {chapter} are replaced. Needs checking against the live site. */
+	reviewMunpiaCommentUrl: string;
+	/** CSS selectors (comma separated) for comment text on that page. */
+	reviewMunpiaCommentSelector: string;
+	/** 선호작 snapshots per Munpia work id: [time ms, total]. */
+	reviewMunpiaSnapshots: Record<string, Array<[number, number]>>;
+	/** Record 선호작 hourly while Obsidian is open. */
+	reviewMunpiaAutoTrack: boolean;
+	/** Field names seen in the last Munpia comment response (for the settings inspection). */
+	/** Chapter views/likes/comments snapshots, key "novel:chapterId": [time ms, views, likes, comments]. */
+	reviewMunpiaChapterSnapshots: Record<string, Array<[number, number, number, number]>>;
 	fontFamily: string;
 	customFonts: string[];
 	/** Mobile uses downloaded fonts without changing the desktop selection. */
@@ -137,6 +152,9 @@ export interface WritingMenuSettings {
 	enableTextSubstitution: boolean;
 	textSubstitutions: TextSubstitution[];
 	charCountMode: 'munpia' | 'novelpia';
+	/** Which platform count the dashboard and widget goal measure. */
+	goalCharBasis: 'munpia' | 'novelpia';
+	showGoalWidget: boolean;
 	showMunpiaWidget: boolean;
 	showNovelpiaWidget: boolean;
 	showTimerWidget: boolean;
@@ -154,15 +172,16 @@ export interface WritingMenuSettings {
 	hwpExportPath: string;
 	hwpTemplatePath: string;
 	exportDefaultSpaceIndent: boolean;
-	exportDefaultExcludeHeadings: boolean;
 	documentExportDefaults?: ExportDefaults;
 	documentExportDefaultPreset: string;
 	exportPreserveFolderStructure: boolean;
 	exportOverwriteExisting: boolean;
 	documentExportPresets?: ExportPreset[];
-	copyExcludeHeadings: boolean;
-	copyExcludeFootnotes: boolean;
-	copyExcludeComments: boolean;
+	copyIncludeHeadings: boolean;
+	copyIncludeFootnotes: boolean;
+	copyIncludeComments: boolean;
+	copyIncludeMarkdown: boolean;
+	copyIncludeHtml: boolean;
 	stdictApiKey: string;
 	hanjaBracketMode: boolean;
 	recentSearches: string[];
@@ -268,6 +287,13 @@ export interface DashSectionConfig {
 }
 
 export const DEFAULT_SETTINGS: WritingMenuSettings = {
+	highlightComments: { version: 1, threads: {} },
+	reviewMunpiaNovels: {},
+	reviewMunpiaCommentUrl: 'https://www.munpia.com/novel/viewer/{novel}/{chapter}',
+	reviewMunpiaCommentSelector: '[class*="_commentBody_"]',
+	reviewMunpiaSnapshots: {},
+	reviewMunpiaAutoTrack: false,
+	reviewMunpiaChapterSnapshots: {},
 	fontFamily: 'inherit',
 	customFonts: [],
 	mobileFontFamily: 'inherit',
@@ -342,11 +368,13 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 		{ from: '>=', to: '≥', enabled: true },
 	],
 	charCountMode: 'munpia',
+	goalCharBasis: 'munpia',
+	showGoalWidget: false,
 	showMunpiaWidget: true,
 	showNovelpiaWidget: false,
 	showTimerWidget: false,
 	showModeWidget: false,
-	writingWidgetOrder: ['munpia', 'novelpia', 'mode', 'timer'],
+	writingWidgetOrder: ['munpia', 'novelpia', 'goal', 'mode', 'timer'],
 	writingWidgetAlignment: 'center',
 	markdownToolbarAutoHide: false,
 	pagedToolbarAutoHide: false,
@@ -359,13 +387,14 @@ export const DEFAULT_SETTINGS: WritingMenuSettings = {
 	hwpExportPath: '',
 	hwpTemplatePath: '',
 	exportDefaultSpaceIndent: false,
-	exportDefaultExcludeHeadings: true,
 	documentExportDefaultPreset: 'default',
 	exportPreserveFolderStructure: false,
 	exportOverwriteExisting: true,
-	copyExcludeHeadings: true,
-	copyExcludeFootnotes: true,
-	copyExcludeComments: true,
+	copyIncludeHeadings: false,
+	copyIncludeFootnotes: false,
+	copyIncludeComments: false,
+	copyIncludeMarkdown: false,
+	copyIncludeHtml: false,
 	stdictApiKey: '',
 	hanjaBracketMode: false,
 	recentSearches: [],

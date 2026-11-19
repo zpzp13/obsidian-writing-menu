@@ -230,6 +230,20 @@
         "scripts/verify-paged-performance.mjs",
         "scripts/verify-deus-ui.mjs"
       ]
+    },
+    {
+      "file": "styles.css",
+      "rule": "plugin/no-unsupported-browser-features",
+      "selector": ".wm-hlc-item.is-done .wm-hlc-quote",
+      "property": "text-decoration-line",
+      "value": "line-through",
+      "context": "",
+      "count": 1,
+      "reason": "Plain line-through on completed highlight comments; only decoration styles/thickness are partial, which are not used.",
+      "tests": [
+        "scripts/verify-css-cascade.mjs",
+        "scripts/verify-paged-performance.mjs"
+      ]
     }
   ],
   "capabilities": [
@@ -588,12 +602,14 @@
       "file": "src/export/converterMethods.ts",
       "kind": "clipboard",
       "call": "navigator.clipboard.writeText",
-      "fingerprint": "c78426f24a0ebaf30761e9d06cc3051fe52b31ceec2d9bf58ec397217ca135af",
+      "fingerprint": "09672aebafca3e8a60d29ace8411aefdd27903e94e4c8466f1d68abf2170ec48",
       "count": 1,
       "reason": "User-invoked copy writes the prepared manuscript text to the clipboard.",
       "tests": [
         "scripts/verify-export-boundaries.mjs",
-        "scripts/verify-hwpx.mjs"
+        "scripts/verify-hwpx.mjs",
+        "scripts/verify-copy-text.mjs",
+        "scripts/verify-comments.mjs"
       ]
     },
     {
@@ -614,17 +630,6 @@
       "fingerprint": "13cd8a27115c2c2f99295f9f5c1d1d6f2e77cfccc4af0c663a8bf856025e4b99",
       "count": 1,
       "reason": "Launch only fixed Windows PowerShell or macOS osascript file/folder picker commands with literal arguments, stdin mode, shell:false and hidden process windows. No export COM/Python call remains.",
-      "tests": [
-        "scripts/verify-export-boundaries.mjs"
-      ]
-    },
-    {
-      "file": "src/export/converterMethods.ts",
-      "kind": "vault-enumeration",
-      "call": "plugin.app.vault.getMarkdownFiles",
-      "fingerprint": "ee187a81afcb2adf6511820e5451fd7a285ad2bf54dd4042b80f1db85d423360",
-      "count": 1,
-      "reason": "Legacy folder entrypoints enumerate Markdown through Vault API and delegate to the shared document export service.",
       "tests": [
         "scripts/verify-export-boundaries.mjs"
       ]

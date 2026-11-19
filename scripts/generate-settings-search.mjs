@@ -41,6 +41,7 @@ const extras = {
 	plot: ['src/plot-workbook/PlotWorkbookSettings.ts'],
 	snapshots: ['src/plot-workbook/PlotWorkbookSettings.ts'],
 	ai: ['src/aichat/DeusSettings.ts', 'src/aichat/rag/RagSettings.ts'],
+	review: ['src/review/ReviewSettings.ts'],
 };
 for (const page of pages) {
 	const labels = new Set();

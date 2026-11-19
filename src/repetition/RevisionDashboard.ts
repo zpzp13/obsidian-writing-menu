@@ -9,7 +9,7 @@ import { chartAction, chartHints, chartShape, chartSvg, dismissChartHints, flowB
 
 export interface RevisionFile { path: string; source: string; paragraphs: ParagraphResult; sentences: SentenceUnit[]; repetition?: RepetitionResult }
 interface State { files: RevisionFile[]; morph: boolean; busy: boolean; scope: 'document' | 'project'; title: string }
-interface Actions { scope(value: State['scope']): void; refresh(): void; settings(): void; navigate(file: RevisionFile, from: number, to: number): void | Promise<void> }
+interface Actions { toggleView(): void; scope(value: State['scope']): void; refresh(): void; settings(): void; navigate(file: RevisionFile, from: number, to: number): void | Promise<void> }
 interface Unit { file: RevisionFile; from: number; to: number; text: string; chars: number; kind: ParagraphKind }
 interface Hit { file: RevisionFile; from: number; to: number }
 interface Repeated { text: string; count: number; hits: Hit[] }
@@ -98,10 +98,11 @@ export class RevisionDashboard {
 			const bounds = scope.getBoundingClientRect(); menu.showAtPosition({ x: bounds.left, y: bounds.bottom + 4 });
 		});
 		scope.addClass('wm-revision-scope'); scope.setAttribute('aria-haspopup', 'menu'); scope.disabled = this.state.busy;
-		toolbar.createSpan({ cls: 'wm-revision-title', text: this.state.title, attr: { title: this.state.title } });
+		toolbar.createSpan({ cls: 'wm-revision-title', text: this.state.title });
 		this.progressEl = toolbar.createSpan({ cls: 'wm-analysis-progress', text: this.state.busy ? wmT("분석 중…") : '', attr: { role: 'status' } });
 		const controls = toolbar.createDiv({ cls: 'wm-revision-toolbar-actions' });
-		const refresh = this.icon(controls, 'refresh-cw', wmT("재분석"), () => this.actions.refresh()); refresh.disabled = this.state.busy;
+		// The switch shows where it leads: the comments view.
+		this.icon(controls, 'message-square-text', wmT('하이라이트 코멘트로 전환'), () => this.actions.toggleView());
 		this.icon(controls, 'settings', wmT("분석 설정"), () => this.actions.settings());
 	}
 	private card(parent: HTMLElement, title: string, modifier: string): { card: HTMLElement; header: HTMLElement } {
@@ -199,6 +200,7 @@ export class RevisionDashboard {
 	}
 	private renderRepetitions(parent: HTMLElement, ranking: Repeated[]): void {
 		const { card, header } = this.card(parent, wmT("반복 표현"), 'repetition');
+		const refresh = this.icon(header, 'refresh-cw', wmT('재분석'), () => this.actions.refresh()); refresh.disabled = this.state.busy; refresh.addClass('wm-revision-inline-refresh');
 		this.segment(header, KIND_LABELS, this.kind, wmT("반복 표현 분류"), value => { this.kind = value as RepetitionKind; this.selectedText = null; this.render(); });
 		this.metric(card, ranking.length.toLocaleString(), wmT("개"), wmT("{0}회 등장 · 3회 이상 반복된 {1}", ranking.reduce((sum, row) => sum + row.count, 0).toLocaleString(), KIND_LABELS[this.kind]));
 		if (!ranking.length) { card.createDiv({ cls: 'wm-analysis-empty', text: this.state.morph ? wmT("반복된 표현이 없습니다.") : wmT("재분석을 눌러 반복 표현을 분석하세요. 데스크톱 엔진을 사용합니다.") }); return; }

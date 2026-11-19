@@ -13,6 +13,7 @@ import { downloadGaruAssets, GARU_VERSION, getGaruAssetStatus } from '../repetit
 import { isMorphAnalysisSupported } from '../repetition/MorphAnalyzer';
 import { fireAndForget } from '../utils/asyncUtils';
 import { renderDeusSettings } from '../aichat/DeusSettings';
+import { renderReviewSettings } from '../review/ReviewSettings';
 
 import { configureApiKeyInput } from './ApiKeyInput';
 import { MOBILE_WEB_FONTS } from '../fonts/MobileFontManager';
@@ -153,6 +154,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			case 'spellcheck-words': this.renderSpellCheckWordsPage(pageContainerEl); break;
 			case 'repetition':       this.renderRepetitionPage(pageContainerEl); break;
 			case 'ai':               this.renderAiPage(pageContainerEl); break;
+			case 'review':           this.renderReviewPage(pageContainerEl); break;
 		}
 	}
 
@@ -246,7 +248,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		this.addNavCard(editorBox, wmT("커스텀 구분선"), wmT("마크다운 구분선의 모양과 배치를 설정합니다."), 'minus', 'divider');
 		this.addNavCard(editorBox, wmT("자동 완성"), wmT("트리거와 자동 완성 기호를 관리합니다."), 'keyboard', 'autocomplete');
 		this.addNavCard(editorBox, wmT("텍스트 치환"), wmT("입력 중 자동으로 바꿀 문자열을 관리합니다."), 'replace', 'substitutions');
-		this.addNavCard(editorBox, wmT("복사"), wmT("헤딩·각주·주석을 제외하는 복사 동작을 설정합니다."), 'copy', 'copy');
+		this.addNavCard(editorBox, wmT("복사"), wmT("복사할 때 포함할 주석·헤딩·각주·서식·HTML을 설정합니다."), 'copy', 'copy');
 		this.addNavCard(editorBox, wmT("내보내기"), wmT("TXT · DOCX · HWPX 내보내기 기본값을 설정합니다."), 'file-output', 'export');
 
 		this.addGroupTitle(containerEl, wmT("대시보드"));
@@ -257,6 +259,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		this.addNavCard(calBox, wmT("작업 시간"), wmT("작업 분류와 누적 시간 기록 방식을 설정합니다."), 'clock-3', 'writing-time');
 		this.addNavCard(calBox, wmT("위키"), wmT("위키 스타일 캐릭터 카드 설정"), 'git-graph', 'wiki');
 		this.addNavCard(calBox, wmT("교정"), wmT("분석 엔진과 문단 분류 규칙을 관리합니다."), 'book-check', 'repetition');
+		this.addNavCard(calBox, wmT('리뷰'), wmT('문피아 선호작 기록과 댓글 가져오기 방식을 설정합니다.'), 'star', 'review');
 		this.addNavCard(calBox, 'Deus AI', wmT("작품 자료 조사와 캐릭터·묘사·대사·문장 스킬을 설정합니다."), 'bot', 'ai');
 		this.addNavCard(calBox, wmT("음악 플레이어"), wmT("음악 파일이 저장된 폴더를 관리합니다."), 'music', 'music');
 
@@ -294,7 +297,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		// Same native list style as the toolbar font order (tighter rows for name-only items).
 		orderBox.parentElement?.addClass('mod-list');
 		const labels: Record<WritingWidgetId, string> = {
-			munpia: wmT("문피아 글자수"), novelpia: wmT("노벨피아 글자수"), mode: wmT("작업모드"), timer: wmT("타이머/스톱워치"),
+			munpia: wmT("문피아 글자수"), novelpia: wmT("노벨피아 글자수"), goal: wmT("목표 글자수"), mode: wmT("작업모드"), timer: wmT("타이머/스톱워치"),
 		};
 		const renderOrder = () => {
 			orderBox.empty();
@@ -695,6 +698,10 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			this.plugin.settings.showNovelpiaWidget = value;
 			await this.plugin.saveSettings();
 		});
+		addToggle(widgetBox, wmT('목표 글자수'), wmT('편집기 위젯에 목표까지 남은 글자수를 표시합니다.'), this.plugin.settings.showGoalWidget, async value => {
+			this.plugin.settings.showGoalWidget = value;
+			await this.plugin.saveSettings();
+		});
 		addToggle(widgetBox, wmT("작업모드"), wmT("편집기 위젯에 현재 작업모드를 아이콘과 함께 표시합니다. 누르면 작업모드를 바꿀 수 있습니다."), this.plugin.settings.showModeWidget ?? false, async value => {
 			this.plugin.settings.showModeWidget = value;
 			await this.plugin.saveSettings();
@@ -714,26 +721,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 
 		this.addGroupTitle(containerEl, wmT("복사"));
 		const copyBox = this.createGroupBox(containerEl);
-		addToggle(copyBox, wmT('주석'), wmT('복사할 때 %% 주석과 내용을 포함합니다.'), this.plugin.settings.copyExcludeComments === false, async value => {
-			this.plugin.settings.copyExcludeComments = !value;
-			await this.plugin.saveSettings();
-		});
-		addToggle(copyBox, wmT("헤딩 제외"), wmT("복사할 때 헤딩을 항상 제외합니다."), this.plugin.settings.copyExcludeHeadings, async value => {
-			this.plugin.settings.copyExcludeHeadings = value;
-			await this.plugin.saveSettings();
-		});
-		addToggle(copyBox, wmT("각주 제외"), wmT("복사할 때 각주를 항상 제외합니다."), this.plugin.settings.copyExcludeFootnotes, async value => {
-			this.plugin.settings.copyExcludeFootnotes = value;
-			await this.plugin.saveSettings();
-		});
-
-		this.addGroupTitle(containerEl, wmT("내보내기"));
-		const exportBox = this.createGroupBox(containerEl);
-		addToggle(exportBox, wmT("헤딩 제외"), wmT("내보낼 때 헤딩을 항상 제외합니다."), this.plugin.settings.exportDefaultExcludeHeadings, async value => {
-			this.plugin.settings.exportDefaultExcludeHeadings = value;
-                    const defaults = exportDefaults(this.plugin.settings); defaults.content.headings = value ? 'exclude' : 'text'; this.plugin.settings.documentExportDefaults = defaults;
-			await this.plugin.saveSettings();
-		});
+		this.renderCopyToggles(copyBox);
 	}
 
 	// ── 커스텀 구분선 ───────────────────────────────────────────────────
@@ -878,30 +866,21 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 
 	private renderCopyPage(containerEl: HTMLElement) {
 		this.addBackButton(containerEl, wmT("복사"));
-		const copyBox = this.createGroupBox(containerEl);
-		new Setting(copyBox)
-			.setName(wmT('주석'))
-			.setDesc(wmT('복사할 때 %% 주석과 내용을 포함합니다.'))
-			.addToggle(toggle => toggle.setValue(this.plugin.settings.copyExcludeComments === false).onChange(async value => {
-				this.plugin.settings.copyExcludeComments = !value;
-				await this.plugin.saveSettings();
-			}));
-		new Setting(copyBox)
-			.setName(wmT("헤딩 제외"))
-			.setDesc(wmT("복사할 때 헤딩을 항상 제외합니다."))
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.copyExcludeHeadings)
-				.onChange(async value => {
-					this.plugin.settings.copyExcludeHeadings = value;
-					await this.plugin.saveSettings();
-				}));
-		new Setting(copyBox)
-			.setName(wmT("각주 제외"))
-			.setDesc(wmT("복사할 때 각주를 항상 제외합니다."))
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.copyExcludeFootnotes)
-				.onChange(async value => {
-					this.plugin.settings.copyExcludeFootnotes = value;
+		this.addGroupTitle(containerEl, wmT("제외"));
+		this.renderCopyToggles(this.createGroupBox(containerEl));
+	}
+
+	private renderCopyToggles(box: HTMLElement) {
+		const rows = [
+			['copyIncludeComments', wmT('주석'), wmT('복사할 때 %% 주석과 내용을 포함합니다.')],
+			['copyIncludeHeadings', wmT('헤딩'), wmT('복사할 때 헤딩을 포함합니다.')],
+			['copyIncludeFootnotes', wmT('각주'), wmT('복사할 때 각주를 포함합니다.')],
+			['copyIncludeMarkdown', wmT('마크다운 서식'), wmT('복사할 때 굵게·기울임·하이라이트·링크처럼 글을 감싸는 마크다운 기호를 포함합니다.')],
+			['copyIncludeHtml', wmT('HTML'), wmT('복사할 때 <span>·<u>·<br> 같은 HTML 태그를 포함합니다.')],
+		] as const;
+		for (const [key, name, desc] of rows) new Setting(box).setName(name).setDesc(desc)
+			.addToggle(toggle => toggle.setValue(this.plugin.settings[key]).onChange(async value => {
+				this.plugin.settings[key] = value;
 					await this.plugin.saveSettings();
 				}));
 	}
@@ -914,7 +893,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 		const migrated = this.plugin.settings.documentExportDefaults?.version !== 2;
 		this.plugin.settings.documentExportDefaults = structuredClone(defaults);
 		if (migrated) {
-			this.plugin.settings.exportDefaultSpaceIndent = false; this.plugin.settings.exportDefaultExcludeHeadings = true;
+			this.plugin.settings.exportDefaultSpaceIndent = false;
 			void this.plugin.saveSettings();
 		}
 		const selectedPreset = this.plugin.settings.documentExportPresets?.find(preset => preset.id === this.plugin.settings.documentExportDefaultPreset);
@@ -923,7 +902,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			if (selectedPreset) selectedPreset.content = structuredClone(content);
 			else defaults.content = structuredClone(content);
 			this.plugin.settings.documentExportDefaults = structuredClone(defaults);
-			this.plugin.settings.exportDefaultSpaceIndent = false; this.plugin.settings.exportDefaultExcludeHeadings = defaults.content.headings === 'exclude';
+			this.plugin.settings.exportDefaultSpaceIndent = false;
 			await this.plugin.saveSettings();
 		};
 		if (Platform.isDesktop) {
@@ -1105,6 +1084,19 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					await this.plugin.refreshDashboardView();
 				}));
 		new Setting(charsBox)
+			.setName(wmT("목표 기준"))
+			.setDesc(wmT("대시보드와 목표 위젯이 목표 글자수를 계산할 글자수 기준입니다."))
+			.addDropdown(dd => dd
+				.addOption('munpia', wmT("문피아"))
+				.addOption('novelpia', wmT("노벨피아"))
+				.setValue(this.plugin.settings.goalCharBasis)
+				.onChange(async v => {
+					this.plugin.settings.goalCharBasis = v === 'novelpia' ? 'novelpia' : 'munpia';
+					await this.plugin.saveSettings();
+					await this.plugin.refreshDashboardView();
+					this.plugin.toolbarManager.refreshAllToolbars();
+				}));
+		new Setting(charsBox)
 			.setName(wmT("목표 글자수"))
 			.setDesc(wmT("대시보드 목표 막대에 표시할 일일 목표 글자수"))
 			.addText(t => {
@@ -1114,6 +1106,8 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					const n = Math.max(1, parseInt(v) || 10000);
 					this.plugin.settings.writingGoalChars = n;
 					await this.plugin.saveSettings();
+					await this.plugin.refreshDashboardView();
+					this.plugin.toolbarManager.refreshAllToolbars();
 				 });
 				t.inputEl.type = 'number';
 				t.inputEl.min = '1';
@@ -1135,6 +1129,7 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 					});
 				});
 			});
+
 	}
 
 	private renderWritingTimePage(containerEl: HTMLElement) {
@@ -1282,6 +1277,11 @@ export class WritingMenuSettingTab extends PluginSettingTab {
 			section: title => { this.addGroupTitle(containerEl, title); return this.createGroupBox(containerEl); },
 			openApi: () => this.renderPage('api'),
 		});
+	}
+
+	private renderReviewPage(containerEl: HTMLElement) {
+		this.addBackButton(containerEl, wmT('리뷰'));
+		renderReviewSettings(this.plugin, { section: title => { this.addGroupTitle(containerEl, title); return this.createGroupBox(containerEl); } });
 	}
 
 	private renderSnapshotPage(containerEl: HTMLElement) {

@@ -19,3 +19,6 @@ data.json
 .backups/
 .claude/settings.local.json
 dist/
+
+# research material containing third-party posts (never publish)
+docs/research/

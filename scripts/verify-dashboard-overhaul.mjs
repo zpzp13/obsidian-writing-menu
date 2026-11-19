@@ -74,7 +74,7 @@ export async function runDashboardCoreChecks() {
 	const leaf = {containerEl:host,app}, view = new MarkdownView(leaf); view.file={path:'Project/Manuscript.md',basename:'Manuscript'}; recent={view};
 	const cm = new EditorView({parent:host,state:EditorState.create({doc:currentSource,extensions:[history()]})});
 	view.editor = {cm,getValue:()=>cm.state.doc.toString(),offsetToPos(offset){const line=cm.state.doc.lineAt(offset);return {line:line.number-1,ch:offset-line.from};},getSelection:()=>'',transaction(){throw new Error('CM-backed restore must use isolated native history');},focus(){cm.focus();},setSelection(){},scrollIntoView(){}};
-	const documentPlugin = {...plugin,app,registerEvent(ref){this.refs??=[];this.refs.push(ref);},projectContext:{getProjectForFile:()=>({rootFolder:'Project',manuscriptFolder:'Project',characterFolder:'Project/Characters'})}};
+	const documentPlugin = {...plugin,app,onPagedEditorChange:()=>()=>{},registerEvent(ref){this.refs??=[];this.refs.push(ref);},projectContext:{getProjectForFile:()=>({rootFolder:'Project',manuscriptFolder:'Project',characterFolder:'Project/Characters'})}};
 	const reviewHost = document.body.createDiv(); reviewHost.createDiv(); reviewHost.createDiv();
 	const reviewCalendar = new CalendarView({ containerEl: reviewHost, app }, documentPlugin);
 	const reviewWrap = reviewHost.children[1].createDiv({ cls: 'wm-cal-wrapper' });
@@ -82,7 +82,7 @@ export async function runDashboardCoreChecks() {
 	const reviewTab = reviewWrap.querySelector('[aria-label="Review"]');
 	assert(reviewWrap.querySelectorAll('[role="tab"]').length === 5 && reviewTab?.querySelector('svg')?.dataset.icon === 'star', 'Review tab or its star icon is missing');
 	reviewTab.click();
-	assert(reviewTab.getAttribute('aria-selected') === 'true' && reviewWrap.querySelector('.wm-dash-panel')?.childElementCount === 0, 'Review placeholder did not open as an empty panel');
+	assert(reviewTab.getAttribute('aria-selected') === 'true' && reviewWrap.querySelector('.wm-dash-panel .wm-rv-root .wm-revision-toolbar'), 'Review tab did not open its panel');
 	await reviewCalendar.onClose(); reviewHost.remove();
 	if (globalThis.runOnlyReviewTab) { cm.destroy(); host.remove(); return; }
 	const commandPlugin = {...documentPlugin,projectContext:{getProjectForFile:file=>file.path.startsWith('Project/')?{id:'project'}:null,getProjects:()=>[{id:'project'}]}};

@@ -84,10 +84,10 @@ Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { cl
 try {
 	const copyPlugin = { settings: {}, shouldApplyToFile: () => true, cleanMarkdownFrontmatter: value => api.cleanMarkdownFrontmatter(null, value) };
 	for (const View of [host.MarkdownView, host.PagedWritingView]) {
-		const view = Object.assign(new View(), { file, editor: { getValue: () => source }, getEditableData: () => source });
+		const view = Object.assign(new View(), { file, containerEl: { isConnected: true }, editor: { getValue: () => source }, getViewData: () => source, getEditorAdapter: () => ({ getValue: () => source }) });
 		await api.copyWithOptions(copyPlugin, { view }); assert.equal(clipboard, '앞뒤');
-		copyPlugin.settings.copyExcludeComments = false; await api.copyWithOptions(copyPlugin, { view }); assert.equal(clipboard, source);
-		delete copyPlugin.settings.copyExcludeComments;
+		copyPlugin.settings.copyIncludeComments = true; await api.copyWithOptions(copyPlugin, { view }); assert.equal(clipboard, source);
+		delete copyPlugin.settings.copyIncludeComments;
 	}
 } finally { if (navigatorDescriptor) Object.defineProperty(globalThis, 'navigator', navigatorDescriptor); else delete globalThis.navigator; }
 

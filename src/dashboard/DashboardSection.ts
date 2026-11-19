@@ -1,4 +1,5 @@
 import { wmT } from '../i18n/index';
+import { createGoalBar, dashboardGoalTarget, goalCurrent } from './goalBar';
 import { MarkdownView, TFile, sanitizeHTMLToDom, setIcon } from 'obsidian';
 import type WritingMenuPlugin from '../../main';
 import { WritingTimeSection } from './WritingTimeSection';
@@ -265,38 +266,12 @@ export class DashboardSection {
 			numEls.set(plat, row.createDiv({ cls: 'wm-dash-note-platform-count', text: '—' }));
 		}
 
-		const goal = leftDetails.createDiv({ cls: 'wm-dash-char-goal' });
-		const goalHead = goal.createDiv({ cls: 'wm-dash-char-goal-head' });
-		const goalLabel = goalHead.createSpan();
-		const goalRemain = goalHead.createSpan();
-		const goalTrack = goal.createDiv({
-			cls: 'wm-dash-char-goal-track',
-			attr: { role: 'progressbar', 'aria-valuemin': '0' },
-		});
-		const goalFill = goalTrack.createDiv({ cls: 'wm-dash-char-goal-fill' });
+		const goalBar = createGoalBar(leftDetails);
 		let currentCounts: { munpia: number; novelpia: number } | null = null;
 		let summaryHasRendered = false;
 
 		const updateGoal = () => {
-			const configuredTarget = Number(plugin.settings.writingGoalChars);
-			const target = Number.isFinite(configuredTarget) && configuredTarget > 0 ? configuredTarget : 10_000;
-			const mode = plugin.settings.charCountMode ?? 'munpia';
-			const current = currentCounts?.[mode] ?? 0;
-			const remaining = Math.max(0, target - current);
-			goalLabel.empty();
-			goalLabel.createEl('b', { text: wmT("{0}자", target.toLocaleString()) });
-			goalLabel.appendText('까지');
-			goalRemain.empty();
-			goalRemain.createEl('b', {
-				text: currentCounts === null ? '—' : wmT("{0}자", remaining.toLocaleString()),
-			});
-			goalRemain.appendText(wmT(" 남음"));
-			goalTrack.setAttribute('aria-valuemax', String(target));
-			goalTrack.setAttribute('aria-valuenow', String(Math.min(current, target)));
-			const progress = Math.max(2, Math.min(100, (current / target) * 100));
-			window.requestAnimationFrame(() => {
-				window.requestAnimationFrame(() => goalFill.setCssStyles({ width: `${progress}%` }));
-			});
+			goalBar.update(currentCounts ? goalCurrent(currentCounts, plugin.settings) : null, dashboardGoalTarget(plugin.settings));
 		};
 
 		const updateChars = (counts: { munpia: number; novelpia: number } | null, noteTitle: string | null) => {

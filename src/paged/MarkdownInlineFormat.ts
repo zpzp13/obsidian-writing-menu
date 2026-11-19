@@ -168,6 +168,9 @@ function signature(spans: Span[]): string {
 }
 
 /** Source offsets include literal Markdown; values point into the visible buffer. */
+export interface ParsedHighlightSource { from: number; to: number; sourceFrom: number; sourceTo: number; color?: HighlightColor }
+const highlightSources = new WeakMap<InlineFormatState, ParsedHighlightSource[]>();
+export function parsedHighlightSources(state: InlineFormatState): ParsedHighlightSource[] { return highlightSources.get(state) ?? []; }
 const sourceMaps = new WeakMap<InlineFormatState, Uint32Array>();
 export function sourceOffsetToVisible(state: InlineFormatState, offset: number): number {
 	const map = sourceMaps.get(state); return map ? map[Math.max(0, Math.min(map.length - 1, offset))] : Math.max(0, Math.min(state.visible.length, offset));
@@ -182,6 +185,7 @@ export function visibleOffsetToSource(state: InlineFormatState, offset: number, 
 export function parseInlineMarkdown(body: string): InlineFormatState {
 	const state: InlineFormatState = { visible: '', inline: [], colors: [], highlights: [], lines: [] };
 	const map = new Uint32Array(body.length + 1), visible: string[] = [];
+	const sources: ParsedHighlightSource[] = []; highlightSources.set(state, sources);
 	let fence = '', fenceLength = 0, comment = false, position = 0;
 	for (const line of linesOf(body)) {
 		const spans: SourceSpan[] = [], fenceMatch = /^ {0,3}(`{3,}|~{3,})/.exec(line.text);
@@ -211,7 +215,10 @@ export function parseInlineMarkdown(body: string): InlineFormatState {
 			const highlightColor = span.kind === 'highlight' ? normalizeHighlightColor(span.color) : '';
 			visibleSpans.push({ ...range, kind: span.kind, ...(span.kind === 'color' || highlightColor ? { color: highlightColor || span.color } : {}) });
 			if (span.kind === 'color') state.colors.push({ ...range, color: span.color! });
-			else if (span.kind === 'highlight') state.highlights.push({ ...range, ...(highlightColor ? { color: highlightColor } : {}) });
+			else if (span.kind === 'highlight') {
+				state.highlights.push({ ...range, ...(highlightColor ? { color: highlightColor } : {}) });
+				sources.push({ ...range, sourceFrom: line.from + span.open, sourceTo: line.from + span.close, ...(highlightColor ? { color: highlightColor } : {}) });
+			}
 			else state.inline.push({ ...range, kind: span.kind });
 		}
 		for (let i = 0; i < line.ending.length; i++) map[line.from + line.text.length + i] = position++;

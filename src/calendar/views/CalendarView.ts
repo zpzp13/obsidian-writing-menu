@@ -1,4 +1,5 @@
 import { wmT } from '../../i18n/index';
+import { ReviewPanel } from '../../review/ReviewPanel';
 import { dashboardSectionLabel } from '../../i18n/labels';
 import { ItemView, WorkspaceLeaf, setIcon, TFile } from 'obsidian';
 
@@ -7,7 +8,7 @@ import { DashboardSection } from '../../dashboard/DashboardSection';
 import { TaskParser } from '../../dashboard/data/TaskParser';
 import { TasksRenderer } from '../../dashboard/TasksRenderer';
 import { showTaskAddPopup } from '../../dashboard/TaskAddPopup';
-import { RevisionPanel } from '../../repetition/RevisionPanel';
+import { RevisionPanel, rememberRevisionComments } from '../../repetition/RevisionPanel';
 import type { DashSectionConfig } from '../../types';
 import { WikiPanel } from '../../wiki/WikiPanel';
 import { AiChatPanel } from '../../aichat/AiChatPanel';
@@ -42,6 +43,7 @@ export class CalendarView extends ItemView {
 	private wikiPanel: WikiPanel | null = null;
 	private aiChatPanel: AiChatPanel | null = null;
 	private revisionPanel: RevisionPanel | null = null;
+	private reviewPanel: ReviewPanel | null = null;
 
 	private dateDisplayEl: HTMLElement   | null = null;
 	private calendarTaskSlot: HTMLElement | null = null;
@@ -77,7 +79,11 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 	}
 
 	async onClose() {
-		if (this.revisionPanel) { this.removeChild(this.revisionPanel); this.revisionPanel = null; }
+		if (this.revisionPanel) { this.removeChild(this.revisionPanel); this.revisionPanel = null; } if (this.reviewPanel) { this.removeChild(this.reviewPanel); this.reviewPanel = null; }
+	}
+
+	openHighlightComments(threadId?: string): void {
+		rememberRevisionComments(this.plugin); this.dashTab = 'revision'; this.render(); this.revisionPanel?.showComments(threadId);
 	}
 
 	activateWikiPicker() {
@@ -103,7 +109,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 	// ── Root render ─────────────────────────────────────────────────
 
 	render() {
-		if (this.revisionPanel) { this.removeChild(this.revisionPanel); this.revisionPanel = null; }
+		if (this.revisionPanel) { this.removeChild(this.revisionPanel); this.revisionPanel = null; } if (this.reviewPanel) { this.removeChild(this.reviewPanel); this.reviewPanel = null; }
 		if (this.dashTab !== 'wiki') this.wikiPanel?.suspend();
 		const content = this.containerEl.children[1] as HTMLElement;
 		content.empty();
@@ -297,7 +303,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 	// ── Dashboard panel ──────────────────────────────────────────────
 
 	private renderDashboardPanel(container: HTMLElement) {
-		if (this.revisionPanel) { this.removeChild(this.revisionPanel); this.revisionPanel = null; }
+		if (this.revisionPanel) { this.removeChild(this.revisionPanel); this.revisionPanel = null; } if (this.reviewPanel) { this.removeChild(this.reviewPanel); this.reviewPanel = null; }
 		const panel = container.createDiv({ cls: 'wm-dash-panel' });
 		switch (this.dashTab) {
 			case 'main':
@@ -306,9 +312,7 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 				break;
 			case 'wiki':    this.renderWikiPanel(panel);    break;
 			case 'revision': this.renderRevisionPanel(panel); break;
-			case 'review':
-				panel.addClass('wm-dash-panel-single');
-				break;
+			case 'review': this.renderReviewPanel(panel); break;
 			case 'ai':      this.renderAiChatPanel(panel);  break;
 		}
 	}
@@ -414,6 +418,12 @@ constructor(leaf: WorkspaceLeaf, plugin: WritingMenuPlugin) {
 			this.aiChatPanel = new AiChatPanel(this.plugin, this);
 		}
 		void this.aiChatPanel.render(panel);
+	}
+
+	private renderReviewPanel(panel: HTMLElement) {
+		panel.addClass('wm-dash-panel-single');
+		this.reviewPanel = new ReviewPanel(panel.createDiv(), this.plugin);
+		this.addChild(this.reviewPanel);
 	}
 
 	private renderRevisionPanel(panel: HTMLElement) {

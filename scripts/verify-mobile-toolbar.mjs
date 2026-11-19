@@ -34,7 +34,7 @@ export function installMobileToolbarChecks() {
 		reading.createDiv({cls:'markdown-preview-sizer',text:'읽기 배경 검사'});
 		leaf.view = new MarkdownView(leaf); leaf.view.file = {path:'Project/mobile.md',extension:'md',basename:'mobile'};
 		const plugin = {settings:{...structuredClone(DEFAULT_SETTINGS),fontFamily:'serif',customFonts:['monospace'],writingWidgetOrder:[]},
-			app:{workspace:{getLeavesOfType:type=>type === 'markdown' ? [leaf] : [],getMostRecentLeaf:()=>leaf}},
+			app:{metadataCache:{on:()=>({}),offref(){}},workspace:{getLeavesOfType:type=>type === 'markdown' ? [leaf] : [],getMostRecentLeaf:()=>leaf}},
 			projectContext:{getProjectForPath:()=>({id:'project'})},leafStyleVersions:new Map(),cssSettingsVersion:1,leafIdCounter:1,
 			stopwatchManager:{subscribeWidget:()=>()=>{}},calculateAllCharCounts:()=>({munpia:0,novelpia:0}),formatCharCount:value=>String(value)};
 		const styles = new LeafStyleManager(plugin);
