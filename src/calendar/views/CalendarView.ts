@@ -30,7 +30,7 @@ const TABS: Array<{ id: DashTab; icon: string; label: string }> = [
 	{ id: 'main',    icon: 'house',              label: 'MAIN' },
 	{ id: 'wiki',    icon: 'git-graph',          label: 'WIKI' },
 	{ id: 'revision', icon: 'shield',             label: 'REVISION' },
-	{ id: 'review', icon: 'star', label: 'Review' },
+	{ id: 'review',  icon: 'star',               label: 'REVIEW' },
 	{ id: 'ai',      icon: 'bot',               label: 'DEUS' },
 ];
 
