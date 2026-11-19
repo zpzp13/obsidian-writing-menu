@@ -2193,4 +2193,8 @@ export const en = {
 	"Obsidian %%…%% 주석을 글자 수와 퇴고 분석에서 제외하고, 복사·문서 내보내기에 포함할지 설정할 수 있습니다.": "Obsidian %%…%% comments are excluded from character counts and revision analysis, with settings to include them in copying and document export.",
 	"여러 쪽 보기의 입력·한글 조합·타자기 스크롤과 창 메뉴·집중 모드 전체 화면 동작을 개선했습니다.": "Improved paged editing, Korean composition, typewriter scrolling, pane menus, and focus mode fullscreen behavior.",
 	"스마트 따옴표와 특수문자 입력, HWPX 문서 엔진 설정을 다듬었습니다.": "Refined smart quotes, special character input, and HWPX document engine settings.",
+	"하이라이트 주석을 달고 모아 보며, 복사·내보내기에서 주석을 포함할지 선택할 수 있습니다.": "Add and manage highlight comments, and choose whether to include comments when copying or exporting.",
+	"원고 목표 위젯과 퇴고 도구를 추가하고, 작품 정보·문피아 연동·AI 검토 흐름을 확장했습니다.": "Added a manuscript goal widget and revision tools, and expanded work information, Munpia integration, and AI review workflows.",
+	"여러 쪽 보기의 인라인 Markdown 서식, 페이지 나누기, 입력과 저장 동기화를 개선했습니다.": "Improved inline Markdown formatting, page breaks, and synchronization between editing and saving in paged view.",
+	"집필 시간·일일 글자 수·툴바·설정 화면의 동작과 표시를 다듬었습니다.": "Refined the behavior and display of writing time, daily character counts, the toolbar, and settings.",
 } as const;
